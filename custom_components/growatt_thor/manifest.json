@@ -1,0 +1,11 @@
+{
+  "domain": "growatt_thor",
+  "name": "Growatt THOR EV Charger",
+  "version": "0.1.0",
+  "documentation": "https://github.com/bobbesnl/growatt_thor",
+  "requirements": ["ocpp==0.26.0", "websockets>=10.4"],
+  "codeowners": ["@bobbesnl"],
+  "config_flow": true,
+  "iot_class": "local_push"
+}
+
