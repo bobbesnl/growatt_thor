@@ -1,7 +1,7 @@
 {
   "domain": "growatt_thor",
   "name": "Growatt THOR EV Charger",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha",
   "documentation": "https://github.com/bobbesnl/growatt_thor",
   "issue_tracker": "https://github.com/bobbesnl/growatt_thor/issues",
   "requirements": ["ocpp>=0.26.0,<0.30"],

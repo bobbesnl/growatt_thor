@@ -1,5 +1,13 @@
 # Growatt THOR EV Charger – Home Assistant Integration (OCPP)
 
+⚠️ **ALPHA VERSION – DO NOT USE IN PRODUCTION**
+
+This integration is under heavy development.
+Expect breaking changes and incomplete functionality.
+
+
+
+
 ⚡ **Unofficial Home Assistant integration for the Growatt THOR EV charger**  
 This project allows you to connect a Growatt THOR EV charger **directly to Home Assistant** using **OCPP 1.6 over WebSocket**, without relying on the Growatt cloud.
 
