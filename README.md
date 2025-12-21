@@ -25,14 +25,7 @@ This approach avoids fragile MITM proxies and cloud dependencies.
 
 ## Architecture (high level)
 
-Growatt THOR EV Charger
-|
-| OCPP 1.6 (WebSocket, unencrypted)
-v
-Home Assistant
-└── Growatt THOR custom integration
-└── Local OCPP server
-
+Growatt THOR EV Charger [OCPP 1.6 (WebSocket, unencrypted)] --> Home Assistant Growatt THOR custom integration with local OCPP server
 
 The charger itself sends its **Charge Point ID automatically** as part of the WebSocket URL.
 
@@ -46,7 +39,7 @@ The charger itself sends its **Charge Point ID automatically** as part of the We
 2. Go to **HACS → Integrations**
 3. Click the **three dots (⋮)** → *Custom repositories*
 4. Add:
-   - **Repository**: `https://github.com/<your-github-username>/growatt_thor`
+   - **Repository**: `https://github.com/bobbesnl/growatt_thor`
    - **Category**: Integration
 5. Click **Add**
 6. Search for **Growatt THOR EV Charger**
@@ -71,10 +64,13 @@ Home Assistant is now waiting for the charger to connect.
 
 ## Configure the Growatt THOR charger
 
-⚠️ **Important:**  
+⚠️ **Important:**
 Changing the server URL may block access to the Growatt cloud and app.
 
-In many cases (including mine), the **server URL can only be changed while the charger is in AP mode**.
+In many cases (including mine), the **server URL can only be changed while the charger is in AP mode**. So double check
+the server URL before saving!
+On other (older?) versions of the Thor charger, settings can be changed via an internal Web interface which can mostly
+be found at 192.168.1.5:8080 via a LAN cable connection (set a static IP on your PC eg 192.168.1.13)
 
 ### Typical steps (example)
 
@@ -103,7 +99,8 @@ If something goes wrong and the charger no longer works as expected:
   (usually `ws://evcharge.growatt.com:80/ocpp/ws`)
 - This often again requires **AP mode**
 
-As a fallback, you can temporarily run a TCP forwarder (e.g. `socat`) on port 9000 to forward traffic back to Growatt.
+As a fallback, you can temporarily run a TCP forwarder (e.g. `socat`) on port 9000 to forward traffic back to Growatt:
+/usr/bin/socat TCP-LISTEN:9000,fork,reuseaddr TCP:evcharge.growatt.com:80
 
 ---
 
@@ -127,7 +124,7 @@ You are responsible for understanding what you are doing.
 
 🚧 **Work in progress**
 
-This integration is under active development.  
+This integration is under active development.
 Expect breaking changes, missing features, and rough edges.
 
 Contributions, testing, and feedback are welcome.
