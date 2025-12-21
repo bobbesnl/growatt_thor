@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from .const import DOMAIN, DEFAULT_PORT
+from .const import DOMAIN, DEFAULT_PORT, CONF_HOST, CONF_PORT
 from .coordinator import GrowattCoordinator
 from .ocpp_server import start_ocpp_server
 
@@ -12,8 +12,8 @@ async def async_setup_entry(hass, entry):
     coordinator = GrowattCoordinator(hass)
 
     server = await start_ocpp_server(
-        host="0.0.0.0",
-        port=entry.data.get("port", DEFAULT_PORT),
+        host=entry.data.get(CONF_HOST, DEFAULT_HOST),
+        port=entry.data.get(CONF_PORT, DEFAULT_PORT),
         coordinator=coordinator,
     )
 

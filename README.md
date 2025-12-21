@@ -100,8 +100,14 @@ If something goes wrong and the charger no longer works as expected:
 - This often again requires **AP mode**
 
 As a fallback, you can temporarily run a TCP forwarder (e.g. `socat`) on port 9000 to forward traffic back to Growatt:
+
+install Advanced SSH & Web terminal add-on in Home Assistant. Start it and install socat:
+apk add socat 
+
+Then run socat:
 /usr/bin/socat TCP-LISTEN:9000,fork,reuseaddr TCP:evcharge.growatt.com:80
 
+If you get a warning about address and port in use, you need to remove the Thor EV ocpp integration and restart HA
 ---
 
 ## Disclaimer / Warning
