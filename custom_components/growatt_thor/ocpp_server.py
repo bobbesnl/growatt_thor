@@ -1,9 +1,9 @@
 import logging
-import asyncio
 from websockets.server import serve
 from ocpp.v16 import ChargePoint as OcppChargePoint
 from ocpp.v16.enums import RegistrationStatus
 from ocpp.routing import on
+from ocpp.v16 import call_result
 
 from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH
 
@@ -25,24 +25,23 @@ class GrowattChargePoint(OcppChargePoint):
             kwargs.get("chargePointVendor"),
         )
 
-        return {
-            "currentTime": self.coordinator.now(),
-            "interval": 60,
-            "status": RegistrationStatus.accepted,
-        }
+        return call_result.BootNotificationPayload(
+            currentTime=self.coordinator.now(),
+            interval=60,
+            status=RegistrationStatus.accepted
+        )
 
     @on("StatusNotification")
     async def on_status_notification(self, status, **kwargs):
         _LOGGER.info("StatusNotification from %s: %s", self.id, status)
         self.coordinator.set_status(status)
 
-        # OCPP verwacht een response, ook al is die leeg
-        return {}
+        return call_result.StatusNotificationPayload()
 
     @on("MeterValues")
     async def on_meter_values(self, meter_value, **kwargs):
         self.coordinator.process_meter_values(meter_value)
-        return {}
+        return call_result.MeterValuesPayload()
 
 
 async def _on_connect(websocket, path, coordinator):
@@ -59,12 +58,12 @@ async def _on_connect(websocket, path, coordinator):
         await websocket.close()
         return
 
-    # Try to extract Charge Point ID from URL
+    # Extract Charge Point ID from URL
     parts = path.rstrip("/").split("/")
     cp_id = parts[-1] if len(parts) > 2 else None
 
     if not cp_id or cp_id == "ws":
-        # No ID provided in URL – use a temporary one
+        # No ID provided in URL – use a default
         cp_id = "growatt_thor"
         _LOGGER.info(
             "THOR connected without ChargePointId in URL, using default id '%s'",
