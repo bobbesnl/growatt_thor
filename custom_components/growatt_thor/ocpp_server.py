@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from websockets.server import serve
 from ocpp.v16 import ChargePoint as OcppChargePoint
 from ocpp.v16.enums import RegistrationStatus
@@ -17,7 +18,12 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("BootNotification")
     async def on_boot_notification(self, **kwargs):
-        _LOGGER.info("BootNotification from %s: %s", self.id, kwargs)
+        _LOGGER.info(
+            "BootNotification from %s: chargePointModel=%s, chargePointVendor=%s",
+            self.id,
+            kwargs.get("chargePointModel"),
+            kwargs.get("chargePointVendor"),
+        )
 
         return {
             "currentTime": self.coordinator.now(),
@@ -27,34 +33,63 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("StatusNotification")
     async def on_status_notification(self, status, **kwargs):
-        _LOGGER.info("StatusNotification: %s", status)
+        _LOGGER.info("StatusNotification from %s: %s", self.id, status)
         self.coordinator.set_status(status)
+
+        # OCPP verwacht een response, ook al is die leeg
+        return {}
 
     @on("MeterValues")
     async def on_meter_values(self, meter_value, **kwargs):
         self.coordinator.process_meter_values(meter_value)
+        return {}
 
 
 async def _on_connect(websocket, path, coordinator):
+    """
+    Accepts:
+    - /ocpp/ws
+    - /ocpp/ws/<charge_point_id>
+
+    Some Growatt THOR firmwares include the Charge Point ID in the URL,
+    others do not. We support both.
+    """
     if not path.startswith(DEFAULT_PATH):
-        _LOGGER.warning("Rejected connection on path %s", path)
+        _LOGGER.warning("Rejected connection on unexpected path: %s", path)
         await websocket.close()
         return
 
-    cp_id = path.rstrip("/").split("/")[-1]
-    _LOGGER.info("THOR connected with ChargePointId %s", cp_id)
+    # Try to extract Charge Point ID from URL
+    parts = path.rstrip("/").split("/")
+    cp_id = parts[-1] if len(parts) > 2 else None
+
+    if not cp_id or cp_id == "ws":
+        # No ID provided in URL – use a temporary one
+        cp_id = "growatt_thor"
+        _LOGGER.info(
+            "THOR connected without ChargePointId in URL, using default id '%s'",
+            cp_id,
+        )
+    else:
+        _LOGGER.info("THOR connected with ChargePointId '%s'", cp_id)
 
     charge_point = GrowattChargePoint(cp_id, websocket, coordinator)
-    await charge_point.start()
+
+    try:
+        await charge_point.start()
+    except Exception as err:
+        _LOGGER.exception("OCPP session error for %s: %s", cp_id, err)
 
 
 async def start_ocpp_server(host, port, coordinator):
-    _LOGGER.info("Starting OCPP server on %s:%s", host, port)
+    _LOGGER.info("Starting OCPP server on %s:%s%s", host, port, DEFAULT_PATH)
 
-    return await serve(
+    server = await serve(
         lambda ws, path: _on_connect(ws, path, coordinator),
         host,
         port,
         subprotocols=[OCPP_SUBPROTOCOL],
     )
+
+    return server
 

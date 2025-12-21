@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from .const import DOMAIN, DEFAULT_PORT, CONF_HOST, CONF_PORT
+from .const import DOMAIN, DEFAULT_HOST, DEFAULT_PORT, CONF_HOST, CONF_PORT
 from .coordinator import GrowattCoordinator
 from .ocpp_server import start_ocpp_server
 
@@ -30,5 +30,9 @@ async def async_unload_entry(hass, entry):
     server = hass.data[DOMAIN].get("server")
     if server:
         server.close()
+        await server.wait_closed()
+
+    hass.data[DOMAIN].pop("server", None)
+    hass.data[DOMAIN].pop("coordinator", None)
     return True
 

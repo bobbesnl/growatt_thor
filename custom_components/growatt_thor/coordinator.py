@@ -15,7 +15,7 @@ class GrowattCoordinator:
         self.charge_point_id = cp_id
 
     def set_status(self, status):
-        self.status = status
+        self.status = status.value if hasattr(status, "value") else status
 
     def process_meter_values(self, meter_values):
         for entry in meter_values:
