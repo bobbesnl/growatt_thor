@@ -1,5 +1,6 @@
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.const import UnitOfPower, UnitOfEnergy
 
 from .const import DOMAIN
 
@@ -12,19 +13,18 @@ async def async_setup_entry(hass, entry, async_add_entities):
             GrowattThorStatusSensor(coordinator),
             GrowattThorPowerSensor(coordinator),
             GrowattThorEnergySensor(coordinator),
-        ],
-        update_before_add=True,
+        ]
     )
 
 
-class GrowattThorBaseSensor(SensorEntity):
+class GrowattThorBaseSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
 
     def __init__(self, coordinator):
-        self.coordinator = coordinator
+        super().__init__(coordinator)
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return self.coordinator.charge_point_id is not None
 
 
@@ -33,7 +33,7 @@ class GrowattThorStatusSensor(GrowattThorBaseSensor):
     _attr_icon = "mdi:ev-station"
 
     @property
-    def unique_id(self):
+    def unique_id(self) -> str:
         return f"{self.coordinator.charge_point_id}_status"
 
     @property
@@ -43,12 +43,12 @@ class GrowattThorStatusSensor(GrowattThorBaseSensor):
 
 class GrowattThorPowerSensor(GrowattThorBaseSensor):
     _attr_name = "Charging Power"
-    _attr_unit_of_measurement = "W"
+    _attr_unit_of_measurement = UnitOfPower.WATT
     _attr_device_class = "power"
     _attr_icon = "mdi:flash"
 
     @property
-    def unique_id(self):
+    def unique_id(self) -> str:
         return f"{self.coordinator.charge_point_id}_power"
 
     @property
@@ -58,12 +58,12 @@ class GrowattThorPowerSensor(GrowattThorBaseSensor):
 
 class GrowattThorEnergySensor(GrowattThorBaseSensor):
     _attr_name = "Total Energy"
-    _attr_unit_of_measurement = "kWh"
+    _attr_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
     _attr_device_class = "energy"
     _attr_icon = "mdi:counter"
 
     @property
-    def unique_id(self):
+    def unique_id(self) -> str:
         return f"{self.coordinator.charge_point_id}_energy"
 
     @property

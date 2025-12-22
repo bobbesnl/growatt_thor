@@ -1,30 +1,99 @@
+import logging
 from datetime import datetime
 
-class GrowattCoordinator:
-    def __init__(self, hass):
-        self.hass = hass
-        self.charge_point_id = None
-        self.status = None
-        self.power = None
-        self.energy = None
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-    def now(self):
+_LOGGER = logging.getLogger(__name__)
+
+
+class GrowattCoordinator(DataUpdateCoordinator):
+    """Coordinator voor Growatt THOR OCPP data (push-based)."""
+
+    def __init__(self, hass):
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="Growatt THOR Coordinator",
+        )
+
+        self.charge_point_id: str | None = None
+        self.status: str | None = None
+        self.power: float | None = None
+        self.energy: float | None = None
+        self.transaction_id: int | None = None
+
+    # ─────────────────────────────
+    # Helpers
+    # ─────────────────────────────
+
+    def now(self) -> str:
+        """UTC timestamp in OCPP formaat."""
         return datetime.utcnow().isoformat() + "Z"
 
-    def set_charge_point(self, cp_id):
+    # ─────────────────────────────
+    # Charge point lifecycle
+    # ─────────────────────────────
+
+    def set_charge_point(self, cp_id: str) -> None:
+        if self.charge_point_id != cp_id:
+            _LOGGER.info("ChargePoint connected: %s", cp_id)
+
         self.charge_point_id = cp_id
+        self.async_set_updated_data(True)
 
-    def set_status(self, status):
-        self.status = status.value if hasattr(status, "value") else status
+    # ─────────────────────────────
+    # Status & transactions
+    # ─────────────────────────────
 
-    def process_meter_values(self, meter_values):
+    def set_status(self, status) -> None:
+        """Status kan enum of string zijn."""
+        value = status.value if hasattr(status, "value") else str(status)
+
+        if self.status != value:
+            _LOGGER.debug("Status update: %s", value)
+
+        self.status = value
+        self.async_set_updated_data(True)
+
+    def start_transaction(self, transaction_id: int) -> None:
+        self.transaction_id = transaction_id
+        self.status = "Charging"
+        self.async_set_updated_data(True)
+
+    def stop_transaction(self) -> None:
+        self.transaction_id = None
+        self.status = "Idle"
+        self.async_set_updated_data(True)
+
+    # ─────────────────────────────
+    # Metering
+    # ─────────────────────────────
+
+    def process_meter_values(self, meter_values: list) -> None:
+        """
+        Verwerkt OCPP MeterValues payload.
+        Verwacht lijst van entries met sampledValue.
+        """
+        updated = False
+
         for entry in meter_values:
             for sample in entry.get("sampledValue", []):
-                meas = sample.get("measurand")
-                val = sample.get("value")
+                measurand = sample.get("measurand")
+                value = sample.get("value")
 
-                if meas == "Power.Active.Import":
-                    self.power = float(val)
-                elif meas == "Energy.Active.Import.Register":
-                    self.energy = float(val)
+                try:
+                    value = float(value)
+                except (TypeError, ValueError):
+                    continue
+
+                if measurand == "Power.Active.Import":
+                    self.power = value
+                    updated = True
+
+                elif measurand == "Energy.Active.Import.Register":
+                    self.energy = value
+                    updated = True
+
+        if updated:
+            self.async_set_updated_data(True)
 
