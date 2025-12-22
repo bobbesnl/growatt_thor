@@ -16,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class GrowattChargePoint(OcppChargePoint):
-    """Growatt THOR OCPP 1.6 Charge Point (stub implementation)."""
+    """Growatt THOR OCPP 1.6 Charge Point."""
 
     def __init__(self, cp_id, websocket, coordinator):
         super().__init__(cp_id, websocket)
@@ -31,20 +31,20 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("BootNotification")
     async def on_boot_notification(self, **payload):
-        _LOGGER.info("BootNotification from %s: %s", self.id, payload)
+        _LOGGER.info("BootNotification payload: %s", payload)
 
         return call_result.BootNotification(
-            currentTime=self.coordinator.now(),
+            current_time=self.coordinator.now(),
             interval=60,
             status=RegistrationStatus.accepted,
         )
 
     @on("Heartbeat")
-    async def on_heartbeat(self):
-        _LOGGER.debug("Heartbeat from %s", self.id)
+    async def on_heartbeat(self, **payload):
+        _LOGGER.debug("Heartbeat payload: %s", payload)
 
         return call_result.Heartbeat(
-            currentTime=self.coordinator.now()
+            current_time=self.coordinator.now()
         )
 
     # ─────────────────────────────
@@ -52,11 +52,11 @@ class GrowattChargePoint(OcppChargePoint):
     # ─────────────────────────────
 
     @on("Authorize")
-    async def on_authorize(self, id_tag, **kwargs):
-        _LOGGER.info("Authorize id_tag=%s", id_tag)
+    async def on_authorize(self, id_tag, **payload):
+        _LOGGER.info("Authorize id_tag=%s payload=%s", id_tag, payload)
 
         return call_result.Authorize(
-            idTagInfo={"status": AuthorizationStatus.accepted}
+            id_tag_info={"status": AuthorizationStatus.accepted}
         )
 
     @on("StartTransaction")
@@ -66,24 +66,25 @@ class GrowattChargePoint(OcppChargePoint):
         id_tag,
         meter_start,
         timestamp,
-        **kwargs,
+        **payload,
     ):
         _LOGGER.info(
-            "StartTransaction connector=%s id_tag=%s meter_start=%s",
+            "StartTransaction payload: connector=%s id_tag=%s meter_start=%s timestamp=%s extra=%s",
             connector_id,
             id_tag,
             meter_start,
+            timestamp,
+            payload,
         )
 
         transaction_id = self._transaction_id
         self._transaction_id += 1
 
-        self.coordinator.status = "Charging"
-        self.coordinator.transaction_id = transaction_id
+        self.coordinator.start_transaction(transaction_id)
 
         return call_result.StartTransaction(
-            transactionId=transaction_id,
-            idTagInfo={"status": AuthorizationStatus.accepted},
+            transaction_id=transaction_id,
+            id_tag_info={"status": AuthorizationStatus.accepted},
         )
 
     @on("StopTransaction")
@@ -93,20 +94,20 @@ class GrowattChargePoint(OcppChargePoint):
         meter_stop,
         timestamp,
         reason=None,
-        **kwargs,
+        **payload,
     ):
         _LOGGER.info(
-            "StopTransaction tx=%s meter_stop=%s reason=%s",
+            "StopTransaction payload: tx=%s meter_stop=%s reason=%s extra=%s",
             transaction_id,
             meter_stop,
             reason,
+            payload,
         )
 
-        self.coordinator.status = "Idle"
-        self.coordinator.transaction_id = None
+        self.coordinator.stop_transaction()
 
         return call_result.StopTransaction(
-            idTagInfo={"status": AuthorizationStatus.accepted}
+            id_tag_info={"status": AuthorizationStatus.accepted}
         )
 
     # ─────────────────────────────
@@ -119,14 +120,16 @@ class GrowattChargePoint(OcppChargePoint):
         connector_id,
         status,
         error_code,
-        timestamp,
-        **kwargs,
+        timestamp=None,
+        **payload,
     ):
         _LOGGER.info(
-            "StatusNotification connector=%s status=%s error=%s",
+            "StatusNotification payload: connector=%s status=%s error=%s timestamp=%s extra=%s",
             connector_id,
             status,
             error_code,
+            timestamp,
+            payload,
         )
 
         self.coordinator.set_status(status)
@@ -138,16 +141,21 @@ class GrowattChargePoint(OcppChargePoint):
         self,
         connector_id,
         meter_value,
-        **kwargs,
+        **payload,
     ):
-        _LOGGER.debug("MeterValues from connector %s", connector_id)
+        _LOGGER.debug(
+            "MeterValues payload: connector=%s values=%s extra=%s",
+            connector_id,
+            meter_value,
+            payload,
+        )
 
         self.coordinator.process_meter_values(meter_value)
 
         return call_result.MeterValues()
 
     # ─────────────────────────────
-    # Vendor specific (Growatt)
+    # Vendor specific
     # ─────────────────────────────
 
     @on("DataTransfer")
@@ -156,13 +164,14 @@ class GrowattChargePoint(OcppChargePoint):
         vendor_id,
         message_id=None,
         data=None,
-        **kwargs,
+        **payload,
     ):
         _LOGGER.info(
-            "DataTransfer vendor=%s message_id=%s data=%s",
+            "DataTransfer payload: vendor=%s message_id=%s data=%s extra=%s",
             vendor_id,
             message_id,
             data,
+            payload,
         )
 
         return call_result.DataTransfer(

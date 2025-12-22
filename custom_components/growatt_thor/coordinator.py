@@ -46,21 +46,24 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # ─────────────────────────────
 
     def set_status(self, status) -> None:
-        """Status kan enum of string zijn."""
         value = status.value if hasattr(status, "value") else str(status)
 
         if self.status != value:
-            _LOGGER.debug("Status update: %s", value)
+            _LOGGER.info("Status changed to %s", value)
 
         self.status = value
         self.async_set_updated_data(True)
 
     def start_transaction(self, transaction_id: int) -> None:
+        _LOGGER.info("Transaction started: %s", transaction_id)
+
         self.transaction_id = transaction_id
         self.status = "Charging"
         self.async_set_updated_data(True)
 
     def stop_transaction(self) -> None:
+        _LOGGER.info("Transaction stopped")
+
         self.transaction_id = None
         self.status = "Idle"
         self.async_set_updated_data(True)
@@ -70,10 +73,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # ─────────────────────────────
 
     def process_meter_values(self, meter_values: list) -> None:
-        """
-        Verwerkt OCPP MeterValues payload.
-        Verwacht lijst van entries met sampledValue.
-        """
         updated = False
 
         for entry in meter_values:
@@ -95,5 +94,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     updated = True
 
         if updated:
+            _LOGGER.debug(
+                "Meter update: power=%s W energy=%s Wh",
+                self.power,
+                self.energy,
+            )
             self.async_set_updated_data(True)
 
