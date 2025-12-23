@@ -149,3 +149,16 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.lcd = text
         self.async_set_updated_data(True)
 
+    # ─────────────────────────────
+    # Add trigger support
+    # ─────────────────────────────
+
+    async def trigger_meter_update(self, charge_point) -> None:
+        """Vraag actief MeterValues en Status op via OCPP TriggerMessage."""
+        _LOGGER.info("Triggering MeterValues + StatusNotification")
+
+        try:
+            await charge_point.trigger_message("MeterValues")
+            await charge_point.trigger_message("StatusNotification")
+        except Exception as exc:
+            _LOGGER.warning("TriggerMessage failed: %s", exc)
