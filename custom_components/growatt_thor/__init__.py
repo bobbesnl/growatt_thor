@@ -36,7 +36,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["server"] = server
     hass.data[DOMAIN]["coordinator"] = coordinator
 
-    # 🔑 laad sensor.py
+    # Manual refresh service (TriggerMessage)
+    async def handle_refresh(call):
+        cp = hass.data[DOMAIN].get("charge_point")
+        if not cp:
+            _LOGGER.warning("No charge point connected yet")
+            return
+
+        await coordinator.trigger_meter_update(cp)
+
+    if not hass.services.has_service(DOMAIN, "refresh"):
+        hass.services.async_register(
+            DOMAIN,
+            "refresh",
+            handle_refresh,
+        )
+
+    # load platforms (sensor.py)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     _LOGGER.info(
@@ -63,6 +79,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         hass.data[DOMAIN].pop("server", None)
         hass.data[DOMAIN].pop("coordinator", None)
+        hass.data[DOMAIN].pop("charge_point", None)
 
     return unload_ok
-
