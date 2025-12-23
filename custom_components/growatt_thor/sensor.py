@@ -2,38 +2,54 @@ from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.const import UnitOfPower, UnitOfEnergy, UnitOfTime
+from homeassistant.const import UnitOfPower, UnitOfEnergy
+
 from .const import DOMAIN
 
-# ─────────────────────────────
-# Setup
-# ─────────────────────────────
+
+# Mapping voor dynamische sensoren: unit + icon
+SENSOR_META = {
+    "status": {"unit": None, "icon": "mdi:ev-station"},
+    "power": {"unit": UnitOfPower.WATT, "icon": "mdi:flash"},
+    "energy": {"unit": UnitOfEnergy.KILO_WATT_HOUR, "icon": "mdi:counter"},
+    "transaction_id": {"unit": None, "icon": "mdi:counter"},
+    "current": {"unit": "A", "icon": "mdi:current-ac"},
+    "voltage": {"unit": "V", "icon": "mdi:flash"},
+    "id_tag": {"unit": None, "icon": "mdi:card-account-details"},
+    "mode": {"unit": None, "icon": "mdi:remote"},
+    "reason": {"unit": None, "icon": "mdi:alert"},
+    "lcd": {"unit": None, "icon": "mdi:screen"},
+    "max_current": {"unit": "A", "icon": "mdi:current-dc"},
+    "max_power": {"unit": "W", "icon": "mdi:flash"},
+    "meter_start": {"unit": "Wh", "icon": "mdi:counter"},
+    "meter_stop": {"unit": "Wh", "icon": "mdi:counter"},
+}
+
+
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN]["coordinator"]
 
+    # Maak een sensor per key in SENSOR_META
     sensors = []
-
-    # Standaard sensoren
-    sensors.append(GrowattThorStatusSensor(coordinator, entry))
-    sensors.append(GrowattThorPowerSensor(coordinator, entry))
-    sensors.append(GrowattThorEnergySensor(coordinator, entry))
-
-    # Dynamische sensoren gebaseerd op coordinator.extra_data
-    for key, meta in coordinator.extra_data.items():
-        sensors.append(DynamicGrowattSensor(coordinator, entry, key, meta))
+    for key, meta in SENSOR_META.items():
+        sensors.append(GrowattThorDynamicSensor(coordinator, entry, key, meta))
 
     async_add_entities(sensors)
 
-# ─────────────────────────────
-# Basisklasse
-# ─────────────────────────────
+
 class GrowattThorBaseSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator, entry, sensor_key: str, sensor_meta: dict):
         super().__init__(coordinator)
         self._entry = entry
+        self._sensor_key = sensor_key
+        self._sensor_meta = sensor_meta
 
+        # Stabiele unique_id
+        self._attr_unique_id = f"{entry.entry_id}_{self._sensor_key}"
+
+        # Koppel aan apparaat
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": "Growatt THOR EV Charger",
@@ -41,78 +57,35 @@ class GrowattThorBaseSensor(CoordinatorEntity, SensorEntity):
             "model": "THOR",
         }
 
+        self._attr_icon = sensor_meta.get("icon")
+        self._attr_unit_of_measurement = sensor_meta.get("unit")
+
     @property
     def available(self) -> bool:
-        # Entiteit blijft bestaan, ook zonder data
+        # Sensor blijft bestaan, ook zonder data
         return True
 
-# ─────────────────────────────
-# Standaard sensoren
-# ─────────────────────────────
-class GrowattThorStatusSensor(GrowattThorBaseSensor):
-    _sensor_key = "status"
-    _attr_name = "Status"
-    _attr_icon = "mdi:ev-station"
 
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_{self._sensor_key}"
+class GrowattThorDynamicSensor(GrowattThorBaseSensor):
+    @property
+    def name(self):
+        return self._sensor_key.replace("_", " ").title()
 
     @property
     def native_value(self):
-        return self.coordinator.status
+        value = self.coordinator.extra_data.get(self._sensor_key)
 
+        # Als de waarde een dict is, pak alleen de "value" key
+        if isinstance(value, dict) and "value" in value:
+            return value["value"]
 
-class GrowattThorPowerSensor(GrowattThorBaseSensor):
-    _sensor_key = "power"
-    _attr_name = "Charging Power"
-    _attr_unit_of_measurement = UnitOfPower.WATT
-    _attr_device_class = "power"
-    _attr_icon = "mdi:flash"
+        # Meter / energie in Wh → kWh
+        if self._sensor_key == "energy" and value is not None:
+            try:
+                return round(float(value) / 1000, 3)
+            except ValueError:
+                return None
 
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_{self._sensor_key}"
-
-    @property
-    def native_value(self):
-        return self.coordinator.power
-
-
-class GrowattThorEnergySensor(GrowattThorBaseSensor):
-    _sensor_key = "energy"
-    _attr_name = "Total Energy"
-    _attr_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-    _attr_device_class = "energy"
-    _attr_icon = "mdi:counter"
-
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_{self._sensor_key}"
-
-    @property
-    def native_value(self):
-        if self.coordinator.energy is None:
-            return None
-        return round(self.coordinator.energy / 1000, 3)
-
-
-# ─────────────────────────────
-# Dynamische sensoren
-# ─────────────────────────────
-class DynamicGrowattSensor(GrowattThorBaseSensor):
-    def __init__(self, coordinator, entry, key: str, meta: dict):
-        super().__init__(coordinator, entry)
-        self._sensor_key = key
-        self._attr_name = meta.get("name", key.replace("_", " ").title())
-        self._attr_unique_id = f"{entry.entry_id}_{self._sensor_key}"
-        self._unit = meta.get("unit")
-        self._icon = meta.get("icon")
-        self._attr_unit_of_measurement = self._unit
-        self._attr_icon = self._icon
-
-    @property
-    def native_value(self):
-        # Coordinator houdt extra_data dict bij met live values
-        return self.coordinator.extra_data.get(self._sensor_key)
+        # Anders gewoon de waarde
+        return value
 
