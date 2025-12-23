@@ -1,7 +1,7 @@
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import (
     DOMAIN,
@@ -26,24 +26,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     host = entry.data.get(CONF_HOST, DEFAULT_HOST)
     port = entry.data.get(CONF_PORT, DEFAULT_PORT)
 
+    # BELANGRIJK: hass meegeven
     server = await start_ocpp_server(
         host=host,
         port=port,
         coordinator=coordinator,
+        hass=hass,
     )
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["server"] = server
     hass.data[DOMAIN]["coordinator"] = coordinator
 
-    # Manual refresh service (TriggerMessage)
-    async def handle_refresh(call):
-        cp = hass.data[DOMAIN].get("charge_point")
+    # ─────────────────────────────
+    # Manual refresh service
+    # ─────────────────────────────
+
+    async def handle_refresh(call: ServiceCall) -> None:
+        """Trigger actieve OCPP updates (Status + MeterValues)."""
+        cp = hass.data.get(DOMAIN, {}).get("charge_point")
+
         if not cp:
-            _LOGGER.warning("No charge point connected yet")
+            _LOGGER.warning("Growatt THOR refresh requested, but no charge point connected yet")
             return
 
-        await coordinator.trigger_meter_update(cp)
+        _LOGGER.info("Triggering OCPP refresh (StatusNotification + MeterValues)")
+
+        try:
+            await cp.trigger_status()
+            await cp.trigger_meter_values()
+        except Exception:
+            _LOGGER.exception("Failed to trigger OCPP refresh")
 
     if not hass.services.has_service(DOMAIN, "refresh"):
         hass.services.async_register(
@@ -52,7 +65,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             handle_refresh,
         )
 
-    # load platforms (sensor.py)
+    # ─────────────────────────────
+    # Load platforms (sensor.py)
+    # ─────────────────────────────
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     _LOGGER.info(
