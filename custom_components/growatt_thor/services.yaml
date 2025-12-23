@@ -1,0 +1,5 @@
+refresh:
+  name: Refresh charger data
+  description: >
+    Trigger an active OCPP refresh on the Growatt THOR charger.
+    Sends TriggerMessage for StatusNotification and MeterValues.
