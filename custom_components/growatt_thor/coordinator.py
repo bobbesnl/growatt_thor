@@ -16,18 +16,34 @@ class GrowattCoordinator(DataUpdateCoordinator):
             name="Growatt THOR Coordinator",
         )
 
+        # Identiteit
         self.charge_point_id: str | None = None
+
+        # Status / transactie
         self.status: str | None = None
-        self.power: float | None = None
-        self.energy: float | None = None
         self.transaction_id: int | None = None
+        self.id_tag: str | None = None
+        self.reason: str | None = None
+
+        # Vermogen / energie
+        self.power: float | None = None          # W
+        self.energy: float | None = None         # Wh
+        self.voltage: float | None = None        # V
+        self.current: float | None = None        # A
+
+        # Limieten / instellingen
+        self.max_current: float | None = None    # A
+        self.max_power: float | None = None      # W
+        self.mode: str | None = None
+
+        # UI / misc
+        self.lcd: str | None = None
 
     # ─────────────────────────────
     # Helpers
     # ─────────────────────────────
 
     def now(self) -> str:
-        """UTC timestamp in OCPP formaat."""
         return datetime.utcnow().isoformat() + "Z"
 
     # ─────────────────────────────
@@ -54,22 +70,24 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.status = value
         self.async_set_updated_data(True)
 
-    def start_transaction(self, transaction_id: int) -> None:
+    def start_transaction(self, transaction_id: int, id_tag: str | None = None) -> None:
         _LOGGER.info("Transaction started: %s", transaction_id)
 
         self.transaction_id = transaction_id
+        self.id_tag = id_tag
         self.status = "Charging"
         self.async_set_updated_data(True)
 
-    def stop_transaction(self) -> None:
-        _LOGGER.info("Transaction stopped")
+    def stop_transaction(self, reason: str | None = None) -> None:
+        _LOGGER.info("Transaction stopped (%s)", reason)
 
         self.transaction_id = None
+        self.reason = reason
         self.status = "Idle"
         self.async_set_updated_data(True)
 
     # ─────────────────────────────
-    # Metering
+    # MeterValues
     # ─────────────────────────────
 
     def process_meter_values(self, meter_values: list) -> None:
@@ -93,11 +111,41 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     self.energy = value
                     updated = True
 
+                elif measurand == "Voltage":
+                    self.voltage = value
+                    updated = True
+
+                elif measurand == "Current.Import":
+                    self.current = value
+                    updated = True
+
         if updated:
             _LOGGER.debug(
-                "Meter update: power=%s W energy=%s Wh",
+                "Meter update: P=%s W E=%s Wh V=%s V I=%s A",
                 self.power,
                 self.energy,
+                self.voltage,
+                self.current,
             )
             self.async_set_updated_data(True)
+
+    # ─────────────────────────────
+    # Config / instellingen (uit JSON dump)
+    # ─────────────────────────────
+
+    def set_limits(self, max_current: float | None = None, max_power: float | None = None):
+        if max_current is not None:
+            self.max_current = max_current
+        if max_power is not None:
+            self.max_power = max_power
+
+        self.async_set_updated_data(True)
+
+    def set_mode(self, mode: str):
+        self.mode = mode
+        self.async_set_updated_data(True)
+
+    def set_lcd(self, text: str):
+        self.lcd = text
+        self.async_set_updated_data(True)
 
