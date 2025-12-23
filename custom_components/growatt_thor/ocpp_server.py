@@ -2,7 +2,7 @@ import logging
 from websockets.server import serve
 
 from ocpp.v16 import ChargePoint as OcppChargePoint
-from ocpp.v16 import call_result
+from ocpp.v16 import call_result, call
 from ocpp.v16.enums import (
     RegistrationStatus,
     AuthorizationStatus,
@@ -10,7 +10,7 @@ from ocpp.v16.enums import (
 )
 from ocpp.routing import on
 
-from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH
+from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,10 +18,16 @@ _LOGGER = logging.getLogger(__name__)
 class GrowattChargePoint(OcppChargePoint):
     """Growatt THOR OCPP 1.6 Charge Point (HA-safe, Payload-correct)."""
 
-    def __init__(self, cp_id, websocket, coordinator):
+    def __init__(self, cp_id, websocket, coordinator, hass):
         super().__init__(cp_id, websocket)
         self.coordinator = coordinator
+        self.hass = hass
+
         self.coordinator.set_charge_point(cp_id)
+
+        # expose CP to Home Assistant (for services / polling)
+        hass.data.setdefault(DOMAIN, {})
+        hass.data[DOMAIN]["charge_point"] = self
 
         self._transaction_id = 1
 
@@ -177,12 +183,34 @@ class GrowattChargePoint(OcppChargePoint):
             status=DataTransferStatus.accepted
         )
 
+    # ─────────────────────────────
+    # Active polling helpers (TriggerMessage)
+    # ─────────────────────────────
+
+    async def trigger_meter_values(self):
+        """Actief MeterValues opvragen."""
+        await self.call(
+            call.TriggerMessagePayload(
+                requested_message="MeterValues",
+                connector_id=1,
+            )
+        )
+
+    async def trigger_status(self):
+        """Actief StatusNotification opvragen."""
+        await self.call(
+            call.TriggerMessagePayload(
+                requested_message="StatusNotification",
+                connector_id=1,
+            )
+        )
+
 
 # ─────────────────────────────
 # WebSocket server
 # ─────────────────────────────
 
-async def _on_connect(websocket, path, coordinator):
+async def _on_connect(websocket, path, coordinator, hass):
     if not path.startswith(DEFAULT_PATH):
         _LOGGER.warning("Rejected connection on path %s", path)
         await websocket.close()
@@ -193,21 +221,29 @@ async def _on_connect(websocket, path, coordinator):
 
     _LOGGER.info("THOR connected with ChargePointId %s", cp_id)
 
-    charge_point = GrowattChargePoint(cp_id, websocket, coordinator)
+    charge_point = GrowattChargePoint(
+        cp_id=cp_id,
+        websocket=websocket,
+        coordinator=coordinator,
+        hass=hass,
+    )
 
     try:
         await charge_point.start()
     except Exception:
         _LOGGER.exception("OCPP session error for %s", cp_id)
+    finally:
+        _LOGGER.warning("ChargePoint %s disconnected", cp_id)
+        hass.data.get(DOMAIN, {}).pop("charge_point", None)
+        coordinator.set_status("Unavailable")
 
 
-async def start_ocpp_server(host, port, coordinator):
+async def start_ocpp_server(host, port, coordinator, hass):
     _LOGGER.info("Starting OCPP server on %s:%s", host, port)
 
     return await serve(
-        lambda ws, path: _on_connect(ws, path, coordinator),
+        lambda ws, path: _on_connect(ws, path, coordinator, hass),
         host,
         port,
         subprotocols=[OCPP_SUBPROTOCOL],
     )
-
