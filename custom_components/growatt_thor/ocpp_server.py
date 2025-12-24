@@ -16,20 +16,20 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class GrowattChargePoint(OcppChargePoint):
-    """Growatt THOR OCPP 1.6 Charge Point (HA-safe, Payload-correct)."""
+    """Growatt THOR OCPP 1.6 Charge Point (HA-safe, Growatt-aware)."""
 
     def __init__(self, cp_id, websocket, coordinator, hass):
         super().__init__(cp_id, websocket)
+
         self.coordinator = coordinator
         self.hass = hass
+        self._transaction_id = 1
 
-        self.coordinator.set_charge_point(cp_id)
-
-        # expose CP to Home Assistant (for services / polling)
+        # expose CP to Home Assistant (services / polling)
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN]["charge_point"] = self
 
-        self._transaction_id = 1
+        self.coordinator.set_charge_point(cp_id)
 
     # ─────────────────────────────
     # Boot / keepalive
@@ -47,8 +47,6 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("Heartbeat")
     async def on_heartbeat(self, **payload):
-        _LOGGER.debug("Heartbeat payload: %s", payload)
-
         return call_result.HeartbeatPayload(
             current_time=self.coordinator.now()
         )
@@ -75,18 +73,19 @@ class GrowattChargePoint(OcppChargePoint):
         **kwargs,
     ):
         _LOGGER.info(
-            "StartTransaction payload: connector=%s id_tag=%s meter_start=%s timestamp=%s extra=%s",
+            "StartTransaction: connector=%s id_tag=%s meter_start=%s",
             connector_id,
             id_tag,
             meter_start,
-            timestamp,
-            kwargs,
         )
 
         transaction_id = self._transaction_id
         self._transaction_id += 1
 
-        self.coordinator.start_transaction(transaction_id)
+        self.coordinator.start_transaction(
+            transaction_id=transaction_id,
+            id_tag=id_tag,
+        )
 
         return call_result.StartTransactionPayload(
             transaction_id=transaction_id,
@@ -103,14 +102,13 @@ class GrowattChargePoint(OcppChargePoint):
         **kwargs,
     ):
         _LOGGER.info(
-            "StopTransaction payload: tx=%s meter_stop=%s reason=%s timestamp=%s",
+            "StopTransaction: tx=%s meter_stop=%s reason=%s",
             transaction_id,
             meter_stop,
             reason,
-            timestamp,
         )
 
-        self.coordinator.stop_transaction()
+        self.coordinator.stop_transaction(reason)
 
         return call_result.StopTransactionPayload(
             id_tag_info={"status": AuthorizationStatus.accepted}
@@ -130,12 +128,10 @@ class GrowattChargePoint(OcppChargePoint):
         **kwargs,
     ):
         _LOGGER.info(
-            "StatusNotification payload: connector=%s status=%s error=%s timestamp=%s extra=%s",
+            "StatusNotification: connector=%s status=%s error=%s",
             connector_id,
             status,
             error_code,
-            timestamp,
-            kwargs,
         )
 
         self.coordinator.set_status(status)
@@ -150,7 +146,7 @@ class GrowattChargePoint(OcppChargePoint):
         **kwargs,
     ):
         _LOGGER.debug(
-            "MeterValues payload: connector=%s values=%s",
+            "MeterValues: connector=%s values=%s",
             connector_id,
             meter_value,
         )
@@ -160,7 +156,7 @@ class GrowattChargePoint(OcppChargePoint):
         return call_result.MeterValuesPayload()
 
     # ─────────────────────────────
-    # Vendor specific (Growatt)
+    # Vendor specific (Growatt!)
     # ─────────────────────────────
 
     @on("DataTransfer")
@@ -172,35 +168,28 @@ class GrowattChargePoint(OcppChargePoint):
         **kwargs,
     ):
         _LOGGER.info(
-            "DataTransfer payload: vendor=%s message_id=%s data=%s extra=%s",
+            "DataTransfer: vendor=%s message_id=%s data=%s",
             vendor_id,
             message_id,
             data,
-            kwargs,
         )
+
+        if vendor_id == "Growatt" and isinstance(data, dict):
+            self.coordinator.process_vendor_data(message_id, data)
 
         return call_result.DataTransferPayload(
             status=DataTransferStatus.accepted
         )
 
     # ─────────────────────────────
-    # Active polling helpers (TriggerMessage)
+    # Active polling helpers
     # ─────────────────────────────
 
-    async def trigger_meter_values(self):
-        """Actief MeterValues opvragen."""
+    async def trigger_message(self, message: str):
+        """Generic TriggerMessage helper."""
         await self.call(
             call.TriggerMessagePayload(
-                requested_message="MeterValues",
-                connector_id=1,
-            )
-        )
-
-    async def trigger_status(self):
-        """Actief StatusNotification opvragen."""
-        await self.call(
-            call.TriggerMessagePayload(
-                requested_message="StatusNotification",
+                requested_message=message,
                 connector_id=1,
             )
         )
@@ -212,12 +201,10 @@ class GrowattChargePoint(OcppChargePoint):
 
 async def _on_connect(websocket, path, coordinator, hass):
     if not path.startswith(DEFAULT_PATH):
-        _LOGGER.warning("Rejected connection on path %s", path)
         await websocket.close()
         return
 
-    parts = path.rstrip("/").split("/")
-    cp_id = parts[-1] if len(parts) > 3 else "UNKNOWN"
+    cp_id = path.rstrip("/").split("/")[-1]
 
     _LOGGER.info("THOR connected with ChargePointId %s", cp_id)
 
@@ -233,7 +220,6 @@ async def _on_connect(websocket, path, coordinator, hass):
     except Exception:
         _LOGGER.exception("OCPP session error for %s", cp_id)
     finally:
-        _LOGGER.warning("ChargePoint %s disconnected", cp_id)
         hass.data.get(DOMAIN, {}).pop("charge_point", None)
         coordinator.set_status("Unavailable")
 
