@@ -7,7 +7,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class GrowattCoordinator(DataUpdateCoordinator):
-    """Coordinator voor Growatt THOR OCPP data (push-based)."""
+    """Coordinator voor Growatt THOR OCPP data (push-based + vendor specific)."""
 
     def __init__(self, hass):
         super().__init__(
@@ -26,17 +26,15 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.reason: str | None = None
 
         # Vermogen / energie
-        self.power: float | None = None          # W
-        self.energy: float | None = None         # Wh
-        self.voltage: float | None = None        # V
-        self.current: float | None = None        # A
+        self.power: float | None = None      # W
+        self.energy: float | None = None     # Wh
+        self.voltage: float | None = None    # V
+        self.current: float | None = None    # A
 
-        # Limieten / instellingen
-        self.max_current: float | None = None    # A
-        self.max_power: float | None = None      # W
+        # Limieten / instellingen (Growatt)
+        self.max_current: float | None = None
+        self.max_power: float | None = None
         self.mode: str | None = None
-
-        # UI / misc
         self.lcd: str | None = None
 
     # ─────────────────────────────
@@ -53,9 +51,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
     def set_charge_point(self, cp_id: str) -> None:
         if self.charge_point_id != cp_id:
             _LOGGER.info("ChargePoint connected: %s", cp_id)
-
-        self.charge_point_id = cp_id
-        self.async_set_updated_data(True)
+            self.charge_point_id = cp_id
+            self.async_set_updated_data(True)
+        else:
+            _LOGGER.debug("ChargePoint %s already registered", cp_id)
 
     # ─────────────────────────────
     # Status & transactions
@@ -65,10 +64,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
         value = status.value if hasattr(status, "value") else str(status)
 
         if self.status != value:
-            _LOGGER.info("Status changed to %s", value)
-
-        self.status = value
-        self.async_set_updated_data(True)
+            _LOGGER.info("Status changed: %s → %s", self.status, value)
+            self.status = value
+            self.async_set_updated_data(True)
+        else:
+            _LOGGER.debug("Status unchanged: %s", value)
 
     def start_transaction(self, transaction_id: int, id_tag: str | None = None) -> None:
         _LOGGER.info("Transaction started: %s", transaction_id)
@@ -79,7 +79,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.async_set_updated_data(True)
 
     def stop_transaction(self, reason: str | None = None) -> None:
-        _LOGGER.info("Transaction stopped (%s)", reason)
+        _LOGGER.info("Transaction stopped (reason=%s)", reason)
 
         self.transaction_id = None
         self.reason = reason
@@ -93,72 +93,141 @@ class GrowattCoordinator(DataUpdateCoordinator):
     def process_meter_values(self, meter_values: list) -> None:
         updated = False
 
+        _LOGGER.debug("Processing MeterValues: %s", meter_values)
+
         for entry in meter_values:
             for sample in entry.get("sampledValue", []):
                 measurand = sample.get("measurand")
-                value = sample.get("value")
-
                 try:
-                    value = float(value)
+                    value = float(sample.get("value"))
                 except (TypeError, ValueError):
+                    _LOGGER.debug(
+                        "Skipping invalid meter value: %s=%s",
+                        measurand,
+                        sample.get("value"),
+                    )
                     continue
 
                 if measurand == "Power.Active.Import":
-                    self.power = value
-                    updated = True
+                    if self.power != value:
+                        self.power = value
+                        updated = True
 
                 elif measurand == "Energy.Active.Import.Register":
-                    self.energy = value
-                    updated = True
+                    if self.energy != value:
+                        self.energy = value
+                        updated = True
 
                 elif measurand == "Voltage":
-                    self.voltage = value
-                    updated = True
+                    if self.voltage != value:
+                        self.voltage = value
+                        updated = True
 
                 elif measurand == "Current.Import":
-                    self.current = value
-                    updated = True
+                    if self.current != value:
+                        self.current = value
+                        updated = True
+
+                else:
+                    _LOGGER.debug("Unhandled measurand: %s=%s", measurand, value)
 
         if updated:
-            _LOGGER.debug(
-                "Meter update: P=%s W E=%s Wh V=%s V I=%s A",
+            _LOGGER.info(
+                "Meter update: P=%sW E=%sWh V=%sV I=%sA",
                 self.power,
                 self.energy,
                 self.voltage,
                 self.current,
             )
             self.async_set_updated_data(True)
+        else:
+            _LOGGER.debug("MeterValues received but no values changed")
 
     # ─────────────────────────────
-    # Config / instellingen (uit JSON dump)
+    # Growatt vendor data (DataTransfer)
     # ─────────────────────────────
 
-    def set_limits(self, max_current: float | None = None, max_power: float | None = None):
-        if max_current is not None:
-            self.max_current = max_current
-        if max_power is not None:
-            self.max_power = max_power
+    def process_vendor_data(self, message_id: str | None, data: dict) -> None:
+        """Verwerk Growatt-specifieke DataTransfer payloads."""
+        updated = False
 
-        self.async_set_updated_data(True)
+        _LOGGER.debug(
+            "Growatt DataTransfer received (message_id=%s): %s",
+            message_id,
+            data,
+        )
 
-    def set_mode(self, mode: str):
-        self.mode = mode
-        self.async_set_updated_data(True)
+        for key, value in data.items():
+            try:
+                if key == "maxCurrent":
+                    if self.max_current != float(value):
+                        self.max_current = float(value)
+                        updated = True
+                    else:
+                        _LOGGER.debug("maxCurrent unchanged: %s", value)
 
-    def set_lcd(self, text: str):
-        self.lcd = text
-        self.async_set_updated_data(True)
+                elif key == "maxPower":
+                    if self.max_power != float(value):
+                        self.max_power = float(value)
+                        updated = True
+                    else:
+                        _LOGGER.debug("maxPower unchanged: %s", value)
+
+                elif key == "mode":
+                    if self.mode != str(value):
+                        self.mode = str(value)
+                        updated = True
+                    else:
+                        _LOGGER.debug("mode unchanged: %s", value)
+
+                elif key == "lcd":
+                    if self.lcd != str(value):
+                        self.lcd = str(value)
+                        updated = True
+                    else:
+                        _LOGGER.debug("lcd unchanged")
+
+                else:
+                    _LOGGER.debug(
+                        "Unhandled Growatt DataTransfer field: %s=%s",
+                        key,
+                        value,
+                    )
+
+            except (TypeError, ValueError) as exc:
+                _LOGGER.warning(
+                    "Failed to process Growatt field %s=%s (%s)",
+                    key,
+                    value,
+                    exc,
+                )
+
+        if updated:
+            _LOGGER.info(
+                "Growatt config update: mode=%s max_current=%s max_power=%s lcd=%s",
+                self.mode,
+                self.max_current,
+                self.max_power,
+                self.lcd,
+            )
+            self.async_set_updated_data(True)
+        else:
+            _LOGGER.debug("Growatt DataTransfer processed but no values changed")
 
     # ─────────────────────────────
-    # Add trigger support
+    # Trigger support
     # ─────────────────────────────
 
     async def trigger_meter_update(self, charge_point) -> None:
-        """Vraag actief MeterValues en Status op via OCPP TriggerMessage."""
-        _LOGGER.info("Triggering MeterValues + StatusNotification")
+        """Actieve polling via TriggerMessage."""
+        _LOGGER.info("Triggering OCPP StatusNotification + MeterValues")
 
         try:
-            await charge_point.trigger_message("MeterValues")
             await charge_point.trigger_message("StatusNotification")
+            _LOGGER.debug("TriggerMessage(StatusNotification) sent")
+
+            await charge_point.trigger_message("MeterValues")
+            _LOGGER.debug("TriggerMessage(MeterValues) sent")
+
         except Exception as exc:
             _LOGGER.warning("TriggerMessage failed: %s", exc)
