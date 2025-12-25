@@ -138,14 +138,41 @@ class GrowattChargePoint(OcppChargePoint):
 
         # Growatt stuurt vaak vendor_id=None → niet filteren
         if isinstance(data, str) and message_id == "frozenrecord":
-            parsed = {
-                k: v[0] for k, v in parse_qs(data).items()
-            }
+            parsed = {k: v[0] for k, v in parse_qs(data).items()}
             _LOGGER.info("Parsed frozenrecord: %s", parsed)
             self.coordinator.process_frozen_record(parsed)
 
         return call_result.DataTransferPayload(
             status=DataTransferStatus.accepted
+        )
+
+    # ─────────────────────────────
+    # 🔑 Actieve Growatt triggers (cruciaal)
+    # ─────────────────────────────
+
+    async def trigger_status(self):
+        """Trigger StatusNotification (zoals Growatt-server doet)."""
+        _LOGGER.info("Triggering StatusNotification (manual)")
+        await self.call(
+            call.TriggerMessagePayload(
+                requested_message="StatusNotification",
+                connector_id=1,
+            )
+        )
+
+    async def trigger_external_meterval(self):
+        """
+        Dit is DE Growatt-call die data losmaakt
+        (bevestigd via Wireshark / pcap).
+        """
+        _LOGGER.info("Triggering Growatt get_external_meterval")
+
+        await self.call(
+            call.DataTransferPayload(
+                vendor_id=None,
+                message_id="get_external_meterval",
+                data=None,
+            )
         )
 
 
