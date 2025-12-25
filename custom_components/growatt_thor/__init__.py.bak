@@ -26,7 +26,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     host = entry.data.get(CONF_HOST, DEFAULT_HOST)
     port = entry.data.get(CONF_PORT, DEFAULT_PORT)
 
-    # Start OCPP server (BELANGRIJK: hass meegeven)
+    # BELANGRIJK: hass meegeven
     server = await start_ocpp_server(
         host=host,
         port=port,
@@ -43,35 +43,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # ─────────────────────────────
 
     async def handle_refresh(call: ServiceCall) -> None:
-        """
-        Manually trigger OCPP + Growatt specific updates.
-        """
+        """Trigger actieve OCPP updates (Status + MeterValues)."""
         cp = hass.data.get(DOMAIN, {}).get("charge_point")
 
         if not cp:
-            _LOGGER.warning(
-                "Growatt THOR refresh requested, but no charge point connected yet"
-            )
+            _LOGGER.warning("Growatt THOR refresh requested, but no charge point connected yet")
             return
 
-        _LOGGER.info("Manual Growatt THOR refresh triggered from Home Assistant")
+        _LOGGER.info("Triggering OCPP refresh (StatusNotification + MeterValues)")
 
         try:
-            # Standard OCPP triggers
-            _LOGGER.debug("Triggering StatusNotification")
-            await cp.trigger_message("StatusNotification")
-
-            # 🔑 Growatt vendor specific trigger (belangrijk!)
-            if hasattr(cp, "trigger_external_meterval"):
-                _LOGGER.debug("Triggering Growatt external meter value request")
-                await cp.trigger_external_meterval()
-            else:
-                _LOGGER.warning(
-                    "ChargePoint has no trigger_external_meterval() method"
-                )
-
+            await cp.trigger_status()
+            await cp.trigger_meter_values()
         except Exception:
-            _LOGGER.exception("Failed to trigger Growatt THOR refresh")
+            _LOGGER.exception("Failed to trigger OCPP refresh")
 
     if not hass.services.has_service(DOMAIN, "refresh"):
         hass.services.async_register(
@@ -113,4 +98,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN].pop("charge_point", None)
 
     return unload_ok
-
