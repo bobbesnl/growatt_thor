@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.const import UnitOfPower, UnitOfEnergy
+from homeassistant.const import (
+    UnitOfPower,
+    UnitOfEnergy,
+    UnitOfElectricCurrent,
+)
 
 from .const import DOMAIN
 
@@ -12,13 +16,17 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     async_add_entities(
         [
+            # Status / meting
             StatusSensor(coordinator, entry),
             PowerSensor(coordinator, entry),
             EnergySensor(coordinator, entry),
-            TransactionSensor(coordinator, entry),
-            IdTagSensor(coordinator, entry),
-            LastSessionEnergySensor(coordinator, entry),
-            LastSessionCostSensor(coordinator, entry),
+
+            # Config (Growatt)
+            MaxCurrentSensor(coordinator, entry),
+            ExternalLimitPowerSensor(coordinator, entry),
+            ExternalLimitPowerEnableSensor(coordinator, entry),
+            ChargerModeSensor(coordinator, entry),
+            ServerURLSensor(coordinator, entry),
         ]
     )
 
@@ -36,6 +44,10 @@ class BaseSensor(CoordinatorEntity, SensorEntity):
             "model": "THOR",
         }
 
+
+# ─────────────────────────────
+# Status & meting
+# ─────────────────────────────
 
 class StatusSensor(BaseSensor):
     _attr_name = "Status"
@@ -75,48 +87,66 @@ class EnergySensor(BaseSensor):
         return round(self.coordinator.energy / 1000, 3)
 
 
-class TransactionSensor(BaseSensor):
-    _attr_name = "Transaction ID"
+# ─────────────────────────────
+# 🔑 Config sensors (Growatt)
+# ─────────────────────────────
+
+class MaxCurrentSensor(BaseSensor):
+    _attr_name = "Max Current"
+    _attr_unit_of_measurement = UnitOfElectricCurrent.AMPERE
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "transaction")
+        super().__init__(coordinator, entry, "max_current")
 
     @property
     def native_value(self):
-        return self.coordinator.transaction_id
+        return self.coordinator.max_current
 
 
-class IdTagSensor(BaseSensor):
-    _attr_name = "ID Tag"
+class ExternalLimitPowerSensor(BaseSensor):
+    _attr_name = "Loadbalance Max Power"
+    _attr_unit_of_measurement = UnitOfPower.WATT
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "id_tag")
+        super().__init__(coordinator, entry, "external_limit_power")
 
     @property
     def native_value(self):
-        return self.coordinator.id_tag
+        return self.coordinator.external_limit_power
 
 
-class LastSessionEnergySensor(BaseSensor):
-    _attr_name = "Last Session Energy"
-    _attr_unit_of_measurement = UnitOfEnergy.WATT_HOUR
+class ExternalLimitPowerEnableSensor(BaseSensor):
+    _attr_name = "Loadbalance Enabled"
+    _attr_icon = "mdi:transmission-tower"
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "last_energy")
+        super().__init__(coordinator, entry, "external_limit_power_enable")
 
     @property
     def native_value(self):
-        return self.coordinator.last_session_energy
+        return self.coordinator.external_limit_power_enable
 
 
-class LastSessionCostSensor(BaseSensor):
-    _attr_name = "Last Session Cost"
-    _attr_icon = "mdi:currency-eur"
+class ChargerModeSensor(BaseSensor):
+    _attr_name = "Charger Mode"
+    _attr_icon = "mdi:ev-plug-type2"
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "last_cost")
+        super().__init__(coordinator, entry, "charger_mode")
 
     @property
     def native_value(self):
-        return self.coordinator.last_session_cost
+        return self.coordinator.charger_mode
+
+
+class ServerURLSensor(BaseSensor):
+    _attr_name = "OCPP Server URL"
+    _attr_icon = "mdi:server-network"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "server_url")
+
+    @property
+    def native_value(self):
+        return self.coordinator.server_url
 

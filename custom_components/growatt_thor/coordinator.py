@@ -17,18 +17,24 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.transaction_id = None
         self.id_tag = None
 
-        # Live
-        self.power = None
-        self.energy = None
+        # Live metingen
+        self.power = None       # W
+        self.energy = None      # Wh
 
-        # Config (Growatt)
-        self.config = {}
+        # 🔑 Config (beperkt, bewust)
+        self.max_current = None                     # G_MaxCurrent
+        self.external_limit_power = None            # G_ExternalLimitPower
+        self.external_limit_power_enable = None     # G_ExternalLimitPowerEnable
+        self.charger_mode = None                    # G_ChargerMode
+        self.server_url = None                      # G_ServerURL
 
         # Laatste sessie
         self.last_session_energy = None
         self.last_session_cost = None
         self.charge_mode = None
         self.work_mode = None
+
+    # ─────────────────────────────
 
     def now(self) -> str:
         return datetime.utcnow().isoformat() + "Z"
@@ -69,36 +75,67 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 except Exception:
                     continue
 
-                if sample.get("measurand") == "Power.Active.Import":
-                    self.power = value
-                    updated = True
-                elif sample.get("measurand") == "Energy.Active.Import.Register":
-                    self.energy = value
-                    updated = True
+                measurand = sample.get("measurand")
+
+                if measurand == "Power.Active.Import":
+                    if self.power != value:
+                        self.power = value
+                        updated = True
+
+                elif measurand == "Energy.Active.Import.Register":
+                    if self.energy != value:
+                        self.energy = value
+                        updated = True
 
         if updated:
             self.async_set_updated_data(True)
 
     # ─────────────────────────────
-    # 🔑 GetConfiguration verwerking
+    # 🔑 GetConfiguration verwerking (beperkt)
     # ─────────────────────────────
 
     def process_configuration(self, configuration: list):
-        """
-        Ontvangt lijst van configurationKey objects
-        """
         updated = False
 
         for item in configuration:
             key = item.get("key")
-            value = item.get("value")
+            raw = item.get("value")
 
-            if self.config.get(key) != value:
-                _LOGGER.info("Config update: %s = %s", key, value)
-                self.config[key] = value
-                updated = True
+            try:
+                if key == "G_MaxCurrent":
+                    value = float(raw)
+                    if self.max_current != value:
+                        self.max_current = value
+                        updated = True
+
+                elif key == "G_ExternalLimitPower":
+                    value = float(raw)
+                    if self.external_limit_power != value:
+                        self.external_limit_power = value
+                        updated = True
+
+                elif key == "G_ExternalLimitPowerEnable":
+                    value = raw in ("1", "true", "True")
+                    if self.external_limit_power_enable != value:
+                        self.external_limit_power_enable = value
+                        updated = True
+
+                elif key == "G_ChargerMode":
+                    value = int(raw)
+                    if self.charger_mode != value:
+                        self.charger_mode = value
+                        updated = True
+
+                elif key == "G_ServerURL":
+                    if self.server_url != raw:
+                        self.server_url = raw
+                        updated = True
+
+            except Exception as exc:
+                _LOGGER.warning("Failed to parse config %s=%s (%s)", key, raw, exc)
 
         if updated:
+            _LOGGER.info("Growatt configuration updated")
             self.async_set_updated_data(True)
 
     # ─────────────────────────────
