@@ -7,97 +7,100 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class GrowattCoordinator(DataUpdateCoordinator):
-    """Coordinator voor Growatt THOR OCPP data (push-based)."""
+    """Coordinator voor Growatt THOR OCPP data."""
 
     def __init__(self, hass):
-        super().__init__(
-            hass,
-            _LOGGER,
-            name="Growatt THOR Coordinator",
-        )
+        super().__init__(hass, _LOGGER, name="Growatt THOR Coordinator")
 
-        self.charge_point_id: str | None = None
-        self.status: str | None = None
-        self.power: float | None = None
-        self.energy: float | None = None
-        self.transaction_id: int | None = None
+        # Identiteit
+        self.charge_point_id = None
 
-    # ─────────────────────────────
-    # Helpers
+        # Status / transactie
+        self.status = None
+        self.transaction_id = None
+        self.id_tag = None
+
+        # Live meting
+        self.power = None       # W
+        self.energy = None      # Wh
+
+        # Laatste sessie (Growatt frozenrecord)
+        self.last_session_energy = None   # Wh
+        self.last_session_cost = None     # cent?
+        self.charge_mode = None
+        self.work_mode = None
+
     # ─────────────────────────────
 
     def now(self) -> str:
-        """UTC timestamp in OCPP formaat."""
         return datetime.utcnow().isoformat() + "Z"
 
-    # ─────────────────────────────
-    # Charge point lifecycle
-    # ─────────────────────────────
-
-    def set_charge_point(self, cp_id: str) -> None:
-        if self.charge_point_id != cp_id:
-            _LOGGER.info("ChargePoint connected: %s", cp_id)
-
+    def set_charge_point(self, cp_id):
         self.charge_point_id = cp_id
         self.async_set_updated_data(True)
 
-    # ─────────────────────────────
-    # Status & transactions
-    # ─────────────────────────────
-
-    def set_status(self, status) -> None:
+    def set_status(self, status):
         value = status.value if hasattr(status, "value") else str(status)
-
         if self.status != value:
-            _LOGGER.info("Status changed to %s", value)
+            _LOGGER.info("Status changed: %s → %s", self.status, value)
+            self.status = value
+            self.async_set_updated_data(True)
 
-        self.status = value
-        self.async_set_updated_data(True)
-
-    def start_transaction(self, transaction_id: int) -> None:
-        _LOGGER.info("Transaction started: %s", transaction_id)
-
+    def start_transaction(self, transaction_id, id_tag=None):
         self.transaction_id = transaction_id
+        self.id_tag = id_tag
         self.status = "Charging"
         self.async_set_updated_data(True)
 
-    def stop_transaction(self) -> None:
-        _LOGGER.info("Transaction stopped")
-
+    def stop_transaction(self, reason=None):
         self.transaction_id = None
         self.status = "Idle"
         self.async_set_updated_data(True)
 
     # ─────────────────────────────
-    # Metering
+    # MeterValues
     # ─────────────────────────────
 
-    def process_meter_values(self, meter_values: list) -> None:
+    def process_meter_values(self, meter_values):
         updated = False
 
         for entry in meter_values:
             for sample in entry.get("sampledValue", []):
                 measurand = sample.get("measurand")
-                value = sample.get("value")
-
                 try:
-                    value = float(value)
-                except (TypeError, ValueError):
+                    value = float(sample.get("value"))
+                except Exception:
                     continue
 
                 if measurand == "Power.Active.Import":
                     self.power = value
                     updated = True
-
                 elif measurand == "Energy.Active.Import.Register":
                     self.energy = value
                     updated = True
 
         if updated:
-            _LOGGER.debug(
-                "Meter update: power=%s W energy=%s Wh",
-                self.power,
-                self.energy,
-            )
             self.async_set_updated_data(True)
+
+    # ─────────────────────────────
+    # Growatt frozenrecord
+    # ─────────────────────────────
+
+    def process_frozen_record(self, data: dict):
+        _LOGGER.info("Processing frozenrecord data")
+
+        self.last_session_energy = float(data.get("costenergy", 0))
+        self.last_session_cost = float(data.get("costmoney", 0))
+        self.charge_mode = data.get("chargemode")
+        self.work_mode = data.get("workmode")
+
+        _LOGGER.info(
+            "Last session: energy=%sWh cost=%s mode=%s workmode=%s",
+            self.last_session_energy,
+            self.last_session_cost,
+            self.charge_mode,
+            self.work_mode,
+        )
+
+        self.async_set_updated_data(True)
 

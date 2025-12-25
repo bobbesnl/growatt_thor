@@ -12,25 +12,23 @@ class GrowattCoordinator(DataUpdateCoordinator):
     def __init__(self, hass):
         super().__init__(hass, _LOGGER, name="Growatt THOR Coordinator")
 
-        # Identiteit
         self.charge_point_id = None
-
-        # Status / transactie
         self.status = None
         self.transaction_id = None
         self.id_tag = None
 
-        # Live meting
-        self.power = None       # W
-        self.energy = None      # Wh
+        # Live
+        self.power = None
+        self.energy = None
 
-        # Laatste sessie (Growatt frozenrecord)
-        self.last_session_energy = None   # Wh
-        self.last_session_cost = None     # cent?
+        # Config (Growatt)
+        self.config = {}
+
+        # Laatste sessie
+        self.last_session_energy = None
+        self.last_session_cost = None
         self.charge_mode = None
         self.work_mode = None
-
-    # ─────────────────────────────
 
     def now(self) -> str:
         return datetime.utcnow().isoformat() + "Z"
@@ -66,18 +64,39 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         for entry in meter_values:
             for sample in entry.get("sampledValue", []):
-                measurand = sample.get("measurand")
                 try:
                     value = float(sample.get("value"))
                 except Exception:
                     continue
 
-                if measurand == "Power.Active.Import":
+                if sample.get("measurand") == "Power.Active.Import":
                     self.power = value
                     updated = True
-                elif measurand == "Energy.Active.Import.Register":
+                elif sample.get("measurand") == "Energy.Active.Import.Register":
                     self.energy = value
                     updated = True
+
+        if updated:
+            self.async_set_updated_data(True)
+
+    # ─────────────────────────────
+    # 🔑 GetConfiguration verwerking
+    # ─────────────────────────────
+
+    def process_configuration(self, configuration: list):
+        """
+        Ontvangt lijst van configurationKey objects
+        """
+        updated = False
+
+        for item in configuration:
+            key = item.get("key")
+            value = item.get("value")
+
+            if self.config.get(key) != value:
+                _LOGGER.info("Config update: %s = %s", key, value)
+                self.config[key] = value
+                updated = True
 
         if updated:
             self.async_set_updated_data(True)
@@ -87,20 +106,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # ─────────────────────────────
 
     def process_frozen_record(self, data: dict):
-        _LOGGER.info("Processing frozenrecord data")
-
         self.last_session_energy = float(data.get("costenergy", 0))
         self.last_session_cost = float(data.get("costmoney", 0))
         self.charge_mode = data.get("chargemode")
         self.work_mode = data.get("workmode")
-
-        _LOGGER.info(
-            "Last session: energy=%sWh cost=%s mode=%s workmode=%s",
-            self.last_session_energy,
-            self.last_session_cost,
-            self.charge_mode,
-            self.work_mode,
-        )
-
         self.async_set_updated_data(True)
 

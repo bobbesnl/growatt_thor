@@ -19,8 +19,6 @@ _LOGGER = logging.getLogger(__name__)
 class GrowattChargePoint(OcppChargePoint):
     """
     Growatt THOR OCPP 1.6 Charge Point
-    - standaard OCPP correct
-    - Growatt vendor extensions ondersteund
     """
 
     def __init__(self, cp_id, websocket, coordinator, hass):
@@ -43,7 +41,6 @@ class GrowattChargePoint(OcppChargePoint):
     @on("BootNotification")
     async def on_boot_notification(self, **payload):
         _LOGGER.info("BootNotification payload: %s", payload)
-
         return call_result.BootNotificationPayload(
             current_time=self.coordinator.now(),
             interval=60,
@@ -52,7 +49,6 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("Heartbeat")
     async def on_heartbeat(self, **payload):
-        _LOGGER.debug("Heartbeat received")
         return call_result.HeartbeatPayload(
             current_time=self.coordinator.now()
         )
@@ -63,20 +59,12 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("Authorize")
     async def on_authorize(self, id_tag, **kwargs):
-        _LOGGER.info("Authorize idTag=%s", id_tag)
         return call_result.AuthorizePayload(
             id_tag_info={"status": AuthorizationStatus.accepted}
         )
 
     @on("StartTransaction")
     async def on_start_transaction(self, connector_id, id_tag, meter_start, **kwargs):
-        _LOGGER.info(
-            "StartTransaction connector=%s idTag=%s meterStart=%s",
-            connector_id,
-            id_tag,
-            meter_start,
-        )
-
         transaction_id = self._transaction_id
         self._transaction_id += 1
 
@@ -89,15 +77,7 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("StopTransaction")
     async def on_stop_transaction(self, transaction_id, meter_stop, reason=None, **kwargs):
-        _LOGGER.info(
-            "StopTransaction tx=%s meterStop=%s reason=%s",
-            transaction_id,
-            meter_stop,
-            reason,
-        )
-
         self.coordinator.stop_transaction(reason)
-
         return call_result.StopTransactionPayload(
             id_tag_info={"status": AuthorizationStatus.accepted}
         )
@@ -108,20 +88,29 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("StatusNotification")
     async def on_status_notification(self, connector_id, status, error_code=None, **kwargs):
-        _LOGGER.info(
-            "StatusNotification connector=%s status=%s error=%s",
-            connector_id,
-            status,
-            error_code,
-        )
         self.coordinator.set_status(status)
         return call_result.StatusNotificationPayload()
 
     @on("MeterValues")
     async def on_meter_values(self, connector_id, meter_value, **kwargs):
-        _LOGGER.debug("MeterValues payload=%s", meter_value)
         self.coordinator.process_meter_values(meter_value)
         return call_result.MeterValuesPayload()
+
+    # ─────────────────────────────
+    # GetConfiguration (🔑 instellingen!)
+    # ─────────────────────────────
+
+    @on("GetConfiguration")
+    async def on_get_configuration(self, **payload):
+        """
+        Antwoord van de lader met config-waarden
+        """
+        configuration = payload.get("configurationKey", [])
+        _LOGGER.info("GetConfiguration response: %s", configuration)
+
+        self.coordinator.process_configuration(configuration)
+
+        return call_result.GetConfigurationPayload()
 
     # ─────────────────────────────
     # Growatt vendor DataTransfer
@@ -129,17 +118,8 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("DataTransfer")
     async def on_data_transfer(self, vendor_id, message_id=None, data=None, **kwargs):
-        _LOGGER.info(
-            "DataTransfer vendor=%s message_id=%s data=%s",
-            vendor_id,
-            message_id,
-            data,
-        )
-
-        # Growatt stuurt vaak vendor_id=None → niet filteren
         if isinstance(data, str) and message_id == "frozenrecord":
             parsed = {k: v[0] for k, v in parse_qs(data).items()}
-            _LOGGER.info("Parsed frozenrecord: %s", parsed)
             self.coordinator.process_frozen_record(parsed)
 
         return call_result.DataTransferPayload(
@@ -147,12 +127,10 @@ class GrowattChargePoint(OcppChargePoint):
         )
 
     # ─────────────────────────────
-    # 🔑 Actieve Growatt triggers (cruciaal)
+    # 🔑 Actieve triggers
     # ─────────────────────────────
 
     async def trigger_status(self):
-        """Trigger StatusNotification (zoals Growatt-server doet)."""
-        _LOGGER.info("Triggering StatusNotification (manual)")
         await self.call(
             call.TriggerMessagePayload(
                 requested_message="StatusNotification",
@@ -161,18 +139,20 @@ class GrowattChargePoint(OcppChargePoint):
         )
 
     async def trigger_external_meterval(self):
-        """
-        Dit is DE Growatt-call die data losmaakt
-        (bevestigd via Wireshark / pcap).
-        """
-        _LOGGER.info("Triggering Growatt get_external_meterval")
-
         await self.call(
             call.DataTransferPayload(
                 vendor_id="Growatt",
                 message_id="get_external_meterval",
-                data=None,
             )
+        )
+
+    async def trigger_get_configuration(self):
+        """
+        Vraag alle Growatt-config op
+        """
+        _LOGGER.info("Triggering GetConfiguration (Growatt)")
+        await self.call(
+            call.GetConfigurationPayload()
         )
 
 
@@ -186,22 +166,16 @@ async def _on_connect(websocket, path, coordinator, hass):
         return
 
     cp_id = path.rstrip("/").split("/")[-1]
-    _LOGGER.info("THOR connected with ChargePointId %s", cp_id)
-
     cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
 
     try:
         await cp.start()
-    except Exception:
-        _LOGGER.exception("OCPP session error for %s", cp_id)
     finally:
         hass.data.get(DOMAIN, {}).pop("charge_point", None)
         coordinator.set_status("Unavailable")
 
 
 async def start_ocpp_server(host, port, coordinator, hass):
-    _LOGGER.info("Starting OCPP server on %s:%s", host, port)
-
     return await serve(
         lambda ws, path: _on_connect(ws, path, coordinator, hass),
         host,
