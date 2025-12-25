@@ -135,8 +135,8 @@ class GrowattChargePoint(OcppChargePoint):
 
     async def trigger_get_configuration(self):
         """
-        Haalt Growatt configuratie op.
-        RESPONSE komt als CallResult, niet via @on()
+        Haalt volledige Growatt configuratie op.
+        Let op: resultaat is een GetConfigurationPayload object
         """
         _LOGGER.info("Triggering GetConfiguration")
 
@@ -144,12 +144,26 @@ class GrowattChargePoint(OcppChargePoint):
             call.GetConfigurationPayload()
         )
 
-        config = result.get("configurationKey", [])
-        _LOGGER.info("Received %d configuration keys", len(config))
-        _LOGGER.debug("Full configuration payload: %s", config)
+        # ocpp library → object, geen dict
+        config_keys = getattr(result, "configuration_key", [])
+        unknown_keys = getattr(result, "unknown_key", [])
 
-        # Nog geen parsing — eerst zichtbaarheid
-        # self.coordinator.process_configuration(config)
+        _LOGGER.info(
+            "Received Growatt configuration: %d keys (%d unknown)",
+            len(config_keys),
+            len(unknown_keys),
+        )
+
+        for item in config_keys:
+            _LOGGER.debug(
+                "Config key: %s = %s (readonly=%s)",
+                item.get("key"),
+                item.get("value"),
+                item.get("readonly"),
+            )
+
+        # Nog geen filtering — eerst volledige zichtbaarheid
+        # self.coordinator.process_configuration(config_keys)
 
 
 # ─────────────────────────────
