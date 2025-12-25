@@ -96,11 +96,11 @@ class MaxCurrentSensor(BaseSensor):
     _attr_unit_of_measurement = UnitOfElectricCurrent.AMPERE
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "G_MaxCurrent")
+        super().__init__(coordinator, entry, "max_current")
 
     @property
     def native_value(self):
-        return self.coordinator.config.get("G_MaxCurrent")
+        return self.coordinator.max_current
 
 
 class ExternalLimitPowerSensor(BaseSensor):
@@ -108,11 +108,11 @@ class ExternalLimitPowerSensor(BaseSensor):
     _attr_unit_of_measurement = UnitOfPower.WATT
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "G_ExternalLimitPower")
+        super().__init__(coordinator, entry, "external_limit_power")
 
     @property
     def native_value(self):
-        return self.coordinator.config.get("G_ExternalLimitPower")
+        return self.coordinator.external_limit_power
 
 
 class ExternalLimitPowerEnableSensor(BaseSensor):
@@ -120,11 +120,11 @@ class ExternalLimitPowerEnableSensor(BaseSensor):
     _attr_icon = "mdi:transmission-tower"
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "G_ExternalLimitPowerEnable")
+        super().__init__(coordinator, entry, "external_limit_power_enable")
 
     @property
     def native_value(self):
-        return self.coordinator.config.get("G_ExternalLimitPowerEnable")
+        return self.coordinator.external_limit_power_enable
 
 
 class ChargerModeSensor(BaseSensor):
@@ -132,11 +132,11 @@ class ChargerModeSensor(BaseSensor):
     _attr_icon = "mdi:ev-plug-type2"
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "G_ChargerMode")
+        super().__init__(coordinator, entry, "charger_mode")
 
     @property
     def native_value(self):
-        return self.coordinator.config.get("G_ChargerMode")
+        return self.coordinator.charger_mode
 
 
 class ServerURLSensor(BaseSensor):
@@ -144,9 +144,9 @@ class ServerURLSensor(BaseSensor):
     _attr_icon = "mdi:server-network"
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "G_ServerURL")
+        super().__init__(coordinator, entry, "server_url")
 
     @property
     def native_value(self):
-        return self.coordinator.config.get("G_ServerURL")
+        return self.coordinator.server_url
 

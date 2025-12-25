@@ -41,6 +41,10 @@ class GrowattChargePoint(OcppChargePoint):
     @on("BootNotification")
     async def on_boot_notification(self, **payload):
         _LOGGER.info("BootNotification payload: %s", payload)
+
+        # 🔑 NA succesvolle boot: automatisch config ophalen
+        self.hass.async_create_task(self.trigger_get_configuration())
+
         return call_result.BootNotificationPayload(
             current_time=self.coordinator.now(),
             interval=60,
@@ -135,7 +139,7 @@ class GrowattChargePoint(OcppChargePoint):
 
     async def trigger_get_configuration(self):
         """
-        Haalt volledige Growatt configuratie op.
+        Haalt volledige Growatt configuratie op en zet deze door naar de coordinator
         """
         _LOGGER.info("Triggering GetConfiguration")
 
@@ -150,6 +154,9 @@ class GrowattChargePoint(OcppChargePoint):
             len(unknown_keys),
         )
 
+        # 🔑 KOPPELING NAAR HA
+        self.coordinator.process_configuration(config_keys)
+
         for item in config_keys:
             _LOGGER.debug(
                 "Config key: %s = %s (readonly=%s)",
@@ -157,9 +164,6 @@ class GrowattChargePoint(OcppChargePoint):
                 item.get("value"),
                 item.get("readonly"),
             )
-
-        # 🔑 NU ECHT DOORZETTEN NAAR COORDINATOR
-        self.coordinator.process_configuration(config_keys)
 
 
 # ─────────────────────────────
