@@ -57,11 +57,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.info("Manual Growatt THOR refresh triggered from Home Assistant")
 
         try:
-            # Standard OCPP triggers
-            _LOGGER.debug("Triggering StatusNotification")
-            await cp.trigger_message("StatusNotification")
+            # 1️⃣ Exact Growatt-style Status trigger
+            if hasattr(cp, "trigger_status"):
+                _LOGGER.debug("Triggering StatusNotification (Growatt-style)")
+                await cp.trigger_status()
+            else:
+                _LOGGER.warning("ChargePoint has no trigger_status() method")
 
-            # 🔑 Growatt vendor specific trigger (belangrijk!)
+            # 2️⃣ 🔑 Growatt vendor specific trigger (CRUCIAAL)
             if hasattr(cp, "trigger_external_meterval"):
                 _LOGGER.debug("Triggering Growatt external meter value request")
                 await cp.trigger_external_meterval()
