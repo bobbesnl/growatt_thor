@@ -1,0 +1,22 @@
+[Unit]
+Description=THOR OCPP raw traffic logger (pcap)
+After=network.target thor-ocpp-socat.service
+Requires=thor-ocpp-socat.service
+
+[Service]
+ExecStartPre=/bin/mkdir -p /var/log/thor-ocpp/raw
+ExecStartPre=/bin/chown root:root /var/log/thor-ocpp/raw
+ExecStartPre=/bin/chmod 755 /var/log/thor-ocpp/raw
+ExecStart=/usr/bin/tcpdump \
+  -i any \
+  -s 0 \
+  -w /var/log/thor-ocpp/raw/ocpp-%%Y-%%m-%%d.pcap \
+  -G 86400 \
+  -W 7 \
+  tcp port 9000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

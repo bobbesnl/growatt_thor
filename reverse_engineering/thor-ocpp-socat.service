@@ -1,0 +1,14 @@
+[Unit]
+Description=THOR OCPP socat proxy (observer mode)
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/socat -d -d \
+  TCP-LISTEN:9000,fork,reuseaddr,keepalive \
+  TCP:evcharge.growatt.com:80
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+
