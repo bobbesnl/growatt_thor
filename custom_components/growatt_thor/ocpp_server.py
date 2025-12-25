@@ -169,7 +169,7 @@ class GrowattChargePoint(OcppChargePoint):
 
         await self.call(
             call.DataTransferPayload(
-                vendor_id=None,
+                vendor_id="Growatt",
                 message_id="get_external_meterval",
                 data=None,
             )
