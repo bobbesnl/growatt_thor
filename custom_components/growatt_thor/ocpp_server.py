@@ -97,22 +97,6 @@ class GrowattChargePoint(OcppChargePoint):
         return call_result.MeterValuesPayload()
 
     # ─────────────────────────────
-    # GetConfiguration (🔑 instellingen!)
-    # ─────────────────────────────
-
-    @on("GetConfiguration")
-    async def on_get_configuration(self, **payload):
-        """
-        Antwoord van de lader met config-waarden
-        """
-        configuration = payload.get("configurationKey", [])
-        _LOGGER.info("GetConfiguration response: %s", configuration)
-
-        self.coordinator.process_configuration(configuration)
-
-        return call_result.GetConfigurationPayload()
-
-    # ─────────────────────────────
     # Growatt vendor DataTransfer
     # ─────────────────────────────
 
@@ -146,14 +130,21 @@ class GrowattChargePoint(OcppChargePoint):
             )
         )
 
-    async def trigger_get_configuration(self):
-        """
-        Vraag alle Growatt-config op
-        """
-        _LOGGER.info("Triggering GetConfiguration (Growatt)")
-        await self.call(
-            call.GetConfigurationPayload()
-        )
+async def trigger_get_configuration(self):
+    """
+    Haalt Growatt configuratie op.
+    Let op: response komt ALS CALL RESULT, niet via @on()
+    """
+    _LOGGER.info("Triggering GetConfiguration (Growatt)")
+
+    result = await self.call(
+        call.GetConfigurationPayload()
+    )
+
+    config = result.get("configurationKey", [])
+    _LOGGER.info("Received %d configuration keys", len(config))
+
+    self.coordinator.process_configuration(config)
 
 
 # ─────────────────────────────
