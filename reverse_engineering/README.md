@@ -1,307 +1,218 @@
-# Growatt THOR OCPP – Logging, Analyse & Reverse Engineering
+# Growatt THOR -- OCPP Reverse Engineering & Home Assistant Integration
 
-Dit document beschrijft **hoe we het OCPP-verkeer van de Growatt THOR EV-lader hebben gelogd**, **hoe we de data hebben geëxtraheerd**, en **welke OCPP-berichten er écht toe doen** om een werkende Home Assistant‑integratie te bouwen.
+## Overview
 
-Het doel is nadrukkelijk **begrip en reproduceerbaarheid**, niet alleen een werkende hack.
+This document describes how the Growatt THOR EV charger was reverse
+engineered, how traffic was captured and analyzed, and how a Home
+Assistant--based OCPP server can fully replace the Growatt Cloud.
 
----
+The focus is **OCPP 1.6 over WebSocket**, with Growatt-specific vendor
+extensions.
 
-## 1. Architectuur-overzicht
+------------------------------------------------------------------------
 
-### 1.1 Normale situatie
+## Architecture Summary
 
-```
-Growatt THOR  →  Growatt Cloud OCPP Server
-```
+    Growatt THOR  →  Home Assistant OCPP Server
+                        |
+                        +-- Coordinator
+                        +-- Sensors
+                        +-- Services
 
-- Communicatie via **OCPP 1.6 over WebSocket**
-- Growatt gebruikt **standaard OCPP-berichten**, maar met **vendor-specifieke semantiek**
+Key principle: \> **The THOR only sends live data after specific vendor
+triggers.**
 
----
+------------------------------------------------------------------------
 
-### 1.2 Onze observatie-opstelling
+## Network Capture Setup
 
-```
-Growatt THOR
-     │
-     ▼
-[socat proxy :9000]  →  evcharge.growatt.com:80
-     │
-     ▼
-[tcpdump / pcap]
-```
+### 1. socat (TCP proxy)
 
-Hiermee:
-- blijven **alle functies van de lader intact**
-- kunnen we **passief observeren**
-- krijgen we **exact hetzelfde verkeer** dat Growatt ziet
+Used to transparently proxy traffic between the THOR and the Growatt
+server (or Home Assistant OCPP server).
 
----
+Example systemd service:
 
-## 2. Logging-infrastructuur
-
-### 2.1 socat – OCPP proxy (observer mode)
-
-**Doel:** transparant doorsturen van OCPP-verkeer terwijl we meeluisteren.
-
-#### systemd service: `thor-ocpp-socat.service`
-
-```ini
-[Unit]
-Description=THOR OCPP socat proxy (observer mode)
-After=network.target
-
+``` ini
 [Service]
-ExecStart=/usr/bin/socat \
-  TCP-LISTEN:9000,fork,reuseaddr \
-  TCP:evcharge.growatt.com:80
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
+ExecStart=/usr/bin/socat TCP-LISTEN:9000,fork,reuseaddr TCP:real.server.ip:9000
 ```
 
-**Belangrijk:**
-- De THOR wordt geconfigureerd om te verbinden met `server-ip:9000`
-- socat forwardt alles 1:1 naar Growatt
+Purpose: - MITM inspection - No firmware changes required - Safe and
+reversible
 
----
+------------------------------------------------------------------------
 
-### 2.2 tcpdump – ruwe packet capture
+### 2. tcpdump capture
 
-**Doel:** volledige TCP/WebSocket payload bewaren voor latere analyse.
+Used to record raw traffic for offline analysis.
 
-#### systemd service: `thor-ocpp-tcpdump.service`
-
-```ini
-[Unit]
-Description=THOR OCPP raw traffic logger (pcap)
-After=network.target thor-ocpp-socat.service
-Requires=thor-ocpp-socat.service
-
-[Service]
-ExecStart=/usr/bin/tcpdump \
-  -i any \
-  -s 0 \
-  -w /var/log/thor-ocpp/raw/ocpp-%Y-%m-%d.pcap \
-  -G 86400 \
-  -W 7 \
-  tcp port 9000
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
+``` bash
+tcpdump -i eth0 -s 0 -w ocpp-session.pcap tcp port 9000
 ```
 
-Resultaat:
-- Dagelijkse `.pcap` bestanden
-- Ruwe waarheid, onafhankelijk van tooling
+Notes: - `-s 0` is mandatory (otherwise payload is truncated) - PCAP
+files can be analyzed later without live access
 
----
+------------------------------------------------------------------------
 
-## 3. Waarom tshark alleen niet genoeg was
+## PCAP Analysis
 
-### 3.1 Probleem
+### Key Findings
 
-- OCPP draait over **WebSocket**
-- WebSocket payloads zijn:
-  - gemaskeerd
-  - gefragmenteerd
-  - TCP-gesegmenteerd
+  Observation                       Meaning
+  --------------------------------- ---------------------------
+  WebSocket Binary frames           OCPP JSON inside
+  No MeterValues pushed             Expected Growatt behavior
+  Data appears after DataTransfer   Vendor trigger required
 
-Daardoor gaven simpele tshark-commando’s:
-- lege output
-- of alleen ping/pong frames
+------------------------------------------------------------------------
 
----
+## tshark Limitations
 
-## 4. OCPP extractie via Python (succesvolle aanpak)
+`tshark` often fails to decode WebSocket payloads correctly due to: -
+fragmentation - masking - binary opcode usage
 
-### 4.1 Strategie
+Solution: - Extract TCP payloads - Decode manually in Python
 
-1. Extract **tcp.payload** (hex)
-2. Decodeer naar UTF‑8
-3. Zoek JSON-arrays (`[2,…]`, `[3,…]`)
-4. Parse OCPP-structuur
+------------------------------------------------------------------------
 
----
+## Python OCPP Extraction
 
-### 4.2 Python script – OCPP decoder
+A custom script was used to: - parse TCP payloads - extract JSON arrays
+(`[2, ...]`, `[3, ...]`) - classify OCPP CALL / CALLRESULT
 
-Dit script:
-- werkt robuust met WebSocket over TCP
-- reconstrueert OCPP Calls & Responses
-- schrijft leesbare logs
+This enabled identification of: - `get_external_meterval` -
+`frozenrecord` - `GetConfiguration`
 
-*(gebruik exact dit script – bewezen werkend)*
+------------------------------------------------------------------------
 
-```python
-#!/usr/bin/env python3
+## OCPP Behavior (Growatt-Specific)
 
-import subprocess
-import json
-import sys
-import os
-from datetime import datetime
+### 1. Automatic (Push)
 
-if len(sys.argv) < 2:
-    print("Usage: pcap_to_ocpp_log.py <file.pcap>")
-    sys.exit(1)
+Sent by THOR without triggers:
 
-PCAP_FILE = sys.argv[1]
-WS_DIR = "/var/log/thor-ocpp/ws"
-os.makedirs(WS_DIR, exist_ok=True)
+-   BootNotification
+-   Heartbeat
+-   StatusNotification
+-   StartTransaction / StopTransaction
+-   DataTransfer: `frozenrecord` (end of session)
 
-base = os.path.basename(PCAP_FILE).replace(".pcap", "")
-OUTPUT_FILE = os.path.join(WS_DIR, f"{base}.ocpp.log")
+------------------------------------------------------------------------
 
-cmd = [
-    "tshark",
-    "-r", PCAP_FILE,
-    "-Y", "tcp.port == 9000",
-    "-T", "fields",
-    "-e", "frame.time_epoch",
-    "-e", "ip.src",
-    "-e", "ip.dst",
-    "-e", "tcp.payload",
-]
+### 2. Triggered (Critical)
 
-proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+These **require explicit triggers**:
 
-with open(OUTPUT_FILE, "w") as out:
-    out.write(f"# OCPP log generated from {PCAP_FILE}\n")
-    out.write("# ==================================================\n\n")
+#### Live Meter Data
 
-    for line in proc.stdout:
-        parts = line.strip().split("\t")
-        if len(parts) < 4:
-            continue
-
-        ts, src, dst, payload_hex = parts
-        if not payload_hex:
-            continue
-
-        try:
-            payload = bytes.fromhex(payload_hex.replace(":", "")).decode("utf-8", errors="ignore")
-        except Exception:
-            continue
-
-        for candidate in payload.split("["):
-            candidate = "[" + candidate
-            try:
-                data = json.loads(candidate)
-            except Exception:
-                continue
-
-            if not isinstance(data, list) or len(data) < 3:
-                continue
-
-            timestamp = datetime.fromtimestamp(float(ts)).isoformat()
-            msg_type = data[0]
-            message_id = data[1]
-
-            out.write(f"\n[{timestamp}] {src} → {dst}\n")
-            out.write(f"Raw messageTypeId: {msg_type}\n")
-
-            if msg_type == 2:
-                out.write(f"OCPP CALL: {data[2]}\n")
-                if len(data) > 3:
-                    out.write("  Payload:\n")
-                    out.write(json.dumps(data[3], indent=2))
-            elif msg_type == 3:
-                out.write("OCPP RESPONSE\n")
-                out.write(json.dumps(data[2], indent=2))
-
-            out.write("\n")
-
-print(f"OCPP log written to {OUTPUT_FILE}")
+``` text
+DataTransfer:
+  vendorId = "Growatt"
+  messageId = "get_external_meterval"
 ```
 
----
+Response:
 
-## 5. Cruciale observaties uit de OCPP logs
+    used=0&wring=1&u-voltage=0&u-current=0&power=0
 
-### 5.1 Wat Growatt **niet** doet
+Without this call → **no live data**
 
-- ❌ Geen `MeterValues`
-- ❌ Geen spontane meetdata
-- ❌ Geen standaard OCPP energy flow
+------------------------------------------------------------------------
 
----
+### 3. Configuration Pull
 
-### 5.2 Wat Growatt **wel** doet (belangrijk!)
-
-#### 🔑 DataTransfer – sleutelmechanisme
-
-```text
-OCPP CALL: DataTransfer
-MessageId: get_external_meterval
-Data: null
+``` text
+GetConfiguration
 ```
 
-➡️ **Hiermee vraagt de server actief meetdata op**
+Returns all Growatt settings including: - G_MaxCurrent -
+G_ExternalLimitPower - G_ExternalLimitPowerEnable - G_ChargerMode -
+G_ServerURL
 
-Dit gebeurt:
-- periodiek
-- bij start/stop transactie
-- na StatusNotification
+------------------------------------------------------------------------
 
----
+## Home Assistant Integration Design
 
-#### 🔧 ChangeConfiguration = beleidssturing
+### Initial Discovery Flow
 
-Voorbeelden:
-- `G_SolarBoost`
-- `G_PeriodTime`
-- `G_OffPeakEnable`
-- `G_ExternalSamplingCurWring`
+On THOR connect:
 
-➡️ Zonder deze instellingen blijft de lader grotendeels stil.
+1.  Trigger StatusNotification
+2.  Trigger get_external_meterval
+3.  GetConfiguration
 
----
+This mirrors Growatt Cloud behavior.
 
-## 6. Gevolgen voor Home Assistant integratie
+------------------------------------------------------------------------
 
-### 6.1 Waarom alleen status werkt
+### Periodic Updates
 
-- `StatusNotification` is standaard OCPP
-- die accepteert de THOR altijd
+  Data            Method             Interval
+  --------------- ------------------ ------------------------------
+  Status          Push               event-based
+  Live power      DataTransfer       **30 seconds (recommended)**
+  Configuration   GetConfiguration   on-demand
 
-### 6.2 Waarom power / current / energy leeg blijven
+------------------------------------------------------------------------
 
-- Growatt gebruikt **geen MeterValues**
-- Meetdata komt alleen na:
+## Configuration Handling
 
-```text
-DataTransfer (get_external_meterval)
+Configuration keys are: - stored in the coordinator - selectively
+exposed as sensors
+
+Initial focus:
+
+  Key                          Meaning
+  ---------------------------- -----------------------------------
+  G_MaxCurrent                 Max current per phase
+  G_ExternalLimitPower         Load balancing limit
+  G_ExternalLimitPowerEnable   Load balancing on/off
+  G_ChargerMode                Charging mode
+  G_ServerURL                  OCPP endpoint (read-only for now)
+
+------------------------------------------------------------------------
+
+## About `G_Authentication = 12345678`
+
+-   NOT an OCPP security key
+-   Used for local authorization (RFID / keypad)
+-   Not required for OCPP server replacement
+-   Safe to ignore in current design
+
+------------------------------------------------------------------------
+
+## Changing Configuration (Future)
+
+OCPP supports:
+
+``` text
+ChangeConfiguration
 ```
 
-➡️ HA moet zich **gedragen als Growatt-server**
+Preliminary conclusions: - THOR accepts changes while connected - AP
+mode is NOT required for most settings - Server URL *may* require
+reconnect/reboot
 
----
+This will be implemented incrementally.
 
-## 7. Wat nu nodig is voor een werkende integratie
+------------------------------------------------------------------------
 
-1. **DataTransfer polling implementeren**
-2. `get_external_meterval` actief sturen
-3. Handshake‑sleutel (`12345678`) gebruiken
-4. Responses parsen → sensoren vullen
-5. ChangeConfiguration bij connect toepassen
+## Goal State
 
----
+✔ Fully local OCPP server\
+✔ No Growatt Cloud dependency\
+✔ HA-native sensors & services\
+✔ Deterministic behavior\
+✔ Extensible configuration control
 
-## 8. Samenvatting
+------------------------------------------------------------------------
 
-- Growatt gebruikt OCPP **transport**, maar eigen **datamodel**
-- Reverse engineering via socat + tcpdump is betrouwbaar
-- Python-decoder is cruciaal (tshark alleen is onvoldoende)
-- De sleutel tot meetdata is `DataTransfer(get_external_meterval)`
+## Status
 
-➡️ Met deze kennis is een **volledig functionele HA-integratie realistisch en haalbaar**.
+Current state: - Live data working - Configuration readable - Trigger
+logic confirmed - Architecture validated
 
----
-
-*Document opgesteld op basis van praktijkanalyse, pcap-onderzoek en live tests met Growatt THOR EV Charger.*
-
+Next steps: - Periodic task scheduler - ChangeConfiguration support -
+Config entities (numbers/switches)
