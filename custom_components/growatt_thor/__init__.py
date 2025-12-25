@@ -45,6 +45,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def handle_refresh(call: ServiceCall) -> None:
         """
         Manually trigger OCPP + Growatt specific updates.
+        Exact volgorde zoals Growatt cloud:
+        1. Status
+        2. External meter values
+        3. Configuration
         """
         cp = hass.data.get(DOMAIN, {}).get("charge_point")
 
@@ -57,20 +61,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.info("Manual Growatt THOR refresh triggered from Home Assistant")
 
         try:
-            # 1️⃣ Exact Growatt-style Status trigger
+            # 1️⃣ StatusNotification
             if hasattr(cp, "trigger_status"):
-                _LOGGER.debug("Triggering StatusNotification (Growatt-style)")
+                _LOGGER.debug("Triggering StatusNotification")
                 await cp.trigger_status()
             else:
                 _LOGGER.warning("ChargePoint has no trigger_status() method")
 
-            # 2️⃣ 🔑 Growatt vendor specific trigger (CRUCIAAL)
+            # 2️⃣ Live Growatt meter values
             if hasattr(cp, "trigger_external_meterval"):
-                _LOGGER.debug("Triggering Growatt external meter value request")
+                _LOGGER.debug("Triggering Growatt external meter values")
                 await cp.trigger_external_meterval()
             else:
                 _LOGGER.warning(
                     "ChargePoint has no trigger_external_meterval() method"
+                )
+
+            # 3️⃣ 🔧 Growatt configuration (load balancing, limits, etc)
+            if hasattr(cp, "trigger_get_configuration"):
+                _LOGGER.debug("Triggering Growatt GetConfiguration")
+                await cp.trigger_get_configuration()
+            else:
+                _LOGGER.warning(
+                    "ChargePoint has no trigger_get_configuration() method"
                 )
 
         except Exception:

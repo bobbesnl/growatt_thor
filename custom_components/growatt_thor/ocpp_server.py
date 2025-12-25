@@ -104,6 +104,7 @@ class GrowattChargePoint(OcppChargePoint):
     async def on_data_transfer(self, vendor_id, message_id=None, data=None, **kwargs):
         if isinstance(data, str) and message_id == "frozenrecord":
             parsed = {k: v[0] for k, v in parse_qs(data).items()}
+            _LOGGER.info("Parsed frozenrecord: %s", parsed)
             self.coordinator.process_frozen_record(parsed)
 
         return call_result.DataTransferPayload(
@@ -115,6 +116,7 @@ class GrowattChargePoint(OcppChargePoint):
     # ─────────────────────────────
 
     async def trigger_status(self):
+        _LOGGER.info("Triggering StatusNotification")
         await self.call(
             call.TriggerMessagePayload(
                 requested_message="StatusNotification",
@@ -123,6 +125,7 @@ class GrowattChargePoint(OcppChargePoint):
         )
 
     async def trigger_external_meterval(self):
+        _LOGGER.info("Triggering Growatt get_external_meterval")
         await self.call(
             call.DataTransferPayload(
                 vendor_id="Growatt",
@@ -130,21 +133,23 @@ class GrowattChargePoint(OcppChargePoint):
             )
         )
 
-async def trigger_get_configuration(self):
-    """
-    Haalt Growatt configuratie op.
-    Let op: response komt ALS CALL RESULT, niet via @on()
-    """
-    _LOGGER.info("Triggering GetConfiguration (Growatt)")
+    async def trigger_get_configuration(self):
+        """
+        Haalt Growatt configuratie op.
+        RESPONSE komt als CallResult, niet via @on()
+        """
+        _LOGGER.info("Triggering GetConfiguration")
 
-    result = await self.call(
-        call.GetConfigurationPayload()
-    )
+        result = await self.call(
+            call.GetConfigurationPayload()
+        )
 
-    config = result.get("configurationKey", [])
-    _LOGGER.info("Received %d configuration keys", len(config))
+        config = result.get("configurationKey", [])
+        _LOGGER.info("Received %d configuration keys", len(config))
+        _LOGGER.debug("Full configuration payload: %s", config)
 
-    self.coordinator.process_configuration(config)
+        # Nog geen parsing — eerst zichtbaarheid
+        # self.coordinator.process_configuration(config)
 
 
 # ─────────────────────────────
@@ -157,6 +162,8 @@ async def _on_connect(websocket, path, coordinator, hass):
         return
 
     cp_id = path.rstrip("/").split("/")[-1]
+    _LOGGER.info("THOR connected: %s", cp_id)
+
     cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
 
     try:
@@ -167,6 +174,7 @@ async def _on_connect(websocket, path, coordinator, hass):
 
 
 async def start_ocpp_server(host, port, coordinator, hass):
+    _LOGGER.info("Starting OCPP server on %s:%s", host, port)
     return await serve(
         lambda ws, path: _on_connect(ws, path, coordinator, hass),
         host,
