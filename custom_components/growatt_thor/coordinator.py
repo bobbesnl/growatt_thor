@@ -17,34 +17,25 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.transaction_id = None
         self.id_tag = None
 
-        # Live metingen
-        self.power = None       # W
-        self.energy = None      # Wh
+        # ── Totaal ─────────────────────────
+        self.power = None        # W (som van fases)
+        self.energy = None       # Wh
 
-        # Fase-specifiek live metingen (worden iedere 2 minuten vertuurd vanuit THOR tijdens laden)
-        self.current_l1 = None
-        self.current_l2 = None
-        self.current_l3 = None
+        # ── Fase-specifiek ─────────────────
+        self.currents = {}       # {"L1": A, "L2": A, "L3": A}
+        self.voltages = {}       # {"L1": V, "L2": V, "L3": V}
+        self.phase_power = {}    # {"L1": W, "L2": W, "L3": W}
 
-        self.voltage_l1 = None
-        self.voltage_l2 = None
-        self.voltage_l3 = None
+        self.temperature = None  # °C
 
-        self.power_l1 = None
-        self.power_l2 = None
-        self.power_l3 = None
+        # ── Config (Growatt) ───────────────
+        self.max_current = None
+        self.external_limit_power = None
+        self.external_limit_power_enable = None
+        self.charger_mode = None
+        self.server_url = None
 
-        self.temperature = None
-
-
-        # Config (beperkt, bewust)
-        self.max_current = None                     # G_MaxCurrent
-        self.external_limit_power = None            # G_ExternalLimitPower
-        self.external_limit_power_enable = None     # G_ExternalLimitPowerEnable
-        self.charger_mode = None                    # G_ChargerMode
-        self.server_url = None                      # G_ServerURL
-
-        # Laatste sessie
+        # ── Laatste sessie ─────────────────
         self.last_session_energy = None
         self.last_session_cost = None
         self.charge_mode = None
@@ -62,7 +53,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
     def set_status(self, status):
         value = status.value if hasattr(status, "value") else str(status)
         if self.status != value:
-            _LOGGER.info("Status changed: %s → %s", self.status, value)
             self.status = value
             self.async_set_updated_data(True)
 
@@ -88,53 +78,32 @@ class GrowattCoordinator(DataUpdateCoordinator):
             for sample in entry.get("sampledValue", []):
                 try:
                     value = float(sample.get("value"))
-                except Exception:
+                except (TypeError, ValueError):
                     continue
 
                 measurand = sample.get("measurand")
                 phase = sample.get("phase")
 
-                # Energie (totaal)
+                # Energie totaal
                 if measurand == "Energy.Active.Import.Register":
                     if self.energy != value:
                         self.energy = value
                         updated = True
 
                 # Vermogen per fase
-                elif measurand == "Power.Active.Import":
-                    if phase == "L1" and self.power_l1 != value:
-                        self.power_l1 = value
-                        updated = True
-                    elif phase == "L2" and self.power_l2 != value:
-                        self.power_l2 = value
-                        updated = True
-                    elif phase == "L3" and self.power_l3 != value:
-                        self.power_l3 = value
-                        updated = True
+                elif measurand == "Power.Active.Import" and phase:
+                    self.phase_power[phase] = value
+                    updated = True
 
                 # Stroom per fase
-                elif measurand == "Current.Import":
-                    if phase == "L1" and self.current_l1 != value:
-                        self.current_l1 = value
-                        updated = True
-                    elif phase == "L2" and self.current_l2 != value:
-                        self.current_l2 = value
-                        updated = True
-                    elif phase == "L3" and self.current_l3 != value:
-                        self.current_l3 = value
-                        updated = True
+                elif measurand == "Current.Import" and phase:
+                    self.currents[phase] = value
+                    updated = True
 
                 # Spanning per fase
-                elif measurand == "Voltage":
-                    if phase == "L1" and self.voltage_l1 != value:
-                        self.voltage_l1 = value
-                        updated = True
-                    elif phase == "L2" and self.voltage_l2 != value:
-                        self.voltage_l2 = value
-                        updated = True
-                    elif phase == "L3" and self.voltage_l3 != value:
-                        self.voltage_l3 = value
-                        updated = True
+                elif measurand == "Voltage" and phase:
+                    self.voltages[phase] = value
+                    updated = True
 
                 # Temperatuur
                 elif measurand == "Temperature":
@@ -142,12 +111,18 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         self.temperature = value
                         updated = True
 
+        # Totaal vermogen = som fases
+        if self.phase_power:
+            total = sum(self.phase_power.values())
+            if self.power != total:
+                self.power = total
+                updated = True
+
         if updated:
             self.async_set_updated_data(True)
 
-
     # ─────────────────────────────
-    #  GetConfiguration verwerking (beperkt)
+    # GetConfiguration verwerking
     # ─────────────────────────────
 
     def process_configuration(self, configuration: list):
@@ -191,7 +166,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 _LOGGER.warning("Failed to parse config %s=%s (%s)", key, raw, exc)
 
         if updated:
-            _LOGGER.info("Growatt configuration updated")
             self.async_set_updated_data(True)
 
     # ─────────────────────────────
