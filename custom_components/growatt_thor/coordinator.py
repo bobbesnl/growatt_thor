@@ -21,7 +21,23 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.power = None       # W
         self.energy = None      # Wh
 
-        # 🔑 Config (beperkt, bewust)
+	# Fase-specifiek live metingen (worden iedere 2 minuten vertuurd vanuit THOR tijdens laden)
+	self.current_l1 = None
+	self.current_l2 = None
+	self.current_l3 = None
+
+	self.voltage_l1 = None
+	self.voltage_l2 = None
+	self.voltage_l3 = None
+
+	self.power_l1 = None
+	self.power_l2 = None
+	self.power_l3 = None
+
+	self.temperature = None
+
+
+        # Config (beperkt, bewust)
         self.max_current = None                     # G_MaxCurrent
         self.external_limit_power = None            # G_ExternalLimitPower
         self.external_limit_power_enable = None     # G_ExternalLimitPowerEnable
@@ -76,22 +92,62 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     continue
 
                 measurand = sample.get("measurand")
+                phase = sample.get("phase")
 
-                if measurand == "Power.Active.Import":
-                    if self.power != value:
-                        self.power = value
-                        updated = True
-
-                elif measurand == "Energy.Active.Import.Register":
+                # Energie (totaal)
+                if measurand == "Energy.Active.Import.Register":
                     if self.energy != value:
                         self.energy = value
+                        updated = True
+
+                # Vermogen per fase
+                elif measurand == "Power.Active.Import":
+                    if phase == "L1" and self.power_l1 != value:
+                        self.power_l1 = value
+                        updated = True
+                    elif phase == "L2" and self.power_l2 != value:
+                        self.power_l2 = value
+                        updated = True
+                    elif phase == "L3" and self.power_l3 != value:
+                        self.power_l3 = value
+                        updated = True
+
+                # Stroom per fase
+                elif measurand == "Current.Import":
+                    if phase == "L1" and self.current_l1 != value:
+                        self.current_l1 = value
+                        updated = True
+                    elif phase == "L2" and self.current_l2 != value:
+                        self.current_l2 = value
+                        updated = True
+                    elif phase == "L3" and self.current_l3 != value:
+                        self.current_l3 = value
+                        updated = True
+
+                # Spanning per fase
+                elif measurand == "Voltage":
+                    if phase == "L1" and self.voltage_l1 != value:
+                        self.voltage_l1 = value
+                        updated = True
+                    elif phase == "L2" and self.voltage_l2 != value:
+                        self.voltage_l2 = value
+                        updated = True
+                    elif phase == "L3" and self.voltage_l3 != value:
+                        self.voltage_l3 = value
+                        updated = True
+
+                # Temperatuur
+                elif measurand == "Temperature":
+                    if self.temperature != value:
+                        self.temperature = value
                         updated = True
 
         if updated:
             self.async_set_updated_data(True)
 
+
     # ─────────────────────────────
-    # 🔑 GetConfiguration verwerking (beperkt)
+    #  GetConfiguration verwerking (beperkt)
     # ─────────────────────────────
 
     def process_configuration(self, configuration: list):
