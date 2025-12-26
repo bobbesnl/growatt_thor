@@ -1,0 +1,491 @@
+# OCPP log generated from /var/log/thor-ocpp/raw/ocpp-2025-12-24.pcap
+# ==================================================
+
+
+[2025-12-24T21:52:46.098628] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "currentTime": "2025-12-24T20:52:46Z",
+  "interval": 1,
+  "status": "Accepted"
+}
+
+[2025-12-24T21:52:46.316196] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "currentTime": "2025-12-24T20:52:46Z",
+  "interval": 1,
+  "status": "Accepted"
+}
+
+[2025-12-24T21:52:46.345171] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: GetConfiguration
+  Payload:
+{
+  "key": [
+    "G_ServerURL"
+  ]
+}
+
+[2025-12-24T21:52:46.500837] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T21:52:46.722695] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "currentTime": "2025-12-24T20:52:46Z",
+  "status": "Accepted"
+}
+
+[2025-12-24T21:52:47.148130] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "currentTime": "2025-12-24T20:52:46Z",
+  "status": "Accepted"
+}
+
+[2025-12-24T21:53:31.334419] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T21:53:33.970141] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T21:53:44.209249] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T21:53:44.688187] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T21:53:54.020454] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T21:54:04.021278] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T21:54:14.012718] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T21:54:24.094238] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T21:59:00.610496] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "currentTime": "2025-12-24T20:59:00Z",
+  "interval": 1,
+  "status": "Accepted"
+}
+
+[2025-12-24T21:59:00.824177] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "currentTime": "2025-12-24T20:59:00Z",
+  "interval": 1,
+  "status": "Accepted"
+}
+
+[2025-12-24T21:59:00.903424] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: GetConfiguration
+  Payload:
+{
+  "key": [
+    "G_ServerURL"
+  ]
+}
+
+[2025-12-24T21:59:01.210584] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T21:59:01.580181] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T21:59:02.145624] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "currentTime": "2025-12-24T20:59:02Z",
+  "status": "Accepted"
+}
+
+[2025-12-24T22:02:08.596095] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T22:02:11.691348] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T22:02:21.037480] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "idTagInfo": {
+    "status": "Accepted"
+  },
+  "transactionId": 1981894
+}
+
+[2025-12-24T22:02:21.521789] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T22:02:21.849253] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T22:02:45.850383] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: GetConfiguration
+  Payload:
+{}
+
+[2025-12-24T22:02:46.083591] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: GetConfiguration
+  Payload:
+{
+  "key": [
+    "G_RFEnable"
+  ]
+}
+
+[2025-12-24T22:02:50.850841] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: GetConfiguration
+  Payload:
+{
+  "key": [
+    "G_ChargerNetDNS",
+    "G_ChargerNetMask",
+    "G_ChargerNetMac",
+    "G_ChargerNetGateway",
+    "G_MeterValueInterval",
+    "G_PowerMeterType",
+    "G_PowerMeterAddr",
+    "UnlockConnectorOnEVSideDisconnect",
+    "G_WifiSSID",
+    "G_WifiPassword",
+    "G_LowPowerReserveEnable",
+    "G_NetworkMode",
+    "G_TimeZone",
+    "G_DaylightSavingTime",
+    "G_PeriodTime",
+    "G_OffPeakTime",
+    "G_OffPeakEnable",
+    "G_OffPeakCurr",
+    "G_4GUserName",
+    "G_4GPassword",
+    "G_4GAPN",
+    "G_SolarBoost",
+    "G_SolarThresholdCurr",
+    "G_WorkingMode",
+    "LightIntensity",
+    "G_DRM3Percentage",
+    "G_DRM4Percentage"
+  ]
+}
+
+[2025-12-24T22:02:50.850841] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: TriggerMessage
+  Payload:
+{
+  "requestedMessage": "BootNotification"
+}
+
+[2025-12-24T22:02:52.232962] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "currentTime": "2025-12-24T21:02:52Z",
+  "interval": 1,
+  "status": "Accepted"
+}
+
+[2025-12-24T22:02:52.563678] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: GetConfiguration
+  Payload:
+{
+  "key": [
+    "G_ServerURL"
+  ]
+}
+
+[2025-12-24T22:03:24.179324] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: TriggerMessage
+  Payload:
+{
+  "connectorId": 1,
+  "requestedMessage": "StatusNotification"
+}
+
+[2025-12-24T22:03:24.551854] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: DataTransfer
+  Vendor: None
+  MessageId: get_external_meterval
+  Data:
+null
+
+[2025-12-24T22:03:24.795382] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T22:03:45.001390] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: RemoteStopTransaction
+  Payload:
+{
+  "transactionId": 1981894
+}
+
+[2025-12-24T22:03:45.288711] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T22:03:46.156101] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T22:03:46.863264] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: DataTransfer
+  Vendor: None
+  MessageId: get_external_meterval
+  Data:
+null
+
+[2025-12-24T22:03:48.588200] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: DataTransfer
+  Vendor: None
+  MessageId: get_external_meterval
+  Data:
+null
+
+[2025-12-24T22:03:50.937518] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "idTagInfo": {
+    "status": "Accepted"
+  }
+}
+
+[2025-12-24T22:03:51.253258] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T22:03:52.076118] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T22:03:52.147250] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 3
+OCPP RESPONSE
+{
+  "status": "Accepted"
+}
+
+[2025-12-24T22:04:06.847780] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: DataTransfer
+  Vendor: None
+  MessageId: get_external_meterval
+  Data:
+null
+
+[2025-12-24T22:04:17.171204] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: DataTransfer
+  Vendor: None
+  MessageId: get_external_meterval
+  Data:
+null
+
+[2025-12-24T22:04:19.319264] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: DataTransfer
+  Vendor: None
+  MessageId: get_external_meterval
+  Data:
+null
+
+[2025-12-24T22:04:21.518722] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: DataTransfer
+  Vendor: None
+  MessageId: get_external_meterval
+  Data:
+null
+
+[2025-12-24T22:04:47.432261] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: ChangeConfiguration
+  Payload:
+{
+  "value": "1",
+  "key": "G_ExternalSamplingCurWring"
+}
+
+[2025-12-24T22:04:48.433113] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: ChangeConfiguration
+  Payload:
+{
+  "value": "1&Disable",
+  "key": "G_SolarBoost"
+}
+
+[2025-12-24T22:04:49.436822] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: ChangeConfiguration
+  Payload:
+{
+  "value": "1&1",
+  "key": "G_SolarMode"
+}
+
+[2025-12-24T22:04:50.447489] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: ChangeConfiguration
+  Payload:
+{
+  "value": "1.4",
+  "key": "G_SolarLimitPower"
+}
+
+[2025-12-24T22:05:00.780317] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: TriggerMessage
+  Payload:
+{
+  "connectorId": 1,
+  "requestedMessage": "StatusNotification"
+}
+
+[2025-12-24T22:05:28.830986] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: ChangeConfiguration
+  Payload:
+{
+  "value": "1&Enable",
+  "key": "G_OffPeakEnable"
+}
+
+[2025-12-24T22:05:30.835608] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: ChangeConfiguration
+  Payload:
+{
+  "value": "1&time1=00:00-23:59",
+  "key": "G_PeriodTime"
+}
+
+[2025-12-24T22:05:36.015442] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: RemoteStopTransaction
+  Payload:
+{
+  "transactionId": 1981894
+}
+
+[2025-12-24T22:05:46.342934] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: GetConfiguration
+  Payload:
+{
+  "key": [
+    "G_ExternalLimitPowerEnable"
+  ]
+}
+
+[2025-12-24T22:05:46.342934] 192.168.1.100 → 192.168.1.38
+Raw messageTypeId: 2
+OCPP CALL: ChangeConfiguration
+  Payload:
+{
+  "value": "1&0",
+  "key": "G_SolarMode"
+}
