@@ -21,20 +21,20 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.power = None       # W
         self.energy = None      # Wh
 
-    # Fase-specifiek live metingen (worden iedere 2 minuten vertuurd vanuit THOR tijdens laden)
-    self.current_l1 = None
-    self.current_l2 = None
-    self.current_l3 = None
+        # Fase-specifiek live metingen (worden iedere 2 minuten vertuurd vanuit THOR tijdens laden)
+        self.current_l1 = None
+        self.current_l2 = None
+        self.current_l3 = None
 
-    self.voltage_l1 = None
-    self.voltage_l2 = None
-    self.voltage_l3 = None
+        self.voltage_l1 = None
+        self.voltage_l2 = None
+        self.voltage_l3 = None
 
-    self.power_l1 = None
-    self.power_l2 = None
-    self.power_l3 = None
+        self.power_l1 = None
+        self.power_l2 = None
+        self.power_l3 = None
 
-    self.temperature = None
+        self.temperature = None
 
 
         # Config (beperkt, bewust)
