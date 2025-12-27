@@ -3,17 +3,14 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Callable, Awaitable
+from typing import Any, Optional
 
 from websockets.server import serve
-from websockets.legacy.server import WebSocketServerProtocol
 
 from ocpp.v16 import ChargePoint as OcppChargePoint
 from ocpp.v16.enums import RegistrationStatus, AuthorizationStatus
 from ocpp.v16 import call_result
 from ocpp.routing import on
-
-from homeassistant.core import HomeAssistant
 
 from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
 
@@ -23,16 +20,17 @@ _LOGGER = logging.getLogger(__name__)
 class GrowattChargePoint(OcppChargePoint):
     """OCPP 1.6j ChargePoint implementation for Growatt THOR."""
 
-    def __init__(self, cp_id: str, websocket: WebSocketServerProtocol, coordinator: Any) -> None:
+    def __init__(self, cp_id, websocket, coordinator):
         """Initialize charge point wrapper."""
         super().__init__(cp_id, websocket)
         self.coordinator = coordinator
         self.coordinator.set_charge_point(cp_id)
-        self._transaction_id: Optional[int] = None
+        self._transaction_id = None
 
     # 🔹 Boot
     @on("BootNotification")
-    async def on_boot_notification(self, **kwargs: Any) -> call_result.BootNotificationPayload:
+    async def on_boot_notification(self, **kwargs):
+        """Handle BootNotification from charger."""
         _LOGGER.info(
             "BootNotification from %s (vendor=%s model=%s fw=%s serial=%s)",
             self.id,
@@ -50,7 +48,8 @@ class GrowattChargePoint(OcppChargePoint):
 
     # 🔹 Heartbeat
     @on("Heartbeat")
-    async def on_heartbeat(self, **kwargs: Any) -> call_result.HeartbeatPayload:
+    async def on_heartbeat(self, **kwargs):
+        """Handle Heartbeat from charger."""
         _LOGGER.debug("Heartbeat from %s", self.id)
         return call_result.HeartbeatPayload(
             currentTime=self.coordinator.now()
@@ -60,12 +59,13 @@ class GrowattChargePoint(OcppChargePoint):
     @on("StatusNotification")
     async def on_status_notification(
         self,
-        connectorId: int,
-        status: str,
-        errorCode: str,
-        timestamp: Optional[str] = None,
-        **kwargs: Any,
-    ) -> call_result.StatusNotificationPayload:
+        connectorId,
+        status,
+        errorCode,
+        timestamp=None,
+        **kwargs
+    ):
+        """Handle StatusNotification from charger."""
         _LOGGER.info(
             "StatusNotification %s: connector=%s status=%s error=%s",
             self.id,
@@ -78,7 +78,8 @@ class GrowattChargePoint(OcppChargePoint):
 
     # 🔹 Authorize
     @on("Authorize")
-    async def on_authorize(self, idTag: str, **kwargs: Any) -> call_result.AuthorizePayload:
+    async def on_authorize(self, idTag, **kwargs):
+        """Handle Authorize request from charger."""
         _LOGGER.info("Authorize request from %s idTag=%s", self.id, idTag)
 
         return call_result.AuthorizePayload(
@@ -89,12 +90,13 @@ class GrowattChargePoint(OcppChargePoint):
     @on("StartTransaction")
     async def on_start_transaction(
         self,
-        connectorId: int,
-        idTag: str,
-        meterStart: int,
-        timestamp: str,
-        **kwargs: Any,
-    ) -> call_result.StartTransactionPayload:
+        connectorId,
+        idTag,
+        meterStart,
+        timestamp,
+        **kwargs
+    ):
+        """Handle StartTransaction from charger."""
         # Local transaction id for HA-side
         self._transaction_id = int(datetime.now().timestamp())
         _LOGGER.info(
@@ -117,12 +119,13 @@ class GrowattChargePoint(OcppChargePoint):
     @on("StopTransaction")
     async def on_stop_transaction(
         self,
-        transactionId: int,
-        meterStop: int,
-        timestamp: str,
-        reason: Optional[str] = None,
-        **kwargs: Any,
-    ) -> call_result.StopTransactionPayload:
+        transactionId,
+        meterStop,
+        timestamp,
+        reason=None,
+        **kwargs
+    ):
+        """Handle StopTransaction from charger."""
         _LOGGER.info(
             "StopTransaction %s: transactionId=%s meterStop=%s reason=%s",
             self.id,
@@ -137,15 +140,16 @@ class GrowattChargePoint(OcppChargePoint):
 
         return call_result.StopTransactionPayload()
 
-    # 🔹 MeterValues (not commonly used by Growatt, but kept for compatibility)
+    # 🔹 MeterValues
     @on("MeterValues")
     async def on_meter_values(
         self,
-        connectorId: int,
-        meterValue: List[Dict[str, Any]],
-        transactionId: Optional[int] = None,
-        **kwargs: Any,
-    ) -> call_result.MeterValuesPayload:
+        connectorId,
+        meterValue,
+        transactionId=None,
+        **kwargs
+    ):
+        """Handle MeterValues from charger."""
         self.coordinator.process_meter_values(meterValue)
         return call_result.MeterValuesPayload()
 
@@ -153,11 +157,12 @@ class GrowattChargePoint(OcppChargePoint):
     @on("DataTransfer")
     async def on_data_transfer(
         self,
-        vendorId: str,
-        messageId: Optional[str] = None,
-        data: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
-    ) -> call_result.DataTransferPayload:
+        vendorId,
+        messageId=None,
+        data=None,
+        **kwargs
+    ):
+        """Handle DataTransfer from charger (Growatt vendor-specific)."""
         _LOGGER.debug(
             "DataTransfer from %s vendor=%s messageId=%s data=%s",
             self.id,
@@ -166,7 +171,7 @@ class GrowattChargePoint(OcppChargePoint):
             data,
         )
 
-        # Doorzetten naar coordinator voor verdere verwerking
+        # Process based on messageId
         try:
             if messageId == "frozenrecord" and data:
                 self.coordinator.process_frozen_record(data)
@@ -180,33 +185,25 @@ class GrowattChargePoint(OcppChargePoint):
         return call_result.DataTransferPayload(status="Accepted")
 
     # ──────────────────────────────────────────────
-    # Helper triggers used by HA service
+    # Helper triggers for HA service
     # ──────────────────────────────────────────────
 
-    async def trigger_status(self) -> None:
-        """Trigger a StatusNotification-like update (if supported via DataTransfer later)."""
-        # Placeholder for future Growatt-specific polling via DataTransfer
+    async def trigger_status(self):
+        """Trigger StatusNotification update."""
         _LOGGER.debug("trigger_status() called - not yet implemented")
 
-    async def trigger_external_meterval(self) -> None:
-        """Trigger external meter value retrieval via vendor-specific DataTransfer."""
+    async def trigger_external_meterval(self):
+        """Trigger external meter values via DataTransfer."""
         _LOGGER.debug("trigger_external_meterval() called - not yet implemented")
 
-    async def trigger_get_configuration(self) -> None:
-        """Trigger GetConfiguration-like behavior via vendor-specific DataTransfer."""
+    async def trigger_get_configuration(self):
+        """Trigger GetConfiguration via DataTransfer."""
         _LOGGER.debug("trigger_get_configuration() called - not yet implemented")
 
 
-async def _on_connect(
-    websocket: WebSocketServerProtocol,
-    path: str,
-    coordinator: Any,
-    hass: HomeAssistant,
-) -> None:
+async def _on_connect(websocket, path, coordinator, hass):
     """Handle incoming WebSocket OCPP connections."""
-    from .const import DEFAULT_PATH as CP_PATH  # avoid circular import
-
-    if not path.startswith(CP_PATH):
+    if not path.startswith(DEFAULT_PATH):
         _LOGGER.warning("Rejected connection on unexpected path: %s", path)
         await websocket.close()
         return
@@ -218,7 +215,7 @@ async def _on_connect(
 
     charge_point = GrowattChargePoint(cp_id, websocket, coordinator)
 
-    # Bewaar charge_point zodat HA-services hem kunnen gebruiken
+    # Store charge_point for HA services
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["charge_point"] = charge_point
 
@@ -228,12 +225,7 @@ async def _on_connect(
         _LOGGER.exception("OCPP session error for %s: %s", cp_id, err)
 
 
-async def start_ocpp_server(
-    host: str,
-    port: int,
-    coordinator: Any,
-    hass: HomeAssistant,
-):
+async def start_ocpp_server(host, port, coordinator, hass):
     """Start the OCPP WebSocket server for Growatt THOR."""
     _LOGGER.info("Starting OCPP server on %s:%s%s", host, port, DEFAULT_PATH)
 
