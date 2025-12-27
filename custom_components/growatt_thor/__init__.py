@@ -41,9 +41,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     async def periodic_external_meter_poll():
         """Poll external meter values every 30 seconds."""
+        # ✅ FIX: Eerste delay VOOR de loop zodat startup niet blokkeert
+        await asyncio.sleep(30)
+        
         while True:
-            await asyncio.sleep(30)
-            
             charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
             if charge_point:
                 try:
@@ -51,10 +52,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     await charge_point.trigger_external_meterval()
                 except Exception as exc:
                     _LOGGER.warning("Failed to trigger external meter values: %s", exc)
+            
+            # Wacht 30s voor volgende poll
+            await asyncio.sleep(30)
     
-    # Start periodic task
-    hass.data[DOMAIN]["polling_task"] = hass.async_create_task(
-        periodic_external_meter_poll()
+    # Start periodic task (nu NON-BLOCKING)
+    hass.data[DOMAIN]["polling_task"] = hass.async_create_background_task(
+        periodic_external_meter_poll(),
+        name="growatt_thor_periodic_poll"
     )
     
     # ─────────────────────────────
@@ -101,6 +106,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     polling_task = hass.data.get(DOMAIN, {}).get("polling_task")
     if polling_task:
         polling_task.cancel()
+        try:
+            await polling_task
+        except asyncio.CancelledError:
+            pass
     
     # Unload platforms
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

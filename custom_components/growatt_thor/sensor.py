@@ -89,7 +89,7 @@ class BaseGridSensor(CoordinatorEntity, SensorEntity):
             "name": "Growatt THOR Grid Connection",
             "manufacturer": "Growatt",
             "model": "External Meter",
-            "via_device": (DOMAIN, entry.entry_id),  # Link naar hoofddevice
+            "via_device": (DOMAIN, entry.entry_id),
         }
 
 
@@ -253,13 +253,14 @@ class TemperatureSensor(BaseSensor):
 
 class GridPowerSensor(BaseGridSensor):
     _attr_name = "Power"
-    _attr_unit_of_measurement = UnitOfPower.WATT
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:transmission-tower"
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "power")
+        # ✅ FIX: Unit of measurement MOET in __init__ gezet worden
+        self._attr_unit_of_measurement = UnitOfPower.WATT
 
     @property
     def native_value(self):
@@ -267,7 +268,6 @@ class GridPowerSensor(BaseGridSensor):
 
 
 class GridVoltageSensor(BaseGridSensor):
-    _attr_unit_of_measurement = UnitOfElectricPotential.VOLT
     _attr_device_class = SensorDeviceClass.VOLTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:transmission-tower"
@@ -276,6 +276,8 @@ class GridVoltageSensor(BaseGridSensor):
         self.phase = phase
         self._attr_name = f"Voltage {phase}"
         super().__init__(coordinator, entry, f"voltage_{phase.lower()}")
+        # ✅ FIX: Unit of measurement MOET in __init__ gezet worden
+        self._attr_unit_of_measurement = UnitOfElectricPotential.VOLT
 
     @property
     def native_value(self):
@@ -283,7 +285,6 @@ class GridVoltageSensor(BaseGridSensor):
 
 
 class GridCurrentSensor(BaseGridSensor):
-    _attr_unit_of_measurement = UnitOfElectricCurrent.AMPERE
     _attr_device_class = SensorDeviceClass.CURRENT
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:transmission-tower"
@@ -292,6 +293,8 @@ class GridCurrentSensor(BaseGridSensor):
         self.phase = phase
         self._attr_name = f"Current {phase}"
         super().__init__(coordinator, entry, f"current_{phase.lower()}")
+        # ✅ FIX: Unit of measurement MOET in __init__ gezet worden
+        self._attr_unit_of_measurement = UnitOfElectricCurrent.AMPERE
 
     @property
     def native_value(self):
