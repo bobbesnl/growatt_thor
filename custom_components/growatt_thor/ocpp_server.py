@@ -1,15 +1,14 @@
-"""OCPP Server implementation for Growatt THOR."""
-from __future__ import annotations
-
 import logging
-from datetime import datetime
-from typing import Any, Optional
-
+from urllib.parse import parse_qs
 from websockets.server import serve
 
 from ocpp.v16 import ChargePoint as OcppChargePoint
-from ocpp.v16.enums import RegistrationStatus, AuthorizationStatus
-from ocpp.v16 import call_result
+from ocpp.v16 import call_result, call
+from ocpp.v16.enums import (
+    RegistrationStatus,
+    AuthorizationStatus,
+    DataTransferStatus,
+)
 from ocpp.routing import on
 
 from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
@@ -18,223 +17,182 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class GrowattChargePoint(OcppChargePoint):
-    """OCPP 1.6j ChargePoint implementation for Growatt THOR."""
+    """
+    Growatt THOR OCPP 1.6 Charge Point
+    """
 
-    def __init__(self, cp_id, websocket, coordinator):
-        """Initialize charge point wrapper."""
+    def __init__(self, cp_id, websocket, coordinator, hass):
         super().__init__(cp_id, websocket)
-        self.coordinator = coordinator
-        self.coordinator.set_charge_point(cp_id)
-        self._transaction_id = None
 
-    # 🔹 Boot
+        self.coordinator = coordinator
+        self.hass = hass
+        self._transaction_id = 1
+
+        hass.data.setdefault(DOMAIN, {})
+        hass.data[DOMAIN]["charge_point"] = self
+
+        self.coordinator.set_charge_point(cp_id)
+        _LOGGER.info("GrowattChargePoint initialised for %s", cp_id)
+
+    # ─────────────────────────────
+    # Boot / keepalive
+    # ─────────────────────────────
+
     @on("BootNotification")
-    async def on_boot_notification(self, **kwargs):
-        """Handle BootNotification from charger."""
-        _LOGGER.info(
-            "BootNotification from %s (vendor=%s model=%s fw=%s serial=%s)",
-            self.id,
-            kwargs.get("chargePointVendor"),
-            kwargs.get("chargePointModel"),
-            kwargs.get("firmwareVersion"),
-            kwargs.get("serialNumber"),
-        )
+    async def on_boot_notification(self, **payload):
+        _LOGGER.info("BootNotification payload: %s", payload)
+
+        # 🔑 NA succesvolle boot: automatisch config ophalen
+        self.hass.async_create_task(self.trigger_get_configuration())
 
         return call_result.BootNotificationPayload(
-            currentTime=self.coordinator.now(),
+            current_time=self.coordinator.now(),
             interval=60,
             status=RegistrationStatus.accepted,
         )
 
-    # 🔹 Heartbeat
     @on("Heartbeat")
-    async def on_heartbeat(self, **kwargs):
-        """Handle Heartbeat from charger."""
-        _LOGGER.debug("Heartbeat from %s", self.id)
+    async def on_heartbeat(self, **payload):
         return call_result.HeartbeatPayload(
-            currentTime=self.coordinator.now()
+            current_time=self.coordinator.now()
         )
 
-    # 🔹 Status
-    @on("StatusNotification")
-    async def on_status_notification(
-        self,
-        connectorId,
-        status,
-        errorCode,
-        timestamp=None,
-        **kwargs
-    ):
-        """Handle StatusNotification from charger."""
-        _LOGGER.info(
-            "StatusNotification %s: connector=%s status=%s error=%s",
-            self.id,
-            connectorId,
-            status,
-            errorCode,
+    # ─────────────────────────────
+    # Transactions
+    # ─────────────────────────────
+
+    @on("Authorize")
+    async def on_authorize(self, id_tag, **kwargs):
+        return call_result.AuthorizePayload(
+            id_tag_info={"status": AuthorizationStatus.accepted}
         )
+
+    @on("StartTransaction")
+    async def on_start_transaction(self, connector_id, id_tag, meter_start, **kwargs):
+        transaction_id = self._transaction_id
+        self._transaction_id += 1
+
+        self.coordinator.start_transaction(transaction_id, id_tag)
+
+        return call_result.StartTransactionPayload(
+            transaction_id=transaction_id,
+            id_tag_info={"status": AuthorizationStatus.accepted},
+        )
+
+    @on("StopTransaction")
+    async def on_stop_transaction(self, transaction_id, meter_stop, reason=None, **kwargs):
+        self.coordinator.stop_transaction(reason)
+        return call_result.StopTransactionPayload(
+            id_tag_info={"status": AuthorizationStatus.accepted}
+        )
+
+    # ─────────────────────────────
+    # Status & Metering
+    # ─────────────────────────────
+
+    @on("StatusNotification")
+    async def on_status_notification(self, connector_id, status, error_code=None, **kwargs):
         self.coordinator.set_status(status)
         return call_result.StatusNotificationPayload()
 
-    # 🔹 Authorize
-    @on("Authorize")
-    async def on_authorize(self, idTag, **kwargs):
-        """Handle Authorize request from charger."""
-        _LOGGER.info("Authorize request from %s idTag=%s", self.id, idTag)
-
-        return call_result.AuthorizePayload(
-            idTagInfo={"status": AuthorizationStatus.accepted}
-        )
-
-    # 🔹 StartTransaction
-    @on("StartTransaction")
-    async def on_start_transaction(
-        self,
-        connectorId,
-        idTag,
-        meterStart,
-        timestamp,
-        **kwargs
-    ):
-        """Handle StartTransaction from charger."""
-        # Local transaction id for HA-side
-        self._transaction_id = int(datetime.now().timestamp())
-        _LOGGER.info(
-            "StartTransaction %s: connector=%s idTag=%s meterStart=%s",
-            self.id,
-            connectorId,
-            idTag,
-            meterStart,
-        )
-
-        # Inform coordinator
-        self.coordinator.start_transaction(self._transaction_id, idTag)
-
-        return call_result.StartTransactionPayload(
-            transactionId=self._transaction_id,
-            idTagInfo={"status": AuthorizationStatus.accepted},
-        )
-
-    # 🔹 StopTransaction
-    @on("StopTransaction")
-    async def on_stop_transaction(
-        self,
-        transactionId,
-        meterStop,
-        timestamp,
-        reason=None,
-        **kwargs
-    ):
-        """Handle StopTransaction from charger."""
-        _LOGGER.info(
-            "StopTransaction %s: transactionId=%s meterStop=%s reason=%s",
-            self.id,
-            transactionId,
-            meterStop,
-            reason,
-        )
-        self._transaction_id = None
-
-        # Inform coordinator
-        self.coordinator.stop_transaction(reason)
-
-        return call_result.StopTransactionPayload()
-
-    # 🔹 MeterValues
     @on("MeterValues")
-    async def on_meter_values(
-        self,
-        connectorId,
-        meterValue,
-        transactionId=None,
-        **kwargs
-    ):
-        """Handle MeterValues from charger."""
-        self.coordinator.process_meter_values(meterValue)
+    async def on_meter_values(self, connector_id, meter_value, **kwargs):
+        self.coordinator.process_meter_values(meter_value)
         return call_result.MeterValuesPayload()
 
-    # 🔹 DataTransfer (Growatt specific)
+    # ─────────────────────────────
+    # Growatt vendor DataTransfer
+    # ─────────────────────────────
+
     @on("DataTransfer")
-    async def on_data_transfer(
-        self,
-        vendorId,
-        messageId=None,
-        data=None,
-        **kwargs
-    ):
-        """Handle DataTransfer from charger (Growatt vendor-specific)."""
-        _LOGGER.debug(
-            "DataTransfer from %s vendor=%s messageId=%s data=%s",
-            self.id,
-            vendorId,
-            messageId,
-            data,
+    async def on_data_transfer(self, vendor_id, message_id=None, data=None, **kwargs):
+        if isinstance(data, str) and message_id == "frozenrecord":
+            parsed = {k: v[0] for k, v in parse_qs(data).items()}
+            _LOGGER.info("Parsed frozenrecord: %s", parsed)
+            self.coordinator.process_frozen_record(parsed)
+
+        return call_result.DataTransferPayload(
+            status=DataTransferStatus.accepted
         )
 
-        # Process based on messageId
-        try:
-            if messageId == "frozenrecord" and data:
-                self.coordinator.process_frozen_record(data)
-            elif messageId == "GetConfiguration" and data and "ConfigurationKey" in data:
-                self.coordinator.process_configuration(data["ConfigurationKey"])
-            elif messageId == "GetMeterValues" and data and "MeterValues" in data:
-                self.coordinator.process_meter_values(data["MeterValues"])
-        except Exception:
-            _LOGGER.exception("Failed to process DataTransfer payload")
-
-        return call_result.DataTransferPayload(status="Accepted")
-
-    # ──────────────────────────────────────────────
-    # Helper triggers for HA service
-    # ──────────────────────────────────────────────
+    # ─────────────────────────────
+    # 🔑 Actieve triggers
+    # ─────────────────────────────
 
     async def trigger_status(self):
-        """Trigger StatusNotification update."""
-        _LOGGER.debug("trigger_status() called - not yet implemented")
+        _LOGGER.info("Triggering StatusNotification")
+        await self.call(
+            call.TriggerMessagePayload(
+                requested_message="StatusNotification",
+                connector_id=1,
+            )
+        )
 
     async def trigger_external_meterval(self):
-        """Trigger external meter values via DataTransfer."""
-        _LOGGER.debug("trigger_external_meterval() called - not yet implemented")
+        _LOGGER.info("Triggering Growatt get_external_meterval")
+        await self.call(
+            call.DataTransferPayload(
+                vendor_id="Growatt",
+                message_id="get_external_meterval",
+            )
+        )
 
     async def trigger_get_configuration(self):
-        """Trigger GetConfiguration via DataTransfer."""
-        _LOGGER.debug("trigger_get_configuration() called - not yet implemented")
+        """
+        Haalt volledige Growatt configuratie op en zet deze door naar de coordinator
+        """
+        _LOGGER.info("Triggering GetConfiguration")
 
+        result = await self.call(call.GetConfigurationPayload())
+
+        config_keys = getattr(result, "configuration_key", [])
+        unknown_keys = getattr(result, "unknown_key", [])
+
+        _LOGGER.info(
+            "Received Growatt configuration: %d keys (%d unknown)",
+            len(config_keys),
+            len(unknown_keys),
+        )
+
+        # 🔑 KOPPELING NAAR HA
+        self.coordinator.process_configuration(config_keys)
+
+        for item in config_keys:
+            _LOGGER.debug(
+                "Config key: %s = %s (readonly=%s)",
+                item.get("key"),
+                item.get("value"),
+                item.get("readonly"),
+            )
+
+
+# ─────────────────────────────
+# WebSocket server
+# ─────────────────────────────
 
 async def _on_connect(websocket, path, coordinator, hass):
-    """Handle incoming WebSocket OCPP connections."""
     if not path.startswith(DEFAULT_PATH):
-        _LOGGER.warning("Rejected connection on unexpected path: %s", path)
         await websocket.close()
         return
 
-    parts = path.rstrip("/").split("/")
-    cp_id = parts[-1] if len(parts) > 2 else "growatt_thor"
+    cp_id = path.rstrip("/").split("/")[-1]
+    _LOGGER.info("THOR connected: %s", cp_id)
 
-    _LOGGER.info("THOR connected with ChargePointId '%s'", cp_id)
-
-    charge_point = GrowattChargePoint(cp_id, websocket, coordinator)
-
-    # Store charge_point for HA services
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN]["charge_point"] = charge_point
+    cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
 
     try:
-        await charge_point.start()
-    except Exception as err:
-        _LOGGER.exception("OCPP session error for %s: %s", cp_id, err)
+        await cp.start()
+    finally:
+        hass.data.get(DOMAIN, {}).pop("charge_point", None)
+        coordinator.set_status("Unavailable")
 
 
 async def start_ocpp_server(host, port, coordinator, hass):
-    """Start the OCPP WebSocket server for Growatt THOR."""
-    _LOGGER.info("Starting OCPP server on %s:%s%s", host, port, DEFAULT_PATH)
-
-    server = await serve(
+    _LOGGER.info("Starting OCPP server on %s:%s", host, port)
+    return await serve(
         lambda ws, path: _on_connect(ws, path, coordinator, hass),
         host,
         port,
         subprotocols=[OCPP_SUBPROTOCOL],
     )
-
-    return server
 
