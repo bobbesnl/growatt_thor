@@ -1,11 +1,17 @@
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import (
+    SensorEntity,
+    SensorDeviceClass,
+    SensorStateClass,
+)
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.const import (
     UnitOfPower,
     UnitOfEnergy,
     UnitOfElectricCurrent,
+    UnitOfElectricPotential,
+    UnitOfTemperature,
 )
 
 from .const import DOMAIN
@@ -16,20 +22,32 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     async_add_entities(
         [
-            # Status / meting
+            # ── Status / totaal ─────────────────────────
             StatusSensor(coordinator, entry),
-            PowerSensor(coordinator, entry),
-            EnergySensor(coordinator, entry),
+            ChargingPowerSensor(coordinator, entry),
+            EnergyChargedSensor(coordinator, entry),
 
-            # Config (Growatt)
-            MaxCurrentSensor(coordinator, entry),
-            ExternalLimitPowerSensor(coordinator, entry),
-            ExternalLimitPowerEnableSensor(coordinator, entry),
-            ChargerModeSensor(coordinator, entry),
-            ServerURLSensor(coordinator, entry),
+            # ── Fase-specifiek ─────────────────────────
+            CurrentSensor(coordinator, entry, "L1"),
+            CurrentSensor(coordinator, entry, "L2"),
+            CurrentSensor(coordinator, entry, "L3"),
+
+            VoltageSensor(coordinator, entry, "L1"),
+            VoltageSensor(coordinator, entry, "L2"),
+            VoltageSensor(coordinator, entry, "L3"),
+
+            PhasePowerSensor(coordinator, entry, "L1"),
+            PhasePowerSensor(coordinator, entry, "L2"),
+            PhasePowerSensor(coordinator, entry, "L3"),
+
+            TemperatureSensor(coordinator, entry),
         ]
     )
 
+
+# ─────────────────────────────
+# Base
+# ─────────────────────────────
 
 class BaseSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
@@ -46,7 +64,7 @@ class BaseSensor(CoordinatorEntity, SensorEntity):
 
 
 # ─────────────────────────────
-# Status & meting
+# Status
 # ─────────────────────────────
 
 class StatusSensor(BaseSensor):
@@ -61,24 +79,36 @@ class StatusSensor(BaseSensor):
         return self.coordinator.status
 
 
-class PowerSensor(BaseSensor):
+# ─────────────────────────────
+# Charging power (FIXED)
+# ─────────────────────────────
+
+class ChargingPowerSensor(BaseSensor):
     _attr_name = "Charging Power"
     _attr_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "power")
+        super().__init__(coordinator, entry, "charging_power")
 
     @property
     def native_value(self):
         return self.coordinator.power
 
 
-class EnergySensor(BaseSensor):
-    _attr_name = "Total Energy"
+# ─────────────────────────────
+# Energy charged (FIXED)
+# ─────────────────────────────
+
+class EnergyChargedSensor(BaseSensor):
+    _attr_name = "Energy Charged"
     _attr_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "energy")
+        super().__init__(coordinator, entry, "energy_charged")
 
     @property
     def native_value(self):
@@ -88,65 +118,76 @@ class EnergySensor(BaseSensor):
 
 
 # ─────────────────────────────
-# 🔑 Config sensors (Growatt)
+# Phase currents
 # ─────────────────────────────
 
-class MaxCurrentSensor(BaseSensor):
-    _attr_name = "Max Current"
+class CurrentSensor(BaseSensor):
     _attr_unit_of_measurement = UnitOfElectricCurrent.AMPERE
+    _attr_device_class = SensorDeviceClass.CURRENT
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "max_current")
+    def __init__(self, coordinator, entry, phase):
+        self.phase = phase
+        self._attr_name = f"Current {phase}"
+        super().__init__(coordinator, entry, f"current_{phase.lower()}")
 
     @property
     def native_value(self):
-        return self.coordinator.max_current
+        return self.coordinator.currents.get(self.phase)
 
 
-class ExternalLimitPowerSensor(BaseSensor):
-    _attr_name = "Loadbalance Max Power"
+# ─────────────────────────────
+# Phase voltages
+# ─────────────────────────────
+
+class VoltageSensor(BaseSensor):
+    _attr_unit_of_measurement = UnitOfElectricPotential.VOLT
+    _attr_device_class = SensorDeviceClass.VOLTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator, entry, phase):
+        self.phase = phase
+        self._attr_name = f"Voltage {phase}"
+        super().__init__(coordinator, entry, f"voltage_{phase.lower()}")
+
+    @property
+    def native_value(self):
+        return self.coordinator.voltages.get(self.phase)
+
+
+# ─────────────────────────────
+# Phase power
+# ─────────────────────────────
+
+class PhasePowerSensor(BaseSensor):
     _attr_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "external_limit_power")
-
-    @property
-    def native_value(self):
-        return self.coordinator.external_limit_power
-
-
-class ExternalLimitPowerEnableSensor(BaseSensor):
-    _attr_name = "Loadbalance Enabled"
-    _attr_icon = "mdi:transmission-tower"
-
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "external_limit_power_enable")
+    def __init__(self, coordinator, entry, phase):
+        self.phase = phase
+        self._attr_name = f"Power {phase}"
+        super().__init__(coordinator, entry, f"power_{phase.lower()}")
 
     @property
     def native_value(self):
-        return self.coordinator.external_limit_power_enable
+        return self.coordinator.phase_power.get(self.phase)
 
 
-class ChargerModeSensor(BaseSensor):
-    _attr_name = "Charger Mode"
-    _attr_icon = "mdi:ev-plug-type2"
+# ─────────────────────────────
+# Temperature
+# ─────────────────────────────
+
+class TemperatureSensor(BaseSensor):
+    _attr_name = "Temperature"
+    _attr_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "charger_mode")
+        super().__init__(coordinator, entry, "temperature")
 
     @property
     def native_value(self):
-        return self.coordinator.charger_mode
-
-
-class ServerURLSensor(BaseSensor):
-    _attr_name = "OCPP Server URL"
-    _attr_icon = "mdi:server-network"
-
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "server_url")
-
-    @property
-    def native_value(self):
-        return self.coordinator.server_url
+        return self.coordinator.temperature
 
