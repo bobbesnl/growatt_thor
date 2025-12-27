@@ -1,198 +1,246 @@
+"""OCPP Server implementation for Growatt THOR."""
 import logging
-from urllib.parse import parse_qs
-from websockets.server import serve
-
-from ocpp.v16 import ChargePoint as OcppChargePoint
-from ocpp.v16 import call_result, call
-from ocpp.v16.enums import (
-    RegistrationStatus,
-    AuthorizationStatus,
-    DataTransferStatus,
-)
-from ocpp.routing import on
-
-from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
+from typing import Optional, Any, Dict, List
+from datetime import datetime
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class GrowattChargePoint(OcppChargePoint):
-    """
-    Growatt THOR OCPP 1.6 Charge Point
-    """
+class OCPPServer:
+    """OCPP server handler for Growatt THOR charger."""
 
-    def __init__(self, cp_id, websocket, coordinator, hass):
-        super().__init__(cp_id, websocket)
-
+    def __init__(self, coordinator: Any) -> None:
+        """Initialize OCPP server.
+        
+        Args:
+            coordinator: GrowattCoordinator instance for data updates
+        """
         self.coordinator = coordinator
-        self.hass = hass
-        self._transaction_id = 1
+        self._logger = _LOGGER
 
-        hass.data.setdefault(DOMAIN, {})
-        hass.data[DOMAIN]["charge_point"] = self
-
-        self.coordinator.set_charge_point(cp_id)
-        _LOGGER.info("GrowattChargePoint initialised for %s", cp_id)
-
-    # ─────────────────────────────
-    # Boot / keepalive
-    # ─────────────────────────────
-
-    @on("BootNotification")
-    async def on_boot_notification(self, **payload):
-        _LOGGER.info("BootNotification payload: %s", payload)
-
-        # 🔑 NA succesvolle boot: automatisch config ophalen
-        self.hass.async_create_task(self.trigger_get_configuration())
-
-        return call_result.BootNotificationPayload(
-            current_time=self.coordinator.now(),
-            interval=60,
-            status=RegistrationStatus.accepted,
-        )
-
-    @on("Heartbeat")
-    async def on_heartbeat(self, **payload):
-        return call_result.HeartbeatPayload(
-            current_time=self.coordinator.now()
-        )
-
-    # ─────────────────────────────
-    # Transactions
-    # ─────────────────────────────
-
-    @on("Authorize")
-    async def on_authorize(self, id_tag, **kwargs):
-        return call_result.AuthorizePayload(
-            id_tag_info={"status": AuthorizationStatus.accepted}
-        )
-
-    @on("StartTransaction")
-    async def on_start_transaction(self, connector_id, id_tag, meter_start, **kwargs):
-        transaction_id = self._transaction_id
-        self._transaction_id += 1
-
-        self.coordinator.start_transaction(transaction_id, id_tag)
-
-        return call_result.StartTransactionPayload(
-            transaction_id=transaction_id,
-            id_tag_info={"status": AuthorizationStatus.accepted},
-        )
-
-    @on("StopTransaction")
-    async def on_stop_transaction(self, transaction_id, meter_stop, reason=None, **kwargs):
-        self.coordinator.stop_transaction(reason)
-        return call_result.StopTransactionPayload(
-            id_tag_info={"status": AuthorizationStatus.accepted}
-        )
-
-    # ─────────────────────────────
-    # Status & Metering
-    # ─────────────────────────────
-
-    @on("StatusNotification")
-    async def on_status_notification(self, connector_id, status, error_code=None, **kwargs):
-        self.coordinator.set_status(status)
-        return call_result.StatusNotificationPayload()
-
-    @on("MeterValues")
-    async def on_meter_values(self, connector_id, meter_value, **kwargs):
-        self.coordinator.process_meter_values(meter_value)
-        return call_result.MeterValuesPayload()
-
-    # ─────────────────────────────
-    # Growatt vendor DataTransfer
-    # ─────────────────────────────
-
-    @on("DataTransfer")
-    async def on_data_transfer(self, vendor_id, message_id=None, data=None, **kwargs):
-        if isinstance(data, str) and message_id == "frozenrecord":
-            parsed = {k: v[0] for k, v in parse_qs(data).items()}
-            _LOGGER.info("Parsed frozenrecord: %s", parsed)
-            self.coordinator.process_frozen_record(parsed)
-
-        return call_result.DataTransferPayload(
-            status=DataTransferStatus.accepted
-        )
-
-    # ─────────────────────────────
-    # 🔑 Actieve triggers
-    # ─────────────────────────────
-
-    async def trigger_status(self):
-        _LOGGER.info("Triggering StatusNotification")
-        await self.call(
-            call.TriggerMessagePayload(
-                requested_message="StatusNotification",
-                connector_id=1,
-            )
-        )
-
-    async def trigger_external_meterval(self):
-        _LOGGER.info("Triggering Growatt get_external_meterval")
-        await self.call(
-            call.DataTransferPayload(
-                vendor_id="Growatt",
-                message_id="get_external_meterval",
-            )
-        )
-
-    async def trigger_get_configuration(self):
+    async def handle_authorize(self, id_tag: str) -> bool:
+        """Handle Authorize request from charger.
+        
+        Args:
+            id_tag: RFID or card identifier
+            
+        Returns:
+            True if authorized, False otherwise
         """
-        Haalt volledige Growatt configuratie op en zet deze door naar de coordinator
+        try:
+            _LOGGER.info("Authorization request for tag: %s", id_tag)
+            # TODO: Implement proper authorization logic
+            return True
+        except Exception as exc:
+            _LOGGER.error("Authorization failed: %s", exc, exc_info=True)
+            return False
+
+    async def handle_start_transaction(self, 
+                                      connector_id: int,
+                                      id_tag: str,
+                                      meter_start: int,
+                                      timestamp: str) -> int:
+        """Handle StartTransaction request.
+        
+        Args:
+            connector_id: Connector identifier
+            id_tag: RFID/card tag
+            meter_start: Starting meter reading (Wh)
+            timestamp: Transaction start time (ISO 8601)
+            
+        Returns:
+            Transaction ID
         """
-        _LOGGER.info("Triggering GetConfiguration")
-
-        result = await self.call(call.GetConfigurationPayload())
-
-        config_keys = getattr(result, "configuration_key", [])
-        unknown_keys = getattr(result, "unknown_key", [])
-
-        _LOGGER.info(
-            "Received Growatt configuration: %d keys (%d unknown)",
-            len(config_keys),
-            len(unknown_keys),
-        )
-
-        # 🔑 KOPPELING NAAR HA
-        self.coordinator.process_configuration(config_keys)
-
-        for item in config_keys:
-            _LOGGER.debug(
-                "Config key: %s = %s (readonly=%s)",
-                item.get("key"),
-                item.get("value"),
-                item.get("readonly"),
+        try:
+            transaction_id = int(datetime.now().timestamp() * 1000)
+            _LOGGER.info(
+                "Transaction started: id=%d, tag=%s, meter=%d",
+                transaction_id, id_tag, meter_start
             )
+            self.coordinator.start_transaction(transaction_id, id_tag)
+            return transaction_id
+        except Exception as exc:
+            _LOGGER.error("Failed to start transaction: %s", exc, exc_info=True)
+            raise
 
+    async def handle_stop_transaction(self,
+                                     transaction_id: int,
+                                     meter_stop: int,
+                                     timestamp: str,
+                                     reason: Optional[str] = None) -> bool:
+        """Handle StopTransaction request.
+        
+        Args:
+            transaction_id: Transaction ID to stop
+            meter_stop: Ending meter reading (Wh)
+            timestamp: Stop time (ISO 8601)
+            reason: Reason for stopping
+            
+        Returns:
+            True if successful
+        """
+        try:
+            energy = meter_stop / 1000.0  # Convert Wh to kWh
+            _LOGGER.info(
+                "Transaction stopped: id=%d, energy=%.3f kWh, reason=%s",
+                transaction_id, energy, reason
+            )
+            self.coordinator.stop_transaction(reason)
+            return True
+        except Exception as exc:
+            _LOGGER.error("Failed to stop transaction: %s", exc, exc_info=True)
+            return False
 
-# ─────────────────────────────
-# WebSocket server
-# ─────────────────────────────
+    async def handle_meter_values(self, 
+                                 transaction_id: Optional[int],
+                                 meter_values: List[Dict[str, Any]]) -> bool:
+        """Handle MeterValues request.
+        
+        Args:
+            transaction_id: Transaction ID (if during charging)
+            meter_values: List of meter values
+            
+        Returns:
+            True if processed successfully
+        """
+        try:
+            if not meter_values:
+                _LOGGER.debug("Received empty meter values")
+                return True
+                
+            _LOGGER.debug("Processing %d meter value entries", len(meter_values))
+            self.coordinator.process_meter_values(meter_values)
+            return True
+        except Exception as exc:
+            _LOGGER.error("Failed to process meter values: %s", exc, exc_info=True)
+            return False
 
-async def _on_connect(websocket, path, coordinator, hass):
-    if not path.startswith(DEFAULT_PATH):
-        await websocket.close()
-        return
+    async def handle_status_notification(self,
+                                        connector_id: int,
+                                        status: str,
+                                        error_code: str = "NoError",
+                                        timestamp: Optional[str] = None) -> bool:
+        """Handle StatusNotification request.
+        
+        Args:
+            connector_id: Connector identifier
+            status: Charger status (Idle, Charging, Faulted, etc.)
+            error_code: Error code if any
+            timestamp: Status time
+            
+        Returns:
+            True if processed successfully
+        """
+        try:
+            _LOGGER.info("Status: %s (error=%s)", status, error_code)
+            self.coordinator.set_status(status)
+            return True
+        except Exception as exc:
+            _LOGGER.error("Failed to handle status notification: %s", exc, exc_info=True)
+            return False
 
-    cp_id = path.rstrip("/").split("/")[-1]
-    _LOGGER.info("THOR connected: %s", cp_id)
+    async def handle_data_transfer(self, 
+                                  vendor_id: str,
+                                  message_id: Optional[str],
+                                  data: Dict[str, Any]) -> bool:
+        """Handle DataTransfer request (custom Growatt data).
+        
+        Args:
+            vendor_id: Vendor identifier (Growatt)
+            message_id: Message type identifier
+            data: Custom data payload
+            
+        Returns:
+            True if processed successfully
+        """
+        try:
+            _LOGGER.debug("DataTransfer from %s: %s", vendor_id, message_id)
+            
+            if message_id == "GetMeterValues":
+                if "MeterValues" in data:
+                    await self.handle_meter_values(None, data["MeterValues"])
+                    
+            elif message_id == "GetConfiguration":
+                if "ConfigurationKey" in data:
+                    self.coordinator.process_configuration(data["ConfigurationKey"])
+                    
+            elif message_id == "frozenrecord":
+                self.coordinator.process_frozen_record(data)
+                
+            return True
+        except Exception as exc:
+            _LOGGER.error("Failed to handle DataTransfer: %s", exc, exc_info=True)
+            return False
 
-    cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
+    async def handle_get_configuration(self,
+                                      configuration_key: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Handle GetConfiguration request.
+        
+        Args:
+            configuration_key: Specific keys to retrieve, or None for all
+            
+        Returns:
+            Configuration dictionary
+        """
+        try:
+            _LOGGER.debug("GetConfiguration request: keys=%s", configuration_key)
+            # TODO: Implement proper configuration retrieval
+            return {"ConfigurationKey": []}
+        except Exception as exc:
+            _LOGGER.error("Failed to get configuration: %s", exc, exc_info=True)
+            raise
 
-    try:
-        await cp.start()
-    finally:
-        hass.data.get(DOMAIN, {}).pop("charge_point", None)
-        coordinator.set_status("Unavailable")
+    async def handle_change_configuration(self,
+                                         key: str,
+                                         value: str) -> bool:
+        """Handle ChangeConfiguration request.
+        
+        Args:
+            key: Configuration key to change
+            value: New value
+            
+        Returns:
+            True if change accepted
+        """
+        try:
+            _LOGGER.info("ChangeConfiguration: %s = %s", key, value)
+            # TODO: Implement proper configuration change handling
+            return True
+        except Exception as exc:
+            _LOGGER.error("Failed to change configuration: %s", exc, exc_info=True)
+            return False
 
+    async def handle_remote_start(self, transaction_id: int, id_tag: str) -> bool:
+        """Handle RemoteStartTransaction request.
+        
+        Args:
+            transaction_id: Transaction ID
+            id_tag: RFID/card tag
+            
+        Returns:
+            True if accepted
+        """
+        try:
+            _LOGGER.info("Remote start requested: %s", id_tag)
+            self.coordinator.start_transaction(transaction_id, id_tag)
+            return True
+        except Exception as exc:
+            _LOGGER.error("Failed to handle remote start: %s", exc, exc_info=True)
+            return False
 
-async def start_ocpp_server(host, port, coordinator, hass):
-    _LOGGER.info("Starting OCPP server on %s:%s", host, port)
-    return await serve(
-        lambda ws, path: _on_connect(ws, path, coordinator, hass),
-        host,
-        port,
-        subprotocols=[OCPP_SUBPROTOCOL],
-    )
-
+    async def handle_remote_stop(self, transaction_id: int) -> bool:
+        """Handle RemoteStopTransaction request.
+        
+        Args:
+            transaction_id: Transaction ID to stop
+            
+        Returns:
+            True if accepted
+        """
+        try:
+            _LOGGER.info("Remote stop requested: %d", transaction_id)
+            self.coordinator.stop_transaction("Remote")
+            return True
+        except Exception as exc:
+            _LOGGER.error("Failed to handle remote stop: %s", exc, exc_info=True)
+            return False
