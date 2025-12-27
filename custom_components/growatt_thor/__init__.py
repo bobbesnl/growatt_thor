@@ -26,7 +26,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     host = entry.data.get(CONF_HOST, DEFAULT_HOST)
     port = entry.data.get(CONF_PORT, DEFAULT_PORT)
 
-    # Start OCPP server (BELANGRIJK: hass meegeven)
+    # Start OCPP server
     server = await start_ocpp_server(
         host=host,
         port=port,
@@ -45,7 +45,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def handle_refresh(call: ServiceCall) -> None:
         """
         Manually trigger OCPP + Growatt specific updates.
-        Exact volgorde zoals Growatt cloud:
+        Exact sequence like Growatt cloud:
         1. Status
         2. External meter values
         3. Configuration
@@ -77,7 +77,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     "ChargePoint has no trigger_external_meterval() method"
                 )
 
-            # 3️⃣ 🔧 Growatt configuration (load balancing, limits, etc)
+            # 3️⃣ 🔧 Growatt configuration (load balancing, limits, etc.)
             if hasattr(cp, "trigger_get_configuration"):
                 _LOGGER.debug("Triggering Growatt GetConfiguration")
                 await cp.trigger_get_configuration()
