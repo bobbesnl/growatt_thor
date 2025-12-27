@@ -106,10 +106,29 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("DataTransfer")
     async def on_data_transfer(self, vendor_id, message_id=None, data=None, **kwargs):
-        if isinstance(data, str) and message_id == "frozenrecord":
-            parsed = {k: v[0] for k, v in parse_qs(data).items()}
-            _LOGGER.info("Parsed frozenrecord: %s", parsed)
-            self.coordinator.process_frozen_record(parsed)
+        """Handle DataTransfer responses from charger."""
+        
+        _LOGGER.debug(
+            "DataTransfer received: vendor=%s messageId=%s data=%s",
+            vendor_id,
+            message_id,
+            data
+        )
+        
+        try:
+            # 🔹 Frozenrecord (end-of-session data)
+            if isinstance(data, str) and message_id == "frozenrecord":
+                parsed = {k: v[0] for k, v in parse_qs(data).items()}
+                _LOGGER.info("Parsed frozenrecord: %s", parsed)
+                self.coordinator.process_frozen_record(parsed)
+            
+            # 🔹 External meter values (grid connection)
+            elif isinstance(data, str) and message_id == "get_external_meterval":
+                _LOGGER.info("Received external meter values: %s", data)
+                self.coordinator.process_external_meter(data)
+                
+        except Exception as exc:
+            _LOGGER.exception("Failed to process DataTransfer: %s", exc)
 
         return call_result.DataTransferPayload(
             status=DataTransferStatus.accepted
@@ -120,6 +139,7 @@ class GrowattChargePoint(OcppChargePoint):
     # ─────────────────────────────
 
     async def trigger_status(self):
+        """Trigger StatusNotification update."""
         _LOGGER.info("Triggering StatusNotification")
         await self.call(
             call.TriggerMessagePayload(
@@ -129,13 +149,16 @@ class GrowattChargePoint(OcppChargePoint):
         )
 
     async def trigger_external_meterval(self):
+        """Trigger external meter values (grid connection data)."""
         _LOGGER.info("Triggering Growatt get_external_meterval")
-        await self.call(
+        result = await self.call(
             call.DataTransferPayload(
                 vendor_id="Growatt",
                 message_id="get_external_meterval",
             )
         )
+        # Response komt binnen via on_data_transfer callback
+        _LOGGER.debug("External meterval trigger result: %s", result)
 
     async def trigger_get_configuration(self):
         """

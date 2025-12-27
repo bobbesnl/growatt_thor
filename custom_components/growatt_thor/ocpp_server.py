@@ -42,8 +42,9 @@ class GrowattChargePoint(OcppChargePoint):
     async def on_boot_notification(self, **payload):
         _LOGGER.info("BootNotification payload: %s", payload)
 
-        # 🔑 NA succesvolle boot: automatisch config ophalen
+        # 🔑 NA succesvolle boot: automatisch config + grid data ophalen
         self.hass.async_create_task(self.trigger_get_configuration())
+        self.hass.async_create_task(self.trigger_external_meterval())
 
         return call_result.BootNotificationPayload(
             current_time=self.coordinator.now(),
@@ -122,10 +123,8 @@ class GrowattChargePoint(OcppChargePoint):
                 _LOGGER.info("Parsed frozenrecord: %s", parsed)
                 self.coordinator.process_frozen_record(parsed)
             
-            # 🔹 External meter values (grid connection)
-            elif isinstance(data, str) and message_id == "get_external_meterval":
-                _LOGGER.info("Received external meter values: %s", data)
-                self.coordinator.process_external_meter(data)
+            # 🔹 External meter values (grid connection) - RESPONSE komt hier NIET binnen!
+            # Deze komt terug via de CALL response in trigger_external_meterval()
                 
         except Exception as exc:
             _LOGGER.exception("Failed to process DataTransfer: %s", exc)
@@ -151,14 +150,24 @@ class GrowattChargePoint(OcppChargePoint):
     async def trigger_external_meterval(self):
         """Trigger external meter values (grid connection data)."""
         _LOGGER.info("Triggering Growatt get_external_meterval")
-        result = await self.call(
-            call.DataTransferPayload(
-                vendor_id="Growatt",
-                message_id="get_external_meterval",
+        
+        try:
+            result = await self.call(
+                call.DataTransferPayload(
+                    vendor_id="Growatt",
+                    message_id="get_external_meterval",
+                )
             )
-        )
-        # Response komt binnen via on_data_transfer callback
-        _LOGGER.debug("External meterval trigger result: %s", result)
+            
+            # Response komt DIRECT terug als result.data (niet via on_data_transfer!)
+            if hasattr(result, 'data') and isinstance(result.data, str):
+                _LOGGER.info("Received external meter values: %s", result.data)
+                self.coordinator.process_external_meter(result.data)
+            else:
+                _LOGGER.debug("External meterval result: %s", result)
+                
+        except Exception as exc:
+            _LOGGER.warning("Failed to trigger external meter values: %s", exc)
 
     async def trigger_get_configuration(self):
         """
