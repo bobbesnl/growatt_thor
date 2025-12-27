@@ -44,7 +44,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
             TemperatureSensor(coordinator, entry),
 
-            # ── Grid connection (apart device!) ───────
+            # ── Grid connection (external meter) ───────
             GridPowerSensor(coordinator, entry),
             GridVoltageSensor(coordinator, entry, "L1"),
             GridVoltageSensor(coordinator, entry, "L2"),
@@ -57,7 +57,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 # ─────────────────────────────
-# Base voor charger sensors
+# Base
 # ─────────────────────────────
 
 class BaseSensor(CoordinatorEntity, SensorEntity):
@@ -71,25 +71,6 @@ class BaseSensor(CoordinatorEntity, SensorEntity):
             "name": "Growatt THOR EV Charger",
             "manufacturer": "Growatt",
             "model": "THOR",
-        }
-
-
-# ─────────────────────────────
-# Base voor grid sensors (apart device!)
-# ─────────────────────────────
-
-class BaseGridSensor(CoordinatorEntity, SensorEntity):
-    _attr_has_entity_name = True
-
-    def __init__(self, coordinator, entry, key):
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{entry.entry_id}_grid_{key}"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, f"{entry.entry_id}_grid")},
-            "name": "Growatt THOR Grid Connection",
-            "manufacturer": "Growatt",
-            "model": "External Meter",
-            "via_device": (DOMAIN, entry.entry_id),  # Link naar hoofddevice
         }
 
 
@@ -248,50 +229,53 @@ class TemperatureSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Grid / External Meter (APART DEVICE!)
+# Grid / External Meter (DIAGNOSTIC)
 # ─────────────────────────────
 
-class GridPowerSensor(BaseGridSensor):
-    _attr_name = "Power"
+class GridPowerSensor(BaseSensor):
+    _attr_name = "Grid Power"
     _attr_unit_of_measurement = UnitOfPower.WATT
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:transmission-tower"
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "power")
+        super().__init__(coordinator, entry, "grid_power")
 
     @property
     def native_value(self):
         return self.coordinator.grid_power
 
 
-class GridVoltageSensor(BaseGridSensor):
+class GridVoltageSensor(BaseSensor):
     _attr_unit_of_measurement = UnitOfElectricPotential.VOLT
     _attr_device_class = SensorDeviceClass.VOLTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:transmission-tower"
 
     def __init__(self, coordinator, entry, phase):
         self.phase = phase
-        self._attr_name = f"Voltage {phase}"
-        super().__init__(coordinator, entry, f"voltage_{phase.lower()}")
+        self._attr_name = f"Grid Voltage {phase}"
+        super().__init__(coordinator, entry, f"grid_voltage_{phase.lower()}")
 
     @property
     def native_value(self):
         return self.coordinator.grid_voltages.get(self.phase)
 
 
-class GridCurrentSensor(BaseGridSensor):
+class GridCurrentSensor(BaseSensor):
     _attr_unit_of_measurement = UnitOfElectricCurrent.AMPERE
     _attr_device_class = SensorDeviceClass.CURRENT
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:transmission-tower"
 
     def __init__(self, coordinator, entry, phase):
         self.phase = phase
-        self._attr_name = f"Current {phase}"
-        super().__init__(coordinator, entry, f"current_{phase.lower()}")
+        self._attr_name = f"Grid Current {phase}"
+        super().__init__(coordinator, entry, f"grid_current_{phase.lower()}")
 
     @property
     def native_value(self):
