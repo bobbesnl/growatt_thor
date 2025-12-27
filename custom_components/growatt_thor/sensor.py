@@ -43,6 +43,15 @@ async def async_setup_entry(hass, entry, async_add_entities):
             PhasePowerSensor(coordinator, entry, "L3"),
 
             TemperatureSensor(coordinator, entry),
+
+            # ── Grid connection (external meter) ───────
+            GridPowerSensor(coordinator, entry),
+            GridVoltageSensor(coordinator, entry, "L1"),
+            GridVoltageSensor(coordinator, entry, "L2"),
+            GridVoltageSensor(coordinator, entry, "L3"),
+            GridCurrentSensor(coordinator, entry, "L1"),
+            GridCurrentSensor(coordinator, entry, "L2"),
+            GridCurrentSensor(coordinator, entry, "L3"),
         ]
     )
 
@@ -217,4 +226,58 @@ class TemperatureSensor(BaseSensor):
     @property
     def native_value(self):
         return self.coordinator.temperature
+
+
+# ─────────────────────────────
+# Grid / External Meter (DIAGNOSTIC)
+# ─────────────────────────────
+
+class GridPowerSensor(BaseSensor):
+    _attr_name = "Grid Power"
+    _attr_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:transmission-tower"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "grid_power")
+
+    @property
+    def native_value(self):
+        return self.coordinator.grid_power
+
+
+class GridVoltageSensor(BaseSensor):
+    _attr_unit_of_measurement = UnitOfElectricPotential.VOLT
+    _attr_device_class = SensorDeviceClass.VOLTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:transmission-tower"
+
+    def __init__(self, coordinator, entry, phase):
+        self.phase = phase
+        self._attr_name = f"Grid Voltage {phase}"
+        super().__init__(coordinator, entry, f"grid_voltage_{phase.lower()}")
+
+    @property
+    def native_value(self):
+        return self.coordinator.grid_voltages.get(self.phase)
+
+
+class GridCurrentSensor(BaseSensor):
+    _attr_unit_of_measurement = UnitOfElectricCurrent.AMPERE
+    _attr_device_class = SensorDeviceClass.CURRENT
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:transmission-tower"
+
+    def __init__(self, coordinator, entry, phase):
+        self.phase = phase
+        self._attr_name = f"Grid Current {phase}"
+        super().__init__(coordinator, entry, f"grid_current_{phase.lower()}")
+
+    @property
+    def native_value(self):
+        return self.coordinator.grid_currents.get(self.phase)
 

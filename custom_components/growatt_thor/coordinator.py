@@ -41,6 +41,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.charge_mode = None
         self.work_mode = None
 
+        # ── External meter (grid connection) ───
+        self.grid_power = None          # W (netto huisverbruik)
+        self.grid_voltages = {}         # {"L1": V, "L2": V, "L3": V}
+        self.grid_currents = {}         # {"L1": A, "L2": A, "L3": A}
+        self.wiring_type = None         # 1 = 3-fase, 0 = 1-fase
+
     # ─────────────────────────────
 
     def now(self) -> str:
@@ -255,6 +261,87 @@ class GrowattCoordinator(DataUpdateCoordinator):
             _LOGGER.warning(
                 "Failed to process frozen record %s: %s",
                 data,
+                exc
+            )
+
+    # ─────────────────────────────
+    # Growatt external meter values
+    # ─────────────────────────────
+
+    def process_external_meter(self, data_str: str):
+        """Process external meter values from get_external_meterval DataTransfer.
+        
+        Deze data komt van de externe meter (bijv. Eastron SDM630) en geeft
+        informatie over de huisaansluiting (niet de laadinformatie).
+        
+        Args:
+            data_str: Query string like "used=0&wring=1&u-voltage=230&power=1500"
+        """
+        try:
+            # Parse query string
+            pairs = data_str.split("&")
+            values = {}
+            for pair in pairs:
+                if "=" in pair:
+                    key, val = pair.split("=", 1)
+                    values[key] = val
+            
+            updated = False
+            
+            # Wiring type (1 = 3-phase, 0 = 1-phase)
+            if "wring" in values:
+                try:
+                    wiring = int(values["wring"])
+                    if self.wiring_type != wiring:
+                        self.wiring_type = wiring
+                        updated = True
+                        _LOGGER.debug("Wiring type: %s", "3-phase" if wiring == 1 else "1-phase")
+                except ValueError:
+                    pass
+            
+            # Grid voltages (per fase)
+            for phase_key, phase_name in [("u-voltage", "L1"), ("v-voltage", "L2"), ("w-voltage", "L3")]:
+                if phase_key in values:
+                    try:
+                        voltage = float(values[phase_key])
+                        if self.grid_voltages.get(phase_name) != voltage:
+                            self.grid_voltages[phase_name] = voltage
+                            updated = True
+                            _LOGGER.debug("Grid voltage %s: %.1f V", phase_name, voltage)
+                    except ValueError:
+                        pass
+            
+            # Grid currents (per fase)
+            for phase_key, phase_name in [("u-current", "L1"), ("v-current", "L2"), ("w-current", "L3")]:
+                if phase_key in values:
+                    try:
+                        current = float(values[phase_key])
+                        if self.grid_currents.get(phase_name) != current:
+                            self.grid_currents[phase_name] = current
+                            updated = True
+                            _LOGGER.debug("Grid current %s: %.1f A", phase_name, current)
+                    except ValueError:
+                        pass
+            
+            # Grid power (total)
+            if "power" in values:
+                try:
+                    power = float(values["power"])
+                    if self.grid_power != power:
+                        self.grid_power = power
+                        updated = True
+                        _LOGGER.debug("Grid power: %.1f W", power)
+                except ValueError:
+                    pass
+            
+            if updated:
+                _LOGGER.info("External meter values processed successfully")
+                self.async_set_updated_data(True)
+                
+        except (ValueError, TypeError, KeyError) as exc:
+            _LOGGER.warning(
+                "Failed to process external meter data '%s': %s",
+                data_str,
                 exc
             )
 

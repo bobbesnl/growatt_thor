@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -44,25 +44,38 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # ─────────────────────────────
 
     def now(self) -> str:
-        return datetime.utcnow().isoformat() + "Z"
+        """Return current UTC timestamp in ISO format.
+        
+        TIER 1 FIX: Use timezone-aware datetime.now() instead of deprecated utcnow()
+        """
+        return datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
 
     def set_charge_point(self, cp_id):
-        self.charge_point_id = cp_id
+        """Set charge point ID and notify sensors."""
+        if self.charge_point_id != cp_id:
+            self.charge_point_id = cp_id
+            _LOGGER.info("Charge point connected: %s", cp_id)
         self.async_set_updated_data(True)
 
     def set_status(self, status):
+        """Set charger status and notify sensors."""
         value = status.value if hasattr(status, "value") else str(status)
         if self.status != value:
             self.status = value
-            self.async_set_updated_data(True)
+            _LOGGER.debug("Status changed to: %s", value)
+        self.async_set_updated_data(True)
 
     def start_transaction(self, transaction_id, id_tag=None):
+        """Start charging transaction."""
         self.transaction_id = transaction_id
         self.id_tag = id_tag
         self.status = "Charging"
+        _LOGGER.info("Transaction started: %s (idTag=%s)", transaction_id, id_tag)
         self.async_set_updated_data(True)
 
     def stop_transaction(self, reason=None):
+        """Stop charging transaction."""
+        _LOGGER.info("Transaction stopped: %s (reason=%s)", self.transaction_id, reason)
         self.transaction_id = None
         self.status = "Idle"
         self.async_set_updated_data(True)
@@ -72,13 +85,28 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # ─────────────────────────────
 
     def process_meter_values(self, meter_values):
+        """Process meter values with TIER 1 error handling."""
         updated = False
 
         for entry in meter_values:
             for sample in entry.get("sampledValue", []):
                 try:
-                    value = float(sample.get("value"))
-                except (TypeError, ValueError):
+                    value_str = sample.get("value")
+                    
+                    # TIER 1 FIX: Skip empty values
+                    if not value_str:
+                        continue
+                    
+                    value = float(value_str)
+                    
+                except (TypeError, ValueError) as e:
+                    # TIER 1 FIX: Log parsing errors without crashing
+                    _LOGGER.warning(
+                        "Failed to parse meter value (measurand=%s, value=%s): %s",
+                        sample.get("measurand"),
+                        sample.get("value"),
+                        e
+                    )
                     continue
 
                 measurand = sample.get("measurand")
@@ -88,27 +116,35 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 if measurand == "Energy.Active.Import.Register":
                     if self.energy != value:
                         self.energy = value
+                        _LOGGER.debug("Energy updated: %.3f Wh", value)
                         updated = True
 
                 # Vermogen per fase
                 elif measurand == "Power.Active.Import" and phase:
-                    self.phase_power[phase] = value
-                    updated = True
+                    if self.phase_power.get(phase) != value:
+                        self.phase_power[phase] = value
+                        _LOGGER.debug("Power %s updated: %.1f W", phase, value)
+                        updated = True
 
                 # Stroom per fase
                 elif measurand == "Current.Import" and phase:
-                    self.currents[phase] = value
-                    updated = True
+                    if self.currents.get(phase) != value:
+                        self.currents[phase] = value
+                        _LOGGER.debug("Current %s updated: %.1f A", phase, value)
+                        updated = True
 
                 # Spanning per fase
                 elif measurand == "Voltage" and phase:
-                    self.voltages[phase] = value
-                    updated = True
+                    if self.voltages.get(phase) != value:
+                        self.voltages[phase] = value
+                        _LOGGER.debug("Voltage %s updated: %.1f V", phase, value)
+                        updated = True
 
                 # Temperatuur
                 elif measurand == "Temperature":
                     if self.temperature != value:
                         self.temperature = value
+                        _LOGGER.debug("Temperature updated: %.1f °C", value)
                         updated = True
 
         # Totaal vermogen = som fases
@@ -116,6 +152,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             total = sum(self.phase_power.values())
             if self.power != total:
                 self.power = total
+                _LOGGER.debug("Total power calculated: %.1f W", total)
                 updated = True
 
         if updated:
@@ -126,6 +163,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # ─────────────────────────────
 
     def process_configuration(self, configuration: list):
+        """Process GetConfiguration response with TIER 1 error handling."""
         updated = False
 
         for item in configuration:
@@ -137,33 +175,55 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     value = float(raw)
                     if self.max_current != value:
                         self.max_current = value
+                        _LOGGER.debug("Config: MaxCurrent = %.1f A", value)
                         updated = True
 
                 elif key == "G_ExternalLimitPower":
                     value = float(raw)
                     if self.external_limit_power != value:
                         self.external_limit_power = value
+                        _LOGGER.debug("Config: ExternalLimitPower = %.1f W", value)
                         updated = True
 
                 elif key == "G_ExternalLimitPowerEnable":
                     value = raw in ("1", "true", "True")
                     if self.external_limit_power_enable != value:
                         self.external_limit_power_enable = value
+                        _LOGGER.debug("Config: ExternalLimitPowerEnable = %s", value)
                         updated = True
 
                 elif key == "G_ChargerMode":
                     value = int(raw)
                     if self.charger_mode != value:
                         self.charger_mode = value
+                        _LOGGER.debug("Config: ChargerMode = %d", value)
                         updated = True
 
                 elif key == "G_ServerURL":
                     if self.server_url != raw:
                         self.server_url = raw
+                        _LOGGER.debug("Config: ServerURL = %s", raw)
                         updated = True
 
+            except (ValueError, TypeError) as exc:
+                # TIER 1 FIX: Better error logging with context
+                _LOGGER.warning(
+                    "Failed to parse config key=%s value=%s: %s",
+                    key,
+                    raw,
+                    exc
+                )
+                continue
+
             except Exception as exc:
-                _LOGGER.warning("Failed to parse config %s=%s (%s)", key, raw, exc)
+                # TIER 1 FIX: Catch unexpected errors
+                _LOGGER.error(
+                    "Unexpected error processing config key=%s: %s",
+                    key,
+                    exc,
+                    exc_info=True
+                )
+                continue
 
         if updated:
             self.async_set_updated_data(True)
@@ -173,9 +233,28 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # ─────────────────────────────
 
     def process_frozen_record(self, data: dict):
-        self.last_session_energy = float(data.get("costenergy", 0))
-        self.last_session_cost = float(data.get("costmoney", 0))
-        self.charge_mode = data.get("chargemode")
-        self.work_mode = data.get("workmode")
-        self.async_set_updated_data(True)
+        """Process Growatt frozen record with TIER 1 error handling."""
+        try:
+            self.last_session_energy = float(data.get("costenergy", 0))
+            self.last_session_cost = float(data.get("costmoney", 0))
+            self.charge_mode = data.get("chargemode")
+            self.work_mode = data.get("workmode")
+            
+            _LOGGER.info(
+                "Frozen record: energy=%.3f kWh, cost=%.2f, mode=%s/%s",
+                self.last_session_energy,
+                self.last_session_cost,
+                self.charge_mode,
+                self.work_mode
+            )
+            
+            self.async_set_updated_data(True)
+            
+        except (ValueError, TypeError, KeyError) as exc:
+            # TIER 1 FIX: Graceful error handling
+            _LOGGER.warning(
+                "Failed to process frozen record %s: %s",
+                data,
+                exc
+            )
 

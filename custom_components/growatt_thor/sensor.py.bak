@@ -6,6 +6,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.const import (
     UnitOfPower,
     UnitOfEnergy,
@@ -22,12 +23,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     async_add_entities(
         [
-            # ── Status / totaal ─────────────────────────
+            # ── Status / totaal (hoofdsensors) ─────────
             StatusSensor(coordinator, entry),
+            ChargePointIdSensor(coordinator, entry),
             ChargingPowerSensor(coordinator, entry),
             EnergyChargedSensor(coordinator, entry),
 
-            # ── Fase-specifiek ─────────────────────────
+            # ── Fase-specifiek (diagnostics tijdens laden) ──
             CurrentSensor(coordinator, entry, "L1"),
             CurrentSensor(coordinator, entry, "L2"),
             CurrentSensor(coordinator, entry, "L3"),
@@ -64,7 +66,7 @@ class BaseSensor(CoordinatorEntity, SensorEntity):
 
 
 # ─────────────────────────────
-# Status
+# Status (HOOFDSENSOR)
 # ─────────────────────────────
 
 class StatusSensor(BaseSensor):
@@ -80,7 +82,28 @@ class StatusSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Charging power (FIXED)
+# Charge Point ID (HOOFDSENSOR)
+# ─────────────────────────────
+
+class ChargePointIdSensor(BaseSensor):
+    _attr_name = "Charge Point ID"
+    _attr_icon = "mdi:identifier"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "charge_point_id")
+
+    @property
+    def native_value(self):
+        return self.coordinator.charge_point_id
+
+    @property
+    def available(self):
+        """Sensor is alleen beschikbaar als charger verbonden is."""
+        return self.coordinator.charge_point_id is not None
+
+
+# ─────────────────────────────
+# Charging power (HOOFDSENSOR)
 # ─────────────────────────────
 
 class ChargingPowerSensor(BaseSensor):
@@ -98,7 +121,7 @@ class ChargingPowerSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Energy charged (FIXED)
+# Energy charged (HOOFDSENSOR)
 # ─────────────────────────────
 
 class EnergyChargedSensor(BaseSensor):
@@ -118,13 +141,14 @@ class EnergyChargedSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Phase currents
+# Phase currents (DIAGNOSTIC)
 # ─────────────────────────────
 
 class CurrentSensor(BaseSensor):
     _attr_unit_of_measurement = UnitOfElectricCurrent.AMPERE
     _attr_device_class = SensorDeviceClass.CURRENT
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, entry, phase):
         self.phase = phase
@@ -137,13 +161,14 @@ class CurrentSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Phase voltages
+# Phase voltages (DIAGNOSTIC)
 # ─────────────────────────────
 
 class VoltageSensor(BaseSensor):
     _attr_unit_of_measurement = UnitOfElectricPotential.VOLT
     _attr_device_class = SensorDeviceClass.VOLTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, entry, phase):
         self.phase = phase
@@ -156,13 +181,14 @@ class VoltageSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Phase power
+# Phase power (DIAGNOSTIC)
 # ─────────────────────────────
 
 class PhasePowerSensor(BaseSensor):
     _attr_unit_of_measurement = UnitOfPower.WATT
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, entry, phase):
         self.phase = phase
@@ -175,7 +201,7 @@ class PhasePowerSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Temperature
+# Temperature (DIAGNOSTIC)
 # ─────────────────────────────
 
 class TemperatureSensor(BaseSensor):
@@ -183,6 +209,7 @@ class TemperatureSensor(BaseSensor):
     _attr_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "temperature")
