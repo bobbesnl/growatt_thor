@@ -92,45 +92,15 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def process_meter_values(self, meter_values):
         """Process meter values with TIER 1 error handling."""
-        _LOGGER.info("🔍 Received MeterValues with %d entries (type: %s)", len(meter_values), type(meter_values))
         updated = False
 
-        for idx, entry in enumerate(meter_values):
-            _LOGGER.debug("  Processing entry %d (type: %s)", idx, type(entry))
-            
-            # OCPP library gebruikt objecten, niet dicts
-            # Probeer eerst attribute access, dan dict access
-            sampled_values = getattr(entry, 'sampled_value', None)
-            if sampled_values is None:
-                sampled_values = entry.get("sampledValue", [])
-            
-            _LOGGER.info("  → Found %d sampled values in entry %d", len(sampled_values), idx)
-            
-            for sample_idx, sample in enumerate(sampled_values):
+        for entry in meter_values:
+            for sample in entry.get("sampledValue", []):
                 try:
-                    # Ook sample kan een object zijn
-                    value_str = getattr(sample, 'value', None)
-                    if value_str is None:
-                        value_str = sample.get("value")
-                    
-                    measurand = getattr(sample, 'measurand', None)
-                    if measurand is None:
-                        measurand = sample.get("measurand")
-                    
-                    phase = getattr(sample, 'phase', None)
-                    if phase is None:
-                        phase = sample.get("phase")
-                    
-                    unit = getattr(sample, 'unit', None)
-                    if unit is None:
-                        unit = sample.get("unit")
-
-                    _LOGGER.debug("    Sample %d: measurand=%s phase=%s value=%s unit=%s", 
-                                 sample_idx, measurand, phase, value_str, unit)
+                    value_str = sample.get("value")
 
                     # TIER 1 FIX: Skip empty values
                     if not value_str:
-                        _LOGGER.warning("    ⚠️ Empty value for measurand=%s", measurand)
                         continue
 
                     value = float(value_str)
@@ -139,60 +109,60 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     # TIER 1 FIX: Log parsing errors without crashing
                     _LOGGER.warning(
                         "Failed to parse meter value (measurand=%s, value=%s): %s",
-                        measurand,
-                        value_str,
+                        sample.get("measurand"),
+                        sample.get("value"),
                         e
                     )
                     continue
 
+                measurand = sample.get("measurand")
+                phase = sample.get("phase")
+
                 # Energie totaal
                 if measurand == "Energy.Active.Import.Register":
                     if self.energy != value:
-                        _LOGGER.info("✅ Energy updated: %.3f Wh (was: %s)", value, self.energy)
                         self.energy = value
+                        _LOGGER.debug("Energy updated: %.3f Wh", value)
                         updated = True
 
                 # Vermogen per fase
                 elif measurand == "Power.Active.Import" and phase:
                     if self.phase_power.get(phase) != value:
-                        _LOGGER.info("✅ Power %s updated: %.1f W (was: %s)", phase, value, self.phase_power.get(phase))
                         self.phase_power[phase] = value
+                        _LOGGER.debug("Power %s updated: %.1f W", phase, value)
                         updated = True
 
                 # Stroom per fase
                 elif measurand == "Current.Import" and phase:
                     if self.currents.get(phase) != value:
-                        _LOGGER.info("✅ Current %s updated: %.2f A (was: %s)", phase, value, self.currents.get(phase))
                         self.currents[phase] = value
+                        _LOGGER.debug("Current %s updated: %.1f A", phase, value)
                         updated = True
 
                 # Spanning per fase
                 elif measurand == "Voltage" and phase:
                     if self.voltages.get(phase) != value:
-                        _LOGGER.info("✅ Voltage %s updated: %.1f V (was: %s)", phase, value, self.voltages.get(phase))
                         self.voltages[phase] = value
+                        _LOGGER.debug("Voltage %s updated: %.1f V", phase, value)
                         updated = True
 
                 # Temperatuur
                 elif measurand == "Temperature":
                     if self.temperature != value:
-                        _LOGGER.info("✅ Temperature updated: %.1f °C (was: %s)", value, self.temperature)
                         self.temperature = value
+                        _LOGGER.debug("Temperature updated: %.1f °C", value)
                         updated = True
 
         # Totaal vermogen = som fases
         if self.phase_power:
             total = sum(self.phase_power.values())
             if self.power != total:
-                _LOGGER.info("✅ Total power calculated: %.1f W (was: %s)", total, self.power)
                 self.power = total
+                _LOGGER.debug("Total power calculated: %.1f W", total)
                 updated = True
 
         if updated:
-            _LOGGER.info("🔄 Coordinator updated - notifying %d listeners", len(self._listeners))
             self.async_set_updated_data(True)
-        else:
-            _LOGGER.warning("⚠️ No sensor updates from MeterValues")
 
     # ─────────────────────────────
     # GetConfiguration verwerking
