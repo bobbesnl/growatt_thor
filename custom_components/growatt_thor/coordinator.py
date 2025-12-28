@@ -92,22 +92,41 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def process_meter_values(self, meter_values):
         """Process meter values with TIER 1 error handling."""
-        _LOGGER.info("🔍 Processing MeterValues: %d entries", len(meter_values))
+        _LOGGER.info("🔍 Received MeterValues with %d entries (type: %s)", len(meter_values), type(meter_values))
         updated = False
 
-        for entry in meter_values:
-            sampled_values = entry.get("sampledValue", [])
-            _LOGGER.debug("  → Processing %d sampled values", len(sampled_values))
+        for idx, entry in enumerate(meter_values):
+            _LOGGER.debug("  Processing entry %d (type: %s)", idx, type(entry))
             
-            for sample in sampled_values:
+            # OCPP library gebruikt objecten, niet dicts
+            # Probeer eerst attribute access, dan dict access
+            sampled_values = getattr(entry, 'sampled_value', None)
+            if sampled_values is None:
+                sampled_values = entry.get("sampledValue", [])
+            
+            _LOGGER.info("  → Found %d sampled values in entry %d", len(sampled_values), idx)
+            
+            for sample_idx, sample in enumerate(sampled_values):
                 try:
-                    value_str = sample.get("value")
-                    measurand = sample.get("measurand")
-                    phase = sample.get("phase")
-                    unit = sample.get("unit")
+                    # Ook sample kan een object zijn
+                    value_str = getattr(sample, 'value', None)
+                    if value_str is None:
+                        value_str = sample.get("value")
+                    
+                    measurand = getattr(sample, 'measurand', None)
+                    if measurand is None:
+                        measurand = sample.get("measurand")
+                    
+                    phase = getattr(sample, 'phase', None)
+                    if phase is None:
+                        phase = sample.get("phase")
+                    
+                    unit = getattr(sample, 'unit', None)
+                    if unit is None:
+                        unit = sample.get("unit")
 
-                    _LOGGER.debug("    • Raw sample: measurand=%s phase=%s value=%s unit=%s", 
-                                 measurand, phase, value_str, unit)
+                    _LOGGER.debug("    Sample %d: measurand=%s phase=%s value=%s unit=%s", 
+                                 sample_idx, measurand, phase, value_str, unit)
 
                     # TIER 1 FIX: Skip empty values
                     if not value_str:
@@ -120,8 +139,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     # TIER 1 FIX: Log parsing errors without crashing
                     _LOGGER.warning(
                         "Failed to parse meter value (measurand=%s, value=%s): %s",
-                        sample.get("measurand"),
-                        sample.get("value"),
+                        measurand,
+                        value_str,
                         e
                     )
                     continue
@@ -170,10 +189,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 updated = True
 
         if updated:
-            _LOGGER.info("🔄 Coordinator data updated - notifying sensors")
+            _LOGGER.info("🔄 Coordinator updated - notifying %d listeners", len(self._listeners))
             self.async_set_updated_data(True)
         else:
-            _LOGGER.warning("⚠️ No updates detected in MeterValues")
+            _LOGGER.warning("⚠️ No sensor updates from MeterValues")
 
     # ─────────────────────────────
     # GetConfiguration verwerking
