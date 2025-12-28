@@ -51,7 +51,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def now(self) -> str:
         """Return current UTC timestamp in ISO format.
-        
+
         TIER 1 FIX: Use timezone-aware datetime.now() instead of deprecated utcnow()
         """
         return datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
@@ -98,13 +98,13 @@ class GrowattCoordinator(DataUpdateCoordinator):
             for sample in entry.get("sampledValue", []):
                 try:
                     value_str = sample.get("value")
-                    
+
                     # TIER 1 FIX: Skip empty values
                     if not value_str:
                         continue
-                    
+
                     value = float(value_str)
-                    
+
                 except (TypeError, ValueError) as e:
                     # TIER 1 FIX: Log parsing errors without crashing
                     _LOGGER.warning(
@@ -245,7 +245,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.last_session_cost = float(data.get("costmoney", 0))
             self.charge_mode = data.get("chargemode")
             self.work_mode = data.get("workmode")
-            
+
             _LOGGER.info(
                 "Frozen record: energy=%.3f kWh, cost=%.2f, mode=%s/%s",
                 self.last_session_energy,
@@ -253,9 +253,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 self.charge_mode,
                 self.work_mode
             )
-            
+
             self.async_set_updated_data(True)
-            
+
         except (ValueError, TypeError, KeyError) as exc:
             # TIER 1 FIX: Graceful error handling
             _LOGGER.warning(
@@ -270,10 +270,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def process_external_meter(self, data_str: str):
         """Process external meter values from get_external_meterval DataTransfer.
-        
+
         Deze data komt van de externe meter (bijv. Eastron SDM630) en geeft
         informatie over de huisaansluiting (niet de laadinformatie).
-        
+
         Args:
             data_str: Query string like "used=0&wring=1&u-voltage=230&power=1500"
         """
@@ -285,9 +285,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 if "=" in pair:
                     key, val = pair.split("=", 1)
                     values[key] = val
-            
+
             updated = False
-            
+
             # Wiring type (1 = 3-phase, 0 = 1-phase)
             if "wring" in values:
                 try:
@@ -298,7 +298,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         _LOGGER.debug("Wiring type: %s", "3-phase" if wiring == 1 else "1-phase")
                 except ValueError:
                     pass
-            
+
             # Grid voltages (per fase)
             for phase_key, phase_name in [("u-voltage", "L1"), ("v-voltage", "L2"), ("w-voltage", "L3")]:
                 if phase_key in values:
@@ -310,7 +310,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                             _LOGGER.debug("Grid voltage %s: %.1f V", phase_name, voltage)
                     except ValueError:
                         pass
-            
+
             # Grid currents (per fase)
             for phase_key, phase_name in [("u-current", "L1"), ("v-current", "L2"), ("w-current", "L3")]:
                 if phase_key in values:
@@ -322,7 +322,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                             _LOGGER.debug("Grid current %s: %.1f A", phase_name, current)
                     except ValueError:
                         pass
-            
+
             # Grid power (total)
             if "power" in values:
                 try:
@@ -333,11 +333,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         _LOGGER.debug("Grid power: %.1f W", power)
                 except ValueError:
                     pass
-            
+
             if updated:
                 _LOGGER.info("External meter values processed successfully")
                 self.async_set_updated_data(True)
-                
+
         except (ValueError, TypeError, KeyError) as exc:
             _LOGGER.warning(
                 "Failed to process external meter data '%s': %s",

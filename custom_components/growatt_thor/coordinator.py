@@ -92,77 +92,115 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def process_meter_values(self, meter_values):
         """Process meter values with TIER 1 error handling."""
+        _LOGGER.info("🔵 process_meter_values called with %d entries", len(meter_values))
         updated = False
 
-        for entry in meter_values:
-            for sample in entry.get("sampledValue", []):
-                try:
-                    value_str = sample.get("value")
+        try:
+            for idx, entry in enumerate(meter_values):
+                _LOGGER.debug("  Entry %d type: %s", idx, type(entry))
+                
+                # Haal sampledValue op - werkt voor zowel dict als object
+                sampled_values = None
+                if hasattr(entry, 'sampled_value'):
+                    sampled_values = entry.sampled_value
+                    _LOGGER.debug("  → Using entry.sampled_value")
+                elif isinstance(entry, dict) and 'sampledValue' in entry:
+                    sampled_values = entry['sampledValue']
+                    _LOGGER.debug("  → Using entry['sampledValue']")
+                else:
+                    _LOGGER.warning("  ⚠️ Cannot find sampledValue in entry: %s", entry)
+                    continue
+                
+                if not sampled_values:
+                    _LOGGER.warning("  ⚠️ sampled_values is empty")
+                    continue
+                
+                _LOGGER.info("  → Processing %d samples", len(sampled_values))
+                
+                for sample in sampled_values:
+                    try:
+                        # Haal value op - werkt voor zowel dict als object
+                        value_str = None
+                        measurand = None
+                        phase = None
+                        
+                        if hasattr(sample, 'value'):
+                            value_str = sample.value
+                            measurand = sample.measurand
+                            phase = getattr(sample, 'phase', None)
+                        elif isinstance(sample, dict):
+                            value_str = sample.get("value")
+                            measurand = sample.get("measurand")
+                            phase = sample.get("phase")
+                        else:
+                            _LOGGER.warning("    ⚠️ Unknown sample type: %s", type(sample))
+                            continue
 
-                    # TIER 1 FIX: Skip empty values
-                    if not value_str:
+                        # TIER 1 FIX: Skip empty values
+                        if not value_str:
+                            continue
+
+                        value = float(value_str)
+
+                    except (TypeError, ValueError, AttributeError) as e:
+                        # TIER 1 FIX: Log parsing errors without crashing
+                        _LOGGER.warning(
+                            "    Failed to parse sample: %s",
+                            e
+                        )
                         continue
 
-                    value = float(value_str)
+                    # Energie totaal
+                    if measurand == "Energy.Active.Import.Register":
+                        if self.energy != value:
+                            self.energy = value
+                            _LOGGER.info("    ✅ Energy: %.3f Wh", value)
+                            updated = True
 
-                except (TypeError, ValueError) as e:
-                    # TIER 1 FIX: Log parsing errors without crashing
-                    _LOGGER.warning(
-                        "Failed to parse meter value (measurand=%s, value=%s): %s",
-                        sample.get("measurand"),
-                        sample.get("value"),
-                        e
-                    )
-                    continue
+                    # Vermogen per fase
+                    elif measurand == "Power.Active.Import" and phase:
+                        if self.phase_power.get(phase) != value:
+                            self.phase_power[phase] = value
+                            _LOGGER.info("    ✅ Power %s: %.1f W", phase, value)
+                            updated = True
 
-                measurand = sample.get("measurand")
-                phase = sample.get("phase")
+                    # Stroom per fase
+                    elif measurand == "Current.Import" and phase:
+                        if self.currents.get(phase) != value:
+                            self.currents[phase] = value
+                            _LOGGER.info("    ✅ Current %s: %.2f A", phase, value)
+                            updated = True
 
-                # Energie totaal
-                if measurand == "Energy.Active.Import.Register":
-                    if self.energy != value:
-                        self.energy = value
-                        _LOGGER.debug("Energy updated: %.3f Wh", value)
-                        updated = True
+                    # Spanning per fase
+                    elif measurand == "Voltage" and phase:
+                        if self.voltages.get(phase) != value:
+                            self.voltages[phase] = value
+                            _LOGGER.info("    ✅ Voltage %s: %.1f V", phase, value)
+                            updated = True
 
-                # Vermogen per fase
-                elif measurand == "Power.Active.Import" and phase:
-                    if self.phase_power.get(phase) != value:
-                        self.phase_power[phase] = value
-                        _LOGGER.debug("Power %s updated: %.1f W", phase, value)
-                        updated = True
+                    # Temperatuur
+                    elif measurand == "Temperature":
+                        if self.temperature != value:
+                            self.temperature = value
+                            _LOGGER.info("    ✅ Temperature: %.1f °C", value)
+                            updated = True
 
-                # Stroom per fase
-                elif measurand == "Current.Import" and phase:
-                    if self.currents.get(phase) != value:
-                        self.currents[phase] = value
-                        _LOGGER.debug("Current %s updated: %.1f A", phase, value)
-                        updated = True
+            # Totaal vermogen = som fases
+            if self.phase_power:
+                total = sum(self.phase_power.values())
+                if self.power != total:
+                    self.power = total
+                    _LOGGER.info("  ✅ Total power: %.1f W", total)
+                    updated = True
 
-                # Spanning per fase
-                elif measurand == "Voltage" and phase:
-                    if self.voltages.get(phase) != value:
-                        self.voltages[phase] = value
-                        _LOGGER.debug("Voltage %s updated: %.1f V", phase, value)
-                        updated = True
-
-                # Temperatuur
-                elif measurand == "Temperature":
-                    if self.temperature != value:
-                        self.temperature = value
-                        _LOGGER.debug("Temperature updated: %.1f °C", value)
-                        updated = True
-
-        # Totaal vermogen = som fases
-        if self.phase_power:
-            total = sum(self.phase_power.values())
-            if self.power != total:
-                self.power = total
-                _LOGGER.debug("Total power calculated: %.1f W", total)
-                updated = True
-
-        if updated:
-            self.async_set_updated_data(True)
+            if updated:
+                _LOGGER.info("🔄 Notifying sensors...")
+                self.async_set_updated_data(True)
+            else:
+                _LOGGER.warning("⚠️ No updates from MeterValues")
+                
+        except Exception as exc:
+            _LOGGER.error("💥 CRASH in process_meter_values: %s", exc, exc_info=True)
 
     # ─────────────────────────────
     # GetConfiguration verwerking
