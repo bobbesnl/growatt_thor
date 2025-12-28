@@ -40,9 +40,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # ─────────────────────────────
 
     async def periodic_external_meter_poll():
-        """Poll external meter values every 30 seconds."""
+        """Poll external meter values every 1800 seconds."""
         # ✅ FIX: Eerste delay VOOR de loop zodat startup niet blokkeert
-        await asyncio.sleep(30)
+        await asyncio.sleep(1800)
 
         while True:
             charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
@@ -53,8 +53,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 except Exception as exc:
                     _LOGGER.warning("Failed to trigger external meter values: %s", exc)
 
-            # Wacht 30s voor volgende poll
-            await asyncio.sleep(30)
+            # Wacht 1800s voor volgende poll
+            await asyncio.sleep(1800)
 
     # Start periodic task (nu NON-BLOCKING)
     hass.data[DOMAIN]["polling_task"] = hass.async_create_background_task(
