@@ -259,7 +259,6 @@ class GridPowerSensor(BaseGridSensor):
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "power")
-        # ✅ FIX: Unit of measurement MOET in __init__ gezet worden
         self._attr_unit_of_measurement = UnitOfPower.WATT
 
     @property
@@ -276,7 +275,6 @@ class GridVoltageSensor(BaseGridSensor):
         self.phase = phase
         self._attr_name = f"Voltage {phase}"
         super().__init__(coordinator, entry, f"voltage_{phase.lower()}")
-        # ✅ FIX: Unit of measurement MOET in __init__ gezet worden
         self._attr_unit_of_measurement = UnitOfElectricPotential.VOLT
 
     @property
@@ -293,7 +291,6 @@ class GridCurrentSensor(BaseGridSensor):
         self.phase = phase
         self._attr_name = f"Current {phase}"
         super().__init__(coordinator, entry, f"current_{phase.lower()}")
-        # ✅ FIX: Unit of measurement MOET in __init__ gezet worden
         self._attr_unit_of_measurement = UnitOfElectricCurrent.AMPERE
 
     @property
