@@ -92,15 +92,26 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def process_meter_values(self, meter_values):
         """Process meter values with TIER 1 error handling."""
+        _LOGGER.info("🔍 Processing MeterValues: %d entries", len(meter_values))
         updated = False
 
         for entry in meter_values:
-            for sample in entry.get("sampledValue", []):
+            sampled_values = entry.get("sampledValue", [])
+            _LOGGER.debug("  → Processing %d sampled values", len(sampled_values))
+            
+            for sample in sampled_values:
                 try:
                     value_str = sample.get("value")
+                    measurand = sample.get("measurand")
+                    phase = sample.get("phase")
+                    unit = sample.get("unit")
+
+                    _LOGGER.debug("    • Raw sample: measurand=%s phase=%s value=%s unit=%s", 
+                                 measurand, phase, value_str, unit)
 
                     # TIER 1 FIX: Skip empty values
                     if not value_str:
+                        _LOGGER.warning("    ⚠️ Empty value for measurand=%s", measurand)
                         continue
 
                     value = float(value_str)
@@ -115,54 +126,54 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     )
                     continue
 
-                measurand = sample.get("measurand")
-                phase = sample.get("phase")
-
                 # Energie totaal
                 if measurand == "Energy.Active.Import.Register":
                     if self.energy != value:
+                        _LOGGER.info("✅ Energy updated: %.3f Wh (was: %s)", value, self.energy)
                         self.energy = value
-                        _LOGGER.debug("Energy updated: %.3f Wh", value)
                         updated = True
 
                 # Vermogen per fase
                 elif measurand == "Power.Active.Import" and phase:
                     if self.phase_power.get(phase) != value:
+                        _LOGGER.info("✅ Power %s updated: %.1f W (was: %s)", phase, value, self.phase_power.get(phase))
                         self.phase_power[phase] = value
-                        _LOGGER.debug("Power %s updated: %.1f W", phase, value)
                         updated = True
 
                 # Stroom per fase
                 elif measurand == "Current.Import" and phase:
                     if self.currents.get(phase) != value:
+                        _LOGGER.info("✅ Current %s updated: %.2f A (was: %s)", phase, value, self.currents.get(phase))
                         self.currents[phase] = value
-                        _LOGGER.debug("Current %s updated: %.1f A", phase, value)
                         updated = True
 
                 # Spanning per fase
                 elif measurand == "Voltage" and phase:
                     if self.voltages.get(phase) != value:
+                        _LOGGER.info("✅ Voltage %s updated: %.1f V (was: %s)", phase, value, self.voltages.get(phase))
                         self.voltages[phase] = value
-                        _LOGGER.debug("Voltage %s updated: %.1f V", phase, value)
                         updated = True
 
                 # Temperatuur
                 elif measurand == "Temperature":
                     if self.temperature != value:
+                        _LOGGER.info("✅ Temperature updated: %.1f °C (was: %s)", value, self.temperature)
                         self.temperature = value
-                        _LOGGER.debug("Temperature updated: %.1f °C", value)
                         updated = True
 
         # Totaal vermogen = som fases
         if self.phase_power:
             total = sum(self.phase_power.values())
             if self.power != total:
+                _LOGGER.info("✅ Total power calculated: %.1f W (was: %s)", total, self.power)
                 self.power = total
-                _LOGGER.debug("Total power calculated: %.1f W", total)
                 updated = True
 
         if updated:
+            _LOGGER.info("🔄 Coordinator data updated - notifying sensors")
             self.async_set_updated_data(True)
+        else:
+            _LOGGER.warning("⚠️ No updates detected in MeterValues")
 
     # ─────────────────────────────
     # GetConfiguration verwerking
