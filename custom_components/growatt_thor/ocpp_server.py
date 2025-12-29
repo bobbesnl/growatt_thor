@@ -72,7 +72,7 @@ class GrowattChargePoint(OcppChargePoint):
                 self._heartbeat_done = True
                 _LOGGER.info("⭐ First Heartbeat → Auto fetching configuration...")
                 self.hass.async_create_task(self._post_connect_init())
-            
+
             return call_result.HeartbeatPayload(
                 current_time=self.coordinator.now()
             )
@@ -92,9 +92,13 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.info("🔄 Auto GetConfiguration after connect")
             await self.trigger_get_configuration()
             
-            _LOGGER.info("🔄 Auto external meterval after connect")  
-            await self.trigger_external_meterval()
-            
+            # 🔑 SMART: External meter ALLEEN bij load balancing AAN
+            if self.coordinator.external_limit_power_enable:
+                _LOGGER.info("🔄 Auto external meterval (load balancing ON)")
+                await self.trigger_external_meterval()
+            else:
+                _LOGGER.debug("⏸️ Skip external meterval (load balancing OFF)")
+                
         except Exception as exc:
             _LOGGER.warning("Post-connect init failed: %s", exc)
 
@@ -268,7 +272,7 @@ async def _on_connect(websocket, path, coordinator, hass):
         _LOGGER.info("THOR connected: %s", cp_id)
 
         cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
-        
+
         # ✅ GEEN vroege triggers meer - wachten op Heartbeat!
 
         try:
