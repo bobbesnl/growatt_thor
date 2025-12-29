@@ -29,7 +29,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 class ExternalLimitPowerEnableSwitch(CoordinatorEntity, SwitchEntity):
     """Switch to enable/disable external limit power (load balancing)."""
-    
+
     _attr_has_entity_name = True
     _attr_name = "Loadbalancing enable"
     _attr_icon = "mdi:power-plug-outline"
@@ -76,12 +76,19 @@ class ExternalLimitPowerEnableSwitch(CoordinatorEntity, SwitchEntity):
             )
 
             if result == ConfigurationStatus.accepted:
-                _LOGGER.info("External Limit Power Enable successfully changed to %s", value)
+                # ✅ FIX: Optimistic update + CORRECTE async_set_updated_data()
+                self.coordinator.external_limit_power_enable = (value == "1")
+                self.coordinator.data["external_limit_power_enable"] = (value == "1")  # ← DIRECTE FIX
+                self.coordinator.async_set_updated_data(self.coordinator.data)  # ← CORRECT: data!
+                
+                _LOGGER.info("✅ External Limit Power Enable → %s (immediate UI update)", 
+                           "ON" if value == "1" else "OFF")
             elif result == ConfigurationStatus.reboot_required:
-                _LOGGER.warning("External Limit Power Enable changed but charger reboot required")
+                _LOGGER.warning("⚠️ External Limit Power Enable → %s (reboot required - will confirm after reconnect)", 
+                              "ON" if value == "1" else "OFF")
             else:
-                _LOGGER.error("External Limit Power Enable change rejected: %s", result)
+                _LOGGER.error("❌ External Limit Power Enable change rejected: %s", result)
 
         except Exception as exc:
-            _LOGGER.error("Failed to set External Limit Power Enable: %s", exc, exc_info=True)
+            _LOGGER.error("❌ Failed to set External Limit Power Enable: %s", exc, exc_info=True)
 
