@@ -20,6 +20,17 @@ PLATFORMS = [
     Platform.TIME,
 ]
 
+async def _check_existing_connection(hass, coordinator):
+    """Check if THOR is already connected and fetch config."""
+    await asyncio.sleep(2)  # Wacht even tot ChargePoint geïnitialiseerd
+
+    charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
+    if charge_point:
+        _LOGGER.info("THOR already connected at startup, fetching config...")
+        try:
+            await charge_point.trigger_get_configuration()
+        except Exception as exc:
+            _LOGGER.debug("Could not fetch config at startup: %s", exc)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Growatt THOR from config entry."""
@@ -37,6 +48,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["server"] = server
 
     _LOGGER.info("OCPP server started on %s:%s", host, port)
+
+    # 🔑 Check of THOR al verbonden is en haal config op
+    hass.async_create_task(_check_existing_connection(hass, coordinator))
 
     # Setup platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

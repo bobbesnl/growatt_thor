@@ -373,6 +373,9 @@ async def _on_connect(websocket, path, coordinator, hass):
 
         cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
 
+        # 🔑 Automatisch config ophalen bij connectie
+        hass.async_create_task(cp.trigger_get_configuration())
+
         try:
             await cp.start()
         finally:
