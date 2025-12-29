@@ -76,16 +76,19 @@ class ExternalLimitPowerEnableSwitch(CoordinatorEntity, SwitchEntity):
             )
 
             if result == ConfigurationStatus.accepted:
-                # 🔑 OPTIMISTISCH: Direct updaten (reboot bevestigt later)
+                # ✅ FIX: Optimistic update + CORRECTE async_set_updated_data()
                 self.coordinator.external_limit_power_enable = (value == "1")
-                self.coordinator.async_set_updated_data()
-                _LOGGER.info("External Limit Power Enable → %s (optimistic update)", "ON" if value == "1" else "OFF")
+                self.coordinator.data["external_limit_power_enable"] = (value == "1")  # ← DIRECTE FIX
+                self.coordinator.async_set_updated_data(self.coordinator.data)  # ← CORRECT: data!
+                
+                _LOGGER.info("✅ External Limit Power Enable → %s (immediate UI update)", 
+                           "ON" if value == "1" else "OFF")
             elif result == ConfigurationStatus.reboot_required:
-                # THOR reboot verwacht, coordinator updaten blijft wachten op GetConfig
-                _LOGGER.warning("External Limit Power Enable → %s (reboot required - will confirm after reconnect)", "ON" if value == "1" else "OFF")
+                _LOGGER.warning("⚠️ External Limit Power Enable → %s (reboot required - will confirm after reconnect)", 
+                              "ON" if value == "1" else "OFF")
             else:
-                _LOGGER.error("External Limit Power Enable change rejected: %s", result)
+                _LOGGER.error("❌ External Limit Power Enable change rejected: %s", result)
 
         except Exception as exc:
-            _LOGGER.error("Failed to set External Limit Power Enable: %s", exc, exc_info=True)
+            _LOGGER.error("❌ Failed to set External Limit Power Enable: %s", exc, exc_info=True)
 

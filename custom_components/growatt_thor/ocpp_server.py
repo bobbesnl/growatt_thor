@@ -11,6 +11,7 @@ from ocpp.v16.enums import (
     DataTransferStatus,
     ConfigurationStatus,
 )
+
 from ocpp.routing import on
 
 from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
@@ -88,17 +89,17 @@ class GrowattChargePoint(OcppChargePoint):
         """Initialize after first heartbeat or boot notification."""
         try:
             await asyncio.sleep(1)  # Stabiliteit
-            
+
             _LOGGER.info("🔄 Auto GetConfiguration after connect")
             await self.trigger_get_configuration()
-            
+
             # 🔑 SMART: External meter ALLEEN bij load balancing AAN
             if self.coordinator.external_limit_power_enable:
                 _LOGGER.info("🔄 Auto external meterval (load balancing ON)")
                 await self.trigger_external_meterval()
             else:
                 _LOGGER.debug("⏸️ Skip external meterval (load balancing OFF)")
-                
+
         except Exception as exc:
             _LOGGER.warning("Post-connect init failed: %s", exc)
 
@@ -220,7 +221,10 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             _LOGGER.info("Triggering GetConfiguration")
 
-            result = await self.call(call.GetConfigurationPayload())
+            result = await asyncio.wait_for(
+                self.call(call.GetConfigurationPayload()),
+                timeout=30.0
+            )
 
             config_keys = getattr(result, "configuration_key", [])
             unknown_keys = getattr(result, "unknown_key", [])
@@ -229,8 +233,11 @@ class GrowattChargePoint(OcppChargePoint):
             self.coordinator.process_configuration(config_keys)
 
             for item in config_keys:
-                _LOGGER.debug("Config key: %s = %s (readonly=%s)", item.get("key"), item.get("value"), item.get("readonly"))
+                _LOGGER.debug("Config key: %s = %s (readonly=%s)", 
+                            item.get("key"), item.get("value"), item.get("readonly"))
 
+        except asyncio.TimeoutError:
+            _LOGGER.warning("Failed to trigger GetConfiguration: Waited 30s for response")
         except Exception as exc:
             _LOGGER.warning("Failed to trigger GetConfiguration: %s", exc)
 
@@ -248,6 +255,7 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.info("ChangeConfiguration result: %s", status)
 
             if status == ConfigurationStatus.accepted:
+                # ✅ IMMEDIATE GetConfiguration voor switch bevestiging!
                 self.hass.async_create_task(self.trigger_get_configuration())
 
             return status
