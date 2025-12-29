@@ -38,7 +38,7 @@ class ChargerModeSelect(CoordinatorEntity, SelectEntity):
     # Mapping: internal value → display name
     _MODE_MAP = {
         "1": "APP Only",
-        "2": "RFID/APP",
+        "2": "RFID",
         "3": "Plug & Charge",
     }
 

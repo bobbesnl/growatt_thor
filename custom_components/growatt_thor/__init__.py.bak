@@ -1,112 +1,120 @@
+"""Growatt THOR OCPP Integration for Home Assistant."""
 import logging
+import asyncio
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.const import Platform
 
-from .const import (
-    DOMAIN,
-    DEFAULT_HOST,
-    DEFAULT_PORT,
-    CONF_HOST,
-    CONF_PORT,
-)
+from .const import DOMAIN
 from .coordinator import GrowattCoordinator
 from .ocpp_server import start_ocpp_server
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[str] = ["sensor"]
+PLATFORMS = [
+    Platform.SENSOR,
+    Platform.NUMBER,
+    Platform.SWITCH,
+    Platform.SELECT,
+    Platform.TIME,
+]
 
+async def _check_existing_connection(hass, coordinator):
+    """Check if THOR is already connected and fetch config."""
+    await asyncio.sleep(2)  # Wacht even tot ChargePoint geïnitialiseerd
+
+    charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
+    if charge_point:
+        _LOGGER.info("THOR already connected at startup, fetching config...")
+        try:
+            await charge_point.trigger_get_configuration()
+        except Exception as exc:
+            _LOGGER.debug("Could not fetch config at startup: %s", exc)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Growatt THOR from a config entry (push-based OCPP)."""
+    """Set up Growatt THOR from config entry."""
 
     coordinator = GrowattCoordinator(hass)
 
-    host = entry.data.get(CONF_HOST, DEFAULT_HOST)
-    port = entry.data.get(CONF_PORT, DEFAULT_PORT)
-
-    # Start OCPP server (BELANGRIJK: hass meegeven)
-    server = await start_ocpp_server(
-        host=host,
-        port=port,
-        coordinator=coordinator,
-        hass=hass,
-    )
-
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN]["server"] = server
     hass.data[DOMAIN]["coordinator"] = coordinator
 
-    # ─────────────────────────────
-    # Manual refresh service
-    # ─────────────────────────────
+    # Start OCPP server
+    host = entry.data.get("host", "0.0.0.0")
+    port = entry.data.get("port", 9000)
 
-    async def handle_refresh(call: ServiceCall) -> None:
-        """
-        Manually trigger OCPP + Growatt specific updates.
-        Exact volgorde zoals Growatt cloud:
-        1. Status
-        2. External meter values
-        3. Configuration
-        """
-        cp = hass.data.get(DOMAIN, {}).get("charge_point")
+    server = await start_ocpp_server(host, port, coordinator, hass)
+    hass.data[DOMAIN]["server"] = server
 
-        if not cp:
-            _LOGGER.warning(
-                "Growatt THOR refresh requested, but no charge point connected yet"
-            )
-            return
+    _LOGGER.info("OCPP server started on %s:%s", host, port)
 
-        _LOGGER.info("Manual Growatt THOR refresh triggered from Home Assistant")
+    # 🔑 Check of THOR al verbonden is en haal config op
+    hass.async_create_task(_check_existing_connection(hass, coordinator))
 
-        try:
-            # 1️⃣ StatusNotification
-            if hasattr(cp, "trigger_status"):
-                _LOGGER.debug("Triggering StatusNotification")
-                await cp.trigger_status()
-            else:
-                _LOGGER.warning("ChargePoint has no trigger_status() method")
-
-            # 2️⃣ Live Growatt meter values
-            if hasattr(cp, "trigger_external_meterval"):
-                _LOGGER.debug("Triggering Growatt external meter values")
-                await cp.trigger_external_meterval()
-            else:
-                _LOGGER.warning(
-                    "ChargePoint has no trigger_external_meterval() method"
-                )
-
-            # 3️⃣ 🔧 Growatt configuration (load balancing, limits, etc)
-            if hasattr(cp, "trigger_get_configuration"):
-                _LOGGER.debug("Triggering Growatt GetConfiguration")
-                await cp.trigger_get_configuration()
-            else:
-                _LOGGER.warning(
-                    "ChargePoint has no trigger_get_configuration() method"
-                )
-
-        except Exception:
-            _LOGGER.exception("Failed to trigger Growatt THOR refresh")
-
-    if not hass.services.has_service(DOMAIN, "refresh"):
-        hass.services.async_register(
-            DOMAIN,
-            "refresh",
-            handle_refresh,
-        )
-
-    # ─────────────────────────────
-    # Load platforms (sensor.py)
-    # ─────────────────────────────
-
+    # Setup platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    _LOGGER.info(
-        "Growatt THOR OCPP server started on %s:%s",
-        host,
-        port,
+    # ─────────────────────────────
+    # 🔑 PERIODIC TASK: Elke 30s grid data ophalen
+    # ─────────────────────────────
+
+    async def periodic_external_meter_poll():
+        """Poll external meter values every 1800 seconds."""
+        # ✅ FIX: Eerste delay VOOR de loop zodat startup niet blokkeert
+        await asyncio.sleep(1800)
+
+        while True:
+            charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
+            if charge_point:
+                try:
+                    _LOGGER.debug("Periodic: Triggering external meter values")
+                    await charge_point.trigger_external_meterval()
+                except Exception as exc:
+                    _LOGGER.warning("Failed to trigger external meter values: %s", exc)
+
+            # Wacht 1800s voor volgende poll
+            await asyncio.sleep(1800)
+
+    # Start periodic task (nu NON-BLOCKING)
+    hass.data[DOMAIN]["polling_task"] = hass.async_create_background_task(
+        periodic_external_meter_poll(),
+        name="growatt_thor_periodic_poll"
     )
+
+    # ─────────────────────────────
+    # 🔑 MANUAL REFRESH SERVICE
+    # ─────────────────────────────
+
+    async def handle_refresh(call: ServiceCall):
+        """Handle manual refresh service call."""
+        charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
+
+        if not charge_point:
+            _LOGGER.warning("No charge point connected - cannot refresh")
+            return
+
+        _LOGGER.debug("Manual refresh triggered")
+
+        try:
+            # 1. Status update
+            _LOGGER.debug("Triggering StatusNotification")
+            await charge_point.trigger_status()
+
+            # 2. External meter values (GRID DATA)
+            _LOGGER.debug("Triggering Growatt external meter values")
+            await charge_point.trigger_external_meterval()
+
+            # 3. Configuration
+            _LOGGER.debug("Triggering Growatt GetConfiguration")
+            await charge_point.trigger_get_configuration()
+
+            _LOGGER.info("Manual refresh completed successfully")
+
+        except Exception as exc:
+            _LOGGER.error("Manual refresh failed: %s", exc, exc_info=True)
+
+    hass.services.async_register(DOMAIN, "refresh", handle_refresh)
 
     return True
 
@@ -114,19 +122,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload Growatt THOR config entry."""
 
-    unload_ok = await hass.config_entries.async_unload_platforms(
-        entry, PLATFORMS
-    )
+    # Stop periodic polling
+    polling_task = hass.data.get(DOMAIN, {}).get("polling_task")
+    if polling_task:
+        polling_task.cancel()
+        try:
+            await polling_task
+        except asyncio.CancelledError:
+            pass
 
+    # Unload platforms
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    # Stop OCPP server
     server = hass.data.get(DOMAIN, {}).get("server")
     if server:
         server.close()
         await server.wait_closed()
 
+    # Remove services
+    hass.services.async_remove(DOMAIN, "refresh")
+
+    # Clean up
     if unload_ok:
-        hass.data[DOMAIN].pop("server", None)
-        hass.data[DOMAIN].pop("coordinator", None)
-        hass.data[DOMAIN].pop("charge_point", None)
+        hass.data[DOMAIN].clear()
 
     return unload_ok
 
