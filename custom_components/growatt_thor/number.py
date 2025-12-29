@@ -142,7 +142,33 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             "model": "THOR Grid Connection",
         }
 
+        self._debounce_task = None  # ← DEBOUNCE
+        self._pending_value = None  # ← PENDING
+
     @property
     def native_value(self):
-        return self.coordinator.external_limit_power or 10.0
+        """Return current value with debounce awareness."""
+        value = getattr(self.coordinator, self._property_name, None)
+        return value if value is not None else 10.0
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Set new value with 1s debounce."""
+        # Cancel vorige debounce
+        if self._debounce_task:
+            self._debounce_task.cancel()
+        
+        self._pending_value = value
+        
+        # Plan nieuwe call na 1s (als geen nieuwe wijziging komt)
+        self._debounce_task = asyncio.create_task(self._debounced_set())
+        
+    async def _debounced_set(self):
+        """Execute setting after debounce delay."""
+        try:
+            await asyncio.sleep(5.0)  # ← 5 SECONDEN WACHTEN
+            if self._pending_value is not None:
+                await super().async_set_native_value(self._pending_value)
+                self._pending_value = None
+        except asyncio.CancelledError:
+            pass  # Normaal - nieuwe wijziging annuleerde deze
 
