@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import asyncio
 
 from homeassistant.components.number import NumberEntity, NumberDeviceClass, NumberMode
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
