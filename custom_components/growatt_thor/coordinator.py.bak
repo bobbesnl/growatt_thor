@@ -98,32 +98,35 @@ class GrowattCoordinator(DataUpdateCoordinator):
         try:
             for idx, entry in enumerate(meter_values):
                 _LOGGER.debug("  Entry %d type: %s", idx, type(entry))
-                
-                # Haal sampledValue op - werkt voor zowel dict als object
+
+                # Haal sampledValue op - OCPP library gebruikt 'sampled_value' (underscore!)
                 sampled_values = None
                 if hasattr(entry, 'sampled_value'):
                     sampled_values = entry.sampled_value
-                    _LOGGER.debug("  → Using entry.sampled_value")
+                    _LOGGER.debug("  → Using entry.sampled_value (attribute)")
+                elif isinstance(entry, dict) and 'sampled_value' in entry:
+                    sampled_values = entry['sampled_value']
+                    _LOGGER.debug("  → Using entry['sampled_value'] (dict, underscore)")
                 elif isinstance(entry, dict) and 'sampledValue' in entry:
                     sampled_values = entry['sampledValue']
-                    _LOGGER.debug("  → Using entry['sampledValue']")
+                    _LOGGER.debug("  → Using entry['sampledValue'] (dict, camelCase)")
                 else:
-                    _LOGGER.warning("  ⚠️ Cannot find sampledValue in entry: %s", entry)
+                    _LOGGER.warning("  ⚠️ Cannot find sampledValue in entry keys: %s", list(entry.keys()) if isinstance(entry, dict) else 'not a dict')
                     continue
-                
+
                 if not sampled_values:
                     _LOGGER.warning("  ⚠️ sampled_values is empty")
                     continue
-                
+
                 _LOGGER.info("  → Processing %d samples", len(sampled_values))
-                
+
                 for sample in sampled_values:
                     try:
                         # Haal value op - werkt voor zowel dict als object
                         value_str = None
                         measurand = None
                         phase = None
-                        
+
                         if hasattr(sample, 'value'):
                             value_str = sample.value
                             measurand = sample.measurand
@@ -198,7 +201,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 self.async_set_updated_data(True)
             else:
                 _LOGGER.warning("⚠️ No updates from MeterValues")
-                
+
         except Exception as exc:
             _LOGGER.error("💥 CRASH in process_meter_values: %s", exc, exc_info=True)
 

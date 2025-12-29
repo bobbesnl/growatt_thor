@@ -8,6 +8,7 @@ from ocpp.v16.enums import (
     RegistrationStatus,
     AuthorizationStatus,
     DataTransferStatus,
+    ConfigurationStatus,
 )
 from ocpp.routing import on
 
@@ -311,6 +312,49 @@ class GrowattChargePoint(OcppChargePoint):
                 exc
             )
             # Don't crash - just log and continue
+
+    # ─────────────────────────────
+    # 🔧 ChangeConfiguration
+    # ─────────────────────────────
+
+    async def change_configuration(self, key: str, value: str):
+        """Change a configuration key on the charger.
+        
+        Args:
+            key: Configuration key (e.g. "G_MaxCurrent")
+            value: New value as string (e.g. "16.00")
+            
+        Returns:
+            ConfigurationStatus enum value (Accepted, Rejected, RebootRequired, NotSupported)
+        """
+        try:
+            _LOGGER.info("ChangeConfiguration: %s = %s", key, value)
+
+            result = await self.call(
+                call.ChangeConfigurationPayload(
+                    key=key,
+                    value=value
+                )
+            )
+
+            status = getattr(result, "status", ConfigurationStatus.rejected)
+            _LOGGER.info("ChangeConfiguration result: %s", status)
+
+            # Refresh configuration na succesvol wijzigen
+            if status == ConfigurationStatus.accepted:
+                self.hass.async_create_task(self.trigger_get_configuration())
+
+            return status
+
+        except Exception as exc:
+            _LOGGER.error(
+                "Failed to change configuration %s=%s: %s",
+                key,
+                value,
+                exc,
+                exc_info=True
+            )
+            return ConfigurationStatus.rejected
 
 
 # ─────────────────────────────

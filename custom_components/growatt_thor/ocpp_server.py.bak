@@ -53,7 +53,7 @@ class GrowattChargePoint(OcppChargePoint):
                 interval=60,
                 status=RegistrationStatus.accepted,
             )
-            
+
         except Exception as exc:
             _LOGGER.error(
                 "Error in BootNotification handler: %s",
@@ -121,7 +121,7 @@ class GrowattChargePoint(OcppChargePoint):
                 transaction_id=transaction_id,
                 id_tag_info={"status": AuthorizationStatus.accepted},
             )
-            
+
         except Exception as exc:
             _LOGGER.error(
                 "Error in StartTransaction handler (connector=%s, idTag=%s): %s",
@@ -304,7 +304,7 @@ class GrowattChargePoint(OcppChargePoint):
                     item.get("value"),
                     item.get("readonly"),
                 )
-                
+
         except Exception as exc:
             _LOGGER.warning(
                 "Failed to trigger GetConfiguration: %s",
@@ -334,7 +334,7 @@ async def _on_connect(websocket, path, coordinator, hass):
         finally:
             hass.data.get(DOMAIN, {}).pop("charge_point", None)
             coordinator.set_status("Unavailable")
-            
+
     except Exception as exc:
         _LOGGER.error(
             "Error in connection handler: %s",
