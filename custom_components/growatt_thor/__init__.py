@@ -56,27 +56,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # ─────────────────────────────
-    # 🔑 PERIODIC TASK: Elke 30s grid data ophalen
+    # 🔑 SMART PERIODIC TASK: Grid data alleen bij load balancing AAN (5s)
     # ─────────────────────────────
 
-    async def periodic_external_meter_poll():
-        """Poll external meter values every 1800 seconds."""
-        await asyncio.sleep(1800)
+    async def periodic_smart_grid_poll():
+        """Smart poll: alleen als load balancing enabled (elke 5s)."""
+        await asyncio.sleep(5)  # Eerste poll na 5s
 
         while True:
             charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
-            if charge_point:
-                try:
-                    _LOGGER.debug("Periodic: Triggering external meter values")
-                    await charge_point.trigger_external_meterval()
-                except Exception as exc:
-                    _LOGGER.warning("Failed to trigger external meter values: %s", exc)
+            coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
+            
+            if charge_point and coordinator:
+                if coordinator.external_limit_power_enable:
+                    try:
+                        _LOGGER.debug("🔄 Smart poll (5s): Load balancing ON → Grid data")
+                        await charge_point.trigger_external_meterval()
+                    except Exception as exc:
+                        _LOGGER.warning("Smart poll failed: %s", exc)
+                else:
+                    _LOGGER.debug("⏸️ Smart poll (5s): Load balancing OFF → Skip")
 
-            await asyncio.sleep(1800)
+            await asyncio.sleep(5)  # Elke 5s checken
 
     hass.data[DOMAIN]["polling_task"] = hass.async_create_background_task(
-        periodic_external_meter_poll(),
-        name="growatt_thor_periodic_poll"
+        periodic_smart_grid_poll(),
+        name="growatt_thor_smart_grid_poll"
     )
 
     # ─────────────────────────────

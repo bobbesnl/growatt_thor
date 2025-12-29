@@ -60,9 +60,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # ─────────────────────────────
 
     async def periodic_external_meter_poll():
-        """Poll external meter values every 1800 seconds."""
-        # ✅ FIX: Eerste delay VOOR de loop zodat startup niet blokkeert
-        await asyncio.sleep(1800)
+        """Poll external meter values every 30 seconds."""
+        await asyncio.sleep(30)
 
         while True:
             charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
@@ -73,10 +72,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 except Exception as exc:
                     _LOGGER.warning("Failed to trigger external meter values: %s", exc)
 
-            # Wacht 1800s voor volgende poll
-            await asyncio.sleep(1800)
+            await asyncio.sleep(30)
 
-    # Start periodic task (nu NON-BLOCKING)
     hass.data[DOMAIN]["polling_task"] = hass.async_create_background_task(
         periodic_external_meter_poll(),
         name="growatt_thor_periodic_poll"
@@ -97,15 +94,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.debug("Manual refresh triggered")
 
         try:
-            # 1. Status update
             _LOGGER.debug("Triggering StatusNotification")
             await charge_point.trigger_status()
 
-            # 2. External meter values (GRID DATA)
             _LOGGER.debug("Triggering Growatt external meter values")
             await charge_point.trigger_external_meterval()
 
-            # 3. Configuration
             _LOGGER.debug("Triggering Growatt GetConfiguration")
             await charge_point.trigger_get_configuration()
 
@@ -122,7 +116,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload Growatt THOR config entry."""
 
-    # Stop periodic polling
     polling_task = hass.data.get(DOMAIN, {}).get("polling_task")
     if polling_task:
         polling_task.cancel()
@@ -131,19 +124,15 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except asyncio.CancelledError:
             pass
 
-    # Unload platforms
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
-    # Stop OCPP server
     server = hass.data.get(DOMAIN, {}).get("server")
     if server:
         server.close()
         await server.wait_closed()
 
-    # Remove services
     hass.services.async_remove(DOMAIN, "refresh")
 
-    # Clean up
     if unload_ok:
         hass.data[DOMAIN].clear()
 
