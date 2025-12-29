@@ -1,4 +1,4 @@
-"""Switch entities for Growatt THOR configuration."""
+"""Switch entities for Growatt THOR load balancing."""
 from __future__ import annotations
 
 import logging
@@ -15,20 +15,16 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up Growatt THOR switch entities."""
+    """Set up Growatt THOR load balancing switch."""
     coordinator = hass.data[DOMAIN]["coordinator"]
 
     async_add_entities([
-        ExternalLimitPowerEnableSwitch(coordinator, entry),
+        LoadBalancingEnableSwitch(coordinator, entry),
     ])
 
 
-# ─────────────────────────────
-# External Limit Power Enable
-# ─────────────────────────────
-
-class ExternalLimitPowerEnableSwitch(CoordinatorEntity, SwitchEntity):
-    """Switch to enable/disable external limit power (load balancing)."""
+class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
+    """Switch to enable/disable load balancing."""
 
     _attr_has_entity_name = True
     _attr_name = "Loadbalancing enable"
@@ -37,12 +33,12 @@ class ExternalLimitPowerEnableSwitch(CoordinatorEntity, SwitchEntity):
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator)
-        self._attr_unique_id = f"{entry.entry_id}_external_limit_power_enable"
+        self._attr_unique_id = f"{entry.entry_id}_load_balancing_enable"
         self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
+            "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
+            "name": "Growatt THOR Load balancing",  # ← GEWENST
             "manufacturer": "Growatt",
-            "model": "THOR",
+            "model": "THOR Grid Connection",
         }
         self.hass = coordinator.hass
 
@@ -52,48 +48,44 @@ class ExternalLimitPowerEnableSwitch(CoordinatorEntity, SwitchEntity):
         return self.coordinator.external_limit_power_enable
 
     async def async_turn_on(self, **kwargs):
-        """Enable external limit power."""
+        """Enable load balancing."""
         await self._set_value("1")
 
     async def async_turn_off(self, **kwargs):
-        """Disable external limit power."""
+        """Disable load balancing."""
         await self._set_value("0")
 
     async def _set_value(self, value: str):
         """Update the configuration on the charger."""
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
-        
+
         if not charge_point:
-            _LOGGER.warning("Cannot change External Limit Power Enable: charger not connected")
+            _LOGGER.warning("Cannot change Loadbalancing enable: charger not connected")
             return
 
         try:
             _LOGGER.info("Setting G_ExternalLimitPowerEnable to %s", value)
-            
+
             result = await charge_point.change_configuration(
                 "G_ExternalLimitPowerEnable",
                 value
             )
 
             new_state = (value == "1")
-            
+
             if result == ConfigurationStatus.accepted:
-                # ✅ ULTIEEME FIX: DIRECT property + coordinator refresh
                 self.coordinator.external_limit_power_enable = new_state
-                
-                # Force coordinator refresh (data wordt later door GetConfig overschreven)
                 self.coordinator.async_set_updated_data(True)
-                
-                _LOGGER.info("✅ External Limit Power Enable → %s (immediate UI update)", 
+                _LOGGER.info("✅ Loadbalancing enable → %s (immediate UI update)",
                            "ON" if new_state else "OFF")
             elif result == ConfigurationStatus.reboot_required:
-                _LOGGER.warning("⚠️ External Limit Power Enable → %s (reboot required)", 
+                _LOGGER.warning("⚠️ Loadbalancing enable → %s (reboot required)",
                               "ON" if new_state else "OFF")
                 self.coordinator.external_limit_power_enable = new_state
                 self.coordinator.async_set_updated_data(True)
             else:
-                _LOGGER.error("❌ External Limit Power Enable change rejected: %s", result)
+                _LOGGER.error("❌ Loadbalancing enable change rejected: %s", result)
 
         except Exception as exc:
-            _LOGGER.error("❌ Failed to set External Limit Power Enable: %s", exc, exc_info=True)
+            _LOGGER.error("❌ Failed to set Loadbalancing enable: %s", exc, exc_info=True)
 

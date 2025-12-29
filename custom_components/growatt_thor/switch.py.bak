@@ -75,17 +75,22 @@ class ExternalLimitPowerEnableSwitch(CoordinatorEntity, SwitchEntity):
                 value
             )
 
+            new_state = (value == "1")
+            
             if result == ConfigurationStatus.accepted:
-                # ✅ FIX: Optimistic update + CORRECTE async_set_updated_data()
-                self.coordinator.external_limit_power_enable = (value == "1")
-                self.coordinator.data["external_limit_power_enable"] = (value == "1")  # ← DIRECTE FIX
-                self.coordinator.async_set_updated_data(self.coordinator.data)  # ← CORRECT: data!
+                # ✅ ULTIEEME FIX: DIRECT property + coordinator refresh
+                self.coordinator.external_limit_power_enable = new_state
+                
+                # Force coordinator refresh (data wordt later door GetConfig overschreven)
+                self.coordinator.async_set_updated_data(True)
                 
                 _LOGGER.info("✅ External Limit Power Enable → %s (immediate UI update)", 
-                           "ON" if value == "1" else "OFF")
+                           "ON" if new_state else "OFF")
             elif result == ConfigurationStatus.reboot_required:
-                _LOGGER.warning("⚠️ External Limit Power Enable → %s (reboot required - will confirm after reconnect)", 
-                              "ON" if value == "1" else "OFF")
+                _LOGGER.warning("⚠️ External Limit Power Enable → %s (reboot required)", 
+                              "ON" if new_state else "OFF")
+                self.coordinator.external_limit_power_enable = new_state
+                self.coordinator.async_set_updated_data(True)
             else:
                 _LOGGER.error("❌ External Limit Power Enable change rejected: %s", result)
 

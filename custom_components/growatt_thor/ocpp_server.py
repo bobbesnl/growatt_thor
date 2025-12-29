@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import websockets.exceptions
 from urllib.parse import parse_qs
 from websockets.server import serve
 
@@ -285,6 +286,10 @@ async def _on_connect(websocket, path, coordinator, hass):
 
         try:
             await cp.start()
+        except websockets.exceptions.ConnectionClosedError:
+            _LOGGER.debug("Connection closed normally during startup - THOR disconnected")
+        except Exception as exc:
+            _LOGGER.error("Error in connection handler: %s", exc, exc_info=True)
         finally:
             hass.data.get(DOMAIN, {}).pop("charge_point", None)
             coordinator.set_status("Unavailable")

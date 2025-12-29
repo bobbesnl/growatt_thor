@@ -30,7 +30,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         # ── Config (Growatt) ───────────────
         self.max_current = None
-        self.external_limit_power = None
+        self._external_limit_power = 10.0  # ← VERPLAATST: Private backing field
         self.external_limit_power_enable = None
         self.charger_mode = None
         self.server_url = None
@@ -49,6 +49,23 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.grid_currents = {}         # {"L1": A, "L2": A, "L3": A}
         self.wiring_type = None         # 1 = 3-fase, 0 = 1-fase
 
+    # ─────────────────────────────
+    # 🔑 LOAD BALANCING PROPERTY
+    # ─────────────────────────────
+
+    @property
+    def external_limit_power(self):
+        """Return current load balancing limit (kW)."""
+        return self._external_limit_power
+
+    @external_limit_power.setter
+    def external_limit_power(self, value):
+        """Update load balancing limit."""
+        self._external_limit_power = float(value)
+        _LOGGER.debug("Load balancing limit updated to: %.1f kW", self._external_limit_power)
+
+    # ─────────────────────────────
+    # Utility methods
     # ─────────────────────────────
 
     def now(self) -> str:
@@ -229,9 +246,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
                 elif key == "G_ExternalLimitPower":
                     value = float(raw)
-                    if self.external_limit_power != value:
-                        self.external_limit_power = value
-                        _LOGGER.debug("Config: ExternalLimitPower = %.1f W", value)
+                    if self.external_limit_power != value:  # ← ✅ PROPERTY GEBRUIKT!
+                        self.external_limit_power = value     # ← ✅ AUTOMATISCH UPDATE!
+                        _LOGGER.debug("Config: ExternalLimitPower = %.1f kW", value)
                         updated = True
 
                 elif key == "G_ExternalLimitPowerEnable":
@@ -261,12 +278,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         try:
                             start_time = datetime.strptime(start_str.strip(), "%H:%M").time()
                             stop_time = datetime.strptime(stop_str.strip(), "%H:%M").time()
-                            
+
                             if self.auto_charge_start_time != start_time:
                                 self.auto_charge_start_time = start_time
                                 _LOGGER.debug("Config: AutoChargeStartTime = %s", start_time)
                                 updated = True
-                            
+
                             if self.auto_charge_stop_time != stop_time:
                                 self.auto_charge_stop_time = stop_time
                                 _LOGGER.debug("Config: AutoChargeStopTime = %s", stop_time)

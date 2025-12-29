@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -34,6 +34,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.external_limit_power_enable = None
         self.charger_mode = None
         self.server_url = None
+        self.auto_charge_start_time = None  # time object
+        self.auto_charge_stop_time = None   # time object
 
         # ── Laatste sessie ─────────────────
         self.last_session_energy = None
@@ -46,7 +48,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.grid_voltages = {}         # {"L1": V, "L2": V, "L3": V}
         self.grid_currents = {}         # {"L1": A, "L2": A, "L3": A}
         self.wiring_type = None         # 1 = 3-fase, 0 = 1-fase
-
+        self._external_limit_power = 10.0  # Loadbalance: Default 10 kW
     # ─────────────────────────────
 
     def now(self) -> str:
@@ -251,6 +253,26 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         self.server_url = raw
                         _LOGGER.debug("Config: ServerURL = %s", raw)
                         updated = True
+
+                elif key == "G_AutoChargeTime":
+                    # Parse "23:01-05:59" → twee time objecten
+                    if "-" in raw:
+                        start_str, stop_str = raw.split("-", 1)
+                        try:
+                            start_time = datetime.strptime(start_str.strip(), "%H:%M").time()
+                            stop_time = datetime.strptime(stop_str.strip(), "%H:%M").time()
+                            
+                            if self.auto_charge_start_time != start_time:
+                                self.auto_charge_start_time = start_time
+                                _LOGGER.debug("Config: AutoChargeStartTime = %s", start_time)
+                                updated = True
+                            
+                            if self.auto_charge_stop_time != stop_time:
+                                self.auto_charge_stop_time = stop_time
+                                _LOGGER.debug("Config: AutoChargeStopTime = %s", stop_time)
+                                updated = True
+                        except ValueError as exc:
+                            _LOGGER.warning("Failed to parse G_AutoChargeTime '%s': %s", raw, exc)
 
             except (ValueError, TypeError) as exc:
                 # TIER 1 FIX: Better error logging with context
