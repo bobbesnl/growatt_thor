@@ -91,6 +91,13 @@ class BaseLoadBalancingSensor(CoordinatorEntity, SensorEntity):
             "model": "THOR Load balancing",
         }
 
+    @property
+    def extra_state_attributes(self):
+        """Hint: Data alleen bij Load balancing enabled."""
+        if not self.coordinator.external_limit_power_enable:
+            return {"note": "Only sensor data when Load balancing is enabled"}
+        return None
+
 
 # ─────────────────────────────
 # Status (HOOFDSENSOR - EV Charger)

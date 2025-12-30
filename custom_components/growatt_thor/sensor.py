@@ -28,6 +28,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             ChargePointIdSensor(coordinator, entry),
             ChargingPowerSensor(coordinator, entry),
             EnergyChargedSensor(coordinator, entry),
+            ServerUrlSensor(coordinator, entry),  # ← NIEUW: Server URL!
 
             # ── Fase-specifiek (diagnostics tijdens laden) ──
             CurrentSensor(coordinator, entry, "L1"),
@@ -97,6 +98,23 @@ class BaseLoadBalancingSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.external_limit_power_enable:
             return {"note": "Only sensor data when Load balancing is enabled"}
         return None
+
+
+# ─────────────────────────────
+# NIEUW: Server URL (DIAGNOSTIC - EV Charger)
+# ─────────────────────────────
+
+class ServerUrlSensor(BaseSensor):
+    _attr_name = "Server URL"
+    _attr_icon = "mdi:server"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "server_url")
+
+    @property
+    def native_value(self):
+        return self.coordinator.server_url  # "ws://192.168.1.101:9000/ocpp/ws"
 
 
 # ─────────────────────────────
