@@ -255,14 +255,8 @@ class GrowattChargePoint(OcppChargePoint):
             status = getattr(result, "status", ConfigurationStatus.rejected)
             _LOGGER.info("ChangeConfiguration result: %s", status)
 
-            if status == ConfigurationStatus.accepted:
-                # 🚫 Skip GetConfiguration na Load balancing changes (Thor reboot!)
-                if key in ["G_ExternalLimitPower", "G_ExternalLimitPowerEnable"]:
-                    _LOGGER.info("⏳ Skipping GetConfiguration - Thor reboot expected")
-                else:
-                    # ✅ IMMEDIATE GetConfiguration voor andere keys
-                    _LOGGER.info("Triggering GetConfiguration")
-                    self.hass.async_create_task(self.trigger_get_configuration())
+            # 🚫 NO GetConfiguration trigger - Thor doet dit automatisch na reboot!
+            _LOGGER.debug("⏳ Config change accepted. Thor will send GetConfiguration on reconnect.")
 
             return status
 
