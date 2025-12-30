@@ -44,7 +44,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
             TemperatureSensor(coordinator, entry),
 
-            # ── Grid connection (apart device!) ───────
+            # ── Load Balancing Grid sensors ───────
             GridPowerSensor(coordinator, entry),
             GridVoltageSensor(coordinator, entry, "L1"),
             GridVoltageSensor(coordinator, entry, "L2"),
@@ -57,7 +57,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 # ─────────────────────────────
-# Base voor charger sensors
+# Base voor charger sensors (EV Charger device)
 # ─────────────────────────────
 
 class BaseSensor(CoordinatorEntity, SensorEntity):
@@ -75,26 +75,25 @@ class BaseSensor(CoordinatorEntity, SensorEntity):
 
 
 # ─────────────────────────────
-# Base voor grid sensors (apart device!)
+# Base voor Load balancing sensors (Load balancing device!)
 # ─────────────────────────────
 
-class BaseGridSensor(CoordinatorEntity, SensorEntity):
+class BaseLoadBalancingSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
 
     def __init__(self, coordinator, entry, key):
         super().__init__(coordinator)
-        self._attr_unique_id = f"{entry.entry_id}_grid_{key}"
+        self._attr_unique_id = f"{entry.entry_id}_load_balancing_{key}"
         self._attr_device_info = {
-            "identifiers": {(DOMAIN, f"{entry.entry_id}_grid")},
-            "name": "Growatt THOR Grid Connection",
+            "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
+            "name": "Growatt THOR Load balancing",
             "manufacturer": "Growatt",
-            "model": "External Meter",
-            "via_device": (DOMAIN, entry.entry_id),
+            "model": "THOR Load balancing",
         }
 
 
 # ─────────────────────────────
-# Status (HOOFDSENSOR)
+# Status (HOOFDSENSOR - EV Charger)
 # ─────────────────────────────
 
 class StatusSensor(BaseSensor):
@@ -110,7 +109,7 @@ class StatusSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Charge Point ID (HOOFDSENSOR)
+# Charge Point ID (HOOFDSENSOR - EV Charger)
 # ─────────────────────────────
 
 class ChargePointIdSensor(BaseSensor):
@@ -131,7 +130,7 @@ class ChargePointIdSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Charging power (HOOFDSENSOR)
+# Charging power (HOOFDSENSOR - EV Charger)
 # ─────────────────────────────
 
 class ChargingPowerSensor(BaseSensor):
@@ -152,7 +151,7 @@ class ChargingPowerSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Energy charged (HOOFDSENSOR)
+# Energy charged (HOOFDSENSOR - EV Charger)
 # ─────────────────────────────
 
 class EnergyChargedSensor(BaseSensor):
@@ -175,7 +174,7 @@ class EnergyChargedSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Phase currents (DIAGNOSTIC)
+# Phase currents (DIAGNOSTIC - EV Charger)
 # ─────────────────────────────
 
 class CurrentSensor(BaseSensor):
@@ -198,7 +197,7 @@ class CurrentSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Phase voltages (DIAGNOSTIC)
+# Phase voltages (DIAGNOSTIC - EV Charger)
 # ─────────────────────────────
 
 class VoltageSensor(BaseSensor):
@@ -221,7 +220,7 @@ class VoltageSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Phase power (DIAGNOSTIC)
+# Phase power (DIAGNOSTIC - EV Charger)
 # ─────────────────────────────
 
 class PhasePowerSensor(BaseSensor):
@@ -244,7 +243,7 @@ class PhasePowerSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Temperature (DIAGNOSTIC)
+# Temperature (DIAGNOSTIC - EV Charger)
 # ─────────────────────────────
 
 class TemperatureSensor(BaseSensor):
@@ -266,11 +265,11 @@ class TemperatureSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Grid / External Meter (APART DEVICE!)
+# Grid / External Meter (LOAD BALANCING DEVICE!)
 # ─────────────────────────────
 
-class GridPowerSensor(BaseGridSensor):
-    _attr_name = "Power"
+class GridPowerSensor(BaseLoadBalancingSensor):
+    _attr_name = "Grid power"
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:transmission-tower"
@@ -288,14 +287,14 @@ class GridPowerSensor(BaseGridSensor):
         return self.coordinator.grid_power
 
 
-class GridVoltageSensor(BaseGridSensor):
+class GridVoltageSensor(BaseLoadBalancingSensor):
     _attr_device_class = SensorDeviceClass.VOLTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_icon = "mdi:transmission-tower"
+    _attr_icon = "mdi:current-ac"
 
     def __init__(self, coordinator, entry, phase):
         self.phase = phase
-        self._attr_name = f"Voltage {phase}"
+        self._attr_name = f"Grid voltage {phase}"
         super().__init__(coordinator, entry, f"voltage_{phase.lower()}")
 
     @property
@@ -308,14 +307,14 @@ class GridVoltageSensor(BaseGridSensor):
         return self.coordinator.grid_voltages.get(self.phase)
 
 
-class GridCurrentSensor(BaseGridSensor):
+class GridCurrentSensor(BaseLoadBalancingSensor):
     _attr_device_class = SensorDeviceClass.CURRENT
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_icon = "mdi:transmission-tower"
+    _attr_icon = "mdi:current-dc"
 
     def __init__(self, coordinator, entry, phase):
         self.phase = phase
-        self._attr_name = f"Current {phase}"
+        self._attr_name = f"Grid current {phase}"
         super().__init__(coordinator, entry, f"current_{phase.lower()}")
 
     @property

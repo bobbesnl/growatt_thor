@@ -44,7 +44,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
             TemperatureSensor(coordinator, entry),
 
-            # ── Grid connection (nu onder Load balancing device!) ───────
+            # ── Load Balancing Grid sensors ───────
             GridPowerSensor(coordinator, entry),
             GridVoltageSensor(coordinator, entry, "L1"),
             GridVoltageSensor(coordinator, entry, "L2"),
@@ -86,10 +86,17 @@ class BaseLoadBalancingSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_load_balancing_{key}"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
-            "name": "Growatt THOR Load balancing",  # ← GEEN aparte Grid device meer!
+            "name": "Growatt THOR Load balancing",
             "manufacturer": "Growatt",
-            "model": "THOR Grid Connection",
+            "model": "THOR Load balancing",
         }
+
+    @property
+    def extra_state_attributes(self):
+        """Hint: Data alleen bij Load balancing enabled."""
+        if not self.coordinator.external_limit_power_enable:
+            return {"note": "Only sensor data when Load balancing is enabled"}
+        return None
 
 
 # ─────────────────────────────
