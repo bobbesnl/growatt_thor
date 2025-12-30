@@ -126,9 +126,9 @@ class MaxCurrentNumber(BaseConfigNumber):
         self._debounce_task = asyncio.create_task(self._debounced_set())
 
     async def _debounced_set(self):
-        """Execute setting after 5s debounce."""
+        """Execute setting after 10s debounce."""
         try:
-            await asyncio.sleep(5.0)
+            await asyncio.sleep(10.0)
             if self._pending_value is not None:
                 await super().async_set_native_value(self._pending_value)
                 self._pending_value = None
@@ -174,7 +174,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
         return int(value) if value is not None else 10
 
     async def async_set_native_value(self, value: float) -> None:
-        """Set new value with 5s debounce (integers only)."""
+        """Set new value with 10s debounce (integers only)."""
         # ✅ Automatisch naar integer door BaseConfigNumber._format_value
         value = round(value)  # Extra zekerheid
         
@@ -188,7 +188,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
     async def _debounced_set(self):
         """Execute setting after debounce delay."""
         try:
-            await asyncio.sleep(5.0)  # 5 SECONDEN WACHTEN
+            await asyncio.sleep(10.0)  # 5 SECONDEN WACHTEN
             if self._pending_value is not None:
                 await super().async_set_native_value(self._pending_value)
                 self._pending_value = None

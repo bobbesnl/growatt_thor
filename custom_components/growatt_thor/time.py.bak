@@ -8,6 +8,8 @@ from homeassistant.components.time import TimeEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import EntityCategory
 
+from ocpp.v16.enums import ConfigurationStatus
+
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,12 +26,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 # ─────────────────────────────
-# Base class (UI-only, geen direct schrijven!)
+# Base class
 # ─────────────────────────────
 
 class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
-    """Base class for auto charge time entities (UI-only)."""
-
+    """Base class for auto charge time entities."""
+    
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
     _attr_icon = "mdi:clock-outline"
@@ -46,25 +48,57 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
         self.hass = coordinator.hass
 
     async def async_set_value(self, value: time) -> None:
-        """Update pending time (UI only - not written to Thor yet!)."""
-        _LOGGER.info("📝 %s changed to %s (pending - use 'Apply' button)", self.name, value.strftime('%H:%M'))
+        """Update the time configuration on the charger."""
+        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         
-        # Update pending value in coordinator
+        if not charge_point:
+            _LOGGER.warning("Cannot change %s: charger not connected", self.name)
+            return
+
+        # Get current start/stop times
+        start_time = self.coordinator.auto_charge_start_time
+        stop_time = self.coordinator.auto_charge_stop_time
+
+        # Update the appropriate time
         if self._is_start:
-            self.coordinator.auto_charge_start_time_pending = value
+            start_time = value
         else:
-            self.coordinator.auto_charge_stop_time_pending = value
-        
-        self.coordinator.async_set_updated_data(True)
+            stop_time = value
+
+        # Check if we have both times
+        if start_time is None or stop_time is None:
+            _LOGGER.warning("Cannot update %s: both start and stop times must be set", self.name)
+            return
+
+        # Format as "HH:MM-HH:MM"
+        formatted_value = f"{start_time.strftime('%H:%M')}-{stop_time.strftime('%H:%M')}"
+
+        try:
+            _LOGGER.info("Setting G_AutoChargeTime to %s", formatted_value)
+            
+            result = await charge_point.change_configuration(
+                "G_AutoChargeTime",
+                formatted_value
+            )
+
+            if result == ConfigurationStatus.accepted:
+                _LOGGER.info("Auto Charge Time successfully changed to %s", formatted_value)
+            elif result == ConfigurationStatus.reboot_required:
+                _LOGGER.warning("Auto Charge Time changed but charger reboot required")
+            else:
+                _LOGGER.error("Auto Charge Time change rejected: %s", result)
+
+        except Exception as exc:
+            _LOGGER.error("Failed to set Auto Charge Time: %s", exc, exc_info=True)
 
 
 # ─────────────────────────────
-# Auto Charge Start Time (pending)
+# Auto Charge Start Time
 # ─────────────────────────────
 
 class AutoChargeStartTime(BaseAutoChargeTime):
-    """Auto charge start time configuration (pending)."""
-
+    """Auto charge start time configuration."""
+    
     _attr_name = "Auto Charge Start Time"
     _is_start = True
 
@@ -73,26 +107,17 @@ class AutoChargeStartTime(BaseAutoChargeTime):
 
     @property
     def native_value(self):
-        """Return pending start time."""
-        return self.coordinator.auto_charge_start_time_pending
-
-    @property
-    def extra_state_attributes(self):
-        """Show Thor value vs pending."""
-        thor_value = self.coordinator.auto_charge_start_time
-        return {
-            "thor_value": thor_value.strftime('%H:%M') if thor_value else None,
-            "note": "Use 'Apply charging schedule' button to write to Thor"
-        }
+        """Return the current start time."""
+        return self.coordinator.auto_charge_start_time
 
 
 # ─────────────────────────────
-# Auto Charge Stop Time (pending)
+# Auto Charge Stop Time
 # ─────────────────────────────
 
 class AutoChargeStopTime(BaseAutoChargeTime):
-    """Auto charge stop time configuration (pending)."""
-
+    """Auto charge stop time configuration."""
+    
     _attr_name = "Auto Charge Stop Time"
     _is_start = False
 
@@ -101,15 +126,6 @@ class AutoChargeStopTime(BaseAutoChargeTime):
 
     @property
     def native_value(self):
-        """Return pending stop time."""
-        return self.coordinator.auto_charge_stop_time_pending
-
-    @property
-    def extra_state_attributes(self):
-        """Show Thor value vs pending."""
-        thor_value = self.coordinator.auto_charge_stop_time
-        return {
-            "thor_value": thor_value.strftime('%H:%M') if thor_value else None,
-            "note": "Use 'Apply charging schedule' button to write to Thor"
-        }
+        """Return the current stop time."""
+        return self.coordinator.auto_charge_stop_time
 

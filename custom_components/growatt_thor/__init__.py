@@ -18,6 +18,7 @@ PLATFORMS = [
     Platform.SWITCH,
     Platform.SELECT,
     Platform.TIME,
+    Platform.BUTTON,
 ]
 
 async def _check_existing_connection(hass, coordinator):
