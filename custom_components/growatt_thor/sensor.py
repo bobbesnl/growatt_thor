@@ -28,7 +28,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             ChargePointIdSensor(coordinator, entry),
             ChargingPowerSensor(coordinator, entry),
             EnergyChargedSensor(coordinator, entry),
-            ServerUrlSensor(coordinator, entry),  # ← NIEUW: Server URL!
+            ServerUrlSensor(coordinator, entry),
 
             # ── Fase-specifiek (diagnostics tijdens laden) ──
             CurrentSensor(coordinator, entry, "L1"),
@@ -107,7 +107,6 @@ class BaseLoadBalancingSensor(CoordinatorEntity, SensorEntity):
 class ServerUrlSensor(BaseSensor):
     _attr_name = "Server URL"
     _attr_icon = "mdi:server"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "server_url")
