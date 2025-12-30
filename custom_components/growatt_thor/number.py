@@ -86,15 +86,14 @@ class BaseConfigNumber(CoordinatorEntity, NumberEntity):
 # ─────────────────────────────
 # Max Current (EV Charger device) - INTEGERS!
 # ─────────────────────────────
-
 class MaxCurrentNumber(BaseConfigNumber):
     """Max current per phase configuration."""
 
     _attr_name = "Max Current"
     _attr_icon = "mdi:current-ac"
-    _attr_native_min_value = 6      # ← INTEGER
-    _attr_native_max_value = 32     # ← INTEGER
-    _attr_native_step = 1           # ← INTEGER STEP
+    _attr_native_min_value = 6
+    _attr_native_max_value = 32
+    _attr_native_step = 1
     _attr_native_unit_of_measurement = "A"
     _config_key = "G_MaxCurrent"
     _property_name = "max_current"
@@ -107,16 +106,38 @@ class MaxCurrentNumber(BaseConfigNumber):
             "manufacturer": "Growatt",
             "model": "THOR",
         }
+        self._debounce_task = None  # ← DEBOUNCE TOEGEVOEGD!
+        self._pending_value = None  # ← PENDING TOEGEVOEGD!
 
     @property
     def native_value(self):
         value = self.coordinator.max_current
         return int(value) if value is not None else None
 
+    async def async_set_native_value(self, value: float) -> None:
+        """Set new value with 5s debounce (net als LoadBalancing!)."""
+        value = round(value)  # Integer!
+
+        # Cancel vorige debounce
+        if self._debounce_task and not self._debounce_task.done():
+            self._debounce_task.cancel()
+
+        self._pending_value = value
+        self._debounce_task = asyncio.create_task(self._debounced_set())
+
+    async def _debounced_set(self):
+        """Execute setting after 5s debounce."""
+        try:
+            await asyncio.sleep(5.0)
+            if self._pending_value is not None:
+                await super().async_set_native_value(self._pending_value)
+                self._pending_value = None
+        except asyncio.CancelledError:
+            pass
+
     def _format_value(self, value: float) -> str:
         """Format as XX (integer, Growatt format)."""
-        return str(int(round(value)))  # ← 15.9 → "15"
-
+        return str(int(round(value)))
 
 # ─────────────────────────────
 # Load Balancing Limit (Load balancing device) - INTEGERS!
