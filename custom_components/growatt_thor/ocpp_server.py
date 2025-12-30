@@ -238,7 +238,7 @@ class GrowattChargePoint(OcppChargePoint):
                             item.get("key"), item.get("value"), item.get("readonly"))
 
         except asyncio.TimeoutError:
-            _LOGGER.warning("Failed to trigger GetConfiguration: Waited 30s for response")
+            _LOGGER.warning("GetConfiguration timeout - Thor likely rebooting, will retry on reconnect")
         except Exception as exc:
             _LOGGER.warning("Failed to trigger GetConfiguration: %s", exc)
 
@@ -256,15 +256,19 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.info("ChangeConfiguration result: %s", status)
 
             if status == ConfigurationStatus.accepted:
-                # ✅ IMMEDIATE GetConfiguration voor switch bevestiging!
-                self.hass.async_create_task(self.trigger_get_configuration())
+                # 🚫 Skip GetConfiguration na Load balancing changes (Thor reboot!)
+                if key in ["G_ExternalLimitPower", "G_ExternalLimitPowerEnable"]:
+                    _LOGGER.info("⏳ Skipping GetConfiguration - Thor reboot expected")
+                else:
+                    # ✅ IMMEDIATE GetConfiguration voor andere keys
+                    _LOGGER.info("Triggering GetConfiguration")
+                    self.hass.async_create_task(self.trigger_get_configuration())
 
             return status
 
         except Exception as exc:
             _LOGGER.error("Failed to change configuration %s=%s: %s", key, value, exc, exc_info=True)
             return ConfigurationStatus.rejected
-
 
 # ─────────────────────────────
 # WebSocket server (SCHOON - GEEN vroege triggers)
