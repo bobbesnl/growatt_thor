@@ -98,6 +98,7 @@ class MaxCurrentNumber(BaseConfigNumber):
     _attr_native_unit_of_measurement = "A"
     _config_key = "G_MaxCurrent"
     _property_name = "max_current"
+    _attr_native_mode = NumberMode.BOX
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "max_current")
@@ -134,6 +135,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
     _attr_native_unit_of_measurement = "kW"
     _config_key = "G_ExternalLimitPower"
     _property_name = "external_limit_power"
+    _attr_native_mode = NumberMode.BOX
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "load_balancing_limit", "grid_connection")
@@ -141,7 +143,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
             "name": "Growatt THOR Load balancing",
             "manufacturer": "Growatt",
-            "model": "THOR Grid Connection",
+            "model": "THOR Load balancing",
         }
         self._debounce_task = None
         self._pending_value = None

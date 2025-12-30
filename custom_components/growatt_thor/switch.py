@@ -38,7 +38,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
             "name": "Growatt THOR Load balancing",  # ← GEWENST
             "manufacturer": "Growatt",
-            "model": "THOR Grid Connection",
+            "model": "THOR Load balancing",
         }
         self.hass = coordinator.hass
 
