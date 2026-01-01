@@ -78,7 +78,8 @@ class ApplyChargingScheduleButton(CoordinatorEntity, ButtonEntity):
                 self.coordinator.async_set_updated_data(True)
 
                 # 🛡️ ANTI-CRASH: Pause polling for 10s
-                self.hass.data[DOMAIN]["skip_polling_until"] = time.time() + 10
+                loop = asyncio.get_event_loop()
+                self.hass.data[DOMAIN]["skip_polling_until"] = loop.time() + 10.0
 
                 _LOGGER.info("✅ Charging schedule applied: %s (Thor will reboot)", formatted_value)
                 _LOGGER.info("🛡️ Polling paused for 10s to prevent crash")

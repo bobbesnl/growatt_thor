@@ -134,7 +134,8 @@ class MaxCurrentNumber(BaseConfigNumber):
                 self._pending_value = None
                 
                 # 🛡️ ANTI-CRASH: Pause polling for 10s
-                self.hass.data[DOMAIN]["skip_polling_until"] = time.time() + 10
+                loop = asyncio.get_event_loop()
+                self.hass.data[DOMAIN]["skip_polling_until"] = loop.time() + 10.0
                 _LOGGER.info("🛡️ Polling paused for 10s after MaxCurrent write")
         except asyncio.CancelledError:
             pass

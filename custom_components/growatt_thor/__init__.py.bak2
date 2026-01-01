@@ -1,6 +1,7 @@
 """Growatt THOR OCPP Integration for Home Assistant."""
 import logging
 import asyncio
+import time
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -40,7 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["coordinator"] = coordinator
-    hass.data[DOMAIN]["skip_polling_until"] = 0.0
+    hass.data[DOMAIN]["skip_polling_until"] = 0
 
     host = entry.data.get("host", "0.0.0.0")
     port = entry.data.get("port", 9000)
@@ -59,14 +60,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await asyncio.sleep(5)
         
         _LOGGER.info("🚀 Smart poll task STARTED")
-        loop = asyncio.get_event_loop()
 
         while True:
             try:
-                skip_until = hass.data[DOMAIN].get("skip_polling_until", 0.0)
-                current_time = loop.time()
-                
-                if current_time < skip_until:
+                skip_until = hass.data[DOMAIN].get("skip_polling_until", 0)
+                if time.time() < skip_until:
                     _LOGGER.debug("⏸️ Polling skipped (config write cooldown)")
                     await asyncio.sleep(1)
                     continue
