@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import time
+import asyncio
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
