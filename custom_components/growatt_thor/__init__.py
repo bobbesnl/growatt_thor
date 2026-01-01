@@ -58,26 +58,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def periodic_smart_grid_poll():
         """Smart poll: alleen als load balancing enabled (elke 5s)."""
         await asyncio.sleep(5)
+        
+        _LOGGER.info("🚀 Smart poll task STARTED")
 
         while True:
-            skip_until = hass.data[DOMAIN].get("skip_polling_until", 0)
-            if time.time() < skip_until:
-                _LOGGER.debug("⏸️ Polling skipped (config write cooldown)")
-                await asyncio.sleep(1)
-                continue
+            try:
+                skip_until = hass.data[DOMAIN].get("skip_polling_until", 0)
+                if time.time() < skip_until:
+                    _LOGGER.debug("⏸️ Polling skipped (config write cooldown)")
+                    await asyncio.sleep(1)
+                    continue
 
-            charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
-            coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
+                charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
+                coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
 
-            if charge_point and coordinator:
-                if coordinator.external_limit_power_enable:
-                    try:
+                if charge_point and coordinator:
+                    if coordinator.external_limit_power_enable:
                         _LOGGER.debug("🔄 Smart poll (5s): Load balancing ON → Grid data")
                         await charge_point.trigger_external_meterval()
-                    except Exception as exc:
-                        _LOGGER.warning("Smart poll failed: %s", exc)
+                    else:
+                        _LOGGER.debug("⏸️ Smart poll (5s): Load balancing OFF → Skip")
                 else:
-                    _LOGGER.debug("⏸️ Smart poll (5s): Load balancing OFF → Skip")
+                    _LOGGER.debug("⏸️ Smart poll (5s): No charge_point or coordinator")
+
+            except Exception as exc:
+                _LOGGER.error("💥 Smart poll crashed: %s", exc, exc_info=True)
 
             await asyncio.sleep(5)
 
