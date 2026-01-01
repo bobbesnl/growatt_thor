@@ -1,7 +1,6 @@
 """Growatt THOR OCPP Integration for Home Assistant."""
 import logging
 import asyncio
-import time
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -24,7 +23,7 @@ PLATFORMS = [
 
 async def _check_existing_connection(hass, coordinator):
     """Check if THOR is already connected and fetch config."""
-    await asyncio.sleep(2)
+    await asyncio.sleep(2)  # Wacht even tot ChargePoint geïnitialiseerd
 
     charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
     if charge_point:
@@ -41,8 +40,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["coordinator"] = coordinator
-    hass.data[DOMAIN]["skip_polling_until"] = 0
 
+    # Start OCPP server
     host = entry.data.get("host", "0.0.0.0")
     port = entry.data.get("port", 9000)
 
@@ -51,24 +50,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     _LOGGER.info("OCPP server started on %s:%s", host, port)
 
+    # 🔑 Check of THOR al verbonden is en haal config op
     hass.async_create_task(_check_existing_connection(hass, coordinator))
 
+    # Setup platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # ─────────────────────────────
+    # 🔑 SMART PERIODIC TASK: Grid data alleen bij load balancing AAN (5s)
+    # ─────────────────────────────
 
     async def periodic_smart_grid_poll():
         """Smart poll: alleen als load balancing enabled (elke 5s)."""
-        await asyncio.sleep(5)
+        await asyncio.sleep(5)  # Eerste poll na 5s
 
         while True:
-            skip_until = hass.data[DOMAIN].get("skip_polling_until", 0)
-            if time.time() < skip_until:
-                _LOGGER.debug("⏸️ Polling skipped (config write cooldown)")
-                await asyncio.sleep(1)
-                continue
-
             charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
             coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
-
+            
             if charge_point and coordinator:
                 if coordinator.external_limit_power_enable:
                     try:
@@ -79,12 +78,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 else:
                     _LOGGER.debug("⏸️ Smart poll (5s): Load balancing OFF → Skip")
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(5)  # Elke 5s checken
 
     hass.data[DOMAIN]["polling_task"] = hass.async_create_background_task(
         periodic_smart_grid_poll(),
         name="growatt_thor_smart_grid_poll"
     )
+
+    # ─────────────────────────────
+    # 🔑 MANUAL REFRESH SERVICE
+    # ─────────────────────────────
 
     async def handle_refresh(call: ServiceCall):
         """Handle manual refresh service call."""

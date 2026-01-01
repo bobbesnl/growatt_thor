@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import asyncio
+import time
 
 from homeassistant.components.number import NumberEntity, NumberDeviceClass, NumberMode
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -76,7 +77,7 @@ class BaseConfigNumber(CoordinatorEntity, NumberEntity):
 
     def _format_value(self, value: float) -> str:
         """Format value for OCPP (override in subclass if needed)."""
-        return str(int(round(value)))  # ← ALTIJD INTEGER!
+        return str(int(round(value)))
 
     def _parse_value(self, value: str):
         """Parse value from OCPP response."""
@@ -106,8 +107,8 @@ class MaxCurrentNumber(BaseConfigNumber):
             "manufacturer": "Growatt",
             "model": "THOR",
         }
-        self._debounce_task = None  # ← DEBOUNCE TOEGEVOEGD!
-        self._pending_value = None  # ← PENDING TOEGEVOEGD!
+        self._debounce_task = None
+        self._pending_value = None
 
     @property
     def native_value(self):
@@ -115,10 +116,9 @@ class MaxCurrentNumber(BaseConfigNumber):
         return int(value) if value is not None else None
 
     async def async_set_native_value(self, value: float) -> None:
-        """Set new value with 5s debounce (net als LoadBalancing!)."""
-        value = round(value)  # Integer!
+        """Set new value with 10s debounce."""
+        value = round(value)
 
-        # Cancel vorige debounce
         if self._debounce_task and not self._debounce_task.done():
             self._debounce_task.cancel()
 
@@ -132,6 +132,10 @@ class MaxCurrentNumber(BaseConfigNumber):
             if self._pending_value is not None:
                 await super().async_set_native_value(self._pending_value)
                 self._pending_value = None
+                
+                # 🛡️ ANTI-CRASH: Pause polling for 10s
+                self.hass.data[DOMAIN]["skip_polling_until"] = time.time() + 10
+                _LOGGER.info("🛡️ Polling paused for 10s after MaxCurrent write")
         except asyncio.CancelledError:
             pass
 
@@ -149,9 +153,9 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
     _attr_name = "Loadbalancing limit"
     _attr_icon = "mdi:speedometer"
     _attr_device_class = NumberDeviceClass.POWER
-    _attr_native_min_value = 1      # ← INTEGER (1-50 kW)
-    _attr_native_max_value = 50     # ← INTEGER
-    _attr_native_step = 1           # ← INTEGER STEP
+    _attr_native_min_value = 1
+    _attr_native_max_value = 50
+    _attr_native_step = 1
     _attr_native_unit_of_measurement = "kW"
     _config_key = "G_ExternalLimitPower"
     _property_name = "external_limit_power"
@@ -175,10 +179,8 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
 
     async def async_set_native_value(self, value: float) -> None:
         """Set new value with 10s debounce (integers only)."""
-        # ✅ Automatisch naar integer door BaseConfigNumber._format_value
-        value = round(value)  # Extra zekerheid
-        
-        # Cancel vorige debounce
+        value = round(value)
+
         if self._debounce_task and not self._debounce_task.done():
             self._debounce_task.cancel()
 
@@ -188,10 +190,14 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
     async def _debounced_set(self):
         """Execute setting after debounce delay."""
         try:
-            await asyncio.sleep(10.0)  # 5 SECONDEN WACHTEN
+            await asyncio.sleep(10.0)
             if self._pending_value is not None:
                 await super().async_set_native_value(self._pending_value)
                 self._pending_value = None
+                
+                # 🛡️ ANTI-CRASH: Pause polling for 10s
+                self.hass.data[DOMAIN]["skip_polling_until"] = time.time() + 10
+                _LOGGER.info("🛡️ Polling paused for 10s after LoadBalancing write")
         except asyncio.CancelledError:
-            pass  # Normaal - nieuwe wijziging annuleerde deze
+            pass
 
