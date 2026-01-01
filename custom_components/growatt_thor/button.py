@@ -82,8 +82,8 @@ class ApplyChargingScheduleButton(CoordinatorEntity, ButtonEntity):
                 loop = asyncio.get_event_loop()
                 self.hass.data[DOMAIN]["skip_polling_until"] = loop.time() + 10.0
 
-                _LOGGER.info("✅ Charging schedule applied: %s (Thor will reboot)", formatted_value)
-                _LOGGER.info("🛡️ Polling paused for 10s to prevent crash")
+                _LOGGER.info("✅ Charging schedule applied: %s", formatted_value)
+                _LOGGER.info("🛡️ Polling paused for 10s to prevent Thor FW crash")
             else:
                 _LOGGER.error("❌ Charging schedule rejected: %s", result)
 

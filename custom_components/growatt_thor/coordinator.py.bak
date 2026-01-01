@@ -34,8 +34,14 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.external_limit_power_enable = None
         self.charger_mode = None
         self.server_url = None
-        self.auto_charge_start_time = None  # time object
-        self.auto_charge_stop_time = None   # time object
+
+        # Auto charge times (Thor values)
+        self.auto_charge_start_time = None
+        self.auto_charge_stop_time = None
+
+        # Auto charge times (pending UI values) ← NIEUW!
+        self.auto_charge_start_time_pending = None
+        self.auto_charge_stop_time_pending = None
 
         # ── Laatste sessie ─────────────────
         self.last_session_energy = None
@@ -272,7 +278,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         updated = True
 
                 elif key == "G_AutoChargeTime":
-                    # Parse "23:01-05:59" → twee time objecten
                     if "-" in raw:
                         start_str, stop_str = raw.split("-", 1)
                         try:
@@ -281,11 +286,14 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
                             if self.auto_charge_start_time != start_time:
                                 self.auto_charge_start_time = start_time
+                                self.auto_charge_start_time_pending = start_time  # ← INIT pending!
                                 _LOGGER.debug("Config: AutoChargeStartTime = %s", start_time)
                                 updated = True
 
+
                             if self.auto_charge_stop_time != stop_time:
                                 self.auto_charge_stop_time = stop_time
+                                self.auto_charge_stop_time_pending = stop_time  # ← INIT pending!
                                 _LOGGER.debug("Config: AutoChargeStopTime = %s", stop_time)
                                 updated = True
                         except ValueError as exc:

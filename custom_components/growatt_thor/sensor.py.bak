@@ -29,7 +29,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
             ChargingPowerSensor(coordinator, entry),
             EnergyChargedSensor(coordinator, entry),
             ServerUrlSensor(coordinator, entry),
-            LastSessionsHistorySensor(coordinator, entry),  # 🆕
 
             # ── Fase-specifiek (diagnostics tijdens laden) ──
             CurrentSensor(coordinator, entry, "L1"),
@@ -102,7 +101,7 @@ class BaseLoadBalancingSensor(CoordinatorEntity, SensorEntity):
 
 
 # ─────────────────────────────
-# Server URL (DIAGNOSTIC - EV Charger)
+# NIEUW: Server URL (DIAGNOSTIC - EV Charger)
 # ─────────────────────────────
 
 class ServerUrlSensor(BaseSensor):
@@ -114,56 +113,7 @@ class ServerUrlSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.server_url
-
-
-# ─────────────────────────────
-# 🆕 Last Sessions History (HOOFDSENSOR - EV Charger)
-# ─────────────────────────────
-
-class LastSessionsHistorySensor(BaseSensor):
-    _attr_name = "Last sessions"
-    _attr_icon = "mdi:history"
-    _attr_state_class = None  # Text sensor
-
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "last_sessions")
-
-    @property
-    def native_value(self):
-        """Return aantal sessies in history."""
-        count = len(self.coordinator.session_history)
-        return f"{count} session{'s' if count != 1 else ''}"
-
-    @property
-    def extra_state_attributes(self):
-        """Return laatste 5 sessies als attributes."""
-        if not self.coordinator.session_history:
-            return {"note": "No sessions recorded yet"}
-        
-        attrs = {}
-        for i, session in enumerate(self.coordinator.session_history, 1):
-            # Bereken duration
-            try:
-                from datetime import datetime
-                start = datetime.strptime(session["start_time"], "%Y-%m-%d %H:%M:%S")
-                end = datetime.strptime(session["end_time"], "%Y-%m-%d %H:%M:%S")
-                duration = str(end - start)
-            except:
-                duration = "Unknown"
-            
-            attrs[f"session_{i}"] = {
-                "timestamp": session["timestamp"],
-                "energy": f"{session['energy_kwh']:.3f} kWh",
-                "cost": f"€{session['cost']:.2f}",
-                "plug_time": session["plug_time"],
-                "unplug_time": session["unplug_time"],
-                "duration": duration,
-                "mode": f"{session['charge_mode']}/{session['work_mode']}",
-                "transaction_id": session["transaction_id"],
-            }
-        
-        return attrs
+        return self.coordinator.server_url  # "ws://192.168.1.101:9000/ocpp/ws"
 
 
 # ─────────────────────────────
@@ -353,6 +303,7 @@ class GridPowerSensor(BaseLoadBalancingSensor):
 
     @property
     def native_unit_of_measurement(self):
+        """Return the unit of measurement."""
         return UnitOfPower.WATT
 
     @property
@@ -372,6 +323,7 @@ class GridVoltageSensor(BaseLoadBalancingSensor):
 
     @property
     def native_unit_of_measurement(self):
+        """Return the unit of measurement."""
         return UnitOfElectricPotential.VOLT
 
     @property
@@ -391,6 +343,7 @@ class GridCurrentSensor(BaseLoadBalancingSensor):
 
     @property
     def native_unit_of_measurement(self):
+        """Return the unit of measurement."""
         return UnitOfElectricCurrent.AMPERE
 
     @property

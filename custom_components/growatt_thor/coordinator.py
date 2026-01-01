@@ -30,7 +30,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         # ── Config (Growatt) ───────────────
         self.max_current = None
-        self._external_limit_power = 10.0  # ← VERPLAATST: Private backing field
+        self._external_limit_power = 10.0
         self.external_limit_power_enable = None
         self.charger_mode = None
         self.server_url = None
@@ -39,7 +39,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.auto_charge_start_time = None
         self.auto_charge_stop_time = None
 
-        # Auto charge times (pending UI values) ← NIEUW!
+        # Auto charge times (pending UI values)
         self.auto_charge_start_time_pending = None
         self.auto_charge_stop_time_pending = None
 
@@ -50,10 +50,13 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.work_mode = None
 
         # ── External meter (grid connection) ───
-        self.grid_power = None          # W (netto huisverbruik)
-        self.grid_voltages = {}         # {"L1": V, "L2": V, "L3": V}
-        self.grid_currents = {}         # {"L1": A, "L2": A, "L3": A}
-        self.wiring_type = None         # 1 = 3-fase, 0 = 1-fase
+        self.grid_power = None
+        self.grid_voltages = {}
+        self.grid_currents = {}
+        self.wiring_type = None
+
+        # 🆕 SESSION HISTORY (laatste 5 sessies)
+        self.session_history = []
 
     # ─────────────────────────────
     # 🔑 LOAD BALANCING PROPERTY
@@ -75,10 +78,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # ─────────────────────────────
 
     def now(self) -> str:
-        """Return current UTC timestamp in ISO format.
-
-        TIER 1 FIX: Use timezone-aware datetime.now() instead of deprecated utcnow()
-        """
+        """Return current UTC timestamp in ISO format."""
         return datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
 
     def set_charge_point(self, cp_id):
@@ -91,9 +91,20 @@ class GrowattCoordinator(DataUpdateCoordinator):
     def set_status(self, status):
         """Set charger status and notify sensors."""
         value = status.value if hasattr(status, "value") else str(status)
+        
+        # 🆕 AUTO-RESET: Nul charge waarden bij stop
+        if value != "Charging" and self.status == "Charging":
+            _LOGGER.info("🛑 Charging stopped → Resetting power/current/voltage values")
+            self.power = 0
+            self.currents = {"L1": 0, "L2": 0, "L3": 0}
+            self.voltages = {"L1": 0, "L2": 0, "L3": 0}
+            self.phase_power = {"L1": 0, "L2": 0, "L3": 0}
+            # energy blijft staan tot nieuwe sessie start!
+        
         if self.status != value:
             self.status = value
             _LOGGER.debug("Status changed to: %s", value)
+        
         self.async_set_updated_data(True)
 
     def start_transaction(self, transaction_id, id_tag=None):
@@ -101,6 +112,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.transaction_id = transaction_id
         self.id_tag = id_tag
         self.status = "Charging"
+        
+        # 🆕 RESET energy bij START nieuwe sessie
+        _LOGGER.info("🔋 New transaction started → Resetting energy counter")
+        self.energy = 0
+        
         _LOGGER.info("Transaction started: %s (idTag=%s)", transaction_id, id_tag)
         self.async_set_updated_data(True)
 
@@ -124,7 +140,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
             for idx, entry in enumerate(meter_values):
                 _LOGGER.debug("  Entry %d type: %s", idx, type(entry))
 
-                # Haal sampledValue op - OCPP library gebruikt 'sampled_value' (underscore!)
                 sampled_values = None
                 if hasattr(entry, 'sampled_value'):
                     sampled_values = entry.sampled_value
@@ -147,7 +162,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
                 for sample in sampled_values:
                     try:
-                        # Haal value op - werkt voor zowel dict als object
                         value_str = None
                         measurand = None
                         phase = None
@@ -164,56 +178,45 @@ class GrowattCoordinator(DataUpdateCoordinator):
                             _LOGGER.warning("    ⚠️ Unknown sample type: %s", type(sample))
                             continue
 
-                        # TIER 1 FIX: Skip empty values
                         if not value_str:
                             continue
 
                         value = float(value_str)
 
                     except (TypeError, ValueError, AttributeError) as e:
-                        # TIER 1 FIX: Log parsing errors without crashing
-                        _LOGGER.warning(
-                            "    Failed to parse sample: %s",
-                            e
-                        )
+                        _LOGGER.warning("    Failed to parse sample: %s", e)
                         continue
 
-                    # Energie totaal
                     if measurand == "Energy.Active.Import.Register":
                         if self.energy != value:
                             self.energy = value
                             _LOGGER.info("    ✅ Energy: %.3f Wh", value)
                             updated = True
 
-                    # Vermogen per fase
                     elif measurand == "Power.Active.Import" and phase:
                         if self.phase_power.get(phase) != value:
                             self.phase_power[phase] = value
                             _LOGGER.info("    ✅ Power %s: %.1f W", phase, value)
                             updated = True
 
-                    # Stroom per fase
                     elif measurand == "Current.Import" and phase:
                         if self.currents.get(phase) != value:
                             self.currents[phase] = value
                             _LOGGER.info("    ✅ Current %s: %.2f A", phase, value)
                             updated = True
 
-                    # Spanning per fase
                     elif measurand == "Voltage" and phase:
                         if self.voltages.get(phase) != value:
                             self.voltages[phase] = value
                             _LOGGER.info("    ✅ Voltage %s: %.1f V", phase, value)
                             updated = True
 
-                    # Temperatuur
                     elif measurand == "Temperature":
                         if self.temperature != value:
                             self.temperature = value
                             _LOGGER.info("    ✅ Temperature: %.1f °C", value)
                             updated = True
 
-            # Totaal vermogen = som fases
             if self.phase_power:
                 total = sum(self.phase_power.values())
                 if self.power != total:
@@ -252,8 +255,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
                 elif key == "G_ExternalLimitPower":
                     value = float(raw)
-                    if self.external_limit_power != value:  # ← ✅ PROPERTY GEBRUIKT!
-                        self.external_limit_power = value     # ← ✅ AUTOMATISCH UPDATE!
+                    if self.external_limit_power != value:
+                        self.external_limit_power = value
                         _LOGGER.debug("Config: ExternalLimitPower = %.1f kW", value)
                         updated = True
 
@@ -286,87 +289,80 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
                             if self.auto_charge_start_time != start_time:
                                 self.auto_charge_start_time = start_time
-                                self.auto_charge_start_time_pending = start_time  # ← INIT pending!
+                                self.auto_charge_start_time_pending = start_time
                                 _LOGGER.debug("Config: AutoChargeStartTime = %s", start_time)
                                 updated = True
 
-
                             if self.auto_charge_stop_time != stop_time:
                                 self.auto_charge_stop_time = stop_time
-                                self.auto_charge_stop_time_pending = stop_time  # ← INIT pending!
+                                self.auto_charge_stop_time_pending = stop_time
                                 _LOGGER.debug("Config: AutoChargeStopTime = %s", stop_time)
                                 updated = True
                         except ValueError as exc:
                             _LOGGER.warning("Failed to parse G_AutoChargeTime '%s': %s", raw, exc)
 
             except (ValueError, TypeError) as exc:
-                # TIER 1 FIX: Better error logging with context
-                _LOGGER.warning(
-                    "Failed to parse config key=%s value=%s: %s",
-                    key,
-                    raw,
-                    exc
-                )
+                _LOGGER.warning("Failed to parse config key=%s value=%s: %s", key, raw, exc)
                 continue
 
             except Exception as exc:
-                # TIER 1 FIX: Catch unexpected errors
-                _LOGGER.error(
-                    "Unexpected error processing config key=%s: %s",
-                    key,
-                    exc,
-                    exc_info=True
-                )
+                _LOGGER.error("Unexpected error processing config key=%s: %s", key, exc, exc_info=True)
                 continue
 
         if updated:
             self.async_set_updated_data(True)
 
     # ─────────────────────────────
-    # Growatt frozenrecord
+    # 🆕 Growatt frozenrecord (met session history)
     # ─────────────────────────────
 
     def process_frozen_record(self, data: dict):
-        """Process Growatt frozen record with TIER 1 error handling."""
+        """Process Growatt frozen record with session history."""
         try:
-            self.last_session_energy = float(data.get("costenergy", 0))
-            self.last_session_cost = float(data.get("costmoney", 0))
-            self.charge_mode = data.get("chargemode")
-            self.work_mode = data.get("workmode")
-
+            session = {
+                "timestamp": self.now(),
+                "energy_kwh": float(data.get("costenergy", 0)),
+                "cost": float(data.get("costmoney", 0)),
+                "charge_mode": data.get("chargemode", ""),
+                "work_mode": data.get("workmode", ""),
+                "plug_time": data.get("plugtime", ""),
+                "unplug_time": data.get("unplugtime", ""),
+                "start_time": data.get("starttime", ""),
+                "end_time": data.get("endtime", ""),
+                "transaction_id": data.get("transactionId", ""),
+            }
+            
+            # Backwards compatibility
+            self.last_session_energy = session["energy_kwh"]
+            self.last_session_cost = session["cost"]
+            self.charge_mode = session["charge_mode"]
+            self.work_mode = session["work_mode"]
+            
+            # 🆕 Session history (laatste 5)
+            self.session_history.insert(0, session)
+            if len(self.session_history) > 5:
+                self.session_history = self.session_history[:5]
+            
             _LOGGER.info(
-                "Frozen record: energy=%.3f kWh, cost=%.2f, mode=%s/%s",
-                self.last_session_energy,
-                self.last_session_cost,
-                self.charge_mode,
-                self.work_mode
+                "Frozen record: energy=%.3f kWh, cost=%.2f, mode=%s/%s (saved to history)",
+                session["energy_kwh"],
+                session["cost"],
+                session["charge_mode"],
+                session["work_mode"]
             )
-
+            
             self.async_set_updated_data(True)
 
         except (ValueError, TypeError, KeyError) as exc:
-            # TIER 1 FIX: Graceful error handling
-            _LOGGER.warning(
-                "Failed to process frozen record %s: %s",
-                data,
-                exc
-            )
+            _LOGGER.warning("Failed to process frozen record %s: %s", data, exc)
 
     # ─────────────────────────────
     # Growatt external meter values
     # ─────────────────────────────
 
     def process_external_meter(self, data_str: str):
-        """Process external meter values from get_external_meterval DataTransfer.
-
-        Deze data komt van de externe meter (bijv. Eastron SDM630) en geeft
-        informatie over de huisaansluiting (niet de laadinformatie).
-
-        Args:
-            data_str: Query string like "used=0&wring=1&u-voltage=230&power=1500"
-        """
+        """Process external meter values from get_external_meterval DataTransfer."""
         try:
-            # Parse query string
             pairs = data_str.split("&")
             values = {}
             for pair in pairs:
@@ -376,7 +372,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
             updated = False
 
-            # Wiring type (1 = 3-phase, 0 = 1-phase)
             if "wring" in values:
                 try:
                     wiring = int(values["wring"])
@@ -387,7 +382,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 except ValueError:
                     pass
 
-            # Grid voltages (per fase)
             for phase_key, phase_name in [("u-voltage", "L1"), ("v-voltage", "L2"), ("w-voltage", "L3")]:
                 if phase_key in values:
                     try:
@@ -399,7 +393,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     except ValueError:
                         pass
 
-            # Grid currents (per fase)
             for phase_key, phase_name in [("u-current", "L1"), ("v-current", "L2"), ("w-current", "L3")]:
                 if phase_key in values:
                     try:
@@ -411,7 +404,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     except ValueError:
                         pass
 
-            # Grid power (total)
             if "power" in values:
                 try:
                     power = float(values["power"])
@@ -427,9 +419,5 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 self.async_set_updated_data(True)
 
         except (ValueError, TypeError, KeyError) as exc:
-            _LOGGER.warning(
-                "Failed to process external meter data '%s': %s",
-                data_str,
-                exc
-            )
+            _LOGGER.warning("Failed to process external meter data '%s': %s", data_str, exc)
 
