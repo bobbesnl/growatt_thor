@@ -323,8 +323,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         try:
             session = {
                 "timestamp": self.now(),
-                "energy_kwh": float(data.get("costenergy", 0)),
-                "cost": float(data.get("costmoney", 0)),
+                "energy_kwh": float(data.get("costenergy", 0)) / 1000,
+                "cost": float(data.get("costmoney", 0)) / 100,
                 "charge_mode": data.get("chargemode", ""),
                 "work_mode": data.get("workmode", ""),
                 "plug_time": data.get("plugtime", ""),

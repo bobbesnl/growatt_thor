@@ -11,7 +11,6 @@ from ocpp.v16.enums import (
     AuthorizationStatus,
     DataTransferStatus,
     ConfigurationStatus,
-    RemoteStartStopStatus,
 )
 
 from ocpp.routing import on
@@ -264,52 +263,6 @@ class GrowattChargePoint(OcppChargePoint):
         except Exception as exc:
             _LOGGER.error("Failed to change configuration %s=%s: %s", key, value, exc, exc_info=True)
             return ConfigurationStatus.rejected
-
-    # ─────────────────────────────
-    # 🆕 Remote Start/Stop Transaction
-    # ─────────────────────────────
-
-    async def remote_start_transaction(self, connector_id: int, id_tag: str) -> dict:
-        """Start een laadsessie via RemoteStartTransaction."""
-        try:
-            _LOGGER.info("🔵 RemoteStartTransaction: connector_id=%d, id_tag=%s", connector_id, id_tag)
-
-            result = await self.call(
-                call.RemoteStartTransactionPayload(
-                    connector_id=connector_id,
-                    id_tag=id_tag
-                )
-            )
-
-            status = getattr(result, "status", RemoteStartStopStatus.rejected)
-            _LOGGER.info("RemoteStartTransaction result: %s", status)
-
-            return {"status": status.value if hasattr(status, "value") else str(status)}
-
-        except Exception as exc:
-            _LOGGER.error("Failed to start transaction: %s", exc, exc_info=True)
-            return {"status": "Rejected"}
-
-    async def remote_stop_transaction(self, transaction_id: int) -> dict:
-        """Stop een laadsessie via RemoteStopTransaction."""
-        try:
-            _LOGGER.info("🔴 RemoteStopTransaction: transaction_id=%d", transaction_id)
-
-            result = await self.call(
-                call.RemoteStopTransactionPayload(
-                    transaction_id=transaction_id
-                )
-            )
-
-            status = getattr(result, "status", RemoteStartStopStatus.rejected)
-            _LOGGER.info("RemoteStopTransaction result: %s", status)
-
-            return {"status": status.value if hasattr(status, "value") else str(status)}
-
-        except Exception as exc:
-            _LOGGER.error("Failed to stop transaction: %s", exc, exc_info=True)
-            return {"status": "Rejected"}
-
 
 # ─────────────────────────────
 # WebSocket server (SCHOON - GEEN vroege triggers)
