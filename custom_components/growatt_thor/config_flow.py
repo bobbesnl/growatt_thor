@@ -61,7 +61,7 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry):
         """Get the options flow for this handler."""
-        return GrowattThorOptionsFlow(config_entry)
+        return GrowattThorOptionsFlow()
 
 
 class GrowattThorOptionsFlow(config_entries.OptionsFlow):
