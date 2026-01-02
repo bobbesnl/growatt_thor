@@ -56,7 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def periodic_smart_grid_poll():
         """Smart poll: alleen als load balancing enabled (elke 5s)."""
-        await asyncio.sleep(5)
+        await asyncio.sleep(1800)
         
         _LOGGER.info("🚀 Smart poll task STARTED")
         loop = asyncio.get_event_loop()

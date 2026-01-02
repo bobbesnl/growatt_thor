@@ -91,38 +91,40 @@ class GrowattCoordinator(DataUpdateCoordinator):
     def set_status(self, status):
         """Set charger status and notify sensors."""
         value = status.value if hasattr(status, "value") else str(status)
-        
-        # 🆕 AUTO-RESET: Nul charge waarden bij stop
-        if value != "Charging" and self.status == "Charging":
-            _LOGGER.info("🛑 Charging stopped → Resetting power/current/voltage values")
-            self.power = 0
-            self.currents = {"L1": 0, "L2": 0, "L3": 0}
-            self.voltages = {"L1": 0, "L2": 0, "L3": 0}
-            self.phase_power = {"L1": 0, "L2": 0, "L3": 0}
-            # energy blijft staan tot nieuwe sessie start!
-        
+
         if self.status != value:
             self.status = value
             _LOGGER.debug("Status changed to: %s", value)
-        
+
         self.async_set_updated_data(True)
+
 
     def start_transaction(self, transaction_id, id_tag=None):
         """Start charging transaction."""
         self.transaction_id = transaction_id
         self.id_tag = id_tag
         self.status = "Charging"
-        
+
         # 🆕 RESET energy bij START nieuwe sessie
         _LOGGER.info("🔋 New transaction started → Resetting energy counter")
         self.energy = 0
-        
+
         _LOGGER.info("Transaction started: %s (idTag=%s)", transaction_id, id_tag)
         self.async_set_updated_data(True)
+
 
     def stop_transaction(self, reason=None):
         """Stop charging transaction."""
         _LOGGER.info("Transaction stopped: %s (reason=%s)", self.transaction_id, reason)
+
+        # 🆕 RESET alle charge-waarden NA stop
+        _LOGGER.info("🛑 Transaction stopped → Resetting charge values")
+        self.power = 0
+        self.currents = {"L1": 0, "L2": 0, "L3": 0}
+        self.voltages = {"L1": 0, "L2": 0, "L3": 0}
+        self.phase_power = {"L1": 0, "L2": 0, "L3": 0}
+        # energy blijft staan tot nieuwe sessie start!
+
         self.transaction_id = None
         self.status = "Idle"
         self.async_set_updated_data(True)
