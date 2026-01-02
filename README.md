@@ -1,151 +1,356 @@
-# Growatt THOR EV Charger – Home Assistant Integration (OCPP)
-
-⚠️ **ALPHA VERSION – DO NOT USE IN PRODUCTION**
-
-This integration is under heavy development.
-Expect breaking changes and incomplete functionality.
-
-
-
+# Growatt THOR EV Charger – Home Assistant Integration
 
 ⚡ **Unofficial Home Assistant integration for the Growatt THOR EV charger**  
-This project allows you to connect a Growatt THOR EV charger **directly to Home Assistant** using **OCPP 1.6 over WebSocket**, without relying on the Growatt cloud.
 
-> ⚠️ This is an **unofficial community project**. Growatt is not affiliated in any way.
+This integration allows you to connect a Growatt THOR EV charger **directly to Home Assistant** using **OCPP 1.6 over WebSocket**, providing local control without relying on the Growatt cloud.
 
----
-
-## What does this integration do?
-
-This integration runs a **local OCPP server inside Home Assistant**.  
-The Growatt THOR charger connects directly to Home Assistant instead of the Growatt backend.
-
-Current goals:
-- Receive charger status (Idle / Charging / Faulted)
-- Receive live power and energy data
-- Start / stop charging (planned)
-- Configure charger behaviour (planned)
-- Enable AP mode when needed (planned)
-
-This approach avoids fragile MITM proxies and cloud dependencies.
+> ⚠️ This is an **unofficial community project**. Growatt is not affiliated with or endorsing this integration in any way.
 
 ---
 
-## Architecture (high level)
+## Features
 
-Growatt THOR EV Charger [OCPP 1.6 (WebSocket, unencrypted)] --> Home Assistant Growatt THOR custom integration with local OCPP server
+### 📊 Real-time Monitoring
+- **Charger status**: Idle, Preparing, Charging, Finishing, Faulted, Unavailable
+- **Power monitoring**: Total power and per-phase (L1, L2, L3) in Watts
+- **Current monitoring**: Current draw per phase in Amperes
+- **Voltage monitoring**: Voltage per phase
+- **Energy tracking**: Session energy in kWh with automatic reset per session
+- **Temperature**: Internal charger temperature in °C
+- **Transaction tracking**: Active transaction ID and charging session details
 
-The charger itself sends its **Charge Point ID automatically** as part of the WebSocket URL.
+### 🔌 Grid & Load Balancing
+- **External meter monitoring**: Real-time grid power, voltage, and current per phase
+- **Dynamic load balancing**: Set maximum grid import limit (kW) to prevent overload
+- **Smart polling**: Configurable polling interval (5-600+ seconds recommended)
+  - ⚠️ **Note**: Polling interval only affects the frequency of grid data **display updates** in Home Assistant. Load balancing functionality itself operates independently and responds in real-time regardless of the polling setting.
+- **Wiring detection**: Automatic 1-phase or 3-phase detection
+
+### ⚙️ Configuration & Control
+- **Max current control**: Set maximum charging current (6-32A)
+- **Charging schedule**: Configure automatic start/stop times
+- **Charger modes**: Switch between Smart, Fast, ECO modes
+- **Manual charging control**: Start and stop charging sessions via buttons
+- **Load balancing toggle**: Enable/disable dynamic load balancing
+
+### 📈 Session History
+- **Last 5 sessions**: Energy (kWh), cost, charge mode, work mode, timestamps
+- **Current session tracking**: Real-time updates during active charging
+
+### 🛡️ Stability Features
+- **Anti-crash protection**: Automatic polling pause after configuration changes to prevent Thor firmware crashes
+- **TIER 2 error recovery**: Robust error handling for connection issues
+- **Smart polling**: Only polls external meter when load balancing is enabled
 
 ---
 
-## Installation (via HACS)
+## Architecture
 
-### 1. Add the custom repository
+```
+Growatt THOR EV Charger
+    ↓ OCPP 1.6 (WebSocket, unencrypted)
+Home Assistant (Local OCPP Server)
+```
 
-1. Open **Home Assistant**
-2. Go to **HACS → Integrations**
-3. Click the **three dots (⋮)** → *Custom repositories*
-4. Add:
-   - **Repository**: `https://github.com/bobbesnl/growatt_thor`
-   - **Category**: Integration
-5. Click **Add**
-6. Search for **Growatt THOR EV Charger**
-7. Install the integration
-8. Restart Home Assistant
+The integration runs a **local OCPP 1.6 server** inside Home Assistant. The Growatt THOR charger connects directly to this server instead of the Growatt cloud backend, providing:
+- **Local control**: No internet dependency for basic operations
+- **Privacy**: Charging data stays local
+- **Reliability**: No cloud service interruptions
+- **Speed**: Instant updates without cloud round-trips
 
 ---
 
-### 2. Add the integration
+## Installation
 
-After restart:
+### Prerequisites
+- Home Assistant (2023.1 or newer recommended)
+- HACS (Home Assistant Community Store) installed
+- Growatt THOR EV Charger with network connectivity
+- Network access between Home Assistant and the charger
+
+### Via HACS (Recommended)
+
+1. **Add custom repository**
+   - Open **Home Assistant**
+   - Go to **HACS → Integrations**
+   - Click **⋮** (three dots) → **Custom repositories**
+   - Add repository:
+     - **URL**: `https://github.com/bobbesnl/growatt_thor`
+     - **Category**: `Integration`
+   - Click **Add**
+
+2. **Install the integration**
+   - Search for **Growatt THOR EV Charger** in HACS
+   - Click **Download**
+   - Restart Home Assistant
+
+3. **Configure the integration**
+   - Go to **Settings → Devices & Services**
+   - Click **+ Add Integration**
+   - Search for **Growatt THOR**
+   - Configure:
+     - **Listen IP**: `0.0.0.0` (default, listens on all interfaces)
+     - **Listen Port**: `9000` (default, or choose your own)
+     - **Grid Poll Interval**: `30` seconds (recommended)
+       - Range: 5-600+ seconds
+       - Lower values = more frequent updates (higher load on Thor)
+       - Higher values = less frequent updates (lower load)
+       - **Important**: This only affects display update frequency, not load balancing functionality
+   - Click **Submit**
+
+Home Assistant is now ready and waiting for the charger to connect.
+
+---
+
+## Configuring the Growatt THOR Charger
+
+### ⚠️ Important Notes
+
+- Changing the server URL will **disconnect the charger from Growatt cloud**
+- You will **lose access to the Growatt app** while using this integration
+- Make sure you know how to **restore the original settings** via AP mode
+- **Test the server URL** before saving to avoid lockout
+
+### Configuration Methods
+
+#### Method 1: Via AP Mode (Most Reliable)
+
+1. **Enable AP Mode** on the Growatt THOR charger (button or via app)
+2. Connect your phone to the charger's Wi-Fi (usually named `GROWATT-xxxxx`)
+3. Open the **ShinePhone** or **Growatt** app
+4. Navigate to **Network Settings** or **Server Settings**
+5. Change the **Server URL** to:
+   ```
+   ws://<HOME_ASSISTANT_IP>:9000/ocpp/ws
+   ```
+   Example: `ws://192.168.1.101:9000/ocpp/ws`
+6. **Save** and **reboot** the charger
+7. Reconnect the charger to your normal Wi-Fi network
+
+#### Method 2: Via Web Interface (Some Models)
+
+Some Thor models have a web interface accessible via LAN cable:
+
+1. Connect a network cable to the Thor charger
+2. Set a static IP on your computer (e.g., `192.168.1.13`)
+3. Open a browser and navigate to `http://192.168.1.5:8080`
+4. Change the server URL as described above
+5. Save and reboot
+
+### Verification
+
+After configuration, check Home Assistant:
+- Go to **Settings → Devices & Services**
+- The Growatt THOR device should appear with status "Connected"
+- Sensors should start showing live data
+
+---
+
+## Switching Back to Growatt Cloud
+
+If you need to restore cloud connectivity:
+
+### Via AP Mode
+
+1. Enable **AP Mode** on the charger
+2. Connect to the charger's Wi-Fi
+3. Open the Growatt app
+4. Restore the original server URL:
+   ```
+   ws://evcharge.growatt.com:80/ocpp/ws
+   ```
+5. Save and reboot
+
+### Emergency Fallback: TCP Forwarder
+
+If you're locked out and need temporary cloud access:
+
+1. Install **Advanced SSH & Web Terminal** add-on in Home Assistant
+2. Install `socat`:
+   ```bash
+   apk add socat
+   ```
+3. Run TCP forwarder:
+   ```bash
+   /usr/bin/socat TCP-LISTEN:9000,fork,reuseaddr TCP:evcharge.growatt.com:80
+   ```
+4. This forwards traffic from port 9000 to Growatt cloud
+5. Charger will reconnect to cloud via Home Assistant
+6. Use Growatt app to restore original server URL
+7. Stop socat and restore this integration
+
+⚠️ **Note**: If you get "address in use" errors, temporarily remove the integration and restart Home Assistant before running socat.
+
+---
+
+## Usage
+
+### Entities Created
+
+After successful connection, the following entities are created:
+
+#### Sensors
+- `sensor.growatt_thor_status` - Charger status
+- `sensor.growatt_thor_power` - Total charging power (W)
+- `sensor.growatt_thor_energy` - Session energy (kWh)
+- `sensor.growatt_thor_current_l1/l2/l3` - Current per phase (A)
+- `sensor.growatt_thor_voltage_l1/l2/l3` - Voltage per phase (V)
+- `sensor.growatt_thor_power_l1/l2/l3` - Power per phase (W)
+- `sensor.growatt_thor_temperature` - Internal temperature (°C)
+- `sensor.growatt_thor_grid_power` - Grid connection power (W)
+- `sensor.growatt_thor_transaction_id` - Active transaction ID
+- `sensor.growatt_thor_last_session_energy` - Previous session energy
+- `sensor.growatt_thor_last_session_cost` - Previous session cost
+
+#### Controls
+- `number.growatt_thor_max_current` - Maximum charging current (6-32A)
+- `number.growatt_thor_load_balancing_limit` - Grid import limit (kW)
+- `switch.growatt_thor_load_balancing` - Enable/disable load balancing
+- `select.growatt_thor_charger_mode` - Charging mode (Smart/Fast/ECO)
+- `time.growatt_thor_charging_start` - Auto-charge start time
+- `time.growatt_thor_charging_stop` - Auto-charge stop time
+- `button.growatt_thor_start_charging` - Manual start
+- `button.growatt_thor_stop_charging` - Manual stop
+- `button.growatt_thor_apply_schedule` - Apply time schedule changes
+
+### Example Automations
+
+#### Start Charging When Solar Production is High
+
+```yaml
+automation:
+  - alias: "Start EV charging with solar excess"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.solar_power
+        above: 2000  # 2kW excess
+    condition:
+      - condition: state
+        entity_id: sensor.growatt_thor_status
+        state: "Idle"
+    action:
+      - service: button.press
+        target:
+          entity_id: button.growatt_thor_start_charging
+```
+
+#### Dynamic Load Balancing
+
+```yaml
+automation:
+  - alias: "Adjust charging based on grid load"
+    trigger:
+      - platform: time_pattern
+        seconds: "/30"  # Every 30 seconds
+    action:
+      - service: number.set_value
+        target:
+          entity_id: number.growatt_thor_load_balancing_limit
+        data:
+          value: >
+            {{ (20 - (states('sensor.grid_import_power')|float / 1000))|max(6) }}
+```
+
+---
+
+## Troubleshooting
+
+### Charger Not Connecting
+
+- **Check network connectivity**: Ping the charger from Home Assistant
+- **Verify server URL**: Ensure correct IP address and port in Thor settings
+- **Check firewall**: Port 9000 must be open
+- **Check logs**: Settings → System → Logs → Filter by "growatt_thor"
+- **Restart charger**: Power cycle the Thor charger
+
+### Polling Too Frequent / Too Slow
 
 1. Go to **Settings → Devices & Services**
-2. Click **Add integration**
-3. Search for **Growatt THOR**
-4. Choose a listening port (default: `9000`)
-5. Finish setup
+2. Click on **Growatt THOR** integration
+3. Click **Configure**
+4. Adjust **Grid Poll Interval**:
+   - 30-60 seconds = recommended balance
+   - 5-10 seconds = real-time (higher load)
+   - 300-600 seconds = minimal load
+5. Restart required after changes
 
-Home Assistant is now waiting for the charger to connect.
+### Thor Firmware Crash / Freezing
 
----
+This integration includes anti-crash protection:
+- Automatic 10-second polling pause after configuration changes
+- Automatic 5-second pause after start/stop commands
+- Smart polling (only when load balancing is active)
 
-## Configure the Growatt THOR charger
-
-⚠️ **Important:**
-Changing the server URL may block access to the Growatt cloud and app.
-
-In many cases (including mine), the **server URL can only be changed while the charger is in AP mode**. So double check
-the server URL before saving!
-On other (older?) versions of the Thor charger, settings can be changed via an internal Web interface which can mostly
-be found at 192.168.1.5:8080 via a LAN cable connection (set a static IP on your PC eg 192.168.1.13)
-
-### Typical steps (example)
-
-1. Enable **AP Mode** on the Growatt THOR charger
-2. Connect your phone to the charger's Wi-Fi access point
-3. Open the **ShinePhone / Growatt app**
-4. Go to charger network or server settings
-5. Change the server URL to: ws://<HOME_ASSISTANT_IP>:9000/ocpp/ws
-
-Example:
-ws://192.168.1.101:9000/ocpp/ws
-
-
-6. Save settings
-7. Reboot the charger
-
-If successful, Home Assistant will automatically detect the charger.
+If crashes persist:
+- Increase poll interval to 60+ seconds
+- Disable load balancing temporarily
+- Check Thor firmware version (updates may improve stability)
 
 ---
 
-## Switching back to Growatt Cloud (important)
+## Technical Details
 
-If something goes wrong and the charger no longer works as expected:
+### OCPP Implementation
 
-- You **must** restore the original Growatt server URL  
-  (usually `ws://evcharge.growatt.com:80/ocpp/ws`)
-- This often again requires **AP mode**
+- **Protocol**: OCPP 1.6J (JSON over WebSocket)
+- **Supported messages**:
+  - BootNotification, Heartbeat, StatusNotification
+  - StartTransaction, StopTransaction, MeterValues
+  - Authorize, DataTransfer (Growatt vendor extensions)
+  - RemoteStartTransaction, RemoteStopTransaction
+  - GetConfiguration, ChangeConfiguration
+  - TriggerMessage
 
-As a fallback, you can temporarily run a TCP forwarder (e.g. `socat`) on port 9000 to forward traffic back to Growatt:
+### Growatt-Specific Features
 
-install Advanced SSH & Web terminal add-on in Home Assistant. Start it and install socat:
-apk add socat 
+- `G_MaxCurrent` - Maximum charging current
+- `G_ExternalLimitPower` - Load balancing limit
+- `G_ExternalLimitPowerEnable` - Load balancing toggle
+- `G_ChargerMode` - Charging mode (0=Smart, 1=Fast, 2=ECO)
+- `G_AutoChargeTime` - Scheduled charging times
+- `get_external_meterval` - Grid meter data request
+- `frozenrecord` / `currentrecord` - Session history
 
-Then run socat:
-/usr/bin/socat TCP-LISTEN:9000,fork,reuseaddr TCP:evcharge.growatt.com:80
-
-If you get a warning about address and port in use, you need to remove the Thor EV ocpp integration and restart HA
 ---
 
-## Disclaimer / Warning
+## Contributing
+
+Contributions are welcome! Please:
+- Report bugs via [GitHub Issues](https://github.com/bobbesnl/growatt_thor/issues)
+- Submit pull requests for improvements
+- Share your experience and configurations
+
+---
+
+## Disclaimer
 
 ⚠️ **Use at your own risk**
 
-- This software is provided **as-is**
-- There is **no warranty**
+- This software is provided AS-IS without warranty
+- This is an unofficial integration not endorsed by Growatt
 - Misconfiguration may:
-  - Disable cloud access
-  - Interrupt charging
+  - Disable cloud access and Growatt app functionality
+  - Interrupt charging operations
   - Require manual recovery via AP mode
-- The authors and contributors accept **no responsibility for damage, data loss, or malfunction**
+- The authors accept no responsibility for:
+  - Damage to equipment
+  - Loss of functionality
+  - Data loss or privacy issues
+  - Electric vehicle charging issues
 
-You are responsible for understanding what you are doing.
-
----
-
-## Status
-
-🚧 **Work in progress**
-
-This integration is under active development.
-Expect breaking changes, missing features, and rough edges.
-
-Contributions, testing, and feedback are welcome.
+You are responsible for understanding the risks and ensuring safe operation.
 
 ---
 
 ## License
 
-MIT License
+MIT License - see LICENSE file for details
+
+---
+
+## Support
+
+- **Documentation**: [GitHub Wiki](https://github.com/bobbesnl/growatt_thor/wiki) (coming soon)
+- **Issues**: [GitHub Issues](https://github.com/bobbesnl/growatt_thor/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/bobbesnl/growatt_thor/discussions)
 
