@@ -6,7 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.const import Platform
 
-from .const import DOMAIN, CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL
+from .const import DOMAIN
 from .coordinator import GrowattCoordinator
 from .ocpp_server import start_ocpp_server
 
@@ -44,12 +44,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     host = entry.data.get("host", "0.0.0.0")
     port = entry.data.get("port", 9000)
-    
-    # 🆕 Haal poll interval op uit config (met fallback naar default)
-    poll_interval = entry.data.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
-    hass.data[DOMAIN]["poll_interval"] = poll_interval
-    
-    _LOGGER.info("Configured grid poll interval: %d seconds", poll_interval)
 
     server = await start_ocpp_server(host, port, coordinator, hass)
     hass.data[DOMAIN]["server"] = server
@@ -61,14 +55,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     async def periodic_smart_grid_poll():
-        """Smart poll: alleen als load balancing enabled."""
-        # 🆕 Gebruik geconfigureerde poll interval ipv hardcoded waarde
-        poll_interval = hass.data[DOMAIN].get("poll_interval", DEFAULT_POLL_INTERVAL)
+        """Smart poll: alleen als load balancing enabled (elke 5s)."""
+        await asyncio.sleep(5)
         
-        # Wacht eerst de poll interval voordat we beginnen
-        await asyncio.sleep(poll_interval)
-        
-        _LOGGER.info("🚀 Smart poll task STARTED (interval: %ds)", poll_interval)
+        _LOGGER.info("🚀 Smart poll task STARTED")
         loop = asyncio.get_event_loop()
 
         while True:
@@ -86,18 +76,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
                 if charge_point and coordinator:
                     if coordinator.external_limit_power_enable:
-                        _LOGGER.debug("🔄 Smart poll (%ds): Load balancing ON → Grid data", poll_interval)
+                        _LOGGER.debug("🔄 Smart poll (5s): Load balancing ON → Grid data")
                         await charge_point.trigger_external_meterval()
                     else:
-                        _LOGGER.debug("⏸️ Smart poll (%ds): Load balancing OFF → Skip", poll_interval)
+                        _LOGGER.debug("⏸️ Smart poll (5s): Load balancing OFF → Skip")
                 else:
-                    _LOGGER.debug("⏸️ Smart poll (%ds): No charge_point or coordinator", poll_interval)
+                    _LOGGER.debug("⏸️ Smart poll (5s): No charge_point or coordinator")
 
             except Exception as exc:
                 _LOGGER.error("💥 Smart poll crashed: %s", exc, exc_info=True)
 
-            # 🆕 Gebruik geconfigureerde poll interval
-            await asyncio.sleep(poll_interval)
+            await asyncio.sleep(5)
 
     hass.data[DOMAIN]["polling_task"] = hass.async_create_background_task(
         periodic_smart_grid_poll(),

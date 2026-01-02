@@ -9,3 +9,7 @@ CONF_PORT = "port"
 
 OCPP_SUBPROTOCOL = "ocpp1.6"
 
+# Poll interval configuration
+CONF_POLL_INTERVAL = "poll_interval"
+DEFAULT_POLL_INTERVAL = 30  # seconden
+MIN_POLL_INTERVAL = 5       # minimaal 5 seconden
