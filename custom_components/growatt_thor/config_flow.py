@@ -26,7 +26,7 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # Valideer poll interval
             poll_interval = user_input.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
-            
+
             if poll_interval < MIN_POLL_INTERVAL:
                 errors[CONF_POLL_INTERVAL] = "poll_interval_too_low"
             else:
@@ -42,7 +42,7 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_HOST, default=DEFAULT_HOST): str,
                     vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
                     vol.Required(
-                        CONF_POLL_INTERVAL, 
+                        CONF_POLL_INTERVAL,
                         default=DEFAULT_POLL_INTERVAL,
                         description={
                             "suggested_value": DEFAULT_POLL_INTERVAL
@@ -67,10 +67,6 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class GrowattThorOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Growatt THOR."""
 
-    def __init__(self, config_entry):
-        """Initialize options flow."""
-        self.config_entry = config_entry
-
     async def async_step_init(self, user_input=None):
         """Manage the options."""
         errors = {}
@@ -78,7 +74,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             # Valideer poll interval
             poll_interval = user_input.get(CONF_POLL_INTERVAL)
-            
+
             if poll_interval < MIN_POLL_INTERVAL:
                 errors[CONF_POLL_INTERVAL] = "poll_interval_too_low"
             else:
