@@ -137,6 +137,11 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             if result.get("status") == "Accepted":
                 _LOGGER.info("✅ Charging session started successfully")
                 
+                # 🛡️ ANTI-CRASH: Pause polling for 5s
+                loop = asyncio.get_event_loop()
+                self.hass.data[DOMAIN]["skip_polling_until"] = loop.time() + 5.0
+                _LOGGER.info("🛡️ Polling paused for 5s to prevent Thor FW crash")
+                
                 # Trigger status update na 2 seconden
                 await asyncio.sleep(2)
                 await charge_point.trigger_status()
@@ -196,6 +201,11 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
 
             if result.get("status") == "Accepted":
                 _LOGGER.info("✅ Charging session stopped successfully")
+                
+                # 🛡️ ANTI-CRASH: Pause polling for 5s
+                loop = asyncio.get_event_loop()
+                self.hass.data[DOMAIN]["skip_polling_until"] = loop.time() + 5.0
+                _LOGGER.info("🛡️ Polling paused for 5s to prevent Thor FW crash")
                 
                 # Trigger status update na 2 seconden
                 await asyncio.sleep(2)

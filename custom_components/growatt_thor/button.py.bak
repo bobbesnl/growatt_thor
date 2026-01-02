@@ -15,6 +15,8 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+DEFAULT_ID_TAG = "12345678"  # Growatt handshake sleutel
+
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Growatt THOR button entities."""
@@ -22,6 +24,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     async_add_entities([
         ApplyChargingScheduleButton(coordinator, entry),
+        StartChargingButton(coordinator, entry),
+        StopChargingButton(coordinator, entry),
     ])
 
 
@@ -89,4 +93,118 @@ class ApplyChargingScheduleButton(CoordinatorEntity, ButtonEntity):
 
         except Exception as exc:
             _LOGGER.error("❌ Failed to apply charging schedule: %s", exc, exc_info=True)
+
+
+# ─────────────────────────────
+# Start Charging Button
+# ─────────────────────────────
+
+class StartChargingButton(CoordinatorEntity, ButtonEntity):
+    """Button to start a charging session."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Start charging"
+    _attr_icon = "mdi:play-circle"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_start_charging"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "Growatt THOR EV Charger",
+            "manufacturer": "Growatt",
+            "model": "THOR",
+        }
+        self.hass = coordinator.hass
+
+    async def async_press(self) -> None:
+        """Start a charging session via RemoteStartTransaction."""
+        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+
+        if not charge_point:
+            _LOGGER.warning("Cannot start charging: charger not connected")
+            return
+
+        try:
+            _LOGGER.info("🔘 Starting charging session (connector_id=1, id_tag=%s)", DEFAULT_ID_TAG)
+
+            result = await charge_point.remote_start_transaction(
+                connector_id=1,
+                id_tag=DEFAULT_ID_TAG
+            )
+
+            if result.get("status") == "Accepted":
+                _LOGGER.info("✅ Charging session started successfully")
+                
+                # Trigger status update na 2 seconden
+                await asyncio.sleep(2)
+                await charge_point.trigger_status()
+                
+                self.coordinator.async_set_updated_data(True)
+            else:
+                _LOGGER.error("❌ Start charging rejected: %s", result.get("status"))
+
+        except Exception as exc:
+            _LOGGER.error("❌ Failed to start charging: %s", exc, exc_info=True)
+
+
+# ─────────────────────────────
+# Stop Charging Button
+# ─────────────────────────────
+
+class StopChargingButton(CoordinatorEntity, ButtonEntity):
+    """Button to stop a charging session."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Stop charging"
+    _attr_icon = "mdi:stop-circle"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_stop_charging"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "Growatt THOR EV Charger",
+            "manufacturer": "Growatt",
+            "model": "THOR",
+        }
+        self.hass = coordinator.hass
+
+    async def async_press(self) -> None:
+        """Stop a charging session via RemoteStopTransaction."""
+        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+
+        if not charge_point:
+            _LOGGER.warning("Cannot stop charging: charger not connected")
+            return
+
+        # Haal het huidige transaction ID op van de coordinator
+        transaction_id = self.coordinator.transaction_id
+
+        if transaction_id is None:
+            _LOGGER.warning("⚠️ No active transaction to stop")
+            return
+
+        try:
+            _LOGGER.info("🔘 Stopping charging session (transaction_id=%s)", transaction_id)
+
+            result = await charge_point.remote_stop_transaction(
+                transaction_id=transaction_id
+            )
+
+            if result.get("status") == "Accepted":
+                _LOGGER.info("✅ Charging session stopped successfully")
+                
+                # Trigger status update na 2 seconden
+                await asyncio.sleep(2)
+                await charge_point.trigger_status()
+                
+                self.coordinator.async_set_updated_data(True)
+            else:
+                _LOGGER.error("❌ Stop charging rejected: %s", result.get("status"))
+
+        except Exception as exc:
+            _LOGGER.error("❌ Failed to stop charging: %s", exc, exc_info=True)
 
