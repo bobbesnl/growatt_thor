@@ -183,9 +183,9 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             _LOGGER.debug("DataTransfer received: vendor=%s messageId=%s data=%s", vendor_id, message_id, data)
 
-            if isinstance(data, str) and message_id == "frozenrecord":
+            if isinstance(data, str) and message_id in ("frozenrecord", "currentrecord"):
                 parsed = {k: v[0] for k, v in parse_qs(data).items()}
-                _LOGGER.info("Parsed frozenrecord: %s", parsed)
+                _LOGGER.info("Parsed %s: %s", parsed)
                 self.coordinator.process_frozen_record(parsed)
 
         except Exception as exc:
