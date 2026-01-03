@@ -2,5 +2,8 @@
   "name": "Growatt THOR EV Charger",
   "content_in_root": false,
   "domain": "growatt_thor"
+  "render_readme": true,
+  "homeassistant": "2024.4.1",
+  "hacs": "1.34.0"
 }
 

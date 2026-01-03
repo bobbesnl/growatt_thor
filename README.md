@@ -32,6 +32,7 @@ This integration allows you to connect a Growatt THOR EV charger **directly to H
 - **Charger modes**: Switch between Plug & Charge, RFID only, APP/RFID modes
 - **Manual charging control**: Start and stop charging sessions via buttons
 - **Load balancing toggle**: Enable/disable dynamic load balancing
+- **Auto update THOR time**: Auto sync time with server time at every heartbeat and with reboot (ocpp protocol)
 
 ### 📈 Session History
 - **Last 5 sessions**: Energy (kWh), cost, charge mode, work mode, timestamps
@@ -244,6 +245,21 @@ automation:
           entity_id: button.growatt_thor_start_charging
 ```
 
+#### Sync THOR time after DST change
+
+```yaml
+automation:
+  - alias: "Sync Thor time after DST change"
+    trigger:
+      - platform: time
+        at: "03:00:00"
+    condition:
+      - condition: template
+        value_template: >
+          {{ now().month in [3, 10] and now().day <= 7 and now().weekday() == 6 }}
+    action:
+      - service: growatt_thor.sync_time
+```
 
 ---
 
@@ -346,7 +362,6 @@ MIT License - see LICENSE file for details
 
 ## Support
 
-- **Documentation**: [GitHub Wiki](https://github.com/bobbesnl/growatt_thor/wiki) (coming soon)
 - **Issues**: [GitHub Issues](https://github.com/bobbesnl/growatt_thor/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/bobbesnl/growatt_thor/discussions)
 
