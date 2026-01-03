@@ -17,19 +17,19 @@ This integration allows you to connect a Growatt THOR EV charger **directly to H
 - **Voltage monitoring**: Voltage per phase
 - **Energy tracking**: Session energy in kWh with automatic reset per session
 - **Temperature**: Internal charger temperature in °C
-- **Transaction tracking**: Active transaction ID and charging session details
+- **Transaction tracking**: Active transaction ID and charging session details (saved in sensor.growatt_thor_ev_charger_last_sessions)
 
 ### 🔌 Grid & Load Balancing
 - **External meter monitoring**: Real-time grid power, voltage, and current per phase
 - **Dynamic load balancing**: Set maximum grid import limit (kW) to prevent overload
-- **Smart polling**: Configurable polling interval (5-600+ seconds recommended)
+- **Smart polling**: Configurable polling interval (5-3600 sec. recommended setting 30 seconds)
   - ⚠️ **Note**: Polling interval only affects the frequency of grid data **display updates** in Home Assistant. Load balancing functionality itself operates independently and responds in real-time regardless of the polling setting.
 - **Wiring detection**: Automatic 1-phase or 3-phase detection
 
 ### ⚙️ Configuration & Control
 - **Max current control**: Set maximum charging current (6-32A)
 - **Charging schedule**: Configure automatic start/stop times
-- **Charger modes**: Switch between Smart, Fast, ECO modes
+- **Charger modes**: Switch between Plug & Charge, RFID only, APP/RFID modes
 - **Manual charging control**: Start and stop charging sessions via buttons
 - **Load balancing toggle**: Enable/disable dynamic load balancing
 
@@ -41,6 +41,15 @@ This integration allows you to connect a Growatt THOR EV charger **directly to H
 - **Anti-crash protection**: Automatic polling pause after configuration changes to prevent Thor firmware crashes
 - **TIER 2 error recovery**: Robust error handling for connection issues
 - **Smart polling**: Only polls external meter when load balancing is enabled
+
+---
+
+### Future Features (wishlist)
+- Enabling solar powered EV charging
+- RFID card management
+- Enabling AP mode from within integration
+- Enabling data passthrough to Growatt cloud server
+- Other...?
 
 ---
 
@@ -63,10 +72,10 @@ The integration runs a **local OCPP 1.6 server** inside Home Assistant. The Grow
 ## Installation
 
 ### Prerequisites
-- Home Assistant (2023.1 or newer recommended)
-- HACS (Home Assistant Community Store) installed
-- Growatt THOR EV Charger with network connectivity
-- Network access between Home Assistant and the charger
+- Home Assistant (2024.4.1 or newer recommended)
+- HACS (Home Assistant Community Store) installed (minimum v1.34.0 but most latest version is recommended)
+- Working Growatt THOR EV Charger setup --> Fully configured to work with your (hybrid) inverter and with a working network connectivity to Growatt cloud (Shinephone app)
+- Network access between Home Assistant server and the charger
 
 ### Via HACS (Recommended)
 
@@ -92,7 +101,7 @@ The integration runs a **local OCPP 1.6 server** inside Home Assistant. The Grow
      - **Listen IP**: `0.0.0.0` (default, listens on all interfaces)
      - **Listen Port**: `9000` (default, or choose your own)
      - **Grid Poll Interval**: `30` seconds (recommended)
-       - Range: 5-600+ seconds
+       - Range: 5-3600 seconds
        - Lower values = more frequent updates (higher load on Thor)
        - Higher values = less frequent updates (lower load)
        - **Important**: This only affects display update frequency, not load balancing functionality
@@ -115,8 +124,8 @@ Home Assistant is now ready and waiting for the charger to connect.
 
 #### Method 1: Via AP Mode (Most Reliable)
 
-1. **Enable AP Mode** on the Growatt THOR charger (button or via app)
-2. Connect your phone to the charger's Wi-Fi (usually named `GROWATT-xxxxx`)
+1. **Enable AP Mode** on the Growatt THOR charger (via Shinephone app)
+2. Connect your phone to the THOR's Wi-Fi (Standard Wi-Fi password is `12345678`)
 3. Open the **ShinePhone** or **Growatt** app
 4. Navigate to **Network Settings** or **Server Settings**
 5. Change the **Server URL** to:
@@ -152,7 +161,7 @@ If you need to restore cloud connectivity:
 
 ### Via AP Mode
 
-1. Enable **AP Mode** on the charger
+1. Enable **AP Mode** on the charger. Best practice to do so is set up a TCP forwarder (see underneath), connect to charger via ShinePhone app (delete existing THOR and add again to regain acces)
 2. Connect to the charger's Wi-Fi
 3. Open the Growatt app
 4. Restore the original server URL:
@@ -201,6 +210,7 @@ After successful connection, the following entities are created:
 - `sensor.growatt_thor_transaction_id` - Active transaction ID
 - `sensor.growatt_thor_last_session_energy` - Previous session energy
 - `sensor.growatt_thor_last_session_cost` - Previous session cost
+- `sensor.growatt_thor_ev_charger_last_sessions` - Session tracking (only last 5 sessions)
 
 #### Controls
 - `number.growatt_thor_max_current` - Maximum charging current (6-32A)
@@ -234,22 +244,6 @@ automation:
           entity_id: button.growatt_thor_start_charging
 ```
 
-#### Dynamic Load Balancing
-
-```yaml
-automation:
-  - alias: "Adjust charging based on grid load"
-    trigger:
-      - platform: time_pattern
-        seconds: "/30"  # Every 30 seconds
-    action:
-      - service: number.set_value
-        target:
-          entity_id: number.growatt_thor_load_balancing_limit
-        data:
-          value: >
-            {{ (20 - (states('sensor.grid_import_power')|float / 1000))|max(6) }}
-```
 
 ---
 
@@ -260,7 +254,7 @@ automation:
 - **Check network connectivity**: Ping the charger from Home Assistant
 - **Verify server URL**: Ensure correct IP address and port in Thor settings
 - **Check firewall**: Port 9000 must be open
-- **Check logs**: Settings → System → Logs → Filter by "growatt_thor"
+- **Check logs**: Settings → System → Logs → Filter by "growatt_thor" (enabled debug logging for this integration)
 - **Restart charger**: Power cycle the Thor charger
 
 ### Polling Too Frequent / Too Slow
@@ -282,6 +276,7 @@ This integration includes anti-crash protection:
 - Smart polling (only when load balancing is active)
 
 If crashes persist:
+- Collect debug logging and open an issue at my github repo
 - Increase poll interval to 60+ seconds
 - Disable load balancing temporarily
 - Check Thor firmware version (updates may improve stability)
@@ -332,8 +327,9 @@ Contributions are welcome! Please:
   - Disable cloud access and Growatt app functionality
   - Interrupt charging operations
   - Require manual recovery via AP mode
+  - In worst case: misconfiguration can cause fire when system is overloading! Be aware!
 - The authors accept no responsibility for:
-  - Damage to equipment
+  - Damage to equipment or persons
   - Loss of functionality
   - Data loss or privacy issues
   - Electric vehicle charging issues
