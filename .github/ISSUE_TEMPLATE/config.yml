@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/bobbesnl/growatt_thor/discussions
+    about: Ask questions and discuss with the community
+  - name: 📖 Documentation
+    url: https://github.com/bobbesnl/growatt_thor/blob/main/README.md
+    about: Read the integration documentation
+
