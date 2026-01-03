@@ -1,3 +1,5 @@
+⚠️ **Please read this document first before installing this integration!**
+
 # Growatt THOR EV Charger – Home Assistant Integration
 
 ⚡ **Unofficial Home Assistant integration for the Growatt THOR EV charger**  
