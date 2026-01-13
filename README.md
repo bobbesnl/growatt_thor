@@ -1,6 +1,6 @@
 ⚠️ **Please read this document first before installing this integration!**
 
-# Growatt THOR EV Charger – Home Assistant Integration
+<img src="icons/custom_branding/logo.png" alt="Growatt THOR" width="320">
 
 ⚡ **Unofficial Home Assistant integration for the Growatt THOR EV charger**  
 
@@ -219,7 +219,7 @@ After successful connection, the following entities are created:
 - `number.growatt_thor_max_current` - Maximum charging current (6-32A)
 - `number.growatt_thor_load_balancing_limit` - Grid import limit (kW)
 - `switch.growatt_thor_load_balancing` - Enable/disable load balancing
-- `select.growatt_thor_charger_mode` - Charging mode (Smart/Fast/ECO)
+- `select.growatt_thor_charger_mode` - Charging mode (Plug&Charge/RFID only/APP&RFID)
 - `time.growatt_thor_charging_start` - Auto-charge start time
 - `time.growatt_thor_charging_stop` - Auto-charge stop time
 - `button.growatt_thor_start_charging` - Manual start
@@ -245,22 +245,6 @@ automation:
       - service: button.press
         target:
           entity_id: button.growatt_thor_start_charging
-```
-
-#### Sync THOR time after DST change
-
-```yaml
-automation:
-  - alias: "Sync Thor time after DST change"
-    trigger:
-      - platform: time
-        at: "03:00:00"
-    condition:
-      - condition: template
-        value_template: >
-          {{ now().month in [3, 10] and now().day <= 7 and now().weekday() == 6 }}
-    action:
-      - service: growatt_thor.sync_time
 ```
 
 ---
@@ -319,7 +303,7 @@ If crashes persist:
 - `G_MaxCurrent` - Maximum charging current
 - `G_ExternalLimitPower` - Load balancing limit
 - `G_ExternalLimitPowerEnable` - Load balancing toggle
-- `G_ChargerMode` - Charging mode (0=Smart, 1=Fast, 2=ECO)
+- `G_ChargerMode` - Charging mode
 - `G_AutoChargeTime` - Scheduled charging times
 - `get_external_meterval` - Grid meter data request
 - `frozenrecord` / `currentrecord` - Session history
