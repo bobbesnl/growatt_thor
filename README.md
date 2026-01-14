@@ -1,5 +1,7 @@
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
 ![Version](https://img.shields.io/badge/version-1.0.0_beta-blue)
+
+
 ⚠️ **Please read this document first before installing this integration!**
 
 <img src="icons/custom_branding/logo.png" alt="Growatt THOR" width="320">
