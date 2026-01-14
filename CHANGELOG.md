@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.0] - 2026-01-03
+## [1.0.0-beta] - 2026-01-14
 
-🎉 **First stable release!** The integration has moved from alpha to production-ready.
+🎉 **Beta release!** The integration has moved from alpha to beta, expect bugs (please report them).
 
 ### Added
 
@@ -63,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `G_MaxCurrent` - Maximum charging current configuration
   - `G_ExternalLimitPower` - Load balancing power limit
   - `G_ExternalLimitPowerEnable` - Load balancing on/off
-  - `G_ChargerMode` - Charging mode (0=Smart, 1=Fast, 2=ECO)
+  - `G_ChargerMode` - Charging mode
   - `G_AutoChargeTime` - Scheduled charging time range
   - `get_external_meterval` - Grid meter data retrieval
   - `frozenrecord`/`currentrecord` - Session history data
