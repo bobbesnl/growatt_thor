@@ -221,7 +221,7 @@ class ChargingPowerSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.power
+        return self.coordinator.power if self.coordinator.power is not None else 0
 
 
 # ─────────────────────────────
@@ -243,7 +243,7 @@ class EnergyChargedSensor(BaseSensor):
     @property
     def native_value(self):
         if self.coordinator.energy is None:
-            return None
+            return 0
         return round(self.coordinator.energy / 1000, 3)
 
 
