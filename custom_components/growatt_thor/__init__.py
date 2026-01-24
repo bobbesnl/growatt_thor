@@ -75,11 +75,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             try:
                 skip_until = hass.data[DOMAIN].get("skip_polling_until", 0.0)
                 current_time = loop.time()
-                
+
                 if current_time < skip_until:
-                    _LOGGER.debug("⏸️ Polling skipped (config write cooldown)")
+                    # Log alleen de eerste keer dat we skippen
+                    if not hasattr(periodic_smart_grid_poll, '_skip_logged') or not periodic_smart_grid_poll._skip_logged:
+                        remaining = int(skip_until - current_time)
+                        _LOGGER.info("⏸️ Polling paused (%ds remaining)", remaining)
+                        periodic_smart_grid_poll._skip_logged = True
                     await asyncio.sleep(1)
                     continue
+                else:
+                    # Reset de flag als we weer aan het pollen zijn
+                    periodic_smart_grid_poll._skip_logged = False
 
                 charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
                 coordinator = hass.data.get(DOMAIN, {}).get("coordinator")

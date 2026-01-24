@@ -2,14 +2,11 @@
 from __future__ import annotations
 
 import logging
-import time
 import asyncio
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import EntityCategory
-
-from ocpp.v16.enums import ConfigurationStatus
 
 from .const import DOMAIN
 
@@ -23,76 +20,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN]["coordinator"]
 
     async_add_entities([
-        ApplyChargingScheduleButton(coordinator, entry),
         StartChargingButton(coordinator, entry),
         StopChargingButton(coordinator, entry),
     ])
-
-
-# ─────────────────────────────
-# Apply Charging Schedule Button
-# ─────────────────────────────
-
-class ApplyChargingScheduleButton(CoordinatorEntity, ButtonEntity):
-    """Button to write both start/stop times to Thor (atomic update)."""
-
-    _attr_has_entity_name = True
-    _attr_name = "Apply charging schedule"
-    _attr_icon = "mdi:content-save"
-    _attr_entity_category = EntityCategory.CONFIG
-
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{entry.entry_id}_apply_charging_schedule"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
-        self.hass = coordinator.hass
-
-    async def async_press(self) -> None:
-        """Write BOTH start/stop times to Thor as single G_AutoChargeTime."""
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
-
-        if not charge_point:
-            _LOGGER.warning("Cannot apply schedule: charger not connected")
-            return
-
-        start_time = self.coordinator.auto_charge_start_time_pending
-        stop_time = self.coordinator.auto_charge_stop_time_pending
-
-        if start_time is None or stop_time is None:
-            _LOGGER.error("Cannot apply: Both start and stop times must be set")
-            return
-
-        formatted_value = f"{start_time.strftime('%H:%M')}-{stop_time.strftime('%H:%M')}"
-
-        try:
-            _LOGGER.info("🔘 Applying charging schedule: %s", formatted_value)
-
-            result = await charge_point.change_configuration(
-                "G_AutoChargeTime",
-                formatted_value
-            )
-
-            if result == ConfigurationStatus.accepted:
-                self.coordinator.auto_charge_start_time = start_time
-                self.coordinator.auto_charge_stop_time = stop_time
-                self.coordinator.async_set_updated_data(True)
-
-                # 🛡️ ANTI-CRASH: Pause polling for 10s
-                loop = asyncio.get_event_loop()
-                self.hass.data[DOMAIN]["skip_polling_until"] = loop.time() + 10.0
-
-                _LOGGER.info("✅ Charging schedule applied: %s", formatted_value)
-                _LOGGER.info("🛡️ Polling paused for 10s to prevent Thor FW crash")
-            else:
-                _LOGGER.error("❌ Charging schedule rejected: %s", result)
-
-        except Exception as exc:
-            _LOGGER.error("❌ Failed to apply charging schedule: %s", exc, exc_info=True)
 
 
 # ─────────────────────────────
@@ -119,7 +49,13 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
         self.hass = coordinator.hass
 
     async def async_press(self) -> None:
-        """Start a charging session via RemoteStartTransaction."""
+        """Start a charging session via queue."""
+        _LOGGER.info("🔘 Queueing start charging command")
+
+        await self.coordinator.queue_write(self._start_charging)
+
+    async def _start_charging(self):
+        """Daadwerkelijke start commando."""
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
 
         if not charge_point:
@@ -127,8 +63,6 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             return
 
         try:
-            _LOGGER.info("🔘 Starting charging session (connector_id=1, id_tag=%s)", DEFAULT_ID_TAG)
-
             result = await charge_point.remote_start_transaction(
                 connector_id=1,
                 id_tag=DEFAULT_ID_TAG
@@ -136,16 +70,11 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 
             if result.get("status") == "Accepted":
                 _LOGGER.info("✅ Charging session started successfully")
-                
-                # 🛡️ ANTI-CRASH: Pause polling for 5s
-                loop = asyncio.get_event_loop()
-                self.hass.data[DOMAIN]["skip_polling_until"] = loop.time() + 5.0
-                _LOGGER.info("🛡️ Polling paused for 5s to prevent Thor FW crash")
-                
+
                 # Trigger status update na 2 seconden
                 await asyncio.sleep(2)
                 await charge_point.trigger_status()
-                
+
                 self.coordinator.async_set_updated_data(True)
             else:
                 _LOGGER.error("❌ Start charging rejected: %s", result.get("status"))
@@ -178,39 +107,37 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
         self.hass = coordinator.hass
 
     async def async_press(self) -> None:
-        """Stop a charging session via RemoteStopTransaction."""
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
-
-        if not charge_point:
-            _LOGGER.warning("Cannot stop charging: charger not connected")
-            return
-
-        # Haal het huidige transaction ID op van de coordinator
+        """Stop a charging session via queue."""
         transaction_id = self.coordinator.transaction_id
 
         if transaction_id is None:
             _LOGGER.warning("⚠️ No active transaction to stop")
             return
 
-        try:
-            _LOGGER.info("🔘 Stopping charging session (transaction_id=%s)", transaction_id)
+        _LOGGER.info("🔘 Queueing stop charging command (transaction_id=%s)", transaction_id)
 
+        await self.coordinator.queue_write(self._stop_charging, transaction_id)
+
+    async def _stop_charging(self, transaction_id):
+        """Daadwerkelijke stop commando."""
+        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+
+        if not charge_point:
+            _LOGGER.warning("Cannot stop charging: charger not connected")
+            return
+
+        try:
             result = await charge_point.remote_stop_transaction(
                 transaction_id=transaction_id
             )
 
             if result.get("status") == "Accepted":
                 _LOGGER.info("✅ Charging session stopped successfully")
-                
-                # 🛡️ ANTI-CRASH: Pause polling for 5s
-                loop = asyncio.get_event_loop()
-                self.hass.data[DOMAIN]["skip_polling_until"] = loop.time() + 5.0
-                _LOGGER.info("🛡️ Polling paused for 5s to prevent Thor FW crash")
-                
+
                 # Trigger status update na 2 seconden
                 await asyncio.sleep(2)
                 await charge_point.trigger_status()
-                
+
                 self.coordinator.async_set_updated_data(True)
             else:
                 _LOGGER.error("❌ Stop charging rejected: %s", result.get("status"))

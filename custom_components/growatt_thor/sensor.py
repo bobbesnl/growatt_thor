@@ -267,7 +267,8 @@ class CurrentSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.currents.get(self.phase)
+        value = self.coordinator.currents.get(self.phase)
+        return value if value is not None else 0
 
 
 # ─────────────────────────────
@@ -290,7 +291,8 @@ class VoltageSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.voltages.get(self.phase)
+        value = self.coordinator.voltages.get(self.phase)
+        return value if value is not None else 0
 
 
 # ─────────────────────────────
@@ -313,8 +315,8 @@ class PhasePowerSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.phase_power.get(self.phase)
-
+        value = self.coordinator.phase_power.get(self.phase)
+        return value if value is not None else 0
 
 # ─────────────────────────────
 # Temperature (DIAGNOSTIC - EV Charger)
@@ -335,8 +337,8 @@ class TemperatureSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.temperature
-
+        value = self.coordinator.temperature
+        return value if value is not None else 0
 
 # ─────────────────────────────
 # Grid / External Meter (LOAD BALANCING DEVICE!)

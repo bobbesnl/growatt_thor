@@ -255,9 +255,7 @@ class GrowattChargePoint(OcppChargePoint):
 
             status = getattr(result, "status", ConfigurationStatus.rejected)
             _LOGGER.info("ChangeConfiguration result: %s", status)
-
-            # 🚫 NO GetConfiguration trigger - Thor doet dit automatisch na reboot!
-            _LOGGER.debug("⏳ Config change accepted. Thor will send GetConfiguration on reconnect.")
+            _LOGGER.debug("Config change accepted!")
 
             return status
 

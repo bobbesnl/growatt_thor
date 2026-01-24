@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.0] - 2026-01-14
+
+🎉 **First official release!** The integration has moved from beta to production ready! 🎉
+(please keep reporting bugs/issues!)
+
+🛡️ **Major stability improvements!** This release introduces a write queue system that dramatically reduces Thor firmware crashes.
+
+### Added
+
+#### Write Queue System (Anti-Crash Protection)
+- **Write queue with rate limiting**: All configuration writes are now queued and executed with a minimum 15-second interval
+- **Intelligent write buffering**: Multiple rapid changes are automatically queued and executed sequentially
+- **Enhanced polling pause**: 20-second polling pause after each write operation (increased from 10s)
+- **Queue status logging**: Real-time visibility of queued write operations and wait times
+
+#### UI/UX Improvements
+- **Auto-apply for charging schedule**: Time entities now automatically write to Thor without requiring "Apply" button
+- **Optimistic UI updates**: Configuration changes (max current, load balancing) are immediately visible in UI while write is queued
+- **Removed "Apply charging schedule" button**: No longer needed with auto-apply functionality
+- **Smarter logging**: Polling pause messages now show once with countdown instead of repeating every second
+
+### Changed
+- **Energy sensor behavior**: `sensor.growatt_thor_ev_charger_energy_charged` now returns `0` instead of `unknown` when not charging (Energy Dashboard compatible)
+- **Charging power sensor behavior**: `sensor.growatt_thor_ev_charger_charging_power` now returns `0` instead of `unknown` when not charging (Energy Dashboard compatible)
+- **Current sensor behavior**: Phase current sensors (`L1`, `L2`, `L3`) now return `0` instead of `unknown` when no current flows (Energy Dashboard compatible)
+- **Write interval reduced**: Minimum time between writes reduced from 30s to 15s (more responsive, still safe)
+- **Polling pause duration**: Increased from 10s to 20s after configuration writes for better Thor firmware stability
+
+### Fixed
+- **Thor firmware crashes**: Write queue prevents rapid successive configuration changes that caused firmware reboots
+- **Energy Dashboard compatibility**: Sensors now provide numeric zero values instead of unknown/unavailable states
+- **Race conditions**: Sequential write operations no longer interfere with each other
+- **Polling conflicts**: Grid polling no longer occurs during critical configuration write windows
+
+### Technical Details
+- **Write queue implementation**: Thread-safe deque with asyncio locks
+- **Rate limiting**: Enforced 15-second minimum interval between writes
+- **Post-write protection**: 20-second polling blackout after each configuration change
+- **Queue persistence**: Write queue survives across multiple rapid user interactions
+
+### Breaking Changes
+- **Removed entity**: `button.growatt_thor_ev_charger_apply_charging_schedule` (functionality moved to automatic write queue)
+- **Behavior change**: Time entities now write immediately to queue instead of waiting for manual apply
+
+---
+
 ## [1.0.0-beta] - 2026-01-14
 
 🎉 **Beta release!** The integration has moved from alpha to beta, expect bugs (please report them).

@@ -1,5 +1,8 @@
 import logging
 from datetime import datetime, timezone, time
+from collections import deque
+from .const import DOMAIN
+import asyncio
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -57,6 +60,65 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         # 🆕 SESSION HISTORY (laatste 5 sessies)
         self.session_history = []
+
+        # 🆕 WRITE QUEUE SYSTEEM
+        self._write_queue = deque()
+        self._write_lock = asyncio.Lock()
+        self._last_write_time = None
+        self._write_task = None
+        self._min_write_interval = 15  # seconden tussen writes
+
+    # ─────────────────────────────
+    # 🆕 WRITE QUEUE METHODS
+    # ─────────────────────────────
+
+    async def queue_write(self, write_func, *args, **kwargs):
+        """Voeg een schrijfactie toe aan de queue."""
+        write_item = {
+            'func': write_func,
+            'args': args,
+            'kwargs': kwargs,
+            'timestamp': datetime.now()
+        }
+        
+        self._write_queue.append(write_item)
+        _LOGGER.debug(f"📥 Write queued. Queue size: {len(self._write_queue)}")
+        
+        # Start de queue processor als die nog niet draait
+        if self._write_task is None or self._write_task.done():
+            self._write_task = asyncio.create_task(self._process_write_queue())
+    
+    async def _process_write_queue(self):
+        """Verwerk de write queue met rate limiting."""
+        async with self._write_lock:
+            while self._write_queue:
+                # Haal het oudste item uit de queue
+                write_item = self._write_queue.popleft()
+
+                # Bereken wachttijd sinds laatste write
+                if self._last_write_time:
+                    time_since_last = (datetime.now() - self._last_write_time).total_seconds()
+                    wait_time = max(0, self._min_write_interval - time_since_last)
+
+                    if wait_time > 0:
+                        _LOGGER.info(f"⏳ Waiting {wait_time:.1f}s before next write. Queue: {len(self._write_queue)} remaining")
+                        await asyncio.sleep(wait_time)
+
+                # Voer de schrijfactie uit
+                try:
+                    _LOGGER.info(f"✍️ Executing write command. Remaining in queue: {len(self._write_queue)}")
+                    result = await write_item['func'](*write_item['args'], **write_item['kwargs'])
+                    self._last_write_time = datetime.now()
+
+                    # 🛡️ STOP POLLING VOOR 20 SECONDEN (Thor bescherming)
+                    loop = asyncio.get_event_loop()
+                    self.hass.data[DOMAIN]["skip_polling_until"] = loop.time() + 20.0
+                    _LOGGER.info("🛡️ Polling paused for 20s after write (Thor FW protection)")
+
+                    _LOGGER.info(f"✅ Write completed successfully. Result: {result}")
+
+                except Exception as err:
+                    _LOGGER.error(f"❌ Write command failed: {err}", exc_info=True)
 
     # ─────────────────────────────
     # 🔑 LOAD BALANCING PROPERTY
@@ -333,18 +395,18 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 "end_time": data.get("endtime", ""),
                 "transaction_id": data.get("transactionId", ""),
             }
-            
+
             # Backwards compatibility
             self.last_session_energy = session["energy_kwh"]
             self.last_session_cost = session["cost"]
             self.charge_mode = session["charge_mode"]
             self.work_mode = session["work_mode"]
-            
+
             # 🆕 Session history (laatste 5)
             self.session_history.insert(0, session)
             if len(self.session_history) > 5:
                 self.session_history = self.session_history[:5]
-            
+
             _LOGGER.info(
                 "Frozen record: energy=%.3f kWh, cost=%.2f, mode=%s/%s (saved to history)",
                 session["energy_kwh"],
@@ -352,7 +414,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 session["charge_mode"],
                 session["work_mode"]
             )
-            
+
             self.async_set_updated_data(True)
 
         except (ValueError, TypeError, KeyError) as exc:

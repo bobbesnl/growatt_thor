@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import logging
 import asyncio
-import time
 
 from homeassistant.components.number import NumberEntity, NumberDeviceClass, NumberMode
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -44,37 +43,6 @@ class BaseConfigNumber(CoordinatorEntity, NumberEntity):
         self._device_id_suffix = device_id_suffix
         self.hass = coordinator.hass
 
-    async def async_set_native_value(self, value: float) -> None:
-        """Update the configuration on the charger."""
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
-
-        if not charge_point:
-            _LOGGER.warning("Cannot change %s: charger not connected", self.name)
-            return
-
-        try:
-            formatted_value = self._format_value(value)
-
-            _LOGGER.info("Setting %s to %s", self._config_key, formatted_value)
-
-            result = await charge_point.change_configuration(
-                self._config_key,
-                formatted_value
-            )
-
-            if result == ConfigurationStatus.accepted:
-                # Optimistic update
-                if hasattr(self.coordinator, self._property_name):
-                    setattr(self.coordinator, self._property_name, self._parse_value(formatted_value))
-                    self.coordinator.async_set_updated_data(True)
-
-                _LOGGER.info("✅ %s → %s (immediate UI update)", self.name, formatted_value)
-            else:
-                _LOGGER.error("❌ %s change rejected: %s", self.name, result)
-
-        except Exception as exc:
-            _LOGGER.error("❌ Failed to set %s: %s", self.name, exc, exc_info=True)
-
     def _format_value(self, value: float) -> str:
         """Format value for OCPP (override in subclass if needed)."""
         return str(int(round(value)))
@@ -85,8 +53,9 @@ class BaseConfigNumber(CoordinatorEntity, NumberEntity):
 
 
 # ─────────────────────────────
-# Max Current (EV Charger device) - INTEGERS!
+# Max Current
 # ─────────────────────────────
+
 class MaxCurrentNumber(BaseConfigNumber):
     """Max current per phase configuration."""
 
@@ -107,8 +76,6 @@ class MaxCurrentNumber(BaseConfigNumber):
             "manufacturer": "Growatt",
             "model": "THOR",
         }
-        self._debounce_task = None
-        self._pending_value = None
 
     @property
     def native_value(self):
@@ -116,36 +83,52 @@ class MaxCurrentNumber(BaseConfigNumber):
         return int(value) if value is not None else None
 
     async def async_set_native_value(self, value: float) -> None:
-        """Set new value with 10s debounce."""
-        value = round(value)
+        """Set new value via queue (directe update UI)."""
+        value = int(round(value))
+        
+        # Optimistic UI update
+        self.coordinator.max_current = value
+        self.coordinator.async_set_updated_data(True)
+        
+        _LOGGER.info("📝 Max Current UI updated to %d A (queued for write)", value)
+        
+        # Queue de schrijfactie
+        await self.coordinator.queue_write(
+            self._write_to_thor,
+            value
+        )
 
-        if self._debounce_task and not self._debounce_task.done():
-            self._debounce_task.cancel()
+    async def _write_to_thor(self, value):
+        """Daadwerkelijke write naar Thor."""
+        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
 
-        self._pending_value = value
-        self._debounce_task = asyncio.create_task(self._debounced_set())
+        if not charge_point:
+            _LOGGER.warning("Cannot change Max Current: charger not connected")
+            return
 
-    async def _debounced_set(self):
-        """Execute setting after 10s debounce."""
         try:
-            await asyncio.sleep(10.0)
-            if self._pending_value is not None:
-                await super().async_set_native_value(self._pending_value)
-                self._pending_value = None
-                
-                # 🛡️ ANTI-CRASH: Pause polling for 10s
-                loop = asyncio.get_event_loop()
-                self.hass.data[DOMAIN]["skip_polling_until"] = loop.time() + 10.0
-                _LOGGER.info("🛡️ Polling paused for 10s after MaxCurrent write")
-        except asyncio.CancelledError:
-            pass
+            formatted_value = str(value)
+            
+            result = await charge_point.change_configuration(
+                self._config_key,
+                formatted_value
+            )
+
+            if result == ConfigurationStatus.accepted:
+                _LOGGER.info("✅ Max Current written to Thor: %s A", formatted_value)
+            else:
+                _LOGGER.error("❌ Max Current rejected by Thor: %s", result)
+
+        except Exception as exc:
+            _LOGGER.error("❌ Failed to set Max Current: %s", exc, exc_info=True)
 
     def _format_value(self, value: float) -> str:
-        """Format as XX (integer, Growatt format)."""
+        """Format as integer."""
         return str(int(round(value)))
 
+
 # ─────────────────────────────
-# Load Balancing Limit (Load balancing device) - INTEGERS!
+# Load Balancing Limit
 # ─────────────────────────────
 
 class LoadBalancingLimitNumber(BaseConfigNumber):
@@ -169,36 +152,54 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             "manufacturer": "Growatt",
             "model": "THOR Load balancing",
         }
-        self._debounce_task = None
-        self._pending_value = None
 
     @property
     def native_value(self):
-        """Return current value with debounce awareness."""
-        value = getattr(self.coordinator, self._property_name, None)
+        """Return current value."""
+        value = self.coordinator.external_limit_power
         return int(value) if value is not None else 10
 
     async def async_set_native_value(self, value: float) -> None:
-        """Set new value with 10s debounce (integers only)."""
-        value = round(value)
+        """Set new value via queue (directe update UI)."""
+        value = int(round(value))
+        
+        # Optimistic UI update
+        self.coordinator.external_limit_power = value
+        self.coordinator.async_set_updated_data(True)
+        
+        _LOGGER.info("📝 Load Balancing Limit UI updated to %d kW (queued for write)", value)
+        
+        # Queue de schrijfactie
+        await self.coordinator.queue_write(
+            self._write_to_thor,
+            value
+        )
 
-        if self._debounce_task and not self._debounce_task.done():
-            self._debounce_task.cancel()
+    async def _write_to_thor(self, value):
+        """Daadwerkelijke write naar Thor."""
+        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
 
-        self._pending_value = value
-        self._debounce_task = asyncio.create_task(self._debounced_set())
+        if not charge_point:
+            _LOGGER.warning("Cannot change Load Balancing Limit: charger not connected")
+            return
 
-    async def _debounced_set(self):
-        """Execute setting after debounce delay."""
         try:
-            await asyncio.sleep(10.0)
-            if self._pending_value is not None:
-                await super().async_set_native_value(self._pending_value)
-                self._pending_value = None
-                
-                # 🛡️ ANTI-CRASH: Pause polling for 10s
-                self.hass.data[DOMAIN]["skip_polling_until"] = time.time() + 10
-                _LOGGER.info("🛡️ Polling paused for 10s after LoadBalancing write")
-        except asyncio.CancelledError:
-            pass
+            formatted_value = str(value)
+            
+            result = await charge_point.change_configuration(
+                self._config_key,
+                formatted_value
+            )
+
+            if result == ConfigurationStatus.accepted:
+                _LOGGER.info("✅ Load Balancing Limit written to Thor: %s kW", formatted_value)
+            else:
+                _LOGGER.error("❌ Load Balancing Limit rejected by Thor: %s", result)
+
+        except Exception as exc:
+            _LOGGER.error("❌ Failed to set Load Balancing Limit: %s", exc, exc_info=True)
+
+    def _format_value(self, value: float) -> str:
+        """Format as integer."""
+        return str(int(round(value)))
 
