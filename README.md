@@ -1,5 +1,5 @@
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
-![Version](https://img.shields.io/badge/version-1.0.0_beta-blue)
+![Version](https://img.shields.io/badge/version-1.1.0-blue)
 
 
 ⚠️ **Please read this document first before installing this integration!**
@@ -24,6 +24,7 @@ This integration allows you to connect a Growatt THOR EV charger **directly to H
 - **Energy tracking**: Session energy in kWh with automatic reset per session
 - **Temperature**: Internal charger temperature in °C
 - **Transaction tracking**: Active transaction ID and charging session details (saved in sensor.growatt_thor_ev_charger_last_sessions)
+- **Energy Dashboard compatible charging sensors**
 
 ### 🔌 Grid & Load Balancing
 - **External meter monitoring**: Real-time grid power, voltage, and current per phase
@@ -45,9 +46,12 @@ This integration allows you to connect a Growatt THOR EV charger **directly to H
 - **Current session tracking**: Real-time updates during active charging
 
 ### 🛡️ Stability Features
-- **Anti-crash protection**: Automatic polling pause after configuration changes to prevent Thor firmware crashes
+- **Write queue system**: Intelligent buffering of all configuration writes with 15-second rate limiting
+- **Anti-crash protection**: 20-second polling pause after each configuration change to prevent Thor firmware crashes
+- **Sequential write operations**: Multiple rapid changes are automatically queued and executed safely
 - **TIER 2 error recovery**: Robust error handling for connection issues
 - **Smart polling**: Only polls external meter when load balancing is enabled
+- **Queue visibility**: Real-time logging of queued operations and wait times
 
 ---
 
@@ -206,29 +210,30 @@ If you're locked out and need temporary cloud access:
 After successful connection, the following entities are created:
 
 #### Sensors
-- `sensor.growatt_thor_status` - Charger status
-- `sensor.growatt_thor_power` - Total charging power (W)
-- `sensor.growatt_thor_energy` - Session energy (kWh)
-- `sensor.growatt_thor_current_l1/l2/l3` - Current per phase (A)
-- `sensor.growatt_thor_voltage_l1/l2/l3` - Voltage per phase (V)
-- `sensor.growatt_thor_power_l1/l2/l3` - Power per phase (W)
-- `sensor.growatt_thor_temperature` - Internal temperature (°C)
-- `sensor.growatt_thor_grid_power` - Grid connection power (W)
-- `sensor.growatt_thor_transaction_id` - Active transaction ID
-- `sensor.growatt_thor_last_session_energy` - Previous session energy
-- `sensor.growatt_thor_last_session_cost` - Previous session cost
-- `sensor.growatt_thor_ev_charger_last_sessions` - Session tracking (only last 5 sessions)
+- `sensor.growatt_thor_ev_charger_status` - Charger status
+- `sensor.growatt_thor_ev_charger_power` - Total charging power (W)
+- `sensor.growatt_thor_ev_charger_energy` - Session energy (kWh)
+- `sensor.growatt_thor_ev_charger_current_l1/l2/l3` - Current per phase (A)
+- `sensor.growatt_thor_ev_charger_voltage_l1/l2/l3` - Voltage per phase (V)
+- `sensor.growatt_thor_ev_charger_power_l1/l2/l3` - Power per phase (W)
+- `sensor.growatt_thor_ev_charger_temperature` - Internal temperature (°C)
+- `sensor.growatt_thor_ev_charger_grid_power` - Grid connection power (W)
+- `sensor.growatt_thor_ev_charger_transaction_id` - Active transaction ID
+- `sensor.growatt_thor_ev_charger_last_session_energy` - Previous session energy
+- `sensor.growatt_thor_ev_charger_last_session_cost` - Previous session cost
+- `sensor.growatt_thor_ev_charger_ev_charger_last_sessions` - Session tracking (only last 5 sessions)
 
 #### Controls
-- `number.growatt_thor_max_current` - Maximum charging current (6-32A)
-- `number.growatt_thor_load_balancing_limit` - Grid import limit (kW)
-- `switch.growatt_thor_load_balancing` - Enable/disable load balancing
-- `select.growatt_thor_charger_mode` - Charging mode (Plug&Charge/RFID only/APP&RFID)
-- `time.growatt_thor_charging_start` - Auto-charge start time
-- `time.growatt_thor_charging_stop` - Auto-charge stop time
-- `button.growatt_thor_start_charging` - Manual start
-- `button.growatt_thor_stop_charging` - Manual stop
-- `button.growatt_thor_apply_schedule` - Apply time schedule changes
+- `number.growatt_thor_ev_charger_max_current` - Maximum charging current (6-32A)
+- `number.growatt_thor_ev_charger_load_balancing_limit` - Grid import limit (kW)
+- `switch.growatt_thor_ev_charger_load_balancing` - Enable/disable load balancing
+- `select.growatt_thor_ev_charger_charger_mode` - Charging mode (Plug&Charge/RFID only/APP&RFID)
+- `button.growatt_thor_ev_charger_start_charging` - Manual start
+- `button.growatt_thor_ev_charger_stop_charging` - Manual stop
+- `button.growatt_thor_ev_charger_apply_schedule` - Apply time schedule changes
+- `time.growatt_thor_ev_charger_auto_charge_start_time` - Auto-charge start time (auto-applies on change)
+- `time.growatt_thor_ev_charger_auto_charge_stop_time` - Auto-charge stop time (auto-applies on change)
+
 
 ### Example Automations
 
@@ -249,6 +254,25 @@ automation:
       - service: button.press
         target:
           entity_id: button.growatt_thor_start_charging
+```
+
+#### Dynamic Load Balancing Based on Grid Import
+
+```yaml
+automation:
+  - alias: "Adjust EV charging based on grid load"
+    trigger:
+      - platform: state
+        entity_id: sensor.growatt_thor_load_balancing_grid_power
+    action:
+      - service: number.set_value
+        target:
+          entity_id: number.growatt_thor_load_balancing_loadbalancing_limit
+        data:
+          value: >
+            {% set grid = states('sensor.growatt_thor_load_balancing_grid_power') | float %}
+            {% set max_import = 10000 %}  {# 10kW max grid import #}
+            {{ ((max_import - grid) / 1000) | round(0) | max(1) }}
 ```
 
 ---
@@ -276,16 +300,27 @@ automation:
 
 ### Thor Firmware Crash / Freezing
 
-This integration includes anti-crash protection:
-- Automatic 10-second polling pause after configuration changes
-- Automatic 5-second pause after start/stop commands
-- Smart polling (only when load balancing is active)
+✅ **v1.1.0 includes major improvements to prevent crashes!**
 
-If crashes persist:
-- Collect debug logging and open an issue at my github repo
+This integration now includes enhanced anti-crash protection:
+- **Write queue system**: All writes are queued with 15-second minimum interval
+- **20-second polling pause** after each configuration change (increased from 10s)
+- **Sequential execution**: Multiple rapid changes are buffered and executed safely
+- **Smart polling**: Only when load balancing is active
+
+If crashes still occur:
+- Check logs for queued operations: `grep "Write queued" home-assistant.log`
 - Increase poll interval to 60+ seconds
-- Disable load balancing temporarily
-- Check Thor firmware version (updates may improve stability)
+- Report issue with debug logs at [GitHub Issues]
+- Check Thor firmware version
+
+### Configuration Changes Not Applied
+
+If configuration changes don't seem to work:
+- Check logs for queue status: `grep "Waiting.*before next write" home-assistant.log`
+- The write queue may be processing previous changes (15-second interval)
+- Wait up to 20 seconds and check again
+- UI updates immediately (optimistic), but actual write may be queued
 
 ---
 
@@ -311,6 +346,12 @@ If crashes persist:
 - `G_AutoChargeTime` - Scheduled charging times
 - `get_external_meterval` - Grid meter data request
 - `frozenrecord` / `currentrecord` - Session history
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
 
 ---
 

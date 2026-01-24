@@ -7,10 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.0] - 2026-01-14
+## [1.1.0] - 2026-01-14
 
-🎉 **First official release!** The integration has moved from beta to production ready! 🎉
-(please keep reporting bugs/issues!)
+🎉 **First stable release!** 🎉
 
 🛡️ **Major stability improvements!** This release introduces a write queue system that dramatically reduces Thor firmware crashes.
 
