@@ -10,9 +10,10 @@
 
 This integration allows you to connect a Growatt THOR EV charger **directly to Home Assistant** using **OCPP 1.6 over WebSocket**, providing local control without relying on the Growatt cloud.
 
-Tested on:THOR 22AS with FW version 2.2.16-20240902 but it should be working on all THOR 11/22AS-S/P/SE/PE versions.
-Do you have another Growatt EV charger? Please test it with the integration and let me know if it is working.
-If you open up an issue and provide logs, I will try to add your charger to be supported (Growatt only!).
+Tested on:
+- THOR 22AS with FW version 2.2.16-20240902 (but it should be working on all THOR 11/22AS-S/P/SE/PE versions.)
+
+Do you have another Growatt EV charger? Please test it with the integration and let me know if it is working. If you open up an issue and provide logs, I will try to add your charger to be supported (Growatt only!).
 
 > ⚠️ This is an **unofficial community project**. Growatt is not affiliated with or endorsing this integration in any way.
 
