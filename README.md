@@ -41,7 +41,7 @@ Do you have another Growatt EV charger? Please test it with the integration and 
 ### ⚙️ Configuration & Control
 - **Max current control**: Set maximum charging current (6-32A)
 - **Charging schedule**: Configure automatic start/stop times
-- **Charger modes**: Switch between Plug & Charge, RFID only, APP/RFID modes
+- **Charger modes**: Switch between Plug & Charge, RFID only, HomeAssistant(HA)/RFID mode
 - **Manual charging control**: Start and stop charging sessions via buttons
 - **Load balancing toggle**: Enable/disable dynamic load balancing
 - **Auto update THOR time**: Auto sync time with server time at every heartbeat and with reboot (ocpp protocol)
@@ -232,7 +232,7 @@ After successful connection, the following entities are created:
 - `number.growatt_thor_ev_charger_max_current` - Maximum charging current (6-32A)
 - `number.growatt_thor_ev_charger_load_balancing_limit` - Grid import limit (kW)
 - `switch.growatt_thor_ev_charger_load_balancing` - Enable/disable load balancing
-- `select.growatt_thor_ev_charger_charger_mode` - Charging mode (Plug&Charge/RFID only/APP&RFID)
+- `select.growatt_thor_ev_charger_charger_mode` - Charging mode (Plug&Charge/RFID only/HA&RFID)
 - `button.growatt_thor_ev_charger_start_charging` - Manual start
 - `button.growatt_thor_ev_charger_stop_charging` - Manual stop
 - `button.growatt_thor_ev_charger_apply_schedule` - Apply time schedule changes
