@@ -284,7 +284,7 @@ automation:
 
 ## Issues
 If you encounter issues, please report bugs. Do not forget to send logs with your bug report.
-Enable debug logging in configurstion.yaml
+Enable debug logging in configuration.yaml
 
 ```yaml
 logger:
