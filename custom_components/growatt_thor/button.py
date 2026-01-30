@@ -12,7 +12,7 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-DEFAULT_ID_TAG = "12345678"  # Growatt handshake sleutel
+DEFAULT_ID_TAG = "12345678"  # Growatt handshake key
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -50,18 +50,16 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Start a charging session via queue."""
-        _LOGGER.info("🔘 Queueing start charging command")
-
-        await self.coordinator.queue_write(self._start_charging)
-
-    async def _start_charging(self):
-        """Daadwerkelijke start commando."""
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
-
         if not charge_point:
             _LOGGER.warning("Cannot start charging: charger not connected")
             return
 
+        _LOGGER.info("🔘 Queueing start charging command")
+        await self.coordinator.queue_write(self._start_charging, charge_point)
+
+    async def _start_charging(self, charge_point):
+        """Start charging command (runs inside write-queue)."""
         try:
             result = await charge_point.remote_start_transaction(
                 connector_id=1,
@@ -71,9 +69,8 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             if result.get("status") == "Accepted":
                 _LOGGER.info("✅ Charging session started successfully")
 
-                # Trigger status update na 2 seconden
-                await asyncio.sleep(2)
-                await charge_point.trigger_status()
+                # Plan een status update zonder de write-queue onnodig lang te blokkeren
+                self.hass.async_create_task(self._post_status_update(charge_point))
 
                 self.coordinator.async_set_updated_data(True)
             else:
@@ -81,6 +78,15 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 
         except Exception as exc:
             _LOGGER.error("❌ Failed to start charging: %s", exc, exc_info=True)
+
+    async def _post_status_update(self, charge_point):
+        """Trigger a status update after a short delay (outside write-queue)."""
+        await asyncio.sleep(2)
+        try:
+            await charge_point.trigger_status()
+            self.coordinator.async_set_updated_data(True)
+        except Exception as exc:
+            _LOGGER.error("❌ Failed to trigger status after start: %s", exc, exc_info=True)
 
 
 # ─────────────────────────────
@@ -108,24 +114,34 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Stop a charging session via queue."""
-        transaction_id = self.coordinator.transaction_id
-
-        if transaction_id is None:
-            _LOGGER.warning("⚠️ No active transaction to stop")
-            return
-
-        _LOGGER.info("🔘 Queueing stop charging command (transaction_id=%s)", transaction_id)
-
-        await self.coordinator.queue_write(self._stop_charging, transaction_id)
-
-    async def _stop_charging(self, transaction_id):
-        """Daadwerkelijke stop commando."""
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
-
         if not charge_point:
             _LOGGER.warning("Cannot stop charging: charger not connected")
             return
 
+        # Check status of transaction_id
+        is_charging = self.coordinator.status == "Charging"
+        transaction_id = self.coordinator.transaction_id
+
+        if not is_charging and transaction_id is None:
+            _LOGGER.warning("⚠️ No active charging session to stop")
+            return
+
+        # Gebruik transaction_id 0 als fallback (stop huidige sessie)
+        tid = transaction_id if transaction_id is not None else 0
+
+        if transaction_id is None:
+            _LOGGER.info(
+                "🔘 Queueing stop charging (using fallback transaction_id=0, status=%s)",
+                self.coordinator.status
+            )
+        else:
+            _LOGGER.info("🔘 Queueing stop charging command (transaction_id=%s)", tid)
+
+        await self.coordinator.queue_write(self._stop_charging, charge_point, tid)
+
+    async def _stop_charging(self, charge_point, transaction_id: int):
+        """Stop charging command (runs inside write-queue)."""
         try:
             result = await charge_point.remote_stop_transaction(
                 transaction_id=transaction_id
@@ -134,9 +150,8 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
             if result.get("status") == "Accepted":
                 _LOGGER.info("✅ Charging session stopped successfully")
 
-                # Trigger status update na 2 seconden
-                await asyncio.sleep(2)
-                await charge_point.trigger_status()
+                # Plan een status update zonder de write-queue onnodig lang te blokkeren
+                self.hass.async_create_task(self._post_status_update(charge_point))
 
                 self.coordinator.async_set_updated_data(True)
             else:
@@ -145,3 +160,11 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
         except Exception as exc:
             _LOGGER.error("❌ Failed to stop charging: %s", exc, exc_info=True)
 
+    async def _post_status_update(self, charge_point):
+        """Trigger a status update after a short delay (outside write-queue)."""
+        await asyncio.sleep(2)
+        try:
+            await charge_point.trigger_status()
+            self.coordinator.async_set_updated_data(True)
+        except Exception as exc:
+            _LOGGER.error("❌ Failed to trigger status after stop: %s", exc, exc_info=True)

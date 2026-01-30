@@ -26,8 +26,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
     """Switch to enable/disable load balancing."""
 
-    _attr_has_entity_name = True
-    _attr_name = "Loadbalancing enable"
+    _attr_has_entity_name = False
+    _attr_name = "Loadbalancing"
     _attr_icon = "mdi:power-plug-outline"
     _attr_entity_category = EntityCategory.CONFIG
 
@@ -36,7 +36,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_unique_id = f"{entry.entry_id}_load_balancing_enable"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
-            "name": "Growatt THOR Load balancing",  # ← GEWENST
+            "name": "Growatt THOR Load balancing",
             "manufacturer": "Growatt",
             "model": "THOR Load balancing",
         }
@@ -55,37 +55,51 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
         """Disable load balancing."""
         await self._set_value("0")
 
+    async def _apply_external_limit_power_enable(self, charge_point, value: str):
+        """Actually write setting to the charger (runs inside write-queue)."""
+        _LOGGER.info("Setting G_ExternalLimitPowerEnable to %s", value)
+
+        result = await charge_point.change_configuration(
+            "G_ExternalLimitPowerEnable",
+            value
+        )
+
+        new_state = (value == "1")
+
+        if result == ConfigurationStatus.accepted:
+            self.coordinator.external_limit_power_enable = new_state
+            self.coordinator.async_set_updated_data(True)
+            _LOGGER.info(
+                "✅ Loadbalancing enabled → %s (accepted)",
+                "ON" if new_state else "OFF"
+            )
+        elif result == ConfigurationStatus.reboot_required:
+            # Thor kan dit (soms) teruggeven; wij zetten state alvast goed,
+            # en laten de reconnect/config-refresh de rest doen.
+            self.coordinator.external_limit_power_enable = new_state
+            self.coordinator.async_set_updated_data(True)
+            _LOGGER.warning(
+                "⚠️ Loadbalancing enabled → %s (reboot required)",
+                "ON" if new_state else "OFF"
+            )
+        else:
+            _LOGGER.error("❌ Enable loadbalancing change rejected: %s", result)
+
     async def _set_value(self, value: str):
-        """Update the configuration on the charger."""
+        """Queue the configuration update (prevents rapid-fire FW crashes)."""
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
 
         if not charge_point:
-            _LOGGER.warning("Cannot change Loadbalancing enable: charger not connected")
+            _LOGGER.warning("Cannot change Loadbalancing: charger not connected")
             return
 
         try:
-            _LOGGER.info("Setting G_ExternalLimitPowerEnable to %s", value)
-
-            result = await charge_point.change_configuration(
-                "G_ExternalLimitPowerEnable",
+            # Belangrijk: via de centrale write queue (met delay/poll-pause bescherming)
+            await self.coordinator.queue_write(
+                self._apply_external_limit_power_enable,
+                charge_point,
                 value
             )
 
-            new_state = (value == "1")
-
-            if result == ConfigurationStatus.accepted:
-                self.coordinator.external_limit_power_enable = new_state
-                self.coordinator.async_set_updated_data(True)
-                _LOGGER.info("✅ Loadbalancing enable → %s (immediate UI update)",
-                           "ON" if new_state else "OFF")
-            elif result == ConfigurationStatus.reboot_required:
-                _LOGGER.warning("⚠️ Loadbalancing enable → %s (reboot required)",
-                              "ON" if new_state else "OFF")
-                self.coordinator.external_limit_power_enable = new_state
-                self.coordinator.async_set_updated_data(True)
-            else:
-                _LOGGER.error("❌ Loadbalancing enable change rejected: %s", result)
-
         except Exception as exc:
-            _LOGGER.error("❌ Failed to set Loadbalancing enable: %s", exc, exc_info=True)
-
+            _LOGGER.error("❌ Failed to change Loadbalancing: %s", exc, exc_info=True)

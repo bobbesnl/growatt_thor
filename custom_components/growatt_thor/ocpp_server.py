@@ -169,6 +169,14 @@ class GrowattChargePoint(OcppChargePoint):
     @on("MeterValues")
     async def on_meter_values(self, connector_id, meter_value, **kwargs):
         try:
+            transaction_id = kwargs.get('transaction_id')
+
+            if transaction_id is not None:
+                if self.coordinator.transaction_id != transaction_id:
+                    self.coordinator.transaction_id = transaction_id
+                    _LOGGER.info("✅ Transaction ID captured from MeterValues: %s", transaction_id)
+                    self.coordinator.async_set_updated_data(True)
+
             self.coordinator.process_meter_values(meter_value)
             return call_result.MeterValuesPayload()
         except Exception as exc:
@@ -220,28 +228,99 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.warning("Failed to trigger external meter values: %s", exc)
 
     async def trigger_get_configuration(self):
+        """Haal configuratie op in 2 calls (standaard + extended)."""
         try:
-            _LOGGER.info("Triggering GetConfiguration")
+            # ═══════════════════════════════════════════════════════
+            # CALL 1: Standaard keys (Thor's default set)
+            # ═══════════════════════════════════════════════════════
 
-            result = await asyncio.wait_for(
-                self.call(call.GetConfigurationPayload()),
+            _LOGGER.info("Triggering GetConfiguration CALL 1 (standard keys)")
+
+            result1 = await asyncio.wait_for(
+                self.call(call.GetConfigurationPayload()),  # Leeg = standaard keys
                 timeout=30.0
             )
 
-            config_keys = getattr(result, "configuration_key", [])
-            unknown_keys = getattr(result, "unknown_key", [])
+            config_keys_1 = getattr(result1, "configuration_key", [])
+            unknown_keys_1 = getattr(result1, "unknown_key", [])
 
-            _LOGGER.info("Received Growatt configuration: %d keys (%d unknown)", len(config_keys), len(unknown_keys))
-            self.coordinator.process_configuration(config_keys)
+            _LOGGER.info("CALL 1 received: %d keys (%d unknown)", len(config_keys_1), len(unknown_keys_1))
 
-            for item in config_keys:
-                _LOGGER.debug("Config key: %s = %s (readonly=%s)", 
-                            item.get("key"), item.get("value"), item.get("readonly"))
+            # ═══════════════════════════════════════════════════════
+            # CALL 2: Extended keys (netwerk, WiFi, solar, off-peak)
+            # ═══════════════════════════════════════════════════════
+
+            # Kleine delay voor Thor stabiliteit
+            await asyncio.sleep(0.5)
+
+            extended_keys = [
+                # Netwerk keys
+                "G_ChargerNetDNS", "G_ChargerNetMask", "G_ChargerNetMac", "G_ChargerNetGateway",
+                "G_NetworkMode",
+                # WiFi keys
+                "G_WifiSSID", "G_WifiPassword",
+                # Tijd/datum keys
+                "G_DaylightSavingTime", "G_PeriodTime",
+                # Off-peak/tarief keys
+                "G_OffPeakTime", "G_OffPeakEnable", "G_OffPeakCurr",
+                # 4G/mobile keys
+                "G_4GUserName", "G_4GPassword", "G_4GAPN",
+                # Solar advanced keys
+                "G_SolarBoost", "G_SolarThresholdCurr",
+                # Meter/werkmodus keys
+                "G_MeterValueInterval", "G_WorkingMode",
+                # Overige keys
+                "G_LowPowerReserveEnable", "UnlockConnectorOnEVSideDisconnect",
+                "LightIntensity", "G_DRM3Percentage", "G_DRM4Percentage",
+                # Nieuwe keys uit reverse engineering
+                "G_LCDCloseEnable", "G_RFEnable"
+            ]
+
+            _LOGGER.info("Triggering GetConfiguration CALL 2 (extended keys: %d)", len(extended_keys))
+
+            result2 = await asyncio.wait_for(
+                self.call(call.GetConfigurationPayload(key=extended_keys)),
+                timeout=30.0
+            )
+
+            config_keys_2 = getattr(result2, "configuration_key", [])
+            unknown_keys_2 = getattr(result2, "unknown_key", [])
+
+            _LOGGER.info("CALL 2 received: %d keys (%d unknown)", len(config_keys_2), len(unknown_keys_2))
+
+            # ═══════════════════════════════════════════════════════
+            # Verwerk alle keys (call 1 + call 2)
+            # ═══════════════════════════════════════════════════════
+
+            all_config_keys = config_keys_1 + config_keys_2
+            all_unknown_keys = list(set(unknown_keys_1 + unknown_keys_2))
+
+            _LOGGER.info("Total received: %d keys (%d unknown)", len(all_config_keys), len(all_unknown_keys))
+
+            # Log alle keys (mask alleen WiFi password)
+            for item in all_config_keys:
+                key = item.get("key")
+                value = item.get("value")
+                readonly = item.get("readonly")
+
+                # Mask alleen WiFi password
+                if key == "G_WifiPassword":
+                    value = "***MASKED***" if value else None
+
+                _LOGGER.debug("Config key: %s = %s (readonly=%s)", key, value, readonly)
+
+            # Log unknown keys als ze er zijn
+            if all_unknown_keys:
+                _LOGGER.info("Unknown keys: %s", ", ".join(all_unknown_keys))
+
+            # Verwerk alle keys in coordinator
+            self.coordinator.process_configuration(all_config_keys)
 
         except asyncio.TimeoutError:
             _LOGGER.warning("GetConfiguration timeout - Thor likely rebooting, will retry on reconnect")
         except Exception as exc:
             _LOGGER.warning("Failed to trigger GetConfiguration: %s", exc)
+
 
     # ─────────────────────────────
     # 🔧 ChangeConfiguration

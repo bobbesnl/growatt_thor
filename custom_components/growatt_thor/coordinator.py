@@ -1,10 +1,11 @@
 import logging
-from datetime import datetime, timezone, time
+from datetime import datetime, timezone
 from collections import deque
-from .const import DOMAIN
 import asyncio
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,67 +59,98 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.grid_currents = {}
         self.wiring_type = None
 
-        # 🆕 SESSION HISTORY (laatste 5 sessies)
+        # SESSION HISTORY (laatste 5 sessies)
         self.session_history = []
 
-        # 🆕 WRITE QUEUE SYSTEEM
+        # WRITE QUEUE SYSTEEM
         self._write_queue = deque()
         self._write_lock = asyncio.Lock()
-        self._last_write_time = None
         self._write_task = None
-        self._min_write_interval = 15  # seconden tussen writes
+
+        # Rate limiting / polling pause (monotonic time, dus ongevoelig voor klokwijzigingen)
+        self._last_write_monotonic = None
+        self._min_write_interval = 20.0          # seconden tussen writes
+        self._poll_pause_after_write = 20.0      # seconden polling-pauze na write
 
     # ─────────────────────────────
-    # 🆕 WRITE QUEUE METHODS
+    # WRITE QUEUE METHODS
     # ─────────────────────────────
 
-    async def queue_write(self, write_func, *args, **kwargs):
-        """Voeg een schrijfactie toe aan de queue."""
+    async def queue_write(self, write_func, *args, dedupe_key=None, **kwargs):
+        """Voeg een schrijfactie toe aan de queue.
+
+        dedupe_key (optioneel): als gezet, verwijder oudere queue-items met dezelfde key
+        zodat alleen de laatste waarde geschreven wordt.
+        """
         write_item = {
-            'func': write_func,
-            'args': args,
-            'kwargs': kwargs,
-            'timestamp': datetime.now()
+            "func": write_func,
+            "args": args,
+            "kwargs": kwargs,
+            "enqueued_at": datetime.now(),
+            "dedupe_key": dedupe_key,
         }
-        
+
+        if dedupe_key is not None:
+            # Verwijder oudere items met dezelfde dedupe_key (coalescing)
+            self._write_queue = deque(
+                item for item in self._write_queue if item.get("dedupe_key") != dedupe_key
+            )
+
         self._write_queue.append(write_item)
-        _LOGGER.debug(f"📥 Write queued. Queue size: {len(self._write_queue)}")
-        
+        _LOGGER.debug("📥 Write queued. Queue size: %d", len(self._write_queue))
+
         # Start de queue processor als die nog niet draait
         if self._write_task is None or self._write_task.done():
-            self._write_task = asyncio.create_task(self._process_write_queue())
-    
+            self._write_task = self.hass.async_create_task(self._process_write_queue())
+
     async def _process_write_queue(self):
         """Verwerk de write queue met rate limiting."""
         async with self._write_lock:
-            while self._write_queue:
-                # Haal het oudste item uit de queue
-                write_item = self._write_queue.popleft()
+            try:
+                while self._write_queue:
+                    write_item = self._write_queue.popleft()
 
-                # Bereken wachttijd sinds laatste write
-                if self._last_write_time:
-                    time_since_last = (datetime.now() - self._last_write_time).total_seconds()
-                    wait_time = max(0, self._min_write_interval - time_since_last)
+                    now_mono = self.hass.loop.time()
 
-                    if wait_time > 0:
-                        _LOGGER.info(f"⏳ Waiting {wait_time:.1f}s before next write. Queue: {len(self._write_queue)} remaining")
-                        await asyncio.sleep(wait_time)
+                    # Bereken wachttijd sinds laatste write
+                    if self._last_write_monotonic is not None:
+                        time_since_last = now_mono - self._last_write_monotonic
+                        wait_time = max(0.0, self._min_write_interval - time_since_last)
 
-                # Voer de schrijfactie uit
-                try:
-                    _LOGGER.info(f"✍️ Executing write command. Remaining in queue: {len(self._write_queue)}")
-                    result = await write_item['func'](*write_item['args'], **write_item['kwargs'])
-                    self._last_write_time = datetime.now()
+                        if wait_time > 0:
+                            _LOGGER.info(
+                                "⏳ Waiting %.1fs before next write. Queue: %d remaining",
+                                wait_time,
+                                len(self._write_queue),
+                            )
+                            await asyncio.sleep(wait_time)
 
-                    # 🛡️ STOP POLLING VOOR 20 SECONDEN (Thor bescherming)
-                    loop = asyncio.get_event_loop()
-                    self.hass.data[DOMAIN]["skip_polling_until"] = loop.time() + 20.0
-                    _LOGGER.info("🛡️ Polling paused for 20s after write (Thor FW protection)")
+                    # Voer de schrijfactie uit
+                    try:
+                        _LOGGER.info(
+                            "✍️ Executing write command. Remaining in queue: %d",
+                            len(self._write_queue),
+                        )
 
-                    _LOGGER.info(f"✅ Write completed successfully. Result: {result}")
+                        # 🛡️ STOP POLLING VOOR X SECONDEN (Thor bescherming) - vóór write
+                        until = self.hass.loop.time() + self._poll_pause_after_write
+                        current = self.hass.data[DOMAIN].get("skip_polling_until", 0)
+                        self.hass.data[DOMAIN]["skip_polling_until"] = max(current, until)
+                        _LOGGER.info("🛡️ Polling paused BEFORE write (Thor FW protection)")
 
-                except Exception as err:
-                    _LOGGER.error(f"❌ Write command failed: {err}", exc_info=True)
+                        result = await write_item["func"](*write_item["args"], **write_item["kwargs"])
+
+                        # Update last-write (monotonic)
+                        self._last_write_monotonic = self.hass.loop.time()
+
+                        _LOGGER.info("✅ Write completed successfully. Result: %s", result)
+
+                    except Exception as err:
+                        _LOGGER.error("❌ Write command failed: %s", err, exc_info=True)
+
+            finally:
+                # Zorg dat een volgende enqueue de worker weer kan starten
+                self._write_task = None
 
     # ─────────────────────────────
     # 🔑 LOAD BALANCING PROPERTY
@@ -141,7 +173,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def now(self) -> str:
         """Return current UTC timestamp in ISO format."""
-        return datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
+        return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
     def set_charge_point(self, cp_id):
         """Set charge point ID and notify sensors."""
@@ -160,32 +192,29 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         self.async_set_updated_data(True)
 
-
     def start_transaction(self, transaction_id, id_tag=None):
         """Start charging transaction."""
         self.transaction_id = transaction_id
         self.id_tag = id_tag
         self.status = "Charging"
 
-        # 🆕 RESET energy bij START nieuwe sessie
+        # RESET energy bij START nieuwe sessie
         _LOGGER.info("🔋 New transaction started → Resetting energy counter")
         self.energy = 0
 
         _LOGGER.info("Transaction started: %s (idTag=%s)", transaction_id, id_tag)
         self.async_set_updated_data(True)
 
-
     def stop_transaction(self, reason=None):
         """Stop charging transaction."""
         _LOGGER.info("Transaction stopped: %s (reason=%s)", self.transaction_id, reason)
 
-        # 🆕 RESET alle charge-waarden NA stop
+        # RESET alle charge-waarden NA stop
         _LOGGER.info("🛑 Transaction stopped → Resetting charge values")
         self.power = 0
         self.currents = {"L1": 0, "L2": 0, "L3": 0}
         self.voltages = {"L1": 0, "L2": 0, "L3": 0}
         self.phase_power = {"L1": 0, "L2": 0, "L3": 0}
-        # energy blijft staan tot nieuwe sessie start!
 
         self.transaction_id = None
         self.status = "Idle"
@@ -205,17 +234,20 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 _LOGGER.debug("  Entry %d type: %s", idx, type(entry))
 
                 sampled_values = None
-                if hasattr(entry, 'sampled_value'):
+                if hasattr(entry, "sampled_value"):
                     sampled_values = entry.sampled_value
                     _LOGGER.debug("  → Using entry.sampled_value (attribute)")
-                elif isinstance(entry, dict) and 'sampled_value' in entry:
-                    sampled_values = entry['sampled_value']
+                elif isinstance(entry, dict) and "sampled_value" in entry:
+                    sampled_values = entry["sampled_value"]
                     _LOGGER.debug("  → Using entry['sampled_value'] (dict, underscore)")
-                elif isinstance(entry, dict) and 'sampledValue' in entry:
-                    sampled_values = entry['sampledValue']
+                elif isinstance(entry, dict) and "sampledValue" in entry:
+                    sampled_values = entry["sampledValue"]
                     _LOGGER.debug("  → Using entry['sampledValue'] (dict, camelCase)")
                 else:
-                    _LOGGER.warning("  ⚠️ Cannot find sampledValue in entry keys: %s", list(entry.keys()) if isinstance(entry, dict) else 'not a dict')
+                    _LOGGER.warning(
+                        "  ⚠️ Cannot find sampledValue in entry keys: %s",
+                        list(entry.keys()) if isinstance(entry, dict) else "not a dict",
+                    )
                     continue
 
                 if not sampled_values:
@@ -230,10 +262,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         measurand = None
                         phase = None
 
-                        if hasattr(sample, 'value'):
+                        if hasattr(sample, "value"):
                             value_str = sample.value
                             measurand = sample.measurand
-                            phase = getattr(sample, 'phase', None)
+                            phase = getattr(sample, "phase", None)
                         elif isinstance(sample, dict):
                             value_str = sample.get("value")
                             measurand = sample.get("measurand")
@@ -345,7 +377,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         updated = True
 
                 elif key == "G_AutoChargeTime":
-                    if "-" in raw:
+                    if raw and "-" in raw:
                         start_str, stop_str = raw.split("-", 1)
                         try:
                             start_time = datetime.strptime(start_str.strip(), "%H:%M").time()
@@ -368,7 +400,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
             except (ValueError, TypeError) as exc:
                 _LOGGER.warning("Failed to parse config key=%s value=%s: %s", key, raw, exc)
                 continue
-
             except Exception as exc:
                 _LOGGER.error("Unexpected error processing config key=%s: %s", key, exc, exc_info=True)
                 continue
@@ -377,7 +408,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.async_set_updated_data(True)
 
     # ─────────────────────────────
-    # 🆕 Growatt frozenrecord (met session history)
+    # Growatt frozenrecord (met session history)
     # ─────────────────────────────
 
     def process_frozen_record(self, data: dict):
@@ -396,13 +427,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 "transaction_id": data.get("transactionId", ""),
             }
 
-            # Backwards compatibility
             self.last_session_energy = session["energy_kwh"]
             self.last_session_cost = session["cost"]
             self.charge_mode = session["charge_mode"]
             self.work_mode = session["work_mode"]
 
-            # 🆕 Session history (laatste 5)
             self.session_history.insert(0, session)
             if len(self.session_history) > 5:
                 self.session_history = self.session_history[:5]
@@ -412,7 +441,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 session["energy_kwh"],
                 session["cost"],
                 session["charge_mode"],
-                session["work_mode"]
+                session["work_mode"],
             )
 
             self.async_set_updated_data(True)
@@ -484,4 +513,3 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         except (ValueError, TypeError, KeyError) as exc:
             _LOGGER.warning("Failed to process external meter data '%s': %s", data_str, exc)
-

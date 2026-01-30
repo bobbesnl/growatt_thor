@@ -23,13 +23,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
     ])
 
 
-# ─────────────────────────────
-# Charger Mode
-# ─────────────────────────────
-
 class ChargerModeSelect(CoordinatorEntity, SelectEntity):
     """Select entity for charger mode."""
-    
+
     _attr_has_entity_name = True
     _attr_name = "Charger Mode"
     _attr_icon = "mdi:ev-station"
@@ -66,14 +62,13 @@ class ChargerModeSelect(CoordinatorEntity, SelectEntity):
         """Return current mode as display name."""
         if self.coordinator.charger_mode is None:
             return None
-        
+
         mode_str = str(self.coordinator.charger_mode)
         return self._MODE_MAP.get(mode_str)
 
     async def async_select_option(self, option: str):
-        """Change the charger mode."""
+        """Change the charger mode (via write queue)."""
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
-        
         if not charge_point:
             _LOGGER.warning("Cannot change Charger Mode: charger not connected")
             return
@@ -85,20 +80,35 @@ class ChargerModeSelect(CoordinatorEntity, SelectEntity):
             return
 
         try:
+            await self.coordinator.queue_write(
+                self._apply_charger_mode,
+                charge_point,
+                value,
+                option
+            )
+        except Exception as exc:
+            _LOGGER.error("Failed to queue Charger Mode change: %s", exc, exc_info=True)
+
+    async def _apply_charger_mode(self, charge_point, value: str, option: str):
+        """Actually write charger mode to the charger (runs inside write-queue)."""
+        try:
             _LOGGER.info("Setting G_ChargerMode to %s (%s)", value, option)
-            
+
             result = await charge_point.change_configuration(
                 "G_ChargerMode",
                 value
             )
 
             if result == ConfigurationStatus.accepted:
-                _LOGGER.info("Charger Mode successfully changed to %s", option)
+                self.coordinator.charger_mode = int(value)
+                self.coordinator.async_set_updated_data(True)
+                _LOGGER.info("✅ Charger Mode successfully changed to %s", option)
             elif result == ConfigurationStatus.reboot_required:
-                _LOGGER.warning("Charger Mode changed but charger reboot required")
+                self.coordinator.charger_mode = int(value)
+                self.coordinator.async_set_updated_data(True)
+                _LOGGER.warning("⚠️ Charger Mode changed to %s (reboot required)", option)
             else:
-                _LOGGER.error("Charger Mode change rejected: %s", result)
+                _LOGGER.error("❌ Charger Mode change rejected: %s", result)
 
         except Exception as exc:
             _LOGGER.error("Failed to set Charger Mode: %s", exc, exc_info=True)
-

@@ -1,4 +1,4 @@
 refresh:
   name: Refresh data
-  description: Manually refresh all data from the charger (status, configuration, and external meter values)
+  description: Manually refresh all data from the charger
 

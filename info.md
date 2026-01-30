@@ -10,6 +10,7 @@ Local OCPP 1.6 integration for Growatt THOR EV chargers.
 - Charging schedules
 - Session history tracking
 - No cloud dependency
+- and much more...
 
 ## Installation
 

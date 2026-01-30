@@ -29,7 +29,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             ChargingPowerSensor(coordinator, entry),
             EnergyChargedSensor(coordinator, entry),
             ServerUrlSensor(coordinator, entry),
-            LastSessionsHistorySensor(coordinator, entry),  # 🆕
+            LastSessionsHistorySensor(coordinator, entry),
 
             # ── Fase-specifiek (diagnostics tijdens laden) ──
             CurrentSensor(coordinator, entry, "L1"),
@@ -118,7 +118,7 @@ class ServerUrlSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# 🆕 Last Sessions History (HOOFDSENSOR - EV Charger)
+# Last Sessions History (HOOFDSENSOR - EV Charger)
 # ─────────────────────────────
 
 class LastSessionsHistorySensor(BaseSensor):
@@ -140,7 +140,7 @@ class LastSessionsHistorySensor(BaseSensor):
         """Return laatste 5 sessies als attributes."""
         if not self.coordinator.session_history:
             return {"note": "No sessions recorded yet"}
-        
+
         attrs = {}
         for i, session in enumerate(self.coordinator.session_history, 1):
             # Bereken duration
@@ -151,7 +151,7 @@ class LastSessionsHistorySensor(BaseSensor):
                 duration = str(end - start)
             except:
                 duration = "Unknown"
-            
+
             attrs[f"session_{i}"] = {
                 "timestamp": session["timestamp"],
                 "energy": f"{session['energy_kwh']:.3f} kWh",
@@ -162,7 +162,7 @@ class LastSessionsHistorySensor(BaseSensor):
                 "mode": f"{session['charge_mode']}/{session['work_mode']}",
                 "transaction_id": session["transaction_id"],
             }
-        
+
         return attrs
 
 
@@ -199,7 +199,7 @@ class ChargePointIdSensor(BaseSensor):
 
     @property
     def available(self):
-        """Sensor is alleen beschikbaar als charger verbonden is."""
+        """Sensor only available when charger connected."""
         return self.coordinator.charge_point_id is not None
 
 
@@ -359,8 +359,7 @@ class GridPowerSensor(BaseLoadBalancingSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.grid_power
-
+        return self.coordinator.grid_power if self.coordinator.grid_power is not None else 0
 
 class GridVoltageSensor(BaseLoadBalancingSensor):
     _attr_device_class = SensorDeviceClass.VOLTAGE
@@ -378,8 +377,8 @@ class GridVoltageSensor(BaseLoadBalancingSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.grid_voltages.get(self.phase)
-
+        value = self.coordinator.grid_voltages.get(self.phase)
+        return value if value is not None else 0
 
 class GridCurrentSensor(BaseLoadBalancingSensor):
     _attr_device_class = SensorDeviceClass.CURRENT
@@ -397,5 +396,5 @@ class GridCurrentSensor(BaseLoadBalancingSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.grid_currents.get(self.phase)
-
+        value = self.coordinator.grid_currents.get(self.phase)
+        return value if value is not None else 0

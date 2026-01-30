@@ -19,6 +19,34 @@ Do you have another Growatt EV charger? Please test it with the integration and 
 
 ---
 
+## ⚠️ Known Issues
+
+### Thor Firmware Instability & Random Reboots
+
+The Growatt Thor charger has **known firmware bugs** that can cause crashes and unexpected reboots, particularly during:
+- Multiple rapid configuration changes
+- Concurrent polling and command execution
+- High message frequency on the OCPP connection
+
+**Protective Measures Implemented:**
+- Write queue with 20-second rate limiting
+- Automatic polling pause during config writes
+- Command deduplication for rapid UI changes
+- Smart timing delays
+
+⚠️ **Important**: While these protections significantly reduce crashes, they **cannot guarantee** complete stability due to Thor's firmware limitations.
+
+**📢 Help Us Improve!**
+Experiencing crashes or random reboots? Please [open an issue](https://github.com/bobbesnl/growatt_thor/issues) with:
+- Thor firmware version (from diagnostics)
+- Home Assistant logs (around crash time)
+- Actions that triggered the reboot
+- Diagnostic file download
+
+Your feedback helps identify patterns and improve integration stability! 🙏
+
+---
+
 ## Features
 
 ### 📊 Real-time Monitoring
@@ -45,6 +73,11 @@ Do you have another Growatt EV charger? Please test it with the integration and 
 - **Manual charging control**: Start and stop charging sessions via buttons
 - **Load balancing toggle**: Enable/disable dynamic load balancing
 - **Auto update THOR time**: Auto sync time with server time at every heartbeat and with reboot (ocpp protocol)
+- **AP Mode Activation**: Added ability to enable AP (Access Point) mode directly from Home Assistant via integration configuration menu
+    - Accessible through Settings → Devices & Services → Growatt THOR → Configure
+    - Includes safety confirmation dialog to prevent accidental activation
+    - Uses OCPP DataTransfer with messageId="appconfigmode" (discovered via PCAP analysis)
+    - THOR broadcasts WiFi network (typically serialno based SSID) for direct configuration when activated
 
 ### 📈 Session History
 - **Last 5 sessions**: Energy (kWh), cost, charge mode, work mode, timestamps
@@ -63,7 +96,7 @@ Do you have another Growatt EV charger? Please test it with the integration and 
 ### Future Features (wishlist)
 - Enabling solar powered EV charging
 - RFID card management
-- Enabling AP mode from within integration
+-~~Enabling AP mode from within integration~~
 - Enabling data passthrough to Growatt cloud server
 - Other...?
 
@@ -291,7 +324,7 @@ logger:
   default: warning
   logs:
     custom_components.growatt_thor: debug
-    ocpp: debug
+    ocpp: info
 ```
 
 ## Troubleshooting
