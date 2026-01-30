@@ -55,51 +55,37 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
         """Disable load balancing."""
         await self._set_value("0")
 
-    async def _apply_external_limit_power_enable(self, charge_point, value: str):
-        """Actually write setting to the charger (runs inside write-queue)."""
-        _LOGGER.info("Setting G_ExternalLimitPowerEnable to %s", value)
-
-        result = await charge_point.change_configuration(
-            "G_ExternalLimitPowerEnable",
-            value
-        )
-
-        new_state = (value == "1")
-
-        if result == ConfigurationStatus.accepted:
-            self.coordinator.external_limit_power_enable = new_state
-            self.coordinator.async_set_updated_data(True)
-            _LOGGER.info(
-                "✅ Loadbalancing enabled → %s (accepted)",
-                "ON" if new_state else "OFF"
-            )
-        elif result == ConfigurationStatus.reboot_required:
-            # Thor kan dit (soms) teruggeven; wij zetten state alvast goed,
-            # en laten de reconnect/config-refresh de rest doen.
-            self.coordinator.external_limit_power_enable = new_state
-            self.coordinator.async_set_updated_data(True)
-            _LOGGER.warning(
-                "⚠️ Loadbalancing enabled → %s (reboot required)",
-                "ON" if new_state else "OFF"
-            )
-        else:
-            _LOGGER.error("❌ Enable loadbalancing change rejected: %s", result)
-
     async def _set_value(self, value: str):
-        """Queue the configuration update (prevents rapid-fire FW crashes)."""
+        """Update the configuration on the charger."""
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
 
         if not charge_point:
-            _LOGGER.warning("Cannot change Loadbalancing: charger not connected")
+            _LOGGER.warning("Cannot enable Loadbalancing: charger not connected")
             return
 
         try:
-            # Belangrijk: via de centrale write queue (met delay/poll-pause bescherming)
-            await self.coordinator.queue_write(
-                self._apply_external_limit_power_enable,
-                charge_point,
+            _LOGGER.info("Setting G_ExternalLimitPowerEnable to %s", value)
+
+            result = await charge_point.change_configuration(
+                "G_ExternalLimitPowerEnable",
                 value
             )
 
+            new_state = (value == "1")
+
+            if result == ConfigurationStatus.accepted:
+                self.coordinator.external_limit_power_enable = new_state
+                self.coordinator.async_set_updated_data(True)
+                _LOGGER.info("✅ Loadbalancing enabled → %s (immediate UI update)",
+                           "ON" if new_state else "OFF")
+            elif result == ConfigurationStatus.reboot_required:
+                _LOGGER.warning("⚠️ Loadbalancing enabled → %s (reboot required)",
+                              "ON" if new_state else "OFF")
+                self.coordinator.external_limit_power_enable = new_state
+                self.coordinator.async_set_updated_data(True)
+            else:
+                _LOGGER.error("❌ Enable loadbalancing change rejected: %s", result)
+
         except Exception as exc:
-            _LOGGER.error("❌ Failed to change Loadbalancing: %s", exc, exc_info=True)
+            _LOGGER.error("❌ Failed to enable Loadbalancing: %s", exc, exc_info=True)
+

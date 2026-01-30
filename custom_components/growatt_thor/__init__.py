@@ -44,11 +44,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     host = entry.data.get("host", "0.0.0.0")
     port = entry.data.get("port", 9000)
-    
-    # 🆕 Haal poll interval op uit config (met fallback naar default)
+
     poll_interval = entry.data.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
     hass.data[DOMAIN]["poll_interval"] = poll_interval
-    
+
     _LOGGER.info("Configured grid poll interval: %d seconds", poll_interval)
 
     server = await start_ocpp_server(host, port, coordinator, hass)
@@ -61,13 +60,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     async def periodic_smart_grid_poll():
-        """Smart poll: alleen als load balancing enabled."""
-        # 🆕 Gebruik geconfigureerde poll interval ipv hardcoded waarde
+        """Smart poll: only when load balancing enabled."""
         poll_interval = hass.data[DOMAIN].get("poll_interval", DEFAULT_POLL_INTERVAL)
-        
-        # Wacht eerst de poll interval voordat we beginnen
+
         await asyncio.sleep(poll_interval)
-        
+
         _LOGGER.info("🚀 Smart poll task STARTED (interval: %ds)", poll_interval)
         loop = asyncio.get_event_loop()
 
@@ -77,7 +74,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 current_time = loop.time()
 
                 if current_time < skip_until:
-                    # Log alleen de eerste keer dat we skippen
                     if not hasattr(periodic_smart_grid_poll, '_skip_logged') or not periodic_smart_grid_poll._skip_logged:
                         remaining = int(skip_until - current_time)
                         _LOGGER.info("⏸️ Polling paused (%ds remaining)", remaining)
@@ -85,7 +81,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     await asyncio.sleep(1)
                     continue
                 else:
-                    # Reset de flag als we weer aan het pollen zijn
                     periodic_smart_grid_poll._skip_logged = False
 
                 charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
@@ -103,7 +98,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except Exception as exc:
                 _LOGGER.error("💥 Smart poll crashed: %s", exc, exc_info=True)
 
-            # 🆕 Gebruik geconfigureerde poll interval
             await asyncio.sleep(poll_interval)
 
     hass.data[DOMAIN]["polling_task"] = hass.async_create_background_task(

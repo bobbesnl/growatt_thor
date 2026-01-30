@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.1.0] - 2026-01-14
+## [1.2.0] - 2026-01-26
+
+###(bug) Fixes
+- **Fixed 'STOP Charging' not working after restart of HA when no transaction ID could be found**
+- **Changed text in integration**: Charge mode APP/RFID changed to HA (HomeAssistant)/RFID (there is only HA controll possible :-) )
+- **Changed text in integration**: Changed attribute name loadbalancing to make more sense
+- **Cleaned up code**: Deleted obsolete comments in code (sorry still some comments in Dutch ;-) )
+
+### What's New
+- **🔐 AP Mode Control**: Activate AP Mode directly from Home Assistant! Access it via the integration configuration menu (with safety confirmation) to enable direct WiFi access to your THOR for troubleshooting.
+- **📋 Enhanced Diagnostics**: All 34 THOR configuration keys are now logged (with automatic password masking) for better visibility into device settings including network, WiFi, solar, and off-peak configurations.
+
+---
+
+## [1.1.0] - 2026-01-24
 
 🎉 **First stable release!** 🎉
 

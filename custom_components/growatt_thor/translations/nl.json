@@ -1,0 +1,48 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Growatt THOR Installatie",
+        "description": "Configureer je Growatt THOR EV Charger OCPP verbinding",
+        "data": {
+          "host": "Host (IP-adres)",
+          "port": "Poort",
+          "poll_interval": "Grid poll interval (seconden, min {min_interval})"
+        }
+      }
+    },
+    "error": {
+      "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn"
+    },
+    "abort": {
+      "ap_mode_activated": "✅ AP Mode geactiveerd! THOR zendt nu een WiFi netwerk uit. Zoek naar het SSID met daarin het serienummer van de THOR",
+      "ap_mode_failed": "❌ AP Mode activeren mislukt. Controleer de logs."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Growatt THOR Opties",
+        "description": "Configureer polling en geavanceerde opties",
+        "data": {
+          "poll_interval": "Grid poll interval (seconden, nu: {current_interval})",
+          "enable_ap_mode": "⚠️ AP Mode activeren"
+        }
+      },
+      "confirm_ap_mode": {
+        "title": "⚠️ Bevestig AP Mode Activatie",
+        "description": "WAARSCHUWING: De THOR gaat offline en zendt een WiFi netwerk uit voor directe configuratie. Dit onderbreekt de verbinding met Home Assistant!",
+        "data": {
+          "confirm": "Ja, activeer AP Mode"
+        }
+      }
+    },
+    "error": {
+      "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn"
+    },
+    "abort": {
+      "ap_mode_activated": "✅ AP Mode geactiveerd! THOR zendt nu een WiFi netwerk uit. Zoek naar 'THOR-' of 'Growatt-' netwerk.",
+      "ap_mode_failed": "❌ AP Mode activeren mislukt. Controleer de logs."
+    }
+  }
+}
