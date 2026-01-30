@@ -127,15 +127,21 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
                     # Voer de schrijfactie uit
                     try:
-                        _LOGGER.info("✍️ Executing write command. Remaining in queue: %d", len(self._write_queue))
+                        _LOGGER.info(
+                            "✍️ Executing write command. Remaining in queue: %d",
+                            len(self._write_queue),
+                        )
+
+                        # 🛡️ STOP POLLING VOOR X SECONDEN (Thor bescherming) - vóór write
+                        until = self.hass.loop.time() + self._poll_pause_after_write
+                        current = self.hass.data[DOMAIN].get("skip_polling_until", 0)
+                        self.hass.data[DOMAIN]["skip_polling_until"] = max(current, until)
+                        _LOGGER.info("🛡️ Polling paused BEFORE write (Thor FW protection)")
+
                         result = await write_item["func"](*write_item["args"], **write_item["kwargs"])
 
                         # Update last-write (monotonic)
                         self._last_write_monotonic = self.hass.loop.time()
-
-                        # 🛡️ STOP POLLING VOOR X SECONDEN (Thor bescherming)
-                        self.hass.data[DOMAIN]["skip_polling_until"] = self.hass.loop.time() + self._poll_pause_after_write
-                        _LOGGER.info("🛡️ Polling paused after write (Thor FW protection)")
 
                         _LOGGER.info("✅ Write completed successfully. Result: %s", result)
 
@@ -209,7 +215,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.currents = {"L1": 0, "L2": 0, "L3": 0}
         self.voltages = {"L1": 0, "L2": 0, "L3": 0}
         self.phase_power = {"L1": 0, "L2": 0, "L3": 0}
-        # energy blijft staan tot nieuwe sessie start!
 
         self.transaction_id = None
         self.status = "Idle"
@@ -422,13 +427,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 "transaction_id": data.get("transactionId", ""),
             }
 
-            # Backwards compatibility
             self.last_session_energy = session["energy_kwh"]
             self.last_session_cost = session["cost"]
             self.charge_mode = session["charge_mode"]
             self.work_mode = session["work_mode"]
 
-            # 🆕 Session history (laatste 5)
             self.session_history.insert(0, session)
             if len(self.session_history) > 5:
                 self.session_history = self.session_history[:5]

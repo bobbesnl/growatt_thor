@@ -7,17 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.2.0] - 2026-01-26
-
-###(bug) Fixes
-- **Fixed 'STOP Charging' not working after restart of HA when no transaction ID could be found**
-- **Changed text in integration**: Charge mode APP/RFID changed to HA (HomeAssistant)/RFID (there is only HA controll possible :-) )
-- **Changed text in integration**: Changed attribute name loadbalancing to make more sense
-- **Cleaned up code**: Deleted obsolete comments in code (sorry still some comments in Dutch ;-) )
+## [1.2.0] - 2026-01-30
 
 ### What's New
-- **🔐 AP Mode Control**: Activate AP Mode directly from Home Assistant! Access it via the integration configuration menu (with safety confirmation) to enable direct WiFi access to your THOR for troubleshooting.
-- **📋 Enhanced Diagnostics**: All 34 THOR configuration keys are now logged (with automatic password masking) for better visibility into device settings including network, WiFi, solar, and off-peak configurations.
+- **🔐 AP Mode Control**: Activate Thor's Access Point mode directly from HA via integration configuration menu (includes safety confirmation dialog)
+- **📋 Enhanced Diagnostics**: All 34 Thor configuration keys now logged in diagnostics (automatic password/sensitive data masking)
+- **⚡ Write Queue System with Thor Protection**: 
+  - All write commands (max current, load balancing, schedules, start/stop) now use a centralized queue
+  - 20-second rate limiting between writes prevents Thor firmware instability
+  - Automatic deduplication: rapid UI changes (e.g., sliding current 10→15→20A) only send the final value
+  - Polling automatically pauses during config writes to protect Thor firmware
+  - Example: Changing 7 settings rapidly → queue handles them safely with proper timing
+
+### Improvements
+- **Changed integration text**:
+  - Charge mode "APP/RFID" renamed to "HA (Home Assistant)/RFID" for clarity
+  - Renamed loadbalancing attribute for better readability
+- **Code Quality**: Removed obsolete comments and improved code structure
+
+### (bug) Fixes
+- **Fixed multiple fast writes**: Write queue wasn't enabled for number and select entities - now all entities use the centralized queue system
+- **Fixed 'STOP Charging' not working after HA restart**: Now handles missing transaction ID gracefully
 
 ---
 

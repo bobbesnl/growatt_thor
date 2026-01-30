@@ -19,6 +19,34 @@ Do you have another Growatt EV charger? Please test it with the integration and 
 
 ---
 
+## ⚠️ Known Issues
+
+### Thor Firmware Instability & Random Reboots
+
+The Growatt Thor charger has **known firmware bugs** that can cause crashes and unexpected reboots, particularly during:
+- Multiple rapid configuration changes
+- Concurrent polling and command execution
+- High message frequency on the OCPP connection
+
+**Protective Measures Implemented:**
+- Write queue with 20-second rate limiting
+- Automatic polling pause during config writes
+- Command deduplication for rapid UI changes
+- Smart timing delays
+
+⚠️ **Important**: While these protections significantly reduce crashes, they **cannot guarantee** complete stability due to Thor's firmware limitations.
+
+**📢 Help Us Improve!**
+Experiencing crashes or random reboots? Please [open an issue](https://github.com/bobbesnl/growatt_thor/issues) with:
+- Thor firmware version (from diagnostics)
+- Home Assistant logs (around crash time)
+- Actions that triggered the reboot
+- Diagnostic file download
+
+Your feedback helps identify patterns and improve integration stability! 🙏
+
+---
+
 ## Features
 
 ### 📊 Real-time Monitoring
