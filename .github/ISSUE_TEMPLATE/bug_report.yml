@@ -40,7 +40,7 @@ body:
     id: logs
     attributes:
       label: Relevant log output
-      description: Please copy and paste any relevant log output
+      description: Logs are essential for debugging and adding new devices. Please copy and paste any relevant log output
       render: shell
     validations:
       required: false
@@ -57,7 +57,7 @@ body:
     id: integration-version
     attributes:
       label: Integration version
-      placeholder: 1.0.0
+      placeholder: 1.2.0
     validations:
       required: true
 
