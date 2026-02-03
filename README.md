@@ -128,6 +128,18 @@ The integration runs a **local OCPP 1.6 server** inside Home Assistant. The Grow
 
 ### Via HACS (Recommended)
 
+1. **Install the integration**
+   - Open **Home Assistant**
+   - Go to **HACS → Integrations**
+   - Click **Explore & Download Repositories** (wording may differ per HACS version)
+   - Search for **Growatt THOR** (or **Growatt THOR EV Charger**)
+   - Click **Download**
+   - Restart Home Assistant
+
+### Alternative: Add repository manually to HACS (Custom repository)
+
+Use this if you cannot find the integration in the default HACS list yet, or if you intentionally want to install from a fork/branch.
+
 1. **Add custom repository**
    - Open **Home Assistant**
    - Go to **HACS → Integrations**
@@ -138,23 +150,24 @@ The integration runs a **local OCPP 1.6 server** inside Home Assistant. The Grow
    - Click **Add**
 
 2. **Install the integration**
-   - Search for **Growatt THOR EV Charger** in HACS
+   - Search for **Growatt THOR** (or **Growatt THOR EV Charger**) in HACS
    - Click **Download**
    - Restart Home Assistant
 
-3. **Configure the integration**
-   - Go to **Settings → Devices & Services**
-   - Click **+ Add Integration**
-   - Search for **Growatt THOR**
-   - Configure:
-     - **Listen IP**: `0.0.0.0` (default, listens on all interfaces)
-     - **Listen Port**: `9000` (default, or choose your own)
-     - **Grid Poll Interval**: `30` seconds (recommended)
-       - Range: 5-3600 seconds
-       - Lower values = more frequent updates (higher load on Thor)
-       - Higher values = less frequent updates (lower load)
-       - **Important**: This only affects display update frequency, not load balancing functionality
-   - Click **Submit**
+### Configure the integration
+
+1. Go to **Settings → Devices & Services**
+2. Click **+ Add Integration**
+3. Search for **Growatt THOR**
+4. Configure:
+   - **Listen IP**: `0.0.0.0` (default, listens on all interfaces)
+   - **Listen Port**: `9000` (default, or choose your own)
+   - **Grid Poll Interval**: `30` seconds (recommended)
+     - Range: 5-3600 seconds
+     - Lower values = more frequent updates (higher load on THOR)
+     - Higher values = less frequent updates (lower load)
+     - **Important**: This only affects display update frequency, not load balancing functionality
+5. Click **Submit**
 
 Home Assistant is now ready and waiting for the charger to connect.
 
