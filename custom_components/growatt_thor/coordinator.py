@@ -38,6 +38,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.external_limit_power_enable = None
         self.charger_mode = None
         self.server_url = None
+        self.lcd_close_enable = None  # NIEUW: G_LCDCloseEnable ("Enable" / "Disable")
 
         # Auto charge times (Thor values)
         self.auto_charge_start_time = None
@@ -91,7 +92,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         }
 
         if dedupe_key is not None:
-            # Verwijder oudere items met dezelfde dedupe_key (coalescing)
             self._write_queue = deque(
                 item for item in self._write_queue if item.get("dedupe_key") != dedupe_key
             )
@@ -99,7 +99,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._write_queue.append(write_item)
         _LOGGER.debug("📥 Write queued. Queue size: %d", len(self._write_queue))
 
-        # Start de queue processor als die nog niet draait
         if self._write_task is None or self._write_task.done():
             self._write_task = self.hass.async_create_task(self._process_write_queue())
 
@@ -112,7 +111,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
                     now_mono = self.hass.loop.time()
 
-                    # Bereken wachttijd sinds laatste write
                     if self._last_write_monotonic is not None:
                         time_since_last = now_mono - self._last_write_monotonic
                         wait_time = max(0.0, self._min_write_interval - time_since_last)
@@ -125,14 +123,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
                             )
                             await asyncio.sleep(wait_time)
 
-                    # Voer de schrijfactie uit
                     try:
                         _LOGGER.info(
                             "✍️ Executing write command. Remaining in queue: %d",
                             len(self._write_queue),
                         )
 
-                        # 🛡️ STOP POLLING VOOR X SECONDEN (Thor bescherming) - vóór write
                         until = self.hass.loop.time() + self._poll_pause_after_write
                         current = self.hass.data[DOMAIN].get("skip_polling_until", 0)
                         self.hass.data[DOMAIN]["skip_polling_until"] = max(current, until)
@@ -140,7 +136,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
                         result = await write_item["func"](*write_item["args"], **write_item["kwargs"])
 
-                        # Update last-write (monotonic)
                         self._last_write_monotonic = self.hass.loop.time()
 
                         _LOGGER.info("✅ Write completed successfully. Result: %s", result)
@@ -149,7 +144,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         _LOGGER.error("❌ Write command failed: %s", err, exc_info=True)
 
             finally:
-                # Zorg dat een volgende enqueue de worker weer kan starten
                 self._write_task = None
 
     # ─────────────────────────────
@@ -198,7 +192,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.id_tag = id_tag
         self.status = "Charging"
 
-        # RESET energy bij START nieuwe sessie
         _LOGGER.info("🔋 New transaction started → Resetting energy counter")
         self.energy = 0
 
@@ -209,7 +202,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """Stop charging transaction."""
         _LOGGER.info("Transaction stopped: %s (reason=%s)", self.transaction_id, reason)
 
-        # RESET alle charge-waarden NA stop
         _LOGGER.info("🛑 Transaction stopped → Resetting charge values")
         self.power = 0
         self.currents = {"L1": 0, "L2": 0, "L3": 0}
@@ -396,6 +388,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
                                 updated = True
                         except ValueError as exc:
                             _LOGGER.warning("Failed to parse G_AutoChargeTime '%s': %s", raw, exc)
+
+                elif key == "G_LCDCloseEnable":  # NIEUW
+                    if self.lcd_close_enable != raw:
+                        self.lcd_close_enable = raw
+                        _LOGGER.debug("Config: LCDCloseEnable = %s", raw)
+                        updated = True
 
             except (ValueError, TypeError) as exc:
                 _LOGGER.warning("Failed to parse config key=%s value=%s: %s", key, raw, exc)
