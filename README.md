@@ -286,6 +286,32 @@ After successful connection, the following entities are created:
 - `time.growatt_thor_ev_charger_auto_charge_stop_time` - Auto-charge stop time (auto-applies on change)
 
 
+## ⚡ Energy Dashboard
+
+This integration is compatible with the Home Assistant Energy Dashboard.
+
+### Setting up EV Charging tracking
+
+1. Go to **Settings → Dashboards → Energy**
+2. Scroll to **Individual device consumption**
+3. Click **Add device**
+4. Select `sensor.growatt_thor_ev_charger_energy_charged`
+
+> **Note:** This sensor has `state_class: total_increasing`, meaning it resets to zero after each charging session. Home Assistant automatically detects these resets and accumulates all sessions correctly in the Energy Dashboard — including multiple sessions on the same day.
+
+### Additional sensor (optional)
+
+For real-time power monitoring on the Energy Dashboard:
+- Use `sensor.growatt_thor_ev_charger_charging_power` for live wattage display
+
+### Session history
+
+For detailed per-session data (energy, cost, timestamps), check:
+- `sensor.growatt_thor_ev_charger_last_sessions` — stores the last 5 charging sessions
+- `sensor.growatt_thor_ev_charger_last_session_energy` — energy of the previous session
+- `sensor.growatt_thor_ev_charger_last_session_cost` — cost of the previous session
+
+
 ### Example Automations
 
 #### Start Charging When Solar Production is High
