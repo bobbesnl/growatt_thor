@@ -1,5 +1,7 @@
 import logging
 import asyncio
+import os
+import json
 import websockets.exceptions
 from urllib.parse import parse_qs
 from websockets.server import serve
@@ -21,10 +23,28 @@ from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
+def _preload_ocpp_schemas():
+
+    try:
+        from ocpp.messages import get_validator, MessageType
+        from ocpp.v16.enums import Action
+
+        count = 0
+        for action in Action:
+            for message_type in [MessageType.Call, MessageType.CallResult]:
+                try:
+                    get_validator(message_type, action.value, "1.6")
+                    count += 1
+                except Exception:
+                    pass
+
+        _LOGGER.info("OCPP validator cache pre-loaded (%d validators)", count)
+
+    except Exception as exc:
+        _LOGGER.warning("OCPP schema pre-load failed (non-fatal): %s", exc)
+
+
 class GrowattChargePoint(OcppChargePoint):
-    """
-    Growatt THOR OCPP 1.6 Charge Point with TIER 2 error recovery
-    """
 
     def __init__(self, cp_id, websocket, coordinator, hass):
         super().__init__(cp_id, websocket)
@@ -45,11 +65,9 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("BootNotification")
     async def on_boot_notification(self, **payload):
-        """Handle boot notification with TIER 2 error recovery."""
         try:
             _LOGGER.info("BootNotification payload: %s", payload)
 
-            # 🔑 BootNotification: ook config refreshen (voor de zekerheid)
             self.hass.async_create_task(self._post_connect_init())
 
             return call_result.BootNotificationPayload(
@@ -68,9 +86,8 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("Heartbeat")
     async def on_heartbeat(self, **payload):
-        """Handle heartbeat + trigger config op EERSTE heartbeat."""
         try:
-            # 🔑 EERSTE HEARTBEAT: config ophalen!
+
             if not hasattr(self, '_heartbeat_done'):
                 self._heartbeat_done = True
                 _LOGGER.info("⭐ First Heartbeat → Auto fetching configuration...")
@@ -88,14 +105,12 @@ class GrowattChargePoint(OcppChargePoint):
     # ─────────────────────────────
 
     async def _post_connect_init(self):
-        """Initialize after first heartbeat or boot notification."""
         try:
-            await asyncio.sleep(1)  # Stabiliteit
+            await asyncio.sleep(1)
 
             _LOGGER.info("🔄 Auto GetConfiguration after connect")
             await self.trigger_get_configuration()
 
-            # 🔑 SMART: External meter ALLEEN bij load balancing AAN
             if self.coordinator.external_limit_power_enable:
                 _LOGGER.info("🔄 Auto external meterval (load balancing ON)")
                 await self.trigger_external_meterval()
@@ -203,7 +218,7 @@ class GrowattChargePoint(OcppChargePoint):
         return call_result.DataTransferPayload(status=DataTransferStatus.accepted)
 
     # ─────────────────────────────
-    # 🔑 Actieve triggers
+    # Active triggers
     # ─────────────────────────────
 
     async def trigger_status(self):
@@ -228,7 +243,6 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.warning("Failed to trigger external meter values: %s", exc)
 
     async def trigger_get_configuration(self):
-        """Haal configuratie op in 2 calls (standaard + extended)."""
         try:
             # ═══════════════════════════════════════════════════════
             # CALL 1: Standaard keys (Thor's default set)
@@ -237,7 +251,7 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.info("Triggering GetConfiguration CALL 1 (standard keys)")
 
             result1 = await asyncio.wait_for(
-                self.call(call.GetConfigurationPayload()),  # Leeg = standaard keys
+                self.call(call.GetConfigurationPayload()),
                 timeout=30.0
             )
 
@@ -250,29 +264,19 @@ class GrowattChargePoint(OcppChargePoint):
             # CALL 2: Extended keys (netwerk, WiFi, solar, off-peak)
             # ═══════════════════════════════════════════════════════
 
-            # Kleine delay voor Thor stabiliteit
             await asyncio.sleep(0.5)
 
             extended_keys = [
-                # Netwerk keys
                 "G_ChargerNetDNS", "G_ChargerNetMask", "G_ChargerNetMac", "G_ChargerNetGateway",
                 "G_NetworkMode",
-                # WiFi keys
                 "G_WifiSSID", "G_WifiPassword",
-                # Tijd/datum keys
                 "G_DaylightSavingTime", "G_PeriodTime",
-                # Off-peak/tarief keys
                 "G_OffPeakTime", "G_OffPeakEnable", "G_OffPeakCurr",
-                # 4G/mobile keys
                 "G_4GUserName", "G_4GPassword", "G_4GAPN",
-                # Solar advanced keys
                 "G_SolarBoost", "G_SolarThresholdCurr",
-                # Meter/werkmodus keys
                 "G_MeterValueInterval", "G_WorkingMode",
-                # Overige keys
                 "G_LowPowerReserveEnable", "UnlockConnectorOnEVSideDisconnect",
                 "LightIntensity", "G_DRM3Percentage", "G_DRM4Percentage",
-                # Nieuwe keys uit reverse engineering
                 "G_LCDCloseEnable", "G_RFEnable"
             ]
 
@@ -289,7 +293,7 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.info("CALL 2 received: %d keys (%d unknown)", len(config_keys_2), len(unknown_keys_2))
 
             # ═══════════════════════════════════════════════════════
-            # Verwerk alle keys (call 1 + call 2)
+            # Process all keys (call 1 + call 2)
             # ═══════════════════════════════════════════════════════
 
             all_config_keys = config_keys_1 + config_keys_2
@@ -297,23 +301,19 @@ class GrowattChargePoint(OcppChargePoint):
 
             _LOGGER.info("Total received: %d keys (%d unknown)", len(all_config_keys), len(all_unknown_keys))
 
-            # Log alle keys (mask alleen WiFi password)
             for item in all_config_keys:
                 key = item.get("key")
                 value = item.get("value")
                 readonly = item.get("readonly")
 
-                # Mask alleen WiFi password
                 if key == "G_WifiPassword":
                     value = "***MASKED***" if value else None
 
                 _LOGGER.debug("Config key: %s = %s (readonly=%s)", key, value, readonly)
 
-            # Log unknown keys als ze er zijn
             if all_unknown_keys:
                 _LOGGER.info("Unknown keys: %s", ", ".join(all_unknown_keys))
 
-            # Verwerk alle keys in coordinator
             self.coordinator.process_configuration(all_config_keys)
 
         except asyncio.TimeoutError:
@@ -321,9 +321,8 @@ class GrowattChargePoint(OcppChargePoint):
         except Exception as exc:
             _LOGGER.warning("Failed to trigger GetConfiguration: %s", exc)
 
-
     # ─────────────────────────────
-    # 🔧 ChangeConfiguration
+    # ChangeConfiguration
     # ─────────────────────────────
 
     async def change_configuration(self, key: str, value: str):
@@ -343,11 +342,10 @@ class GrowattChargePoint(OcppChargePoint):
             return ConfigurationStatus.rejected
 
     # ─────────────────────────────
-    # 🆕 Remote Start/Stop Transaction
+    # Remote Start/Stop Transaction
     # ─────────────────────────────
 
     async def remote_start_transaction(self, connector_id: int, id_tag: str) -> dict:
-        """Start een laadsessie via RemoteStartTransaction."""
         try:
             _LOGGER.info("🔵 RemoteStartTransaction: connector_id=%d, id_tag=%s", connector_id, id_tag)
 
@@ -368,7 +366,6 @@ class GrowattChargePoint(OcppChargePoint):
             return {"status": "Rejected"}
 
     async def remote_stop_transaction(self, transaction_id: int) -> dict:
-        """Stop een laadsessie via RemoteStopTransaction."""
         try:
             _LOGGER.info("🔴 RemoteStopTransaction: transaction_id=%d", transaction_id)
 
@@ -389,11 +386,10 @@ class GrowattChargePoint(OcppChargePoint):
 
 
 # ─────────────────────────────
-# WebSocket server (SCHOON - GEEN vroege triggers)
+# WebSocket server
 # ─────────────────────────────
 
 async def _on_connect(websocket, path, coordinator, hass):
-    """Handle new connection with TIER 2 error recovery."""
     try:
         if not path.startswith(DEFAULT_PATH):
             await websocket.close()
@@ -403,8 +399,6 @@ async def _on_connect(websocket, path, coordinator, hass):
         _LOGGER.info("THOR connected: %s", cp_id)
 
         cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
-
-        # ✅ GEEN vroege triggers meer - wachten op Heartbeat!
 
         try:
             await cp.start()
@@ -427,6 +421,9 @@ async def _on_connect(websocket, path, coordinator, hass):
 async def start_ocpp_server(host, port, coordinator, hass):
     try:
         _LOGGER.info("Starting OCPP server on %s:%s", host, port)
+
+        await hass.async_add_executor_job(_preload_ocpp_schemas)
+
         return await serve(
             lambda ws, path: _on_connect(ws, path, coordinator, hass),
             host,
@@ -436,4 +433,3 @@ async def start_ocpp_server(host, port, coordinator, hass):
     except Exception as exc:
         _LOGGER.error("Failed to start OCPP server: %s", exc, exc_info=True)
         raise
-

@@ -15,7 +15,6 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up Growatt THOR number entities."""
     coordinator = hass.data[DOMAIN]["coordinator"]
 
     async_add_entities([
@@ -29,7 +28,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
 # ─────────────────────────────
 
 class BaseConfigNumber(CoordinatorEntity, NumberEntity):
-    """Base class for Growatt THOR configuration numbers."""
 
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
@@ -41,7 +39,6 @@ class BaseConfigNumber(CoordinatorEntity, NumberEntity):
         self.hass = coordinator.hass
 
     def _format_value(self, value: float) -> str:
-        """Format value for OCPP (override in subclass if needed)."""
         return str(int(round(value)))
 
 
@@ -50,7 +47,6 @@ class BaseConfigNumber(CoordinatorEntity, NumberEntity):
 # ─────────────────────────────
 
 class MaxCurrentNumber(BaseConfigNumber):
-    """Max current per phase configuration."""
 
     _attr_name = "Max Current"
     _attr_icon = "mdi:current-ac"
@@ -75,7 +71,6 @@ class MaxCurrentNumber(BaseConfigNumber):
         return int(value) if value is not None else None
 
     async def async_set_native_value(self, value: float) -> None:
-        """Set new value via queue (directe update UI)."""
         value = int(round(value))
 
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
@@ -83,7 +78,6 @@ class MaxCurrentNumber(BaseConfigNumber):
             _LOGGER.warning("Cannot change Max Current: charger not connected")
             return
 
-        # Optimistic UI update
         self.coordinator.max_current = value
         self.coordinator.async_set_updated_data(True)
         _LOGGER.info("📝 Max Current UI updated to %d A (queued for write)", value)
@@ -92,11 +86,10 @@ class MaxCurrentNumber(BaseConfigNumber):
             self._write_to_thor,
             charge_point,
             value,
-            dedupe_key=self._config_key,  # ✅ only keep latest G_MaxCurrent in queue
+            dedupe_key=self._config_key,
         )
 
     async def _write_to_thor(self, charge_point, value: int):
-        """Daadwerkelijke write naar Thor."""
         try:
             formatted_value = str(value)
 
@@ -121,13 +114,12 @@ class MaxCurrentNumber(BaseConfigNumber):
 # ─────────────────────────────
 
 class LoadBalancingLimitNumber(BaseConfigNumber):
-    """Load balancing limit (kW) configuration."""
 
     _attr_name = "Loadbalancing limit"
     _attr_icon = "mdi:speedometer"
     _attr_device_class = NumberDeviceClass.POWER
-    _attr_native_min_value = 1
-    _attr_native_max_value = 50
+    _attr_native_min_value = 4
+    _attr_native_max_value = 22
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "kW"
     _config_key = "G_ExternalLimitPower"
@@ -147,7 +139,6 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
         return int(value) if value is not None else 10
 
     async def async_set_native_value(self, value: float) -> None:
-        """Set new value via queue (directe update UI)."""
         value = int(round(value))
 
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
@@ -155,7 +146,6 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             _LOGGER.warning("Cannot change Load Balancing Limit: charger not connected")
             return
 
-        # Optimistic UI update
         self.coordinator.external_limit_power = value
         self.coordinator.async_set_updated_data(True)
         _LOGGER.info("📝 Load Balancing Limit UI updated to %d kW (queued for write)", value)
@@ -164,11 +154,10 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             self._write_to_thor,
             charge_point,
             value,
-            dedupe_key=self._config_key,  # ✅ only keep latest G_ExternalLimitPower in queue
+            dedupe_key=self._config_key,
         )
 
     async def _write_to_thor(self, charge_point, value: int):
-        """Daadwerkelijke write naar Thor."""
         try:
             formatted_value = str(value)
 
