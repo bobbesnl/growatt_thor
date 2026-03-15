@@ -408,9 +408,10 @@ async def _on_connect(websocket, path, coordinator, hass):
         cp_id = path.rstrip("/").split("/")[-1]
         _LOGGER.info("THOR connected: %s", cp_id)
         cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
+
         try:
             await cp.start()
-        except (websockets.exceptions.ConnectionClosedError, websockets.exceptions.ConnectionClosedOK):
+        except websockets.exceptions.ConnectionClosedError:
             _LOGGER.debug("Connection closed normally during startup - THOR disconnected")
         except Exception as exc:
             _LOGGER.error("Error in connection handler: %s", exc, exc_info=True)

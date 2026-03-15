@@ -78,6 +78,12 @@ class MaxCurrentNumber(BaseConfigNumber):
             _LOGGER.warning("Cannot change Max Current: charger not connected")
             return
 
+        current = self.coordinator.max_current
+        if current is not None and int(round(current)) == value:
+            _LOGGER.debug("Max Current unchanged (%d A) - skipping write", value)
+            return
+
+        previous = int(round(current)) if current is not None else None
         self.coordinator.max_current = value
         self.coordinator.async_set_updated_data(True)
         _LOGGER.info("📝 Max Current UI updated to %d A (queued for write)", value)
@@ -86,27 +92,32 @@ class MaxCurrentNumber(BaseConfigNumber):
             self._write_to_thor,
             charge_point,
             value,
+            previous,
             dedupe_key=self._config_key,
         )
 
-    async def _write_to_thor(self, charge_point, value: int):
+    async def _write_to_thor(self, charge_point, value: int, previous: int | None):
         try:
-            formatted_value = str(value)
-
             result = await charge_point.change_configuration(
                 self._config_key,
-                formatted_value
+                str(value)
             )
 
             if result == ConfigurationStatus.accepted:
-                _LOGGER.info("✅ Max Current written to Thor: %s A", formatted_value)
+                _LOGGER.info("✅ Max Current written to Thor: %d A", value)
             elif result == ConfigurationStatus.reboot_required:
-                _LOGGER.warning("⚠️ Max Current write accepted (reboot required): %s A", formatted_value)
+                _LOGGER.warning("⚠️ Max Current write accepted (reboot required): %d A", value)
             else:
-                _LOGGER.error("❌ Max Current rejected by Thor: %s", result)
+                _LOGGER.error("❌ Max Current rejected by Thor: %s — rolling back UI to %s A", result, previous)
+                if previous is not None:
+                    self.coordinator.max_current = previous
+                    self.coordinator.async_set_updated_data(True)
 
         except Exception as exc:
             _LOGGER.error("❌ Failed to set Max Current: %s", exc, exc_info=True)
+            if previous is not None:
+                self.coordinator.max_current = previous
+                self.coordinator.async_set_updated_data(True)
 
 
 # ─────────────────────────────
@@ -146,6 +157,12 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             _LOGGER.warning("Cannot change Load Balancing Limit: charger not connected")
             return
 
+        current = self.coordinator.external_limit_power
+        if current is not None and int(round(current)) == value:
+            _LOGGER.debug("Load Balancing Limit unchanged (%d kW) - skipping write", value)
+            return
+
+        previous = int(round(current)) if current is not None else None
         self.coordinator.external_limit_power = value
         self.coordinator.async_set_updated_data(True)
         _LOGGER.info("📝 Load Balancing Limit UI updated to %d kW (queued for write)", value)
@@ -154,24 +171,29 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             self._write_to_thor,
             charge_point,
             value,
+            previous,
             dedupe_key=self._config_key,
         )
 
-    async def _write_to_thor(self, charge_point, value: int):
+    async def _write_to_thor(self, charge_point, value: int, previous: int | None):
         try:
-            formatted_value = str(value)
-
             result = await charge_point.change_configuration(
                 self._config_key,
-                formatted_value
+                str(value)
             )
 
             if result == ConfigurationStatus.accepted:
-                _LOGGER.info("✅ Load Balancing Limit written to Thor: %s kW", formatted_value)
+                _LOGGER.info("✅ Load Balancing Limit written to Thor: %d kW", value)
             elif result == ConfigurationStatus.reboot_required:
-                _LOGGER.warning("⚠️ Load Balancing Limit write accepted (reboot required): %s kW", formatted_value)
+                _LOGGER.warning("⚠️ Load Balancing Limit write accepted (reboot required): %d kW", value)
             else:
-                _LOGGER.error("❌ Load Balancing Limit rejected by Thor: %s", result)
+                _LOGGER.error("❌ Load Balancing Limit rejected by Thor: %s — rolling back UI to %s kW", result, previous)
+                if previous is not None:
+                    self.coordinator.external_limit_power = previous
+                    self.coordinator.async_set_updated_data(True)
 
         except Exception as exc:
             _LOGGER.error("❌ Failed to set Load Balancing Limit: %s", exc, exc_info=True)
+            if previous is not None:
+                self.coordinator.external_limit_power = previous
+                self.coordinator.async_set_updated_data(True)

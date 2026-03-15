@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-03-14
+
+### What's New
+- **LCD On/Off Control**: Added switch to turn the LCD display on or off (user request — thanks @OleMadsen1971!)
+
+### Improvements
+- **Moved mode selector to Settings**: Mode selection requires a reboot and is not intended for use in automations. Moving it to Settings (Config Flow) makes this distinction clearer. For correct displaying parameters/diagnostics it might be needed to manual remove and add the integration again after applying this update. 
+- **Improved robustness of Max Current and Load Balancing Limit writes**: Skips redundant OCPP `ChangeConfiguration` calls when the value is unchanged, and rolls back the optimistic UI update if the THOR rejects or errors the write
+
+### Bug Fixes
+- **Fixed minimum and maximum load balance limits**: Prevents THOR crashes caused by out-of-range values and minimum current now conform IEC 61851 standard (6A)
+- **Fixed blocking call in event loop**: OCPP JSON schemas are now pre-loaded via executor during startup, preventing a blocking `open()` call inside the Home Assistant async event loop (fixes warning in `homeassistant.util.loop`) (thanks @Greg-null!)
+- **Fixed spurious errors and orphaned futures on THOR reboot**: Disabled websockets-level ping (`ping_interval=None`, `ping_timeout=None`) since THOR manages keepalive via OCPP Heartbeat, added explicit task cancellation with `ensure_future`+`shield` to prevent `Future exception was never retrieved` errors, and introduced a linearly growing poll backoff (60s → 300s) on consecutive timeouts to minimise redundant requests during reboot cycles
+- **Fixed missing guard on Start/Stop Charging buttons**: Pressing "Start charging" while a session is already active, or "Stop charging" without an active session, now logs a warning and returns early instead of sending a rejected OCPP command to the THOR
+- **Fixed spurious ERROR on clean THOR disconnect**: `ConnectionClosedOK` (WebSocket 1001 "going away") is now handled at DEBUG level alongside `ConnectionClosedError`, preventing false error logs on integration reload or removal
+
+---
+
 ## [1.2.0] - 2026-01-30
 
 ### What's New

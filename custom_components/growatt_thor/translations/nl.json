@@ -26,7 +26,15 @@
         "description": "Configureer polling en geavanceerde opties",
         "data": {
           "poll_interval": "Grid poll interval (seconden, nu: {current_interval})",
+          "charger_mode": "⚠️ Oplaadmodus",
           "enable_ap_mode": "⚠️ AP Mode activeren"
+        }
+      },
+      "confirm_charger_mode": {
+        "title": "⚠️ Bevestig modus wijziging",
+        "description": "WAARSCHUWING: Het wijzigen van de oplaadmodus naar **{selected_mode}** zorgt voor een herstart van de THOR!\n\nNa de herstart kan het nodig zijn om de EV opnieuw in te pluggen voor een correcte werking.\n\nWeet je zeker dat je door wilt gaan?",
+        "data": {
+          "confirm": "Ja, wijzig de oplaadmodus"
         }
       },
       "confirm_ap_mode": {
@@ -41,8 +49,9 @@
       "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn"
     },
     "abort": {
-      "ap_mode_activated": "✅ AP Mode geactiveerd! THOR zendt nu een WiFi netwerk uit. Zoek naar 'THOR-' of 'Growatt-' netwerk.",
-      "ap_mode_failed": "❌ AP Mode activeren mislukt. Controleer de logs."
+      "ap_mode_activated": "✅ AP Mode geactiveerd! THOR zendt nu een WiFi netwerk uit. Zoek naar het SSID met daarin het serienummer van de THOR",
+      "ap_mode_failed": "❌ AP Mode activeren mislukt. Controleer de logs.",
+      "charger_mode_changed": "✅ Oplaadmodus gewijzigd. De THOR herstart. Plug de EV indien nodig opnieuw in."
     }
   }
 }

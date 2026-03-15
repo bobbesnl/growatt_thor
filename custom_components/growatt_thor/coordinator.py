@@ -11,7 +11,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class GrowattCoordinator(DataUpdateCoordinator):
-    """Coordinator voor Growatt THOR OCPP data."""
+    """Coordinator for Growatt THOR OCPP data."""
 
     def __init__(self, hass):
         super().__init__(hass, _LOGGER, name="Growatt THOR Coordinator")
@@ -22,7 +22,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.id_tag = None
 
         # ── Totaal ─────────────────────────
-        self.power = None        # W (som van fases)
+        self.power = None        # W
         self.energy = None       # Wh
 
         # ── Fase-specifiek ─────────────────
@@ -38,7 +38,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.external_limit_power_enable = None
         self.charger_mode = None
         self.server_url = None
-        self.lcd_close_enable = None  # NIEUW: G_LCDCloseEnable ("Enable" / "Disable")
+        self.lcd_close_enable = None
 
         # Auto charge times (Thor values)
         self.auto_charge_start_time = None
@@ -48,7 +48,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.auto_charge_start_time_pending = None
         self.auto_charge_stop_time_pending = None
 
-        # ── Laatste sessie ─────────────────
+        # ── Last session ─────────────────
         self.last_session_energy = None
         self.last_session_cost = None
         self.charge_mode = None
@@ -60,7 +60,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.grid_currents = {}
         self.wiring_type = None
 
-        # SESSION HISTORY (laatste 5 sessies)
+        # SESSION HISTORY (last 5 sessions)
         self.session_history = []
 
         # WRITE QUEUE SYSTEEM
@@ -68,10 +68,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._write_lock = asyncio.Lock()
         self._write_task = None
 
-        # Rate limiting / polling pause (monotonic time, dus ongevoelig voor klokwijzigingen)
+        # Rate limiting / polling pause (monotonic time)
         self._last_write_monotonic = None
-        self._min_write_interval = 20.0          # seconden tussen writes
-        self._poll_pause_after_write = 20.0      # seconden polling-pauze na write
+        self._min_write_interval = 20.0          # sec between writes
+        self._poll_pause_after_write = 20.0      # sec polling-pause after write
 
     # ─────────────────────────────
     # WRITE QUEUE METHODS
