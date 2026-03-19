@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.3.0] - 2026-03-14
+## [1.3.0] - 2026-03-19
 
 ### What's New
 - **LCD On/Off Control**: Added switch to turn the LCD display on or off (user request — thanks @OleMadsen1971!)
@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fixed spurious errors and orphaned futures on THOR reboot**: Disabled websockets-level ping (`ping_interval=None`, `ping_timeout=None`) since THOR manages keepalive via OCPP Heartbeat, added explicit task cancellation with `ensure_future`+`shield` to prevent `Future exception was never retrieved` errors, and introduced a linearly growing poll backoff (60s → 300s) on consecutive timeouts to minimise redundant requests during reboot cycles
 - **Fixed missing guard on Start/Stop Charging buttons**: Pressing "Start charging" while a session is already active, or "Stop charging" without an active session, now logs a warning and returns early instead of sending a rejected OCPP command to the THOR
 - **Fixed spurious ERROR on clean THOR disconnect**: `ConnectionClosedOK` (WebSocket 1001 "going away") is now handled at DEBUG level alongside `ConnectionClosedError`, preventing false error logs on integration reload or removal
-
+- **Fixed energy sensor not accumulating during charging session**: Energy.Active.Import.Register samples with context: Transaction.Begin (always 0 Wh) are now skipped in process_meter_values, preventing the correct cumulative value from being overwritten each interval. Reported by users with firmware THOR_07AS-V5.2.11-20241210-NOVO (thanks @Greg-null!)
 ---
 
 ## [1.2.0] - 2026-01-30

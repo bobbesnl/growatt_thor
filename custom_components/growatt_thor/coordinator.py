@@ -276,10 +276,20 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         continue
 
                     if measurand == "Energy.Active.Import.Register":
-                        if self.energy != value:
-                            self.energy = value
-                            _LOGGER.info("    ✅ Energy: %.3f Wh", value)
-                            updated = True
+                        context = (
+                            sample.get("context")
+                            if isinstance(sample, dict)
+                            else getattr(sample, "context", None)
+                        )
+                        if context == "Transaction.Begin":
+                            _LOGGER.debug(
+                                "    ⏭️ Skipping Energy sample (Transaction.Begin): %.3f Wh", value
+                            )
+                        else:
+                            if self.energy != value:
+                                self.energy = value
+                                _LOGGER.info("    ✅ Energy: %.3f Wh", value)
+                                updated = True
 
                     elif measurand == "Power.Active.Import" and phase:
                         if self.phase_power.get(phase) != value:
