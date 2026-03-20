@@ -4,17 +4,23 @@ from collections import deque
 import asyncio
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+STORAGE_KEY = "growatt_thor_statistics"
+STORAGE_VERSION = 1
+
 
 class GrowattCoordinator(DataUpdateCoordinator):
-    """Coordinator voor Growatt THOR OCPP data."""
+    """Coordinator for Growatt THOR OCPP data."""
 
     def __init__(self, hass):
         super().__init__(hass, _LOGGER, name="Growatt THOR Coordinator")
+
+        self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
 
         self.charge_point_id = None
         self.status = None
@@ -22,7 +28,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.id_tag = None
 
         # ── Totaal ─────────────────────────
-        self.power = None        # W (som van fases)
+        self.power = None        # W
         self.energy = None       # Wh
 
         # ── Fase-specifiek ─────────────────
@@ -38,6 +44,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.external_limit_power_enable = None
         self.charger_mode = None
         self.server_url = None
+        self.lcd_close_enable = None
 
         # Auto charge times (Thor values)
         self.auto_charge_start_time = None
@@ -47,11 +54,20 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.auto_charge_start_time_pending = None
         self.auto_charge_stop_time_pending = None
 
-        # ── Laatste sessie ─────────────────
-        self.last_session_energy = None
-        self.last_session_cost = None
-        self.charge_mode = None
-        self.work_mode = None
+        # ── Last session ─────────────────
+        self.last_session_energy = None           # kWh
+        self.last_session_cost = None             # float
+        self.last_session_start = None            # str
+        self.last_session_end = None              # str
+        self.last_session_plug_time = None        # str
+        self.last_session_unplug_time = None      # str
+        self.last_session_duration_minutes = None # float
+        self.last_session_transaction_id = None   # str
+        self.last_session_charge_mode = None      # str
+        self.last_session_work_mode = None        # str
+
+        # ── Cumulatief totaal (persistent) ─
+        self.total_energy_charged = 0.0           # kWh
 
         # ── External meter (grid connection) ───
         self.grid_power = None
@@ -59,29 +75,40 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.grid_currents = {}
         self.wiring_type = None
 
-        # SESSION HISTORY (laatste 5 sessies)
-        self.session_history = []
-
         # WRITE QUEUE SYSTEEM
         self._write_queue = deque()
         self._write_lock = asyncio.Lock()
         self._write_task = None
 
-        # Rate limiting / polling pause (monotonic time, dus ongevoelig voor klokwijzigingen)
+        # Rate limiting / polling pause (monotonic time)
         self._last_write_monotonic = None
-        self._min_write_interval = 20.0          # seconden tussen writes
-        self._poll_pause_after_write = 20.0      # seconden polling-pauze na write
+        self._min_write_interval = 20.0
+        self._poll_pause_after_write = 20.0
+
+    # ─────────────────────────────
+    # PERSISTENT STORAGE
+    # ─────────────────────────────
+
+    async def async_load_storage(self):
+        """Load persistent statistics from HA storage."""
+        data = await self._store.async_load()
+        if data:
+            self.total_energy_charged = float(data.get("total_energy_charged", 0.0))
+            _LOGGER.info("📦 Loaded from storage: total_energy_charged=%.3f kWh", self.total_energy_charged)
+        else:
+            _LOGGER.info("📦 No persistent storage found, starting fresh")
+
+    async def async_save_storage(self):
+        """Save persistent statistics to HA storage."""
+        await self._store.async_save({"total_energy_charged": self.total_energy_charged})
+        _LOGGER.debug("💾 Saved to storage: total_energy_charged=%.3f kWh", self.total_energy_charged)
 
     # ─────────────────────────────
     # WRITE QUEUE METHODS
     # ─────────────────────────────
 
     async def queue_write(self, write_func, *args, dedupe_key=None, **kwargs):
-        """Voeg een schrijfactie toe aan de queue.
-
-        dedupe_key (optioneel): als gezet, verwijder oudere queue-items met dezelfde key
-        zodat alleen de laatste waarde geschreven wordt.
-        """
+        """Voeg een schrijfactie toe aan de queue."""
         write_item = {
             "func": write_func,
             "args": args,
@@ -91,7 +118,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         }
 
         if dedupe_key is not None:
-            # Verwijder oudere items met dezelfde dedupe_key (coalescing)
             self._write_queue = deque(
                 item for item in self._write_queue if item.get("dedupe_key") != dedupe_key
             )
@@ -99,7 +125,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._write_queue.append(write_item)
         _LOGGER.debug("📥 Write queued. Queue size: %d", len(self._write_queue))
 
-        # Start de queue processor als die nog niet draait
         if self._write_task is None or self._write_task.done():
             self._write_task = self.hass.async_create_task(self._process_write_queue())
 
@@ -112,7 +137,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
                     now_mono = self.hass.loop.time()
 
-                    # Bereken wachttijd sinds laatste write
                     if self._last_write_monotonic is not None:
                         time_since_last = now_mono - self._last_write_monotonic
                         wait_time = max(0.0, self._min_write_interval - time_since_last)
@@ -125,14 +149,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
                             )
                             await asyncio.sleep(wait_time)
 
-                    # Voer de schrijfactie uit
                     try:
                         _LOGGER.info(
                             "✍️ Executing write command. Remaining in queue: %d",
                             len(self._write_queue),
                         )
 
-                        # 🛡️ STOP POLLING VOOR X SECONDEN (Thor bescherming) - vóór write
                         until = self.hass.loop.time() + self._poll_pause_after_write
                         current = self.hass.data[DOMAIN].get("skip_polling_until", 0)
                         self.hass.data[DOMAIN]["skip_polling_until"] = max(current, until)
@@ -140,7 +162,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
                         result = await write_item["func"](*write_item["args"], **write_item["kwargs"])
 
-                        # Update last-write (monotonic)
                         self._last_write_monotonic = self.hass.loop.time()
 
                         _LOGGER.info("✅ Write completed successfully. Result: %s", result)
@@ -149,7 +170,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         _LOGGER.error("❌ Write command failed: %s", err, exc_info=True)
 
             finally:
-                # Zorg dat een volgende enqueue de worker weer kan starten
                 self._write_task = None
 
     # ─────────────────────────────
@@ -198,7 +218,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.id_tag = id_tag
         self.status = "Charging"
 
-        # RESET energy bij START nieuwe sessie
         _LOGGER.info("🔋 New transaction started → Resetting energy counter")
         self.energy = 0
 
@@ -209,7 +228,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """Stop charging transaction."""
         _LOGGER.info("Transaction stopped: %s (reason=%s)", self.transaction_id, reason)
 
-        # RESET alle charge-waarden NA stop
         _LOGGER.info("🛑 Transaction stopped → Resetting charge values")
         self.power = 0
         self.currents = {"L1": 0, "L2": 0, "L3": 0}
@@ -284,10 +302,20 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         continue
 
                     if measurand == "Energy.Active.Import.Register":
-                        if self.energy != value:
-                            self.energy = value
-                            _LOGGER.info("    ✅ Energy: %.3f Wh", value)
-                            updated = True
+                        context = (
+                            sample.get("context")
+                            if isinstance(sample, dict)
+                            else getattr(sample, "context", None)
+                        )
+                        if context == "Transaction.Begin":
+                            _LOGGER.debug(
+                                "    ⏭️ Skipping Energy sample (Transaction.Begin): %.3f Wh", value
+                            )
+                        else:
+                            if self.energy != value:
+                                self.energy = value
+                                _LOGGER.info("    ✅ Energy: %.3f Wh", value)
+                                updated = True
 
                     elif measurand == "Power.Active.Import" and phase:
                         if self.phase_power.get(phase) != value:
@@ -397,6 +425,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         except ValueError as exc:
                             _LOGGER.warning("Failed to parse G_AutoChargeTime '%s': %s", raw, exc)
 
+                elif key == "G_LCDCloseEnable":
+                    if self.lcd_close_enable != raw:
+                        self.lcd_close_enable = raw
+                        _LOGGER.debug("Config: LCDCloseEnable = %s", raw)
+                        updated = True
+
             except (ValueError, TypeError) as exc:
                 _LOGGER.warning("Failed to parse config key=%s value=%s: %s", key, raw, exc)
                 continue
@@ -408,42 +442,47 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.async_set_updated_data(True)
 
     # ─────────────────────────────
-    # Growatt frozenrecord (met session history)
+    # Growatt frozenrecord
     # ─────────────────────────────
 
     def process_frozen_record(self, data: dict):
-        """Process Growatt frozen record with session history."""
+        """Process Growatt frozen record and update session sensors + persistent total."""
         try:
-            session = {
-                "timestamp": self.now(),
-                "energy_kwh": float(data.get("costenergy", 0)) / 1000,
-                "cost": float(data.get("costmoney", 0)) / 100,
-                "charge_mode": data.get("chargemode", ""),
-                "work_mode": data.get("workmode", ""),
-                "plug_time": data.get("plugtime", ""),
-                "unplug_time": data.get("unplugtime", ""),
-                "start_time": data.get("starttime", ""),
-                "end_time": data.get("endtime", ""),
-                "transaction_id": data.get("transactionId", ""),
-            }
+            energy_kwh = float(data.get("costenergy", 0)) / 1000
+            cost = float(data.get("costmoney", 0)) / 100
+            start_str = data.get("starttime", "")
+            end_str = data.get("endtime", "")
 
-            self.last_session_energy = session["energy_kwh"]
-            self.last_session_cost = session["cost"]
-            self.charge_mode = session["charge_mode"]
-            self.work_mode = session["work_mode"]
+            duration_minutes = None
+            try:
+                start_dt = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
+                end_dt = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
+                duration_minutes = round((end_dt - start_dt).total_seconds() / 60, 1)
+            except (ValueError, TypeError):
+                pass
 
-            self.session_history.insert(0, session)
-            if len(self.session_history) > 5:
-                self.session_history = self.session_history[:5]
+            self.last_session_energy = energy_kwh
+            self.last_session_cost = cost
+            self.last_session_start = start_str
+            self.last_session_end = end_str
+            self.last_session_plug_time = data.get("plugtime", "")
+            self.last_session_unplug_time = data.get("unplugtime", "")
+            self.last_session_duration_minutes = duration_minutes
+            self.last_session_transaction_id = data.get("transactionId", "")
+            self.last_session_charge_mode = data.get("chargemode", "")
+            self.last_session_work_mode = data.get("workmode", "")
+
+            self.total_energy_charged += energy_kwh
 
             _LOGGER.info(
-                "Frozen record: energy=%.3f kWh, cost=%.2f, mode=%s/%s (saved to history)",
-                session["energy_kwh"],
-                session["cost"],
-                session["charge_mode"],
-                session["work_mode"],
+                "Frozen record: energy=%.3f kWh, cost=%.2f, duration=%s min, total=%.3f kWh",
+                energy_kwh,
+                cost,
+                f"{duration_minutes:.1f}" if duration_minutes is not None else "unknown",
+                self.total_energy_charged,
             )
 
+            self.hass.async_create_task(self.async_save_storage())
             self.async_set_updated_data(True)
 
         except (ValueError, TypeError, KeyError) as exc:

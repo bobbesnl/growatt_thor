@@ -55,6 +55,13 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             _LOGGER.warning("Cannot start charging: charger not connected")
             return
 
+        if self.coordinator.status == "Charging":
+            _LOGGER.warning(
+                "⚠️ Cannot start charging: session already active (transaction_id=%s)",
+                self.coordinator.transaction_id
+            )
+            return
+
         _LOGGER.info("🔘 Queueing start charging command")
         await self.coordinator.queue_write(self._start_charging, charge_point)
 
@@ -68,10 +75,7 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 
             if result.get("status") == "Accepted":
                 _LOGGER.info("✅ Charging session started successfully")
-
-                # Plan een status update zonder de write-queue onnodig lang te blokkeren
                 self.hass.async_create_task(self._post_status_update(charge_point))
-
                 self.coordinator.async_set_updated_data(True)
             else:
                 _LOGGER.error("❌ Start charging rejected: %s", result.get("status"))
@@ -119,12 +123,14 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
             _LOGGER.warning("Cannot stop charging: charger not connected")
             return
 
-        # Check status of transaction_id
         is_charging = self.coordinator.status == "Charging"
         transaction_id = self.coordinator.transaction_id
 
         if not is_charging and transaction_id is None:
-            _LOGGER.warning("⚠️ No active charging session to stop")
+            _LOGGER.warning(
+                "⚠️ Cannot stop charging: no active session (status=%s)",
+                self.coordinator.status
+            )
             return
 
         # Gebruik transaction_id 0 als fallback (stop huidige sessie)
@@ -149,10 +155,7 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
 
             if result.get("status") == "Accepted":
                 _LOGGER.info("✅ Charging session stopped successfully")
-
-                # Plan een status update zonder de write-queue onnodig lang te blokkeren
                 self.hass.async_create_task(self._post_status_update(charge_point))
-
                 self.coordinator.async_set_updated_data(True)
             else:
                 _LOGGER.error("❌ Stop charging rejected: %s", result.get("status"))

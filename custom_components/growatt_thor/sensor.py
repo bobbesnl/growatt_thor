@@ -13,6 +13,7 @@ from homeassistant.const import (
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
     UnitOfTemperature,
+    UnitOfTime,
 )
 
 from .const import DOMAIN
@@ -23,13 +24,27 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     async_add_entities(
         [
-            # ── Status / totaal (hoofdsensors) ─────────
+            # ── Status / live ─────────────────────────
             StatusSensor(coordinator, entry),
             ChargePointIdSensor(coordinator, entry),
             ChargingPowerSensor(coordinator, entry),
             EnergyChargedSensor(coordinator, entry),
             ServerUrlSensor(coordinator, entry),
-            LastSessionsHistorySensor(coordinator, entry),
+
+            # ── Laatste sessie ────────────────────────
+            LastSessionEnergySensor(coordinator, entry),
+            LastSessionCostSensor(coordinator, entry),
+            LastSessionStartSensor(coordinator, entry),
+            LastSessionEndSensor(coordinator, entry),
+            LastSessionPlugTimeSensor(coordinator, entry),
+            LastSessionUnplugTimeSensor(coordinator, entry),
+            LastSessionDurationSensor(coordinator, entry),
+            LastSessionTransactionIdSensor(coordinator, entry),
+            LastSessionChargeModeSensor(coordinator, entry),
+            LastSessionWorkModeSensor(coordinator, entry),
+
+            # ── Cumulatief totaal (Energy Dashboard) ──
+            TotalEnergyChargedSensor(coordinator, entry),
 
             # ── Fase-specifiek (diagnostics tijdens laden) ──
             CurrentSensor(coordinator, entry, "L1"),
@@ -46,7 +61,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
             TemperatureSensor(coordinator, entry),
 
-            # ── Load Balancing Grid sensors ───────
+            # ── Load Balancing Grid sensors ───────────
             GridPowerSensor(coordinator, entry),
             GridVoltageSensor(coordinator, entry, "L1"),
             GridVoltageSensor(coordinator, entry, "L2"),
@@ -95,7 +110,6 @@ class BaseLoadBalancingSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        """Hint: Data alleen bij Load balancing enabled."""
         if not self.coordinator.external_limit_power_enable:
             return {"note": "Only sensor data when Load balancing is enabled"}
         return None
@@ -108,6 +122,7 @@ class BaseLoadBalancingSensor(CoordinatorEntity, SensorEntity):
 class ServerUrlSensor(BaseSensor):
     _attr_name = "Server URL"
     _attr_icon = "mdi:server"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "server_url")
@@ -115,55 +130,6 @@ class ServerUrlSensor(BaseSensor):
     @property
     def native_value(self):
         return self.coordinator.server_url
-
-
-# ─────────────────────────────
-# Last Sessions History (HOOFDSENSOR - EV Charger)
-# ─────────────────────────────
-
-class LastSessionsHistorySensor(BaseSensor):
-    _attr_name = "Last sessions"
-    _attr_icon = "mdi:history"
-    _attr_state_class = None  # Text sensor
-
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "last_sessions")
-
-    @property
-    def native_value(self):
-        """Return aantal sessies in history."""
-        count = len(self.coordinator.session_history)
-        return f"{count} session{'s' if count != 1 else ''}"
-
-    @property
-    def extra_state_attributes(self):
-        """Return laatste 5 sessies als attributes."""
-        if not self.coordinator.session_history:
-            return {"note": "No sessions recorded yet"}
-
-        attrs = {}
-        for i, session in enumerate(self.coordinator.session_history, 1):
-            # Bereken duration
-            try:
-                from datetime import datetime
-                start = datetime.strptime(session["start_time"], "%Y-%m-%d %H:%M:%S")
-                end = datetime.strptime(session["end_time"], "%Y-%m-%d %H:%M:%S")
-                duration = str(end - start)
-            except:
-                duration = "Unknown"
-
-            attrs[f"session_{i}"] = {
-                "timestamp": session["timestamp"],
-                "energy": f"{session['energy_kwh']:.3f} kWh",
-                "cost": f"€{session['cost']:.2f}",
-                "plug_time": session["plug_time"],
-                "unplug_time": session["unplug_time"],
-                "duration": duration,
-                "mode": f"{session['charge_mode']}/{session['work_mode']}",
-                "transaction_id": session["transaction_id"],
-            }
-
-        return attrs
 
 
 # ─────────────────────────────
@@ -189,6 +155,7 @@ class StatusSensor(BaseSensor):
 class ChargePointIdSensor(BaseSensor):
     _attr_name = "Charge Point ID"
     _attr_icon = "mdi:identifier"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "charge_point_id")
@@ -199,7 +166,6 @@ class ChargePointIdSensor(BaseSensor):
 
     @property
     def available(self):
-        """Sensor only available when charger connected."""
         return self.coordinator.charge_point_id is not None
 
 
@@ -225,7 +191,7 @@ class ChargingPowerSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Energy charged (HOOFDSENSOR - EV Charger)
+# Energy charged live (HOOFDSENSOR - EV Charger)
 # ─────────────────────────────
 
 class EnergyChargedSensor(BaseSensor):
@@ -245,6 +211,202 @@ class EnergyChargedSensor(BaseSensor):
         if self.coordinator.energy is None:
             return 0
         return round(self.coordinator.energy / 1000, 3)
+
+
+# ─────────────────────────────
+# Total energy charged - cumulatief persistent (Energy Dashboard)
+# ─────────────────────────────
+
+class TotalEnergyChargedSensor(BaseSensor):
+    _attr_name = "Total Energy Charged"
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_icon = "mdi:counter"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "total_energy_charged")
+
+    @property
+    def native_unit_of_measurement(self):
+        return UnitOfEnergy.KILO_WATT_HOUR
+
+    @property
+    def native_value(self):
+        return round(self.coordinator.total_energy_charged, 3)
+
+
+# ─────────────────────────────
+# Last session: energy (kWh)
+# ─────────────────────────────
+
+class LastSessionEnergySensor(BaseSensor):
+    _attr_name = "Last Session Energy"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:lightning-bolt"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_session_energy")
+
+    @property
+    def native_unit_of_measurement(self):
+        return UnitOfEnergy.KILO_WATT_HOUR
+
+    @property
+    def native_value(self):
+        return round(self.coordinator.last_session_energy, 3) if self.coordinator.last_session_energy is not None else None
+
+
+# ─────────────────────────────
+# Last session: cost
+# ─────────────────────────────
+
+class LastSessionCostSensor(BaseSensor):
+    _attr_name = "Last Session Cost"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:currency-eur"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_session_cost")
+
+    @property
+    def native_value(self):
+        return round(self.coordinator.last_session_cost, 2) if self.coordinator.last_session_cost is not None else None
+
+
+# ─────────────────────────────
+# Last session: duration (minutes)
+# ─────────────────────────────
+
+class LastSessionDurationSensor(BaseSensor):
+    _attr_name = "Last Session Duration"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:timer-outline"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_session_duration")
+
+    @property
+    def native_unit_of_measurement(self):
+        return UnitOfTime.MINUTES
+
+    @property
+    def native_value(self):
+        return self.coordinator.last_session_duration_minutes
+
+
+# ─────────────────────────────
+# Last session: start time
+# ─────────────────────────────
+
+class LastSessionStartSensor(BaseSensor):
+    _attr_name = "Last Session Start"
+    _attr_icon = "mdi:clock-start"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_session_start")
+
+    @property
+    def native_value(self):
+        return self.coordinator.last_session_start
+
+
+# ─────────────────────────────
+# Last session: end time
+# ─────────────────────────────
+
+class LastSessionEndSensor(BaseSensor):
+    _attr_name = "Last Session End"
+    _attr_icon = "mdi:clock-end"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_session_end")
+
+    @property
+    def native_value(self):
+        return self.coordinator.last_session_end
+
+
+# ─────────────────────────────
+# Last session: plug time
+# ─────────────────────────────
+
+class LastSessionPlugTimeSensor(BaseSensor):
+    _attr_name = "Last Session Plug Time"
+    _attr_icon = "mdi:power-plug"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_session_plug_time")
+
+    @property
+    def native_value(self):
+        return self.coordinator.last_session_plug_time
+
+
+# ─────────────────────────────
+# Last session: unplug time
+# ─────────────────────────────
+
+class LastSessionUnplugTimeSensor(BaseSensor):
+    _attr_name = "Last Session Unplug Time"
+    _attr_icon = "mdi:power-plug-off"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_session_unplug_time")
+
+    @property
+    def native_value(self):
+        return self.coordinator.last_session_unplug_time
+
+
+# ─────────────────────────────
+# Last session: transaction ID (DIAGNOSTIC)
+# ─────────────────────────────
+
+class LastSessionTransactionIdSensor(BaseSensor):
+    _attr_name = "Last Session Transaction ID"
+    _attr_icon = "mdi:identifier"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_session_transaction_id")
+
+    @property
+    def native_value(self):
+        return self.coordinator.last_session_transaction_id
+
+
+# ─────────────────────────────
+# Last session: charge mode (DIAGNOSTIC)
+# ─────────────────────────────
+
+class LastSessionChargeModeSensor(BaseSensor):
+    _attr_name = "Last Session Charge Mode"
+    _attr_icon = "mdi:cog-outline"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_session_charge_mode")
+
+    @property
+    def native_value(self):
+        return self.coordinator.last_session_charge_mode
+
+
+# ─────────────────────────────
+# Last session: work mode (DIAGNOSTIC)
+# ─────────────────────────────
+
+class LastSessionWorkModeSensor(BaseSensor):
+    _attr_name = "Last Session Work Mode"
+    _attr_icon = "mdi:cog-outline"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_session_work_mode")
+
+    @property
+    def native_value(self):
+        return self.coordinator.last_session_work_mode
 
 
 # ─────────────────────────────
@@ -318,6 +480,7 @@ class PhasePowerSensor(BaseSensor):
         value = self.coordinator.phase_power.get(self.phase)
         return value if value is not None else 0
 
+
 # ─────────────────────────────
 # Temperature (DIAGNOSTIC - EV Charger)
 # ─────────────────────────────
@@ -340,6 +503,7 @@ class TemperatureSensor(BaseSensor):
         value = self.coordinator.temperature
         return value if value is not None else 0
 
+
 # ─────────────────────────────
 # Grid / External Meter (LOAD BALANCING DEVICE!)
 # ─────────────────────────────
@@ -361,6 +525,7 @@ class GridPowerSensor(BaseLoadBalancingSensor):
     def native_value(self):
         return self.coordinator.grid_power if self.coordinator.grid_power is not None else 0
 
+
 class GridVoltageSensor(BaseLoadBalancingSensor):
     _attr_device_class = SensorDeviceClass.VOLTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -379,6 +544,7 @@ class GridVoltageSensor(BaseLoadBalancingSensor):
     def native_value(self):
         value = self.coordinator.grid_voltages.get(self.phase)
         return value if value is not None else 0
+
 
 class GridCurrentSensor(BaseLoadBalancingSensor):
     _attr_device_class = SensorDeviceClass.CURRENT
