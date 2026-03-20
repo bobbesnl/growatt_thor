@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.3.0] - 2026-03-19
+## [1.3.0] - 2026-03-20
 
 ## Please note! It is best to remove the integration and add it again after this update.
 
