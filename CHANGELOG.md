@@ -11,10 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### What's New
 - **LCD On/Off Control**: Added switch to turn the LCD display on or off (user request — thanks @OleMadsen1971!)
+- **Session statistics sensors**: Added dedicated sensors for each completed charging session: energy (kWh), cost, duration (minutes), start time, end time, plug time, unplug time, charge mode, work mode and transaction ID (thanks @Greg-null!)
+- **Persistent total energy tracking**: Added `sensor.growatt_thor_ev_charger_total_energy_charged` — cumulative energy counter across all sessions, persistent across restarts and compatible with the Home Assistant Energy Dashboard (thanks @Greg-null!)
 
 ### Improvements
 - **Moved mode selector to Settings**: Mode selection requires a reboot and is not intended for use in automations. Moving it to Settings (Config Flow) makes this distinction clearer. For correct displaying parameters/diagnostics it might be needed to manual remove and add the integration again after applying this update. 
 - **Improved robustness of Max Current and Load Balancing Limit writes**: Skips redundant OCPP `ChangeConfiguration` calls when the value is unchanged, and rolls back the optimistic UI update if the THOR rejects or errors the write
+- **Session data now uses proper numeric sensor states**: Values from `currentrecord` are stored as numeric floats instead of string attributes, enabling automations, statistics and long-term history in Home Assistant
+- **Removed Last sessions history sensor**: Replaced by individual session sensors with proper state classes
 
 ### Bug Fixes
 - **Fixed minimum and maximum load balance limits**: Prevents THOR crashes caused by out-of-range values and minimum current now conform IEC 61851 standard (6A)
@@ -23,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fixed missing guard on Start/Stop Charging buttons**: Pressing "Start charging" while a session is already active, or "Stop charging" without an active session, now logs a warning and returns early instead of sending a rejected OCPP command to the THOR
 - **Fixed spurious ERROR on clean THOR disconnect**: `ConnectionClosedOK` (WebSocket 1001 "going away") is now handled at DEBUG level alongside `ConnectionClosedError`, preventing false error logs on integration reload or removal
 - **Fixed energy sensor not accumulating during charging session**: Energy.Active.Import.Register samples with context: Transaction.Begin (always 0 Wh) are now skipped in process_meter_values, preventing the correct cumulative value from being overwritten each interval. Reported by users with firmware THOR_07AS-V5.2.11-20241210-NOVO (thanks @Greg-null!)
+- **Fixed incorrect state_class warning for session energy sensor**: Removed `device_class: energy` from `Last Session Energy` sensor to comply with Home Assistant sensor class requirements
 ---
 
 ## [1.2.0] - 2026-01-30

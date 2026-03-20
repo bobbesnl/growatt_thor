@@ -36,7 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Growatt THOR from config entry."""
 
     coordinator = GrowattCoordinator(hass)
-
+    await coordinator.async_load_storage()
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["coordinator"] = coordinator
     hass.data[DOMAIN]["skip_polling_until"] = 0.0
