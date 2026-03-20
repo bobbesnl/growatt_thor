@@ -6,8 +6,6 @@ import logging
 from .const import (
     DOMAIN,
     DEFAULT_PORT,
-    DEFAULT_HOST,
-    CONF_HOST,
     CONF_PORT,
     CONF_POLL_INTERVAL,
     DEFAULT_POLL_INTERVAL,
@@ -48,7 +46,6 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_HOST, default=DEFAULT_HOST): str,
                     vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
                     vol.Required(
                         CONF_POLL_INTERVAL,
@@ -84,11 +81,9 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         errors = {}
 
         if user_input is not None:
-            # AP Mode
             if user_input.get("enable_ap_mode"):
                 return await self.async_step_confirm_ap_mode()
 
-            # Charger Mode change requested
             selected_mode = user_input.get("charger_mode")
             coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
             current_mode_value = str(coordinator.charger_mode) if coordinator and coordinator.charger_mode else None
@@ -98,7 +93,6 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 self._selected_mode = selected_mode
                 return await self.async_step_confirm_charger_mode()
 
-            # Poll interval update
             poll_interval = user_input.get(CONF_POLL_INTERVAL)
             if poll_interval < MIN_POLL_INTERVAL:
                 errors[CONF_POLL_INTERVAL] = "poll_interval_too_low"
@@ -113,7 +107,6 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL
         )
 
-        # Determine current charger mode for default value in selector
         coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
         current_mode_value = str(coordinator.charger_mode) if coordinator and coordinator.charger_mode else None
         current_mode_label = CHARGER_MODE_OPTIONS.get(current_mode_value, "HA/RFID")
@@ -147,7 +140,6 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 await self._apply_charger_mode(self._selected_mode)
                 return self.async_abort(reason="charger_mode_changed")
             else:
-                # User canceled, back to mainmenu
                 return await self.async_step_init()
 
         return self.async_show_form(

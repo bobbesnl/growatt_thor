@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.0] - 2026-03-19
 
+## Please note! It is best to remove the integration and add it again after this update.
+
 ### What's New
 - **LCD On/Off Control**: Added switch to turn the LCD display on or off (user request — thanks @OleMadsen1971!)
 - **Session statistics sensors**: Added dedicated sensors for each completed charging session: energy (kWh), cost, duration (minutes), start time, end time, plug time, unplug time, charge mode, work mode and transaction ID (thanks @Greg-null!)
@@ -28,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fixed spurious ERROR on clean THOR disconnect**: `ConnectionClosedOK` (WebSocket 1001 "going away") is now handled at DEBUG level alongside `ConnectionClosedError`, preventing false error logs on integration reload or removal
 - **Fixed energy sensor not accumulating during charging session**: Energy.Active.Import.Register samples with context: Transaction.Begin (always 0 Wh) are now skipped in process_meter_values, preventing the correct cumulative value from being overwritten each interval. Reported by users with firmware THOR_07AS-V5.2.11-20241210-NOVO (thanks @Greg-null!)
 - **Fixed incorrect state_class warning for session energy sensor**: Removed `device_class: energy` from `Last Session Energy` sensor to comply with Home Assistant sensor class requirements
+- **Removed confusing Host field from setup**: The OCPP server always binds to `0.0.0.0` (all interfaces), making the Host field ineffective. Removing it prevents users from accidentally entering the THOR's IP address, which would cause the integration to fail silently
+
 ---
 
 ## [1.2.0] - 2026-01-30

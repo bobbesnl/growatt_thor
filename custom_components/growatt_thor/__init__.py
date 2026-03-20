@@ -41,7 +41,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["coordinator"] = coordinator
     hass.data[DOMAIN]["skip_polling_until"] = 0.0
 
-    host = entry.data.get("host", "0.0.0.0")
     port = entry.data.get("port", 9000)
 
     poll_interval = entry.data.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
@@ -49,10 +48,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     _LOGGER.info("Configured grid poll interval: %d seconds", poll_interval)
 
-    server = await start_ocpp_server(host, port, coordinator, hass)
+    server = await start_ocpp_server("0.0.0.0", port, coordinator, hass)
     hass.data[DOMAIN]["server"] = server
 
-    _LOGGER.info("OCPP server started on %s:%s", host, port)
+    _LOGGER.info("OCPP server started on %s:%s", "0.0.0.0", port)
 
     hass.async_create_task(_check_existing_connection(hass, coordinator))
 
