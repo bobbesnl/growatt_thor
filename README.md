@@ -105,8 +105,7 @@ After each completed charging session, the following data is automatically appen
 
 When adding the integration, enter the **exact installation address** of the charger in the **Location** field. This address will be included in every exported session report.
 
-You can update the location at any time via:
-**Settings → Devices & Services → Growatt THOR → Configure**
+You can update the location at any time via **Settings → Devices & Services → Growatt THOR → Configure**
 
 ### Exporting Session Data
 
@@ -122,7 +121,9 @@ data:
 ```
 
 After the action completes, a notification appears in Home Assistant with a direct download link to the generated CSV file.
-**Note:** The export file is saved to /config/www/ and is accessible via /local/ in your browser. The file is named growatt_thor_export_YYYY-MM-DD_YYYY-MM-DD.csv.
+
+**Note:** The export file is saved to `/config/www/` and is accessible via `/local/` in your browser. The file is named `growatt_thor_export_YYYY-MM-DD_YYYY-MM-DD.csv`.
+
 **Note:** for spreadsheet users: When opening the CSV in LibreOffice Calc or Microsoft Excel, ensure the decimal separator is set to . (dot) to correctly display energy values such as 0.068.
 
 ### Lovelace UI — Export Panel
