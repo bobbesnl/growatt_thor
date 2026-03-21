@@ -7,6 +7,7 @@ from .const import (
     DOMAIN,
     DEFAULT_PORT,
     CONF_PORT,
+    CONF_LOCATION,
     CONF_POLL_INTERVAL,
     DEFAULT_POLL_INTERVAL,
     MIN_POLL_INTERVAL,
@@ -47,6 +48,7 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
+                    vol.Required(CONF_LOCATION, default=""): str,
                     vol.Required(
                         CONF_POLL_INTERVAL,
                         default=DEFAULT_POLL_INTERVAL,
@@ -97,15 +99,25 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             if poll_interval < MIN_POLL_INTERVAL:
                 errors[CONF_POLL_INTERVAL] = "poll_interval_too_low"
             else:
+                new_location = user_input.get(CONF_LOCATION, "")
                 self.hass.config_entries.async_update_entry(
                     self.config_entry,
-                    data={**self.config_entry.data, CONF_POLL_INTERVAL: poll_interval}
+                    data={
+                        **self.config_entry.data,
+                        CONF_POLL_INTERVAL: poll_interval,
+                        CONF_LOCATION: new_location,
+                    }
                 )
+                # Update coordinator location live
+                coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
+                if coordinator:
+                    coordinator.location = new_location
                 return self.async_create_entry(title="", data={})
 
         current_poll_interval = self.config_entry.data.get(
             CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL
         )
+        current_location = self.config_entry.data.get(CONF_LOCATION, "")
 
         coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
         current_mode_value = str(coordinator.charger_mode) if coordinator and coordinator.charger_mode else None
@@ -119,6 +131,10 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                         CONF_POLL_INTERVAL,
                         default=current_poll_interval,
                     ): vol.All(vol.Coerce(int), vol.Range(min=MIN_POLL_INTERVAL)),
+                    vol.Required(
+                        CONF_LOCATION,
+                        default=current_location,
+                    ): str,
                     vol.Optional(
                         "charger_mode",
                         default=current_mode_label,

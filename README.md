@@ -80,25 +80,98 @@ Your feedback helps identify patterns and improve integration stability! 🙏
     - THOR broadcasts WiFi network (typically serialno based SSID) for direct configuration when activated
 
 ### 📈 Session History
-- **Last 5 sessions**: Energy (kWh), cost, charge mode, work mode, timestamps
 - **Current session tracking**: Real-time updates during active charging
 
-### 🛡️ Stability Features
+## 📋 Session Logging & Data Export
+
+This integration automatically logs every completed charging session to a local CSV file. This is useful for subsidy programs (such as ERE certificates in the Netherlands) that require annual reports with per-session charging data.
+
+### How It Works
+
+After each completed charging session, the following data is automatically appended to `/config/growatt_thor_sessions.csv`:
+
+| Field | Description |
+|---|---|
+| `charger_id` | Unique charger identifier (serial number) |
+| `location` | Charger address as configured during setup |
+| `start_time` | Charging session start time |
+| `end_time` | Charging session end time |
+| `energy_kwh` | Energy delivered during session (kWh) |
+| `cost` | Session cost as reported by charger |
+| `duration_minutes` | Session duration in minutes |
+| `transaction_id` | OCPP transaction ID |
+
+### Initial Setup
+
+When adding the integration, enter the **exact installation address** of the charger in the **Location** field. This address will be included in every exported session report.
+
+You can update the location at any time via:
+**Settings → Devices & Services → Growatt THOR → Configure**
+
+### Exporting Session Data
+
+Use the built-in action to export sessions for a specific date range:
+
+**Via Developer Tools → Actions:**
+
+```yaml
+action: growatt_thor.export_sessions
+data:
+  date_from: "2026-01-01"
+  date_to: "2026-12-31"
+```
+
+After the action completes, a notification appears in Home Assistant with a direct download link to the generated CSV file.
+**Note:** The export file is saved to /config/www/ and is accessible via /local/ in your browser. The file is named growatt_thor_export_YYYY-MM-DD_YYYY-MM-DD.csv.
+**Note:** for spreadsheet users: When opening the CSV in LibreOffice Calc or Microsoft Excel, ensure the decimal separator is set to . (dot) to correctly display energy values such as 0.068.
+
+### Lovelace UI — Export Panel
+
+Add this card to your dashboard for a convenient export interface without needing Developer Tools:
+
+```yaml
+type: vertical-stack
+cards:
+  - type: markdown
+    content: |
+      ## 📋 Export Charging Sessions
+      Fill in the date range and press **Export** to generate a CSV download.
+  - type: entities
+    entities:
+      - entity: input_text.growatt_export_date_from
+        name: From (YYYY-MM-DD)
+      - entity: input_text.growatt_export_date_to
+        name: To (YYYY-MM-DD)
+  - type: button
+    name: Export Sessions
+    icon: mdi:file-download-outline
+    tap_action:
+      action: perform-action
+      perform_action: growatt_thor.export_sessions
+      data:
+        date_from: "{{ states('input_text.growatt_export_date_from') }}"
+        date_to: "{{ states('input_text.growatt_export_date_to') }}"
+```
+
+Add the required helpers in Settings → Helpers → Add Helper → Text:
+- **input_text.growatt_export_date_from** — default value: current year start e.g. 2026-01-01
+- **input_text.growatt_export_date_to** — default value: today e.g. 2026-12-31
+
+Example Export Output:
+
+```yaml
+charger_id,location,start_time,end_time,energy_kwh,cost,duration_minutes,transaction_id
+XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-21 08:19:03,2026-03-21 09:42:02,3.170,0.63,83.0,1
+XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-22 07:05:11,2026-03-22 08:31:44,8.450,1.69,86.5,2
+```
+
+## 🛡️ Stability Features
 - **Write queue system**: Intelligent buffering of all configuration writes with 15-second rate limiting
 - **Anti-crash protection**: 20-second polling pause after each configuration change to prevent Thor firmware crashes
 - **Sequential write operations**: Multiple rapid changes are automatically queued and executed safely
 - **TIER 2 error recovery**: Robust error handling for connection issues
 - **Smart polling**: Only polls external meter when load balancing is enabled
 - **Queue visibility**: Real-time logging of queued operations and wait times
-
----
-
-### Future Features (wishlist)
-- Enabling solar powered EV charging
-- RFID card management
--~~Enabling AP mode from within integration~~
-- Enabling data passthrough to Growatt cloud server
-- Other...?
 
 ---
 
