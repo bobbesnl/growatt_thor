@@ -128,7 +128,25 @@ After the action completes, a notification appears in Home Assistant with a dire
 
 ### Lovelace UI — Export Panel
 
-Add this card to your dashboard for a convenient export interface without needing Developer Tools:
+**Add a export panel for a convenient export interface without needing Developer Tools**
+
+First add this script: **Settings -> Automations and scenes -> Scripts -> Add script**
+```yaml
+alias: Growatt Export Sessions
+sequence:
+  - action: growatt_thor.export_sessions
+    data:
+      date_from: "{{ states('input_text.growatt_export_date_from') }}"
+      date_to: "{{ states('input_text.growatt_export_date_to') }}"
+mode: single
+```
+
+Then add the required helpers in **Settings → Helpers → Add Helper → Text:**
+- **input_text.growatt_export_date_from** — default value: current year start e.g. 2026-01-01
+- **input_text.growatt_export_date_to** — default value: today e.g. 2026-12-31
+
+
+Add this card to your dashboard:
 
 ```yaml
 type: vertical-stack
@@ -153,10 +171,6 @@ cards:
         date_from: "{{ states('input_text.growatt_export_date_from') }}"
         date_to: "{{ states('input_text.growatt_export_date_to') }}"
 ```
-
-Add the required helpers in Settings → Helpers → Add Helper → Text:
-- **input_text.growatt_export_date_from** — default value: current year start e.g. 2026-01-01
-- **input_text.growatt_export_date_to** — default value: today e.g. 2026-12-31
 
 Example Export Output:
 
