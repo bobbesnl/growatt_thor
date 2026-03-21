@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-03-21
+
+## Please note! It is best to remove the integration and add it again after this update, as a new required field (Location) has been added to the setup.
+
+### What's New
+- **Automatic session logging to CSV**: Every completed charging session is now automatically appended to `/config/growatt_thor_sessions.csv`. This file serves as a permanent local log of all charging sessions and survives restarts and updates.
+- **Charging data export**: Added a new action `growatt_thor.export_sessions` that generates a filtered CSV export for a specified date range. This export is intended for annual subsidy reporting programs (such as ERE certificates in the Netherlands) that require per-session charging data including charger ID, location, start/end time and energy delivered. The exported file is saved to `/config/www/` and a direct download link is provided via a Home Assistant notification.
+- **Location field in setup**: A new **Location** field has been added to the integration setup (and options flow). Enter the exact installation address of the charger — this address is included in every exported session report as required for official reporting. The location can be updated at any time via **Settings → Devices & Services → Growatt THOR → Configure**.
+
+### Usage
+Export sessions via **Developer Tools → Actions**:
+
+```yaml
+action: growatt_thor.export_sessions
+data:
+  date_from: "2026-01-01"
+  date_to: "2026-12-31"
+```
+
+After the action completes, a notification appears with a direct download link to the generated CSV file.
+See README.md for full documentation including a Lovelace UI export panel example.
+
+
 ## [1.3.0] - 2026-03-20
 
 ## Please note! It is best to remove the integration and add it again after this update.

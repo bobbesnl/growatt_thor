@@ -45,6 +45,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.charger_mode = None
         self.server_url = None
         self.lcd_close_enable = None
+        self.location = ""
 
         # Auto charge times (Thor values)
         self.auto_charge_start_time = None
@@ -481,6 +482,22 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 f"{duration_minutes:.1f}" if duration_minutes is not None else "unknown",
                 self.total_energy_charged,
             )
+
+            # CSV logging via __init__.py helper
+            append_fn = self.hass.data.get(DOMAIN, {}).get("append_session_to_csv")
+            if append_fn:
+                session_row = {
+                    "timestamp": self.now(),
+                    "charger_id": self.charge_point_id or "",
+                    "location": self.location,
+                    "start_time": start_str,
+                    "end_time": end_str,
+                    "energy_kwh": round(energy_kwh, 3),
+                    "cost": round(cost, 2),
+                    "duration_minutes": duration_minutes if duration_minutes is not None else "",
+                    "transaction_id": data.get("transactionId", ""),
+                }
+                self.hass.async_create_task(append_fn(session_row))
 
             self.hass.async_create_task(self.async_save_storage())
             self.async_set_updated_data(True)
