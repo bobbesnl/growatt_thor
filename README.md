@@ -165,11 +165,8 @@ cards:
     name: Export Sessions
     icon: mdi:file-download-outline
     tap_action:
-      action: perform-action
-      perform_action: growatt_thor.export_sessions
-      data:
-        date_from: "{{ states('input_text.growatt_export_date_from') }}"
-        date_to: "{{ states('input_text.growatt_export_date_to') }}"
+      action: call-service
+      service: script.growatt_export_sessions
 ```
 
 Example Export Output:
