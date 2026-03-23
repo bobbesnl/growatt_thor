@@ -20,8 +20,14 @@ from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-
 def _preload_ocpp_schemas():
+    try:
+        import importlib.metadata
+        version = importlib.metadata.version("ocpp")
+        _LOGGER.info("ocpp library version: %s", version)
+    except Exception as exc:
+        _LOGGER.warning("Could not determine ocpp library version: %s", exc)
+
     try:
         from ocpp.messages import get_validator, MessageType
         from ocpp.v16.enums import Action
@@ -39,7 +45,6 @@ def _preload_ocpp_schemas():
 
     except Exception as exc:
         _LOGGER.warning("OCPP schema pre-load failed (non-fatal): %s", exc)
-
 
 class GrowattChargePoint(OcppChargePoint):
     """
@@ -68,14 +73,14 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             _LOGGER.info("BootNotification payload: %s", payload)
             self.hass.async_create_task(self._post_connect_init())
-            return call_result.BootNotificationPayload(
+            return call_result.BootNotification(
                 current_time=self.coordinator.now(),
                 interval=60,
                 status=RegistrationStatus.accepted,
             )
         except Exception as exc:
             _LOGGER.error("Error in BootNotification handler: %s", exc, exc_info=True)
-            return call_result.BootNotificationPayload(
+            return call_result.BootNotification(
                 current_time=self.coordinator.now(),
                 interval=60,
                 status=RegistrationStatus.accepted,
@@ -88,12 +93,12 @@ class GrowattChargePoint(OcppChargePoint):
                 self._heartbeat_done = True
                 _LOGGER.info("⭐ First Heartbeat → Auto fetching configuration...")
                 self.hass.async_create_task(self._post_connect_init())
-            return call_result.HeartbeatPayload(
+            return call_result.Heartbeat(
                 current_time=self.coordinator.now()
             )
         except Exception as exc:
             _LOGGER.error("Error in Heartbeat handler: %s", exc)
-            return call_result.HeartbeatPayload(current_time=self.coordinator.now())
+            return call_result.Heartbeat(current_time=self.coordinator.now())
 
     # ─────────────────────────────
     # Helper: Post-connect init
@@ -103,7 +108,6 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             await asyncio.sleep(1)
 
-            # Reset consecutive timeout counter on reconnect
             self.coordinator.meterval_consecutive_timeouts = 0
 
             _LOGGER.info("🔄 Auto GetConfiguration after connect")
@@ -125,12 +129,12 @@ class GrowattChargePoint(OcppChargePoint):
     @on("Authorize")
     async def on_authorize(self, id_tag, **kwargs):
         try:
-            return call_result.AuthorizePayload(
+            return call_result.Authorize(
                 id_tag_info={"status": AuthorizationStatus.accepted}
             )
         except Exception as exc:
             _LOGGER.error("Error in Authorize handler for idTag=%s: %s", id_tag, exc, exc_info=True)
-            return call_result.AuthorizePayload(
+            return call_result.Authorize(
                 id_tag_info={"status": AuthorizationStatus.invalid}
             )
 
@@ -140,13 +144,13 @@ class GrowattChargePoint(OcppChargePoint):
             transaction_id = self._transaction_id
             self._transaction_id += 1
             self.coordinator.start_transaction(transaction_id, id_tag)
-            return call_result.StartTransactionPayload(
+            return call_result.StartTransaction(
                 transaction_id=transaction_id,
                 id_tag_info={"status": AuthorizationStatus.accepted},
             )
         except Exception as exc:
             _LOGGER.error("Error in StartTransaction handler (connector=%s, idTag=%s): %s", connector_id, id_tag, exc, exc_info=True)
-            return call_result.StartTransactionPayload(
+            return call_result.StartTransaction(
                 transaction_id=0,
                 id_tag_info={"status": AuthorizationStatus.invalid},
             )
@@ -155,12 +159,12 @@ class GrowattChargePoint(OcppChargePoint):
     async def on_stop_transaction(self, transaction_id, meter_stop, reason=None, **kwargs):
         try:
             self.coordinator.stop_transaction(reason)
-            return call_result.StopTransactionPayload(
+            return call_result.StopTransaction(
                 id_tag_info={"status": AuthorizationStatus.accepted}
             )
         except Exception as exc:
             _LOGGER.error("Error in StopTransaction handler (transaction_id=%s): %s", transaction_id, exc, exc_info=True)
-            return call_result.StopTransactionPayload(
+            return call_result.StopTransaction(
                 id_tag_info={"status": AuthorizationStatus.accepted}
             )
 
@@ -172,10 +176,10 @@ class GrowattChargePoint(OcppChargePoint):
     async def on_status_notification(self, connector_id, status, error_code=None, **kwargs):
         try:
             self.coordinator.set_status(status)
-            return call_result.StatusNotificationPayload()
+            return call_result.StatusNotification()
         except Exception as exc:
             _LOGGER.error("Error in StatusNotification handler (status=%s): %s", status, exc, exc_info=True)
-            return call_result.StatusNotificationPayload()
+            return call_result.StatusNotification()
 
     @on("MeterValues")
     async def on_meter_values(self, connector_id, meter_value, **kwargs):
@@ -187,10 +191,10 @@ class GrowattChargePoint(OcppChargePoint):
                     _LOGGER.info("✅ Transaction ID captured from MeterValues: %s", transaction_id)
                     self.coordinator.async_set_updated_data(True)
             self.coordinator.process_meter_values(meter_value)
-            return call_result.MeterValuesPayload()
+            return call_result.MeterValues()
         except Exception as exc:
             _LOGGER.error("Error in MeterValues handler: %s", exc, exc_info=True)
-            return call_result.MeterValuesPayload()
+            return call_result.MeterValues()
 
     # ─────────────────────────────
     # Growatt vendor DataTransfer
@@ -206,7 +210,7 @@ class GrowattChargePoint(OcppChargePoint):
                 self.coordinator.process_frozen_record(parsed)
         except Exception as exc:
             _LOGGER.error("Error in DataTransfer handler (vendor=%s, messageId=%s): %s", vendor_id, message_id, exc, exc_info=True)
-        return call_result.DataTransferPayload(status=DataTransferStatus.accepted)
+        return call_result.DataTransfer(status=DataTransferStatus.accepted)
 
     # ─────────────────────────────
     # Active triggers
@@ -215,17 +219,15 @@ class GrowattChargePoint(OcppChargePoint):
     async def trigger_status(self):
         try:
             _LOGGER.info("Triggering StatusNotification")
-            await self.call(call.TriggerMessagePayload(requested_message="StatusNotification", connector_id=1))
+            await self.call(call.TriggerMessage(requested_message="StatusNotification", connector_id=1))
         except Exception as exc:
             _LOGGER.warning("Failed to trigger StatusNotification: %s", exc)
 
     async def trigger_external_meterval(self):
         _LOGGER.info("Triggering Growatt get_external_meterval")
 
-        # Use ensure_future + shield so the underlying OCPP task can be explicitly
-        # cancelled and awaited on timeout, preventing orphaned futures in _pending_requests
         task = asyncio.ensure_future(
-            self.call(call.DataTransferPayload(vendor_id="Growatt", message_id="get_external_meterval"))
+            self.call(call.DataTransfer(vendor_id="Growatt", message_id="get_external_meterval"))
         )
 
         try:
@@ -249,7 +251,6 @@ class GrowattChargePoint(OcppChargePoint):
             self.coordinator.meterval_consecutive_timeouts = count
 
             if count >= 2:
-                # Lineair groeiende backoff: 60s, 120s, 180s... max 300s
                 pause = min(60 * (count - 1), 300)
                 until = self.hass.loop.time() + pause
                 current = self.hass.data[DOMAIN].get("skip_polling_until", 0)
@@ -279,22 +280,14 @@ class GrowattChargePoint(OcppChargePoint):
 
     async def trigger_get_configuration(self):
         try:
-            # ═══════════════════════════════════════════════════════
-            # CALL 1: Standard keys (Thor's default set)
-            # ═══════════════════════════════════════════════════════
-
             _LOGGER.info("Triggering GetConfiguration CALL 1 (standard keys)")
             result1 = await asyncio.wait_for(
-                self.call(call.GetConfigurationPayload()),
+                self.call(call.GetConfiguration()),
                 timeout=30.0
             )
             config_keys_1 = getattr(result1, "configuration_key", [])
             unknown_keys_1 = getattr(result1, "unknown_key", [])
             _LOGGER.info("CALL 1 received: %d keys (%d unknown)", len(config_keys_1), len(unknown_keys_1))
-
-            # ═══════════════════════════════════════════════════════
-            # CALL 2: Extended keys (network, WiFi, solar, off-peak)
-            # ═══════════════════════════════════════════════════════
 
             await asyncio.sleep(0.5)
 
@@ -314,16 +307,12 @@ class GrowattChargePoint(OcppChargePoint):
 
             _LOGGER.info("Triggering GetConfiguration CALL 2 (extended keys: %d)", len(extended_keys))
             result2 = await asyncio.wait_for(
-                self.call(call.GetConfigurationPayload(key=extended_keys)),
+                self.call(call.GetConfiguration(key=extended_keys)),
                 timeout=30.0
             )
             config_keys_2 = getattr(result2, "configuration_key", [])
             unknown_keys_2 = getattr(result2, "unknown_key", [])
             _LOGGER.info("CALL 2 received: %d keys (%d unknown)", len(config_keys_2), len(unknown_keys_2))
-
-            # ═══════════════════════════════════════════════════════
-            # Process all keys (call 1 + call 2)
-            # ═══════════════════════════════════════════════════════
 
             all_config_keys = config_keys_1 + config_keys_2
             all_unknown_keys = list(set(unknown_keys_1 + unknown_keys_2))
@@ -356,7 +345,7 @@ class GrowattChargePoint(OcppChargePoint):
     async def change_configuration(self, key: str, value: str):
         try:
             _LOGGER.info("ChangeConfiguration: %s = %s", key, value)
-            result = await self.call(call.ChangeConfigurationPayload(key=key, value=value))
+            result = await self.call(call.ChangeConfiguration(key=key, value=value))
             status = getattr(result, "status", ConfigurationStatus.rejected)
             _LOGGER.info("ChangeConfiguration result: %s", status)
             return status
@@ -372,7 +361,7 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             _LOGGER.info("🔵 RemoteStartTransaction: connector_id=%d, id_tag=%s", connector_id, id_tag)
             result = await self.call(
-                call.RemoteStartTransactionPayload(connector_id=connector_id, id_tag=id_tag)
+                call.RemoteStartTransaction(connector_id=connector_id, id_tag=id_tag)
             )
             status = getattr(result, "status", RemoteStartStopStatus.rejected)
             _LOGGER.info("RemoteStartTransaction result: %s", status)
@@ -385,7 +374,7 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             _LOGGER.info("🔴 RemoteStopTransaction: transaction_id=%d", transaction_id)
             result = await self.call(
-                call.RemoteStopTransactionPayload(transaction_id=transaction_id)
+                call.RemoteStopTransaction(transaction_id=transaction_id)
             )
             status = getattr(result, "status", RemoteStartStopStatus.rejected)
             _LOGGER.info("RemoteStopTransaction result: %s", status)
@@ -417,8 +406,6 @@ async def _on_connect(websocket, path, coordinator, hass):
         finally:
             hass.data.get(DOMAIN, {}).pop("charge_point", None)
             coordinator.set_status("Unavailable")
-            # Explicitly close websocket to clean up internal background tasks
-            # and ensure all pending futures have their exceptions retrieved
             try:
                 await asyncio.wait_for(websocket.close(), timeout=5.0)
             except (asyncio.TimeoutError, Exception):
@@ -443,8 +430,8 @@ async def start_ocpp_server(host, port, coordinator, hass):
             host,
             port,
             subprotocols=[OCPP_SUBPROTOCOL],
-            ping_interval=None,   # OCPP Heartbeat handles keepalive; disable websockets-level pinging entirely
-            ping_timeout=None,    # prevents orphaned shielded futures on disconnect
+            ping_interval=None,
+            ping_timeout=None,
         )
     except Exception as exc:
         _LOGGER.error("Failed to start OCPP server: %s", exc, exc_info=True)

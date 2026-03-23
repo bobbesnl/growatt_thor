@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.1] - 2026-03-23
+
+### Fixed
+- **Migrated to ocpp library >=2.0.0**: removed deprecated `*Payload` suffix from all OCPP 1.6 call and call_result classes, resolving compatibility issues when running alongside other OCPP integrations.
+
+---
+
 ## [1.4.0] - 2026-03-21
 
 ## Please note! It is best to remove the integration and add it again after this update, as a new required field (Location) has been added to the setup.
@@ -29,6 +36,7 @@ data:
 After the action completes, a notification appears with a direct download link to the generated CSV file.
 See README.md for full documentation including a Lovelace UI export panel example.
 
+---
 
 ## [1.3.0] - 2026-03-20
 
