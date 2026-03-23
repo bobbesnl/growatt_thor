@@ -20,8 +20,14 @@ from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-
 def _preload_ocpp_schemas():
+    try:
+        import importlib.metadata
+        version = importlib.metadata.version("ocpp")
+        _LOGGER.info("ocpp library version: %s", version)
+    except Exception as exc:
+        _LOGGER.warning("Could not determine ocpp library version: %s", exc)
+
     try:
         from ocpp.messages import get_validator, MessageType
         from ocpp.v16.enums import Action
@@ -39,7 +45,6 @@ def _preload_ocpp_schemas():
 
     except Exception as exc:
         _LOGGER.warning("OCPP schema pre-load failed (non-fatal): %s", exc)
-
 
 class GrowattChargePoint(OcppChargePoint):
     """
