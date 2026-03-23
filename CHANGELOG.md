@@ -7,10 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.5.0] - 2026-03-22
+## [1.4.1] - 2026-03-23
 
-### Changed
-- **Migrated to ocpp library 2.0.0**: removed deprecated `*Payload` suffix from all OCPP 1.6 call and call_result classes, resolving compatibility issues when running alongside other OCPP integrations.
+### Fixed
+- **Migrated to ocpp library >=2.0.0**: removed deprecated `*Payload` suffix from all OCPP 1.6 call and call_result classes, resolving compatibility issues when running alongside other OCPP integrations.
 
 ---
 
