@@ -20,6 +20,7 @@ from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+
 def _preload_ocpp_schemas():
     try:
         import importlib.metadata
@@ -45,6 +46,7 @@ def _preload_ocpp_schemas():
 
     except Exception as exc:
         _LOGGER.warning("OCPP schema pre-load failed (non-fatal): %s", exc)
+
 
 class GrowattChargePoint(OcppChargePoint):
     """
@@ -280,39 +282,83 @@ class GrowattChargePoint(OcppChargePoint):
 
     async def trigger_get_configuration(self):
         try:
-            _LOGGER.info("Triggering GetConfiguration CALL 1 (standard keys)")
+            # ═══════════════════════════════════════════════════════
+            # CALL 1: Operational keys
+            # Keys actively used by the coordinator + essential OCPP
+            # protocol keys. Explicit list keeps response small and
+            # compatible with all THOR firmware variants (incl. 07AS)
+            # ═══════════════════════════════════════════════════════
+
+            operational_keys = [
+                # Processed by coordinator
+                "G_MaxCurrent",
+                "G_ExternalLimitPower",
+                "G_ExternalLimitPowerEnable",
+                "G_ChargerMode",
+                "G_ServerURL",
+                "G_AutoChargeTime",
+                "G_LCDCloseEnable",
+                # Essential OCPP / diagnostics
+                "HeartbeatInterval",
+                "MeterValueSampleInterval",
+                "MeterValuesSampledData",
+                "UnlockConnectorOnEVSideDisconnect",
+                "ElectricityMeterOnline",
+                "G_WebSocketPingInterval",
+            ]
+
+            _LOGGER.info("Triggering GetConfiguration CALL 1 (operational keys: %d)", len(operational_keys))
             result1 = await asyncio.wait_for(
-                self.call(call.GetConfiguration()),
+                self.call(call.GetConfiguration(key=operational_keys)),
                 timeout=30.0
             )
             config_keys_1 = getattr(result1, "configuration_key", [])
             unknown_keys_1 = getattr(result1, "unknown_key", [])
             _LOGGER.info("CALL 1 received: %d keys (%d unknown)", len(config_keys_1), len(unknown_keys_1))
 
+            # ═══════════════════════════════════════════════════════
+            # CALL 2: Informational / diagnostic keys
+            # Device info, network, solar, off-peak — display only
+            # Capped at 30 keys (firmware hard limit per request)
+            # G_WifiPassword intentionally excluded (security)
+            # ═══════════════════════════════════════════════════════
+
             await asyncio.sleep(0.5)
 
-            extended_keys = [
-                "G_ChargerNetDNS", "G_ChargerNetMask", "G_ChargerNetMac", "G_ChargerNetGateway",
-                "G_NetworkMode",
-                "G_WifiSSID", "G_WifiPassword",
-                "G_DaylightSavingTime", "G_PeriodTime",
-                "G_OffPeakTime", "G_OffPeakEnable", "G_OffPeakCurr",
-                "G_4GUserName", "G_4GPassword", "G_4GAPN",
-                "G_SolarBoost", "G_SolarThresholdCurr",
+            informational_keys = [
+                # Device identity
+                "G_ChargerID", "G_ChargerRate", "G_ChargerLanguage",
+                # Network
+                "G_ChargerNetIP", "G_ChargerNetDNS", "G_ChargerNetMask",
+                "G_ChargerNetMac", "G_ChargerNetGateway", "G_NetworkMode", "G_WifiSSID",
+                # Hardware limits
+                "G_MaxTemperature", "G_RCDProtection",
+                # Power meter
+                "G_PowerMeterAddr", "G_PowerMeterType", "G_ExternalSamplingCurWring",
+                # Time / zone
+                "G_TimeZone", "G_DaylightSavingTime",
+                # Solar
+                "G_SolarMode", "G_SolarLimitPower", "G_SolarBoost", "G_SolarThresholdCurr",
+                # Off-peak
+                "G_PeakValleyEnable", "G_OffPeakTime", "G_OffPeakEnable", "G_OffPeakCurr",
+                # Misc
                 "G_MeterValueInterval", "G_WorkingMode",
-                "G_LowPowerReserveEnable", "UnlockConnectorOnEVSideDisconnect",
-                "LightIntensity", "G_DRM3Percentage", "G_DRM4Percentage",
-                "G_LCDCloseEnable", "G_RFEnable"
+                "G_LowPowerReserveEnable", "G_FullContinueChargeEnable",
+                "G_RandDelayChargeTime",
             ]
 
-            _LOGGER.info("Triggering GetConfiguration CALL 2 (extended keys: %d)", len(extended_keys))
+            _LOGGER.info("Triggering GetConfiguration CALL 2 (informational keys: %d)", len(informational_keys))
             result2 = await asyncio.wait_for(
-                self.call(call.GetConfiguration(key=extended_keys)),
+                self.call(call.GetConfiguration(key=informational_keys)),
                 timeout=30.0
             )
             config_keys_2 = getattr(result2, "configuration_key", [])
             unknown_keys_2 = getattr(result2, "unknown_key", [])
             _LOGGER.info("CALL 2 received: %d keys (%d unknown)", len(config_keys_2), len(unknown_keys_2))
+
+            # ═══════════════════════════════════════════════════════
+            # Process all keys (call 1 + call 2)
+            # ═══════════════════════════════════════════════════════
 
             all_config_keys = config_keys_1 + config_keys_2
             all_unknown_keys = list(set(unknown_keys_1 + unknown_keys_2))
@@ -322,8 +368,6 @@ class GrowattChargePoint(OcppChargePoint):
                 key = item.get("key")
                 value = item.get("value")
                 readonly = item.get("readonly")
-                if key == "G_WifiPassword":
-                    value = "***MASKED***" if value else None
                 _LOGGER.debug("Config key: %s = %s (readonly=%s)", key, value, readonly)
 
             if all_unknown_keys:

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.2]  - 2026-03-24
+
+### Fixed
+- **Explicit GetConfiguration key lists**: replaced unfiltered request with two targeted calls (13 operational + 30 informational keys), fixing FormatViolationError on THOR_07AS firmware and excluding G_WifiPassword for security.
+
+---
+
 ## [1.4.1] - 2026-03-23
 
 ### Fixed
