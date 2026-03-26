@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0]  - 2026-03-26
+
+### Fixed
+- **Prevent duplicate writes after GetConfiguration**: after a successful ChangeConfiguration (Accepted or RebootRequired), the coordinator value is now explicitly confirmed to the written value, preventing GetConfiguration responses from reverting the optimistic update and causing redundant writes on the next automation cycle.
+
+### What's New
+- **Electricity price sensor**: A new sensor Elektricteitstarief displays the current electricity tariff (EUR/kWh) as reported by the THOR, with 2 decimal precision.
+- **Electricity price control**: A new number entity Elektricteitstarief allows setting the electricity tariff (range: -2.00 to +2.00 EUR/kWh, step: 0.01) via the UI or an automation. The value is written to the THOR as time1=00:00-23:59&price1=X.XX
+
+---
+
 ## [1.4.2]  - 2026-03-24
 
 ### Fixed

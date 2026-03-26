@@ -305,6 +305,8 @@ class GrowattChargePoint(OcppChargePoint):
                 "UnlockConnectorOnEVSideDisconnect",
                 "ElectricityMeterOnline",
                 "G_WebSocketPingInterval",
+                # Price setting
+                "G_TimeSharingPrice",
             ]
 
             _LOGGER.info("Triggering GetConfiguration CALL 1 (operational keys: %d)", len(operational_keys))

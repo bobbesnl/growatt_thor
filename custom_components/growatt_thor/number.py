@@ -20,6 +20,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([
         MaxCurrentNumber(coordinator, entry),
         LoadBalancingLimitNumber(coordinator, entry),
+        ElectricityPriceNumber(coordinator, entry),
     ])
 
 
@@ -104,8 +105,12 @@ class MaxCurrentNumber(BaseConfigNumber):
             )
 
             if result == ConfigurationStatus.accepted:
+                self.coordinator.max_current = value
+                self.coordinator.async_set_updated_data(True)
                 _LOGGER.info("✅ Max Current written to Thor: %d A", value)
             elif result == ConfigurationStatus.reboot_required:
+                self.coordinator.max_current = value
+                self.coordinator.async_set_updated_data(True)
                 _LOGGER.warning("⚠️ Max Current write accepted (reboot required): %d A", value)
             else:
                 _LOGGER.error("❌ Max Current rejected by Thor: %s — rolling back UI to %s A", result, previous)
@@ -183,8 +188,12 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             )
 
             if result == ConfigurationStatus.accepted:
+                self.coordinator.external_limit_power = value
+                self.coordinator.async_set_updated_data(True)
                 _LOGGER.info("✅ Load Balancing Limit written to Thor: %d kW", value)
             elif result == ConfigurationStatus.reboot_required:
+                self.coordinator.external_limit_power = value
+                self.coordinator.async_set_updated_data(True)
                 _LOGGER.warning("⚠️ Load Balancing Limit write accepted (reboot required): %d kW", value)
             else:
                 _LOGGER.error("❌ Load Balancing Limit rejected by Thor: %s — rolling back UI to %s kW", result, previous)
@@ -196,4 +205,87 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             _LOGGER.error("❌ Failed to set Load Balancing Limit: %s", exc, exc_info=True)
             if previous is not None:
                 self.coordinator.external_limit_power = previous
+                self.coordinator.async_set_updated_data(True)
+
+
+# ─────────────────────────────
+# Elektricteitstarief
+# ─────────────────────────────
+
+class ElectricityPriceNumber(BaseConfigNumber):
+
+    _attr_name = "Elektricteitstarief"
+    _attr_icon = "mdi:currency-eur"
+    _attr_native_min_value = -2.0
+    _attr_native_max_value = 2.0
+    _attr_native_step = 0.01
+    _attr_native_unit_of_measurement = "EUR/kWh"
+    _attr_suggested_display_precision = 2
+    _config_key = "G_TimeSharingPrice"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "electricity_price")
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "Growatt THOR EV Charger",
+            "manufacturer": "Growatt",
+            "model": "THOR",
+        }
+
+    @property
+    def native_value(self):
+        return self.coordinator.electricity_price
+
+    async def async_set_native_value(self, value: float) -> None:
+        value = round(value, 2)
+
+        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        if not charge_point:
+            _LOGGER.warning("Cannot change Elektricteitstarief: charger not connected")
+            return
+
+        current = self.coordinator.electricity_price
+        if current is not None and round(current, 2) == value:
+            _LOGGER.debug("Elektricteitstarief unchanged (%.2f EUR/kWh) - skipping write", value)
+            return
+
+        previous = round(current, 2) if current is not None else None
+        self.coordinator.electricity_price = value
+        self.coordinator.async_set_updated_data(True)
+        _LOGGER.info("📝 Elektricteitstarief UI updated to %.2f EUR/kWh (queued for write)", value)
+
+        await self.coordinator.queue_write(
+            self._write_to_thor,
+            charge_point,
+            value,
+            previous,
+            dedupe_key=self._config_key,
+        )
+
+    async def _write_to_thor(self, charge_point, value: float, previous: float | None):
+        price_str = f"time1=00:00-23:59&price1={value:.2f}"  # ← gecorrigeerd: formaat conform THOR response
+        try:
+            result = await charge_point.change_configuration(
+                self._config_key,
+                price_str,
+            )
+
+            if result == ConfigurationStatus.accepted:
+                self.coordinator.electricity_price = value
+                self.coordinator.async_set_updated_data(True)
+                _LOGGER.info("✅ Elektricteitstarief written to Thor: %s", price_str)
+            elif result == ConfigurationStatus.reboot_required:
+                self.coordinator.electricity_price = value
+                self.coordinator.async_set_updated_data(True)
+                _LOGGER.warning("⚠️ Elektricteitstarief write accepted (reboot required): %s", price_str)
+            else:
+                _LOGGER.error("❌ Elektricteitstarief rejected by Thor: %s — rolling back to %.2f", result, previous)
+                if previous is not None:
+                    self.coordinator.electricity_price = previous
+                    self.coordinator.async_set_updated_data(True)
+
+        except Exception as exc:
+            _LOGGER.error("❌ Failed to set Elektricteitstarief: %s", exc, exc_info=True)
+            if previous is not None:
+                self.coordinator.electricity_price = previous
                 self.coordinator.async_set_updated_data(True)

@@ -69,6 +69,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
             GridCurrentSensor(coordinator, entry, "L1"),
             GridCurrentSensor(coordinator, entry, "L2"),
             GridCurrentSensor(coordinator, entry, "L3"),
+
+            # ── Elektricteitstarief ───────────────────
+            ElectricityPriceSensor(coordinator, entry),
         ]
     )
 
@@ -233,6 +236,26 @@ class TotalEnergyChargedSensor(BaseSensor):
     @property
     def native_value(self):
         return round(self.coordinator.total_energy_charged, 3)
+
+
+# ─────────────────────────────
+# Elektricteitstarief (EV Charger)
+# ─────────────────────────────
+
+class ElectricityPriceSensor(BaseSensor):
+    _attr_name = "Elektricteitstarief"
+    _attr_icon = "mdi:currency-eur"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "EUR/kWh"
+    _attr_suggested_display_precision = 2
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "electricity_price")
+
+    @property
+    def native_value(self):
+        value = self.coordinator.electricity_price
+        return round(value, 2) if value is not None else None
 
 
 # ─────────────────────────────
