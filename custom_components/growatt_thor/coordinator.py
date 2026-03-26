@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timezone
 from collections import deque
 import asyncio
@@ -54,6 +55,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
         # Auto charge times (pending UI values)
         self.auto_charge_start_time_pending = None
         self.auto_charge_stop_time_pending = None
+
+        # ── Electricity price ──────────────
+        self.electricity_price = None  # EUR/kWh (parsed from GTimeSharingPrice)
 
         # ── Last session ─────────────────
         self.last_session_energy = None           # kWh
@@ -431,6 +435,17 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         self.lcd_close_enable = raw
                         _LOGGER.debug("Config: LCDCloseEnable = %s", raw)
                         updated = True
+
+                elif key == "G_TimeSharingPrice":
+                    match = re.search(r'price1=(-?\d+\.\d+)', raw)
+                    if match:
+                        value = round(float(match.group(1)), 2)
+                        if self.electricity_price != value:
+                            self.electricity_price = value
+                            _LOGGER.debug("Config: G_TimeSharingPrice = %.2f EUR/kWh", value)
+                            updated = True
+                    else:
+                        _LOGGER.warning("Could not parse G_TimeSharingPrice from raw value: %s", raw)
 
             except (ValueError, TypeError) as exc:
                 _LOGGER.warning("Failed to parse config key=%s value=%s: %s", key, raw, exc)
