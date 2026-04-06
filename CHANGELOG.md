@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.1] - 2026-04-06
+
+### Fixed
+- **Prevent duplicate CSV entries from currentrecord**: the THOR firmware occasionally sends two identical `currentrecord` DataTransfer messages within seconds after a session ends. A deduplication check on `transactionId` + `endtime` now prevents the same frozen record from being processed and written to CSV twice.
+Note: You still need to manually remove the duplicate records from the CSV (/homeassistant/growatt_thor_sessions.csv). This is fairly easy to do with the file editor (found in the Home Assistant app store).
+
+---
+
 ## [1.5.0]  - 2026-03-26
 
 ### Fixed
