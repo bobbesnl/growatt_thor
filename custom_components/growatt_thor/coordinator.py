@@ -70,6 +70,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_session_transaction_id = None   # str
         self.last_session_charge_mode = None      # str
         self.last_session_work_mode = None        # str
+        self._last_frozen_record_key = None
 
         # ── Cumulatief totaal (persistent) ─
         self.total_energy_charged = 0.0           # kWh
@@ -464,10 +465,20 @@ class GrowattCoordinator(DataUpdateCoordinator):
     def process_frozen_record(self, data: dict):
         """Process Growatt frozen record and update session sensors + persistent total."""
         try:
+            # Deduplication: skip if same transaction_id and end_time as last processed
+            transaction_id = data.get("transactionId", "")
+            end_str = data.get("endtime", "")
+            dedup_key = f"{transaction_id}_{end_str}"
+
+            if self._last_frozen_record_key == dedup_key:
+                _LOGGER.debug("⏭️ Duplicate frozen record skipped (transaction=%s)", transaction_id)
+                return
+
+            self._last_frozen_record_key = dedup_key
+
             energy_kwh = float(data.get("costenergy", 0)) / 1000
             cost = float(data.get("costmoney", 0)) / 100
             start_str = data.get("starttime", "")
-            end_str = data.get("endtime", "")
 
             duration_minutes = None
             try:
@@ -484,7 +495,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.last_session_plug_time = data.get("plugtime", "")
             self.last_session_unplug_time = data.get("unplugtime", "")
             self.last_session_duration_minutes = duration_minutes
-            self.last_session_transaction_id = data.get("transactionId", "")
+            self.last_session_transaction_id = transaction_id
             self.last_session_charge_mode = data.get("chargemode", "")
             self.last_session_work_mode = data.get("workmode", "")
 
