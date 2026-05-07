@@ -232,7 +232,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
 
         async def _do_ap():
             result = await charge_point.call(
-                call.DataTransferPayload(
+                call.DataTransfer(
                     vendor_id="Growatt",
                     message_id="appconfigmode"
                 )

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.2] - 2026-05-07
+
+### Fixed
+- **AP Mode activation**: `AttributeError: module 'ocpp.v16.call' has no attribute 'DataTransferPayload'` that prevented AP Mode from being activated via the config flow. The `ocpp` library removed the `Payload` suffix from all call classes in newer versions; `call.DataTransferPayload` is now correctly referenced as `call.DataTransfer`. (Thank you jordiBCN-GitHub for your bug report!)
+---
+
 ## [1.5.1] - 2026-04-06
 
 ### Fixed
