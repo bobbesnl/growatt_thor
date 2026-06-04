@@ -218,6 +218,25 @@ class GrowattChargePoint(OcppChargePoint):
     # Active triggers
     # ─────────────────────────────
 
+    def _normalize_configuration_list(self, payload, field_name, call_name):
+        if payload is None:
+            _LOGGER.warning("%s returned no %s payload", call_name, field_name)
+            return []
+
+        if isinstance(payload, list):
+            return payload
+
+        if isinstance(payload, tuple):
+            return list(payload)
+
+        _LOGGER.warning(
+            "%s returned unexpected %s type: %s",
+            call_name,
+            field_name,
+            type(payload).__name__,
+        )
+        return []
+
     async def trigger_status(self):
         try:
             _LOGGER.info("Triggering StatusNotification")
@@ -314,8 +333,16 @@ class GrowattChargePoint(OcppChargePoint):
                 self.call(call.GetConfiguration(key=operational_keys)),
                 timeout=30.0
             )
-            config_keys_1 = getattr(result1, "configuration_key", [])
-            unknown_keys_1 = getattr(result1, "unknown_key", [])
+            config_keys_1 = self._normalize_configuration_list(
+                getattr(result1, "configuration_key", None),
+                "configuration_key",
+                "GetConfiguration CALL 1",
+            )
+            unknown_keys_1 = self._normalize_configuration_list(
+                getattr(result1, "unknown_key", None),
+                "unknown_key",
+                "GetConfiguration CALL 1",
+            )
             _LOGGER.info("CALL 1 received: %d keys (%d unknown)", len(config_keys_1), len(unknown_keys_1))
 
             # ═══════════════════════════════════════════════════════
@@ -354,8 +381,16 @@ class GrowattChargePoint(OcppChargePoint):
                 self.call(call.GetConfiguration(key=informational_keys)),
                 timeout=30.0
             )
-            config_keys_2 = getattr(result2, "configuration_key", [])
-            unknown_keys_2 = getattr(result2, "unknown_key", [])
+            config_keys_2 = self._normalize_configuration_list(
+                getattr(result2, "configuration_key", None),
+                "configuration_key",
+                "GetConfiguration CALL 2",
+            )
+            unknown_keys_2 = self._normalize_configuration_list(
+                getattr(result2, "unknown_key", None),
+                "unknown_key",
+                "GetConfiguration CALL 2",
+            )
             _LOGGER.info("CALL 2 received: %d keys (%d unknown)", len(config_keys_2), len(unknown_keys_2))
 
             # ═══════════════════════════════════════════════════════
@@ -367,15 +402,22 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.info("Total received: %d keys (%d unknown)", len(all_config_keys), len(all_unknown_keys))
 
             for item in all_config_keys:
+                if not isinstance(item, dict):
+                    _LOGGER.debug("Skipping unexpected configuration item type: %s", type(item).__name__)
+                    continue
+
                 key = item.get("key")
                 value = item.get("value")
                 readonly = item.get("readonly")
                 _LOGGER.debug("Config key: %s = %s (readonly=%s)", key, value, readonly)
 
             if all_unknown_keys:
-                _LOGGER.info("Unknown keys: %s", ", ".join(all_unknown_keys))
+                _LOGGER.info("Unknown keys: %s", ", ".join(str(k) for k in all_unknown_keys))
 
-            self.coordinator.process_configuration(all_config_keys)
+            if all_config_keys:
+                self.coordinator.process_configuration(all_config_keys)
+            else:
+                _LOGGER.warning("GetConfiguration returned no usable configuration keys")
 
         except asyncio.TimeoutError:
             _LOGGER.warning("GetConfiguration timeout - Thor likely rebooting, will retry on reconnect")

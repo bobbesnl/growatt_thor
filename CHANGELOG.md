@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.3] - 2026-06-05
+
+### Fixed
+- **ocpp fix**: `prevent crash on null configuration payload` Prevent the OCPP server from crashing when the THOR returns an empty, null, or unexpected GetConfiguration response during startup or reconnect. Thanks @spatu
+
+---
+
 ## [1.5.2] - 2026-05-07
 
 ### Fixed
