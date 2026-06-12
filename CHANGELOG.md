@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.4] - 2026-06-12
+
+### Fixed
+- **Single-phase Growatt THOR chargers**: Now correctly display Power, Voltage, and Current by mapping generic OCPP measurands (without phase) to L1 entities.
+
+---
+
 ## [1.5.3] - 2026-06-05
 
 ### Fixed
