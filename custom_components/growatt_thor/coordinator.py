@@ -323,22 +323,25 @@ class GrowattCoordinator(DataUpdateCoordinator):
                                 _LOGGER.info("    ✅ Energy: %.3f Wh", value)
                                 updated = True
 
-                    elif measurand == "Power.Active.Import" and phase:
-                        if self.phase_power.get(phase) != value:
-                            self.phase_power[phase] = value
-                            _LOGGER.info("    ✅ Power %s: %.1f W", phase, value)
+                    elif measurand == "Power.Active.Import":
+                        effective_phase = phase or "L1"
+                        if self.phase_power.get(effective_phase) != value:
+                            self.phase_power[effective_phase] = value
+                            _LOGGER.info("    ✅ Power %s: %.1f W", effective_phase, value)
                             updated = True
 
-                    elif measurand == "Current.Import" and phase:
-                        if self.currents.get(phase) != value:
-                            self.currents[phase] = value
-                            _LOGGER.info("    ✅ Current %s: %.2f A", phase, value)
+                    elif measurand == "Current.Import":
+                        effective_phase = phase or "L1"
+                        if self.currents.get(effective_phase) != value:
+                            self.currents[effective_phase] = value
+                            _LOGGER.info("    ✅ Current %s: %.2f A", effective_phase, value)
                             updated = True
 
-                    elif measurand == "Voltage" and phase:
-                        if self.voltages.get(phase) != value:
-                            self.voltages[phase] = value
-                            _LOGGER.info("    ✅ Voltage %s: %.1f V", phase, value)
+                    elif measurand == "Voltage":
+                        effective_phase = phase or "L1"
+                        if self.voltages.get(effective_phase) != value:
+                            self.voltages[effective_phase] = value
+                            _LOGGER.info("    ✅ Voltage %s: %.1f V", effective_phase, value)
                             updated = True
 
                     elif measurand == "Temperature":
