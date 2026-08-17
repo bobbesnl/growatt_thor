@@ -71,6 +71,7 @@ Your feedback helps identify patterns and improve integration stability! 🙏
 - **Max current control**: Set maximum charging current (6-32A)
 - **Charging schedule**: Configure automatic start/stop times
 - **Charger modes**: Switch between Plug & Charge, RFID only, HomeAssistant(HA)/RFID mode
+- **Configuration diagnostics**: Preserve all returned OCPP and Growatt configuration values, including unknown keys and charger-provided read-only flags
 - **Manual charging control**: Start and stop charging sessions via buttons
 - **Load balancing toggle**: Enable/disable dynamic load balancing
 - **Auto update THOR time**: Auto sync time with server time at every heartbeat and with reboot (ocpp protocol)
@@ -541,6 +542,11 @@ If configuration changes don't seem to work:
 - `G_AutoChargeTime` - Scheduled charging times
 - `get_external_meterval` - Grid meter data request
 - `frozenrecord` / `currentrecord` - Session history
+
+The integration keeps the last-known raw and normalized values returned by
+`GetConfiguration`. These values are included in the Home Assistant diagnostics
+download. Network identifiers, credentials, and unregistered keys are redacted
+in that export; sensitive credentials are also excluded from active requests.
 
 ---
 
