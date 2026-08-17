@@ -2,3 +2,19 @@ refresh:
   name: Refresh data
   description: Manually refresh all data from the charger
 
+export_sessions:
+  name: Export charging sessions
+  description: Export charging sessions within a date range to a CSV file
+  fields:
+    date_from:
+      name: Start date
+      description: First session date to include in the export
+      required: true
+      selector:
+        date:
+    date_to:
+      name: End date
+      description: Last session date to include in the export
+      required: true
+      selector:
+        date:

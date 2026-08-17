@@ -5,8 +5,8 @@
         "title": "Growatt THOR Installatie",
         "description": "Configureer je Growatt THOR EV Charger OCPP verbinding",
         "data": {
-          "host": "Host (IP-adres)",
           "port": "Poort",
+          "location": "Installatielocatie",
           "poll_interval": "Grid poll interval (seconden, min {min_interval})"
         }
       }
@@ -26,6 +26,7 @@
         "description": "Configureer polling en geavanceerde opties",
         "data": {
           "poll_interval": "Grid poll interval (seconden, nu: {current_interval})",
+          "location": "Installatielocatie",
           "charger_mode": "⚠️ Oplaadmodus",
           "enable_ap_mode": "⚠️ AP Mode activeren"
         }
