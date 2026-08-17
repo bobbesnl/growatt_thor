@@ -29,7 +29,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
 
         self.charge_point_id = None
-        self.status = None
+        self.status = "Unavailable"
+        self.connected = False
+        self.connection_started_at = None
+        self.last_message_at = None
+        self.last_message_action = None
+        self.last_heartbeat_at = None
         self.transaction_id = None
         self.id_tag = None
 
@@ -212,9 +217,32 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def set_charge_point(self, cp_id):
         """Set charge point ID and notify sensors."""
-        if self.charge_point_id != cp_id:
-            self.charge_point_id = cp_id
-            _LOGGER.info("Charge point connected: %s", cp_id)
+        self.charge_point_id = cp_id
+        self.connected = True
+        self.connection_started_at = self.now()
+        self.last_message_at = self.connection_started_at
+        self.last_message_action = "WebSocketConnect"
+        self.last_heartbeat_at = None
+        _LOGGER.info("Charge point connected: %s", cp_id)
+        self.async_set_updated_data(True)
+
+    def mark_connection_activity(self, action):
+        """Record the latest inbound OCPP message."""
+        timestamp = self.now()
+        self.connected = True
+        self.last_message_at = timestamp
+        self.last_message_action = action
+        if action == "Heartbeat":
+            self.last_heartbeat_at = timestamp
+        self.async_set_updated_data(True)
+
+    def set_disconnected(self):
+        """Mark the active OCPP connection as unavailable."""
+        was_connected = self.connected
+        self.connected = False
+        self.status = "Unavailable"
+        if was_connected:
+            _LOGGER.info("Charge point disconnected: %s", self.charge_point_id)
         self.async_set_updated_data(True)
 
     def set_status(self, status):

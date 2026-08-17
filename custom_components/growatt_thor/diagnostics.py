@@ -27,6 +27,14 @@ async def async_get_config_entry_diagnostics(
         }
 
     return {
+        "connection": {
+            "connected": coordinator.connected,
+            "status": coordinator.status,
+            "connection_started_at": coordinator.connection_started_at,
+            "last_message_at": coordinator.last_message_at,
+            "last_message_action": coordinator.last_message_action,
+            "last_heartbeat_at": coordinator.last_heartbeat_at,
+        },
         "configuration": serialize_configuration_values(
             coordinator.configuration_values,
             redact=True,

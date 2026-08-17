@@ -292,6 +292,16 @@ class StatusSensor(BaseSensor):
     def native_value(self):
         return normalize_ocpp_status(self.coordinator.status)
 
+    @property
+    def extra_state_attributes(self):
+        return {
+            "connected": self.coordinator.connected,
+            "connection_started_at": self.coordinator.connection_started_at,
+            "last_message_at": self.coordinator.last_message_at,
+            "last_message_action": self.coordinator.last_message_action,
+            "last_heartbeat_at": self.coordinator.last_heartbeat_at,
+        }
+
 
 # ─────────────────────────────
 # Charge Point ID (HOOFDSENSOR - EV Charger)
