@@ -1,5 +1,6 @@
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig
 import voluptuous as vol
 import logging
 
@@ -20,7 +21,6 @@ CHARGER_MODE_OPTIONS = {
     "2": "RFID Only",
     "3": "Plug & Charge",
 }
-CHARGER_MODE_REVERSE = {v: k for k, v in CHARGER_MODE_OPTIONS.items()}
 
 
 class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -89,9 +89,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             selected_mode = user_input.get("charger_mode")
             coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
             current_mode_value = str(coordinator.charger_mode) if coordinator and coordinator.charger_mode else None
-            current_mode_label = CHARGER_MODE_OPTIONS.get(current_mode_value)
 
-            if selected_mode and selected_mode != current_mode_label:
+            if selected_mode and selected_mode != current_mode_value:
                 self._selected_mode = selected_mode
                 return await self.async_step_confirm_charger_mode()
 
@@ -121,7 +120,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
 
         coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
         current_mode_value = str(coordinator.charger_mode) if coordinator and coordinator.charger_mode else None
-        current_mode_label = CHARGER_MODE_OPTIONS.get(current_mode_value, "HA/RFID")
+        if current_mode_value not in CHARGER_MODE_OPTIONS:
+            current_mode_value = "1"
 
         return self.async_show_form(
             step_id="init",
@@ -137,8 +137,13 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     ): str,
                     vol.Optional(
                         "charger_mode",
-                        default=current_mode_label,
-                    ): vol.In(list(CHARGER_MODE_REVERSE.keys())),
+                        default=current_mode_value,
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=list(CHARGER_MODE_OPTIONS),
+                            translation_key="charger_mode",
+                        )
+                    ),
                     vol.Optional("enable_ap_mode", default=False): bool,
                 }
             ),
@@ -165,9 +170,6 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     vol.Required("confirm", default=False): bool,
                 }
             ),
-            description_placeholders={
-                "selected_mode": self._selected_mode,
-            },
         )
 
     async def async_step_confirm_ap_mode(self, user_input=None):
@@ -188,7 +190,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             ),
         )
 
-    async def _apply_charger_mode(self, option: str):
+    async def _apply_charger_mode(self, value: str):
         """Write charger mode to the THOR via OCPP."""
         from ocpp.v16.enums import ConfigurationStatus
 
@@ -199,19 +201,19 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             _LOGGER.error("Cannot change Charger Mode: not connected")
             return
 
-        value = CHARGER_MODE_REVERSE.get(option)
-        if not value:
-            _LOGGER.error("Invalid charger mode: %s", option)
+        if value not in CHARGER_MODE_OPTIONS:
+            _LOGGER.error("Invalid charger mode: %s", value)
             return
 
-        _LOGGER.info("Setting G_ChargerMode to %s (%s)", value, option)
+        mode_label = CHARGER_MODE_OPTIONS[value]
+        _LOGGER.info("Setting G_ChargerMode to %s (%s)", value, mode_label)
 
         async def _do_mode():
             result = await charge_point.change_configuration("G_ChargerMode", value)
             if result in (ConfigurationStatus.accepted, ConfigurationStatus.reboot_required):
                 coordinator.charger_mode = int(value)
                 coordinator.async_set_updated_data(True)
-                _LOGGER.info("Charger Mode changed to %s (result: %s)", option, result)
+                _LOGGER.info("Charger Mode changed to %s (result: %s)", mode_label, result)
             else:
                 _LOGGER.error("Charger Mode change rejected: %s", result)
 

@@ -33,7 +33,7 @@
       },
       "confirm_charger_mode": {
         "title": "⚠️ Änderung des Lademodus bestätigen",
-        "description": "WARNUNG: Wenn der Lademodus auf **{selected_mode}** geändert wird, startet die THOR-Wallbox neu!\n\nNach dem Neustart muss das Fahrzeug möglicherweise erneut angeschlossen werden, damit der Betrieb ordnungsgemäß fortgesetzt werden kann.\n\nMöchtest du wirklich fortfahren?",
+        "description": "WARNUNG: Wenn der Lademodus geändert wird, startet die THOR-Wallbox neu!\n\nNach dem Neustart muss das Fahrzeug möglicherweise erneut angeschlossen werden, damit der Betrieb ordnungsgemäß fortgesetzt werden kann.\n\nMöchtest du wirklich fortfahren?",
         "data": {
           "confirm": "Ja, Lademodus ändern"
         }
@@ -53,6 +53,15 @@
       "ap_mode_activated": "✅ AP-Modus aktiviert! Die THOR-Wallbox stellt jetzt ein WLAN bereit. Suche nach einer SSID, die die THOR-Seriennummer enthält.",
       "ap_mode_failed": "❌ Der AP-Modus konnte nicht aktiviert werden. Weitere Informationen sind in den Protokollen verfügbar.",
       "charger_mode_changed": "✅ Lademodus geändert. Die THOR-Wallbox wird neu gestartet. Schließe das Fahrzeug bei Bedarf erneut an."
+    }
+  },
+  "selector": {
+    "charger_mode": {
+      "options": {
+        "1": "Home Assistant / RFID",
+        "2": "Nur RFID",
+        "3": "Einstecken und laden"
+      }
     }
   }
 }

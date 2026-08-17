@@ -33,7 +33,7 @@
       },
       "confirm_charger_mode": {
         "title": "⚠️ Confirm Charger Mode Change",
-        "description": "WARNING: Changing the charger mode to **{selected_mode}** will cause the THOR to reboot!\n\nAfter the reboot, the EV may need to be re-plugged to ensure correct operation.\n\nAre you sure you want to continue?",
+        "description": "WARNING: Changing the charger mode will cause the THOR to reboot!\n\nAfter the reboot, the EV may need to be re-plugged to ensure correct operation.\n\nAre you sure you want to continue?",
         "data": {
           "confirm": "Yes, change the charger mode"
         }
@@ -53,6 +53,15 @@
       "ap_mode_activated": "✅ AP Mode activated! THOR is broadcasting a WiFi network. Look for SSID with THOR Serialnumber in it.",
       "ap_mode_failed": "❌ Failed to activate AP Mode. Check logs for details.",
       "charger_mode_changed": "✅ Charger mode changed. The THOR will reboot. Re-plug the EV if needed."
+    }
+  },
+  "selector": {
+    "charger_mode": {
+      "options": {
+        "1": "Home Assistant / RFID",
+        "2": "RFID only",
+        "3": "Plug & charge"
+      }
     }
   }
 }

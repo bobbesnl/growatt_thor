@@ -33,7 +33,7 @@
       },
       "confirm_charger_mode": {
         "title": "⚠️ Bevestig modus wijziging",
-        "description": "WAARSCHUWING: Het wijzigen van de oplaadmodus naar **{selected_mode}** zorgt voor een herstart van de THOR!\n\nNa de herstart kan het nodig zijn om de EV opnieuw in te pluggen voor een correcte werking.\n\nWeet je zeker dat je door wilt gaan?",
+        "description": "WAARSCHUWING: Het wijzigen van de oplaadmodus zorgt voor een herstart van de THOR!\n\nNa de herstart kan het nodig zijn om de EV opnieuw in te pluggen voor een correcte werking.\n\nWeet je zeker dat je door wilt gaan?",
         "data": {
           "confirm": "Ja, wijzig de oplaadmodus"
         }
@@ -53,6 +53,15 @@
       "ap_mode_activated": "✅ AP Mode geactiveerd! THOR zendt nu een WiFi netwerk uit. Zoek naar het SSID met daarin het serienummer van de THOR",
       "ap_mode_failed": "❌ AP Mode activeren mislukt. Controleer de logs.",
       "charger_mode_changed": "✅ Oplaadmodus gewijzigd. De THOR herstart. Plug de EV indien nodig opnieuw in."
+    }
+  },
+  "selector": {
+    "charger_mode": {
+      "options": {
+        "1": "Home Assistant / RFID",
+        "2": "Alleen RFID",
+        "3": "Aansluiten en laden"
+      }
     }
   }
 }
