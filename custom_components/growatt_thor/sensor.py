@@ -239,11 +239,11 @@ class TotalEnergyChargedSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Elektricteitstarief (EV Charger)
+# Electricity price (EV Charger)
 # ─────────────────────────────
 
 class ElectricityPriceSensor(BaseSensor):
-    _attr_name = "Elektricteitstarief"
+    _attr_name = "Electricity Price"
     _attr_icon = "mdi:currency-eur"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "EUR/kWh"

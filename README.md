@@ -363,7 +363,7 @@ After successful connection, the integration creates the entities below. The lis
 | Grid voltage L1/L2/L3 | `sensor.growatt_thor_load_balancing_grid_voltage_l1`<br>`sensor.growatt_thor_load_balancing_grid_voltage_l2`<br>`sensor.growatt_thor_load_balancing_grid_voltage_l3` | External meter voltage per phase (V) |
 | Grid current L1/L2/L3 | `sensor.growatt_thor_load_balancing_grid_current_l1`<br>`sensor.growatt_thor_load_balancing_grid_current_l2`<br>`sensor.growatt_thor_load_balancing_grid_current_l3` | External meter current per phase (A) |
 | Server URL | `sensor.growatt_thor_ev_charger_server_url` | Configured OCPP endpoint |
-| Elektricteitstarief | `sensor.growatt_thor_ev_charger_elektricteitstarief` | Configured electricity price (EUR/kWh) |
+| Electricity Price | `sensor.growatt_thor_ev_charger_electricity_price` | Configured electricity price (EUR/kWh) |
 | Last Session Energy | `sensor.growatt_thor_ev_charger_last_session_energy` | Energy from the most recently completed session |
 | Last Session Cost | `sensor.growatt_thor_ev_charger_last_session_cost` | Cost from the most recently completed session |
 | Last Session Duration | `sensor.growatt_thor_ev_charger_last_session_duration` | Duration of the most recently completed session |
@@ -381,7 +381,7 @@ After successful connection, the integration creates the entities below. The lis
 |---|---|---|---|
 | Max Current | Number | `number.growatt_thor_ev_charger_max_current` | Maximum charging current (6-32 A) |
 | Loadbalancing limit | Number | `number.growatt_thor_load_balancing_loadbalancing_limit` | Grid import limit (kW) |
-| Elektricteitstarief | Number | `number.growatt_thor_ev_charger_elektricteitstarief` | Electricity tariff (EUR/kWh) |
+| Electricity Price | Number | `number.growatt_thor_ev_charger_electricity_price` | Electricity tariff (EUR/kWh) |
 | Loadbalancing | Switch | `switch.growatt_thor_load_balancing_loadbalancing` | Enable or disable dynamic load balancing |
 | LCD Display | Switch | `switch.growatt_thor_ev_charger_lcd_display` | Enable or disable the charger display |
 | Start charging | Button | `button.growatt_thor_ev_charger_start_charging` | Manually request a charging session |
