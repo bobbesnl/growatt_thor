@@ -1,0 +1,58 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Growatt THOR einrichten",
+        "description": "OCPP-Verbindung der Growatt THOR-Wallbox konfigurieren",
+        "data": {
+          "port": "Port",
+          "location": "Installationsort",
+          "poll_interval": "Netzdaten-Abfrageintervall (Sekunden, mindestens {min_interval})"
+        }
+      }
+    },
+    "error": {
+      "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen"
+    },
+    "abort": {
+      "ap_mode_activated": "✅ AP-Modus aktiviert! Die THOR-Wallbox stellt jetzt ein WLAN bereit. Suche nach einer SSID, die die THOR-Seriennummer enthält.",
+      "ap_mode_failed": "❌ Der AP-Modus konnte nicht aktiviert werden. Weitere Informationen sind in den Protokollen verfügbar."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Optionen für Growatt THOR",
+        "description": "Abfrageintervall und erweiterte Optionen konfigurieren",
+        "data": {
+          "poll_interval": "Netzdaten-Abfrageintervall (Sekunden, aktuell: {current_interval})",
+          "location": "Installationsort",
+          "charger_mode": "⚠️ Lademodus",
+          "enable_ap_mode": "⚠️ AP-Modus aktivieren"
+        }
+      },
+      "confirm_charger_mode": {
+        "title": "⚠️ Änderung des Lademodus bestätigen",
+        "description": "WARNUNG: Wenn der Lademodus auf **{selected_mode}** geändert wird, startet die THOR-Wallbox neu!\n\nNach dem Neustart muss das Fahrzeug möglicherweise erneut angeschlossen werden, damit der Betrieb ordnungsgemäß fortgesetzt werden kann.\n\nMöchtest du wirklich fortfahren?",
+        "data": {
+          "confirm": "Ja, Lademodus ändern"
+        }
+      },
+      "confirm_ap_mode": {
+        "title": "⚠️ Aktivierung des AP-Modus bestätigen",
+        "description": "WARNUNG: Die THOR-Wallbox geht offline und stellt ein WLAN zur direkten Konfiguration bereit. Dadurch wird die Verbindung zu Home Assistant unterbrochen!",
+        "data": {
+          "confirm": "Ja, AP-Modus aktivieren"
+        }
+      }
+    },
+    "error": {
+      "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen"
+    },
+    "abort": {
+      "ap_mode_activated": "✅ AP-Modus aktiviert! Die THOR-Wallbox stellt jetzt ein WLAN bereit. Suche nach einer SSID, die die THOR-Seriennummer enthält.",
+      "ap_mode_failed": "❌ Der AP-Modus konnte nicht aktiviert werden. Weitere Informationen sind in den Protokollen verfügbar.",
+      "charger_mode_changed": "✅ Lademodus geändert. Die THOR-Wallbox wird neu gestartet. Schließe das Fahrzeug bei Bedarf erneut an."
+    }
+  }
+}
