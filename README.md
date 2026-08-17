@@ -344,44 +344,50 @@ If you're locked out and need temporary cloud access:
 
 ### Entities Created
 
-After successful connection, the integration creates the entities below. Home Assistant generates entity IDs from the entity and device names, so an existing installation may use different IDs.
+After successful connection, the integration creates the entities below. The listed entity IDs are the defaults generated from the current entity and device names. Existing installations and manually renamed entities may use different IDs.
 
 #### Sensors
 
-| Entity name | Purpose |
-|---|---|
-| Status | Charger status |
-| Charge Point ID | Connected OCPP charge point ID |
-| Charging Power | Total charging power (W) |
-| Energy Charged | Energy charged in the current session (kWh) |
-| Total Energy Charged | Persistent cumulative charging energy (kWh) |
-| Current L1/L2/L3 | Charging current per phase (A) |
-| Voltage L1/L2/L3 | Charger voltage per phase (V) |
-| Power L1/L2/L3 | Charging power per phase (W) |
-| Temperature | Internal charger temperature (°C) |
-| Grid power | External meter power (W) |
-| Grid voltage L1/L2/L3 | External meter voltage per phase (V) |
-| Grid current L1/L2/L3 | External meter current per phase (A) |
-| Server URL | Configured OCPP endpoint |
-| Electricity price | Configured electricity price (EUR/kWh) |
-| Last Session Energy/Cost/Duration | Values from the most recently completed session |
-| Last Session Start/End | Charging timestamps from the most recently completed session |
-| Last Session Plug/Unplug Time | Cable timestamps from the most recently completed session |
-| Last Session Transaction ID/Charge Mode/Work Mode | Diagnostic session metadata |
+| Entity name | Default entity ID | Purpose |
+|---|---|---|
+| Status | `sensor.growatt_thor_ev_charger_status` | Charger status |
+| Charge Point ID | `sensor.growatt_thor_ev_charger_charge_point_id` | Connected OCPP charge point ID |
+| Charging Power | `sensor.growatt_thor_ev_charger_charging_power` | Total charging power (W) |
+| Energy Charged | `sensor.growatt_thor_ev_charger_energy_charged` | Energy charged in the current session (kWh) |
+| Total Energy Charged | `sensor.growatt_thor_ev_charger_total_energy_charged` | Persistent cumulative charging energy (kWh) |
+| Current L1/L2/L3 | `sensor.growatt_thor_ev_charger_current_l1`<br>`sensor.growatt_thor_ev_charger_current_l2`<br>`sensor.growatt_thor_ev_charger_current_l3` | Charging current per phase (A) |
+| Voltage L1/L2/L3 | `sensor.growatt_thor_ev_charger_voltage_l1`<br>`sensor.growatt_thor_ev_charger_voltage_l2`<br>`sensor.growatt_thor_ev_charger_voltage_l3` | Charger voltage per phase (V) |
+| Power L1/L2/L3 | `sensor.growatt_thor_ev_charger_power_l1`<br>`sensor.growatt_thor_ev_charger_power_l2`<br>`sensor.growatt_thor_ev_charger_power_l3` | Charging power per phase (W) |
+| Temperature | `sensor.growatt_thor_ev_charger_temperature` | Internal charger temperature (°C) |
+| Grid power | `sensor.growatt_thor_load_balancing_grid_power` | External meter power (W) |
+| Grid voltage L1/L2/L3 | `sensor.growatt_thor_load_balancing_grid_voltage_l1`<br>`sensor.growatt_thor_load_balancing_grid_voltage_l2`<br>`sensor.growatt_thor_load_balancing_grid_voltage_l3` | External meter voltage per phase (V) |
+| Grid current L1/L2/L3 | `sensor.growatt_thor_load_balancing_grid_current_l1`<br>`sensor.growatt_thor_load_balancing_grid_current_l2`<br>`sensor.growatt_thor_load_balancing_grid_current_l3` | External meter current per phase (A) |
+| Server URL | `sensor.growatt_thor_ev_charger_server_url` | Configured OCPP endpoint |
+| Elektricteitstarief | `sensor.growatt_thor_ev_charger_elektricteitstarief` | Configured electricity price (EUR/kWh) |
+| Last Session Energy | `sensor.growatt_thor_ev_charger_last_session_energy` | Energy from the most recently completed session |
+| Last Session Cost | `sensor.growatt_thor_ev_charger_last_session_cost` | Cost from the most recently completed session |
+| Last Session Duration | `sensor.growatt_thor_ev_charger_last_session_duration` | Duration of the most recently completed session |
+| Last Session Start | `sensor.growatt_thor_ev_charger_last_session_start` | Charging start timestamp |
+| Last Session End | `sensor.growatt_thor_ev_charger_last_session_end` | Charging end timestamp |
+| Last Session Plug Time | `sensor.growatt_thor_ev_charger_last_session_plug_time` | Cable connection timestamp |
+| Last Session Unplug Time | `sensor.growatt_thor_ev_charger_last_session_unplug_time` | Cable disconnection timestamp |
+| Last Session Transaction ID | `sensor.growatt_thor_ev_charger_last_session_transaction_id` | OCPP transaction ID for the last session |
+| Last Session Charge Mode | `sensor.growatt_thor_ev_charger_last_session_charge_mode` | Growatt charging mode for the last session |
+| Last Session Work Mode | `sensor.growatt_thor_ev_charger_last_session_work_mode` | Growatt work mode for the last session |
 
 #### Controls
 
-| Entity name | Type | Purpose |
-|---|---|---|
-| Max Current | Number | Maximum charging current (6-32 A) |
-| Loadbalancing limit | Number | Grid import limit (kW) |
-| Electricity price | Number | Electricity tariff (EUR/kWh) |
-| Loadbalancing | Switch | Enable or disable dynamic load balancing |
-| LCD Display | Switch | Enable or disable the charger display |
-| Start charging | Button | Manually request a charging session |
-| Stop charging | Button | Stop the active charging session |
-| Auto Charge Start Time | Time | Schedule start time; changes auto-apply through the write queue |
-| Auto Charge Stop Time | Time | Schedule stop time; changes auto-apply through the write queue |
+| Entity name | Type | Default entity ID | Purpose |
+|---|---|---|---|
+| Max Current | Number | `number.growatt_thor_ev_charger_max_current` | Maximum charging current (6-32 A) |
+| Loadbalancing limit | Number | `number.growatt_thor_load_balancing_loadbalancing_limit` | Grid import limit (kW) |
+| Elektricteitstarief | Number | `number.growatt_thor_ev_charger_elektricteitstarief` | Electricity tariff (EUR/kWh) |
+| Loadbalancing | Switch | `switch.growatt_thor_load_balancing_loadbalancing` | Enable or disable dynamic load balancing |
+| LCD Display | Switch | `switch.growatt_thor_ev_charger_lcd_display` | Enable or disable the charger display |
+| Start charging | Button | `button.growatt_thor_ev_charger_start_charging` | Manually request a charging session |
+| Stop charging | Button | `button.growatt_thor_ev_charger_stop_charging` | Stop the active charging session |
+| Auto Charge Start Time | Time | `time.growatt_thor_ev_charger_auto_charge_start_time` | Schedule start time; changes auto-apply through the write queue |
+| Auto Charge Stop Time | Time | `time.growatt_thor_ev_charger_auto_charge_stop_time` | Schedule stop time; changes auto-apply through the write queue |
 
 Charger mode and AP mode are intentionally configured through **Settings → Devices & Services → Growatt THOR → Configure**. They are not select or button entities.
 
