@@ -209,12 +209,12 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
 
 
 # ─────────────────────────────
-# Elektricteitstarief
+# Electricity price
 # ─────────────────────────────
 
 class ElectricityPriceNumber(BaseConfigNumber):
 
-    _attr_name = "Elektricteitstarief"
+    _attr_name = "Electricity Price"
     _attr_icon = "mdi:currency-eur"
     _attr_native_min_value = -2.0
     _attr_native_max_value = 2.0

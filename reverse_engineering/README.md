@@ -331,3 +331,12 @@ logic confirmed - Architecture validated
 
 Next steps: - Periodic task scheduler - ChangeConfiguration support -
 Config entities (numbers/switches)
+
+------------------------------------------------------------------------
+
+## Additional THOR 22AS capture findings
+
+Additional capture evidence from another THOR 22AS setup is documented in
+[`thor_22as_capture_findings.md`](thor_22as_capture_findings.md). The addendum
+uses exact wire key names and distinguishes observations from inferred
+semantics and behavior already implemented by the integration.

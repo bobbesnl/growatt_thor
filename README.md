@@ -40,10 +40,10 @@ The Growatt Thor charger has **known firmware bugs** that can cause crashes and 
 
 **📢 Help Us Improve!**
 Experiencing crashes or random reboots? Please [open an issue](https://github.com/bobbesnl/growatt_thor/issues) with:
-- Thor firmware version (from diagnostics)
+- Thor model and firmware version, if known
 - Home Assistant logs (around crash time)
 - Actions that triggered the reboot
-- Diagnostic file download
+- Relevant entity states before and after the reboot
 
 Your feedback helps identify patterns and improve integration stability! 🙏
 
@@ -58,15 +58,14 @@ Your feedback helps identify patterns and improve integration stability! 🙏
 - **Voltage monitoring**: Voltage per phase
 - **Energy tracking**: Session energy in kWh with automatic reset per session
 - **Temperature**: Internal charger temperature in °C
-- **Transaction tracking**: Active transaction ID and charging session details (saved in sensor.growatt_thor_ev_charger_last_sessions)
+- **Transaction tracking**: Current charging data and individual sensors for the most recently completed session
 - **Energy Dashboard compatible charging sensors**
 
 ### 🔌 Grid & Load Balancing
 - **External meter monitoring**: Real-time grid power, voltage, and current per phase
 - **Dynamic load balancing**: Set maximum grid import limit (kW) to prevent overload
-- **Smart polling**: Configurable polling interval (5-3600 sec. recommended setting 30 seconds)
+- **Smart polling**: Configurable polling interval (minimum 5 seconds; recommended setting 30 seconds)
   - ⚠️ **Note**: Polling interval only affects the frequency of grid data **display updates** in Home Assistant. Load balancing functionality itself operates independently and responds in real-time regardless of the polling setting.
-- **Wiring detection**: Automatic 1-phase or 3-phase detection
 
 ### ⚙️ Configuration & Control
 - **Max current control**: Set maximum charging current (6-32A)
@@ -180,7 +179,7 @@ XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-22 07:05:11,2026-03-2
 ```
 
 ## 🛡️ Stability Features
-- **Write queue system**: Intelligent buffering of all configuration writes with 15-second rate limiting
+- **Write queue system**: Intelligent buffering of all configuration writes with 20-second rate limiting
 - **Anti-crash protection**: 20-second polling pause after each configuration change to prevent Thor firmware crashes
 - **Sequential write operations**: Multiple rapid changes are automatically queued and executed safely
 - **TIER 2 error recovery**: Robust error handling for connection issues
@@ -247,10 +246,10 @@ Use this if you cannot find the integration in the default HACS list yet, or if 
 2. Click **+ Add Integration**
 3. Search for **Growatt THOR**
 4. Configure:
-   - **Listen IP**: `0.0.0.0` (default, listens on all interfaces)
    - **Listen Port**: `9000` (default, or choose your own)
+   - **Location**: Installation address used in session exports
    - **Grid Poll Interval**: `30` seconds (recommended)
-     - Range: 5-3600 seconds
+     - Minimum: 5 seconds
      - Lower values = more frequent updates (higher load on THOR)
      - Higher values = less frequent updates (lower load)
      - **Important**: This only affects display update frequency, not load balancing functionality
@@ -345,32 +344,52 @@ If you're locked out and need temporary cloud access:
 
 ### Entities Created
 
-After successful connection, the following entities are created:
+After successful connection, the integration creates the entities below. The listed entity IDs are the defaults generated from the current entity and device names. Existing installations and manually renamed entities may use different IDs.
 
 #### Sensors
-- `sensor.growatt_thor_ev_charger_status` - Charger status
-- `sensor.growatt_thor_ev_charger_power` - Total charging power (W)
-- `sensor.growatt_thor_ev_charger_energy` - Session energy (kWh)
-- `sensor.growatt_thor_ev_charger_current_l1/l2/l3` - Current per phase (A)
-- `sensor.growatt_thor_ev_charger_voltage_l1/l2/l3` - Voltage per phase (V)
-- `sensor.growatt_thor_ev_charger_power_l1/l2/l3` - Power per phase (W)
-- `sensor.growatt_thor_ev_charger_temperature` - Internal temperature (°C)
-- `sensor.growatt_thor_ev_charger_grid_power` - Grid connection power (W)
-- `sensor.growatt_thor_ev_charger_transaction_id` - Active transaction ID
-- `sensor.growatt_thor_ev_charger_last_session_energy` - Previous session energy
-- `sensor.growatt_thor_ev_charger_last_session_cost` - Previous session cost
-- `sensor.growatt_thor_ev_charger_ev_charger_last_sessions` - Session tracking (only last 5 sessions)
+
+| Entity name | Default entity ID | Purpose |
+|---|---|---|
+| Status | `sensor.growatt_thor_ev_charger_status` | Charger status |
+| Charge Point ID | `sensor.growatt_thor_ev_charger_charge_point_id` | Connected OCPP charge point ID |
+| Charging Power | `sensor.growatt_thor_ev_charger_charging_power` | Total charging power (W) |
+| Energy Charged | `sensor.growatt_thor_ev_charger_energy_charged` | Energy charged in the current session (kWh) |
+| Total Energy Charged | `sensor.growatt_thor_ev_charger_total_energy_charged` | Persistent cumulative charging energy (kWh) |
+| Current L1/L2/L3 | `sensor.growatt_thor_ev_charger_current_l1`<br>`sensor.growatt_thor_ev_charger_current_l2`<br>`sensor.growatt_thor_ev_charger_current_l3` | Charging current per phase (A) |
+| Voltage L1/L2/L3 | `sensor.growatt_thor_ev_charger_voltage_l1`<br>`sensor.growatt_thor_ev_charger_voltage_l2`<br>`sensor.growatt_thor_ev_charger_voltage_l3` | Charger voltage per phase (V) |
+| Power L1/L2/L3 | `sensor.growatt_thor_ev_charger_power_l1`<br>`sensor.growatt_thor_ev_charger_power_l2`<br>`sensor.growatt_thor_ev_charger_power_l3` | Charging power per phase (W) |
+| Temperature | `sensor.growatt_thor_ev_charger_temperature` | Internal charger temperature (°C) |
+| Grid power | `sensor.growatt_thor_load_balancing_grid_power` | External meter power (W) |
+| Grid voltage L1/L2/L3 | `sensor.growatt_thor_load_balancing_grid_voltage_l1`<br>`sensor.growatt_thor_load_balancing_grid_voltage_l2`<br>`sensor.growatt_thor_load_balancing_grid_voltage_l3` | External meter voltage per phase (V) |
+| Grid current L1/L2/L3 | `sensor.growatt_thor_load_balancing_grid_current_l1`<br>`sensor.growatt_thor_load_balancing_grid_current_l2`<br>`sensor.growatt_thor_load_balancing_grid_current_l3` | External meter current per phase (A) |
+| Server URL | `sensor.growatt_thor_ev_charger_server_url` | Configured OCPP endpoint |
+| Electricity Price | `sensor.growatt_thor_ev_charger_electricity_price` | Configured electricity price (EUR/kWh) |
+| Last Session Energy | `sensor.growatt_thor_ev_charger_last_session_energy` | Energy from the most recently completed session |
+| Last Session Cost | `sensor.growatt_thor_ev_charger_last_session_cost` | Cost from the most recently completed session |
+| Last Session Duration | `sensor.growatt_thor_ev_charger_last_session_duration` | Duration of the most recently completed session |
+| Last Session Start | `sensor.growatt_thor_ev_charger_last_session_start` | Charging start timestamp |
+| Last Session End | `sensor.growatt_thor_ev_charger_last_session_end` | Charging end timestamp |
+| Last Session Plug Time | `sensor.growatt_thor_ev_charger_last_session_plug_time` | Cable connection timestamp |
+| Last Session Unplug Time | `sensor.growatt_thor_ev_charger_last_session_unplug_time` | Cable disconnection timestamp |
+| Last Session Transaction ID | `sensor.growatt_thor_ev_charger_last_session_transaction_id` | OCPP transaction ID for the last session |
+| Last Session Charge Mode | `sensor.growatt_thor_ev_charger_last_session_charge_mode` | Growatt charging mode for the last session |
+| Last Session Work Mode | `sensor.growatt_thor_ev_charger_last_session_work_mode` | Growatt work mode for the last session |
 
 #### Controls
-- `number.growatt_thor_ev_charger_max_current` - Maximum charging current (6-32A)
-- `number.growatt_thor_ev_charger_load_balancing_limit` - Grid import limit (kW)
-- `switch.growatt_thor_ev_charger_load_balancing` - Enable/disable load balancing
-- `select.growatt_thor_ev_charger_charger_mode` - Charging mode (Plug&Charge/RFID only/HA&RFID)
-- `button.growatt_thor_ev_charger_start_charging` - Manual start
-- `button.growatt_thor_ev_charger_stop_charging` - Manual stop
-- `button.growatt_thor_ev_charger_apply_schedule` - Apply time schedule changes
-- `time.growatt_thor_ev_charger_auto_charge_start_time` - Auto-charge start time (auto-applies on change)
-- `time.growatt_thor_ev_charger_auto_charge_stop_time` - Auto-charge stop time (auto-applies on change)
+
+| Entity name | Type | Default entity ID | Purpose |
+|---|---|---|---|
+| Max Current | Number | `number.growatt_thor_ev_charger_max_current` | Maximum charging current (6-32 A) |
+| Loadbalancing limit | Number | `number.growatt_thor_load_balancing_loadbalancing_limit` | Grid import limit (kW) |
+| Electricity Price | Number | `number.growatt_thor_ev_charger_electricity_price` | Electricity tariff (EUR/kWh) |
+| Loadbalancing | Switch | `switch.growatt_thor_load_balancing_loadbalancing` | Enable or disable dynamic load balancing |
+| LCD Display | Switch | `switch.growatt_thor_ev_charger_lcd_display` | Enable or disable the charger display |
+| Start charging | Button | `button.growatt_thor_ev_charger_start_charging` | Manually request a charging session |
+| Stop charging | Button | `button.growatt_thor_ev_charger_stop_charging` | Stop the active charging session |
+| Auto Charge Start Time | Time | `time.growatt_thor_ev_charger_auto_charge_start_time` | Schedule start time; changes auto-apply through the write queue |
+| Auto Charge Stop Time | Time | `time.growatt_thor_ev_charger_auto_charge_stop_time` | Schedule stop time; changes auto-apply through the write queue |
+
+Charger mode and AP mode are intentionally configured through **Settings → Devices & Services → Growatt THOR → Configure**. They are not select or button entities.
 
 
 ## ⚡ Energy Dashboard
@@ -394,9 +413,9 @@ For real-time power monitoring on the Energy Dashboard:
 ### Session history
 
 For detailed per-session data (energy, cost, timestamps), check:
-- `sensor.growatt_thor_ev_charger_last_sessions` — stores the last 5 charging sessions
-- `sensor.growatt_thor_ev_charger_last_session_energy` — energy of the previous session
-- `sensor.growatt_thor_ev_charger_last_session_cost` — cost of the previous session
+- the individual **Last Session** sensors on the Growatt THOR device
+- `/config/growatt_thor_sessions.csv` for the complete session log
+- the `growatt_thor.export_sessions` action for a date-filtered CSV export
 
 
 ### Example Automations
@@ -412,12 +431,12 @@ automation:
         above: 2000  # 2kW excess
     condition:
       - condition: state
-        entity_id: sensor.growatt_thor_status
+        entity_id: sensor.growatt_thor_ev_charger_status
         state: "Idle"
     action:
       - service: button.press
         target:
-          entity_id: button.growatt_thor_start_charging
+          entity_id: button.growatt_thor_ev_charger_start_charging
 ```
 
 #### Dynamic Load Balancing Based on Grid Import
@@ -479,7 +498,7 @@ logger:
 ✅ **v1.1.0 includes major improvements to prevent crashes!**
 
 This integration now includes enhanced anti-crash protection:
-- **Write queue system**: All writes are queued with 15-second minimum interval
+- **Write queue system**: All writes are queued with 20-second minimum interval
 - **20-second polling pause** after each configuration change (increased from 10s)
 - **Sequential execution**: Multiple rapid changes are buffered and executed safely
 - **Smart polling**: Only when load balancing is active
@@ -494,7 +513,7 @@ If crashes still occur:
 
 If configuration changes don't seem to work:
 - Check logs for queue status: `grep "Waiting.*before next write" home-assistant.log`
-- The write queue may be processing previous changes (15-second interval)
+- The write queue may be processing previous changes (20-second interval)
 - Wait up to 20 seconds and check again
 - UI updates immediately (optimistic), but actual write may be queued
 
@@ -571,4 +590,3 @@ MIT License - see LICENSE file for details
 
 - **Issues**: [GitHub Issues](https://github.com/bobbesnl/growatt_thor/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/bobbesnl/growatt_thor/discussions)
-
