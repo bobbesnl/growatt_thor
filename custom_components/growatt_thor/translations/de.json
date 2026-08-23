@@ -70,16 +70,16 @@
       "status": {
         "name": "Status",
         "state": {
-          "Available": "Verfügbar",
-          "Preparing": "Vorbereitung",
-          "Charging": "Lädt",
-          "SuspendedEVSE": "Durch Ladestation pausiert",
-          "SuspendedEV": "Durch Fahrzeug pausiert",
-          "Finishing": "Abschluss",
-          "Reserved": "Reserviert",
-          "Unavailable": "Nicht verfügbar",
-          "Faulted": "Störung",
-          "Idle": "Leerlauf"
+          "available": "Verfügbar",
+          "preparing": "Vorbereitung",
+          "charging": "Lädt",
+          "suspended_evse": "Durch Ladestation pausiert",
+          "suspended_ev": "Durch Fahrzeug pausiert",
+          "finishing": "Abschluss",
+          "reserved": "Reserviert",
+          "unavailable": "Nicht verfügbar",
+          "faulted": "Störung",
+          "idle": "Leerlauf"
         }
       },
       "charge_point_id": { "name": "Ladepunkt-ID" },

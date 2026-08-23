@@ -70,16 +70,16 @@
       "status": {
         "name": "Status",
         "state": {
-          "Available": "Available",
-          "Preparing": "Preparing",
-          "Charging": "Charging",
-          "SuspendedEVSE": "Suspended by charger",
-          "SuspendedEV": "Suspended by vehicle",
-          "Finishing": "Finishing",
-          "Reserved": "Reserved",
-          "Unavailable": "Unavailable",
-          "Faulted": "Faulted",
-          "Idle": "Idle"
+          "available": "Available",
+          "preparing": "Preparing",
+          "charging": "Charging",
+          "suspended_evse": "Suspended by charger",
+          "suspended_ev": "Suspended by vehicle",
+          "finishing": "Finishing",
+          "reserved": "Reserved",
+          "unavailable": "Unavailable",
+          "faulted": "Faulted",
+          "idle": "Idle"
         }
       },
       "charge_point_id": { "name": "Charge Point ID" },

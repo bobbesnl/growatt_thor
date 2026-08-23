@@ -24,6 +24,7 @@ from .configuration import (
     configuration_entity_state,
 )
 from .const import DOMAIN
+from .ocpp_status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
 
 
 @dataclass(frozen=True)
@@ -91,20 +92,6 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         external_meter=True,
     ),
 )
-
-OCPP_STATUS_OPTIONS = [
-    "Available",
-    "Preparing",
-    "Charging",
-    "SuspendedEVSE",
-    "SuspendedEV",
-    "Finishing",
-    "Reserved",
-    "Unavailable",
-    "Faulted",
-    "Idle",
-]
-
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN]["coordinator"]
@@ -303,7 +290,7 @@ class StatusSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.status
+        return normalize_ocpp_status(self.coordinator.status)
 
 
 # ─────────────────────────────

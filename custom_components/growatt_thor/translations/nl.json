@@ -70,16 +70,16 @@
       "status": {
         "name": "Status",
         "state": {
-          "Available": "Beschikbaar",
-          "Preparing": "Voorbereiden",
-          "Charging": "Laden",
-          "SuspendedEVSE": "Gepauzeerd door laadstation",
-          "SuspendedEV": "Gepauzeerd door voertuig",
-          "Finishing": "Afronden",
-          "Reserved": "Gereserveerd",
-          "Unavailable": "Niet beschikbaar",
-          "Faulted": "Storing",
-          "Idle": "Inactief"
+          "available": "Beschikbaar",
+          "preparing": "Voorbereiden",
+          "charging": "Laden",
+          "suspended_evse": "Gepauzeerd door laadstation",
+          "suspended_ev": "Gepauzeerd door voertuig",
+          "finishing": "Afronden",
+          "reserved": "Gereserveerd",
+          "unavailable": "Niet beschikbaar",
+          "faulted": "Storing",
+          "idle": "Inactief"
         }
       },
       "charge_point_id": { "name": "Laadpunt-ID" },
