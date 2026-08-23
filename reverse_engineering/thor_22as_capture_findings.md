@@ -118,6 +118,10 @@ The integration sends:
 DataTransfer(vendorId="Growatt", messageId="get_external_meterval")
 ```
 
+The request is sent after connecting and periodically in every working mode.
+The external meter supplies both load-balancing and PV-Linkage measurements;
+`G_ExternalLimitPowerEnable=0` therefore does not disable this polling.
+
 An observed response payload was:
 
 ```text
@@ -129,8 +133,8 @@ integration sends `vendorId=Growatt` and the tested charger accepts it.
 
 | Field | Interpretation | Current Home Assistant mapping | Firmware | Status |
 |---|---|---|---|---|
-| `used` | Usage/availability flag; exact semantics not confirmed | Ignored | 2.2.16 | observed, inferred |
-| `wring` | Vendor spelling; code treats `1` as three-phase and other values as one-phase | Stored internally, no entity | 2.2.16 | observed, inferred, implemented |
+| `used` | Usage/availability flag; exact semantics not confirmed | `meter_used` sensor attribute | 2.2.16 | observed, inferred, implemented |
+| `wring` | Vendor spelling; likely describes the active phase wiring | `wiring` sensor attribute | 2.2.16 | observed, inferred, implemented |
 | `u-voltage` | L1 voltage in V | Grid voltage L1 | 2.2.16 | observed, implemented |
 | `v-voltage` | L2 voltage in V | Grid voltage L2 | 2.2.16 | observed, implemented |
 | `w-voltage` | L3 voltage in V | Grid voltage L3 | 2.2.16 | observed, implemented |
