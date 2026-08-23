@@ -203,11 +203,8 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.info("🔄 Auto GetConfiguration after connect")
             await self.trigger_get_configuration()
 
-            if self.coordinator.external_limit_power_enable:
-                _LOGGER.info("🔄 Auto external meterval (load balancing ON)")
-                await self.trigger_external_meterval()
-            else:
-                _LOGGER.debug("⏸️ Skip external meterval (load balancing OFF)")
+            _LOGGER.info("Fetching external meter snapshot after connect")
+            await self.trigger_external_meterval()
 
         except Exception as exc:
             _LOGGER.warning("Post-connect init failed: %s", exc)

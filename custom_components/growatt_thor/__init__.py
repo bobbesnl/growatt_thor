@@ -52,16 +52,17 @@ def _migrate_external_meter_device(hass: HomeAssistant, entry: ConfigEntry) -> N
 
 
 async def _check_existing_connection(hass, coordinator):
-    """Check if THOR is already connected and fetch config."""
+    """Check if THOR is already connected and fetch current data."""
     await asyncio.sleep(2)
 
     charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
     if charge_point:
-        _LOGGER.info("THOR already connected at startup, fetching config...")
+        _LOGGER.info("THOR already connected at startup, fetching current data")
         try:
             await charge_point.trigger_get_configuration()
+            await charge_point.trigger_external_meterval()
         except Exception as exc:
-            _LOGGER.debug("Could not fetch config at startup: %s", exc)
+            _LOGGER.debug("Could not fetch current data at startup: %s", exc)
 
 
 def _get_session_log_path(hass):
@@ -112,13 +113,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _migrate_external_meter_device(hass, entry)
 
-    async def periodic_smart_grid_poll():
-        """Smart poll: only when load balancing enabled."""
+    async def periodic_external_meter_poll():
+        """Poll the external meter while a charge point is connected."""
         poll_interval = hass.data[DOMAIN].get("poll_interval", DEFAULT_POLL_INTERVAL)
 
         await asyncio.sleep(poll_interval)
 
-        _LOGGER.info("🚀 Smart poll task STARTED (interval: %ds)", poll_interval)
+        _LOGGER.info("External meter poll started (interval: %ds)", poll_interval)
         loop = asyncio.get_event_loop()
 
         while True:
@@ -127,26 +128,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 current_time = loop.time()
 
                 if current_time < skip_until:
-                    if not hasattr(periodic_smart_grid_poll, '_skip_logged') or not periodic_smart_grid_poll._skip_logged:
+                    if not getattr(
+                        periodic_external_meter_poll,
+                        "_skip_logged",
+                        False,
+                    ):
                         remaining = int(skip_until - current_time)
                         _LOGGER.info("⏸️ Polling paused (%ds remaining)", remaining)
-                        periodic_smart_grid_poll._skip_logged = True
+                        periodic_external_meter_poll._skip_logged = True
                     await asyncio.sleep(1)
                     continue
                 else:
-                    periodic_smart_grid_poll._skip_logged = False
+                    periodic_external_meter_poll._skip_logged = False
 
                 charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
                 coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
 
                 if charge_point and coordinator:
-                    if coordinator.external_limit_power_enable:
-                        _LOGGER.debug("🔄 Smart poll (%ds): Load balancing ON → Grid data", poll_interval)
-                        await charge_point.trigger_external_meterval()
-                    else:
-                        _LOGGER.debug("⏸️ Smart poll (%ds): Load balancing OFF → Skip", poll_interval)
+                    _LOGGER.debug("Polling external meter (%ds interval)", poll_interval)
+                    await charge_point.trigger_external_meterval()
                 else:
-                    _LOGGER.debug("⏸️ Smart poll (%ds): No charge_point or coordinator", poll_interval)
+                    _LOGGER.debug("External meter poll skipped: charger not connected")
 
             except Exception as exc:
                 _LOGGER.error("💥 Smart poll crashed: %s", exc, exc_info=True)
@@ -154,8 +156,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await asyncio.sleep(poll_interval)
 
     hass.data[DOMAIN]["polling_task"] = hass.async_create_background_task(
-        periodic_smart_grid_poll(),
-        name="growatt_thor_smart_grid_poll"
+        periodic_external_meter_poll(),
+        name="growatt_thor_external_meter_poll"
     )
 
     async def handle_refresh(call: ServiceCall):
