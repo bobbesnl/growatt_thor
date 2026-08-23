@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **External meter device naming**: Rename the logical `Growatt THOR Load balancing` device to `Growatt THOR External Meter` because the measurements are shared by load balancing and PV Linkage. Device identifiers and entity IDs remain unchanged.
+
 ## [1.5.4] - 2026-06-12
 
 ### Fixed
@@ -300,4 +305,3 @@ See README.md for full documentation including a Lovelace UI export panel exampl
 - 🎉 Major milestone
 - ⚠️ Important notice
 - ❗ Breaking change
-

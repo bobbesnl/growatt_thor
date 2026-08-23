@@ -95,10 +95,10 @@ class BaseSensor(CoordinatorEntity, SensorEntity):
 
 
 # ─────────────────────────────
-# Base voor Load balancing sensors (Load balancing device!)
+# Base for external meter sensors
 # ─────────────────────────────
 
-class BaseLoadBalancingSensor(CoordinatorEntity, SensorEntity):
+class BaseExternalMeterSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
 
     def __init__(self, coordinator, entry, key):
@@ -106,9 +106,9 @@ class BaseLoadBalancingSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_load_balancing_{key}"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
-            "name": "Growatt THOR Load balancing",
+            "name": "Growatt THOR External Meter",
             "manufacturer": "Growatt",
-            "model": "THOR Load balancing",
+            "model": "THOR External Meter",
         }
 
     @property
@@ -528,10 +528,10 @@ class TemperatureSensor(BaseSensor):
 
 
 # ─────────────────────────────
-# Grid / External Meter (LOAD BALANCING DEVICE!)
+# Grid / external meter
 # ─────────────────────────────
 
-class GridPowerSensor(BaseLoadBalancingSensor):
+class GridPowerSensor(BaseExternalMeterSensor):
     _attr_name = "Grid power"
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -549,7 +549,7 @@ class GridPowerSensor(BaseLoadBalancingSensor):
         return self.coordinator.grid_power if self.coordinator.grid_power is not None else 0
 
 
-class GridVoltageSensor(BaseLoadBalancingSensor):
+class GridVoltageSensor(BaseExternalMeterSensor):
     _attr_device_class = SensorDeviceClass.VOLTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:current-ac"
@@ -569,7 +569,7 @@ class GridVoltageSensor(BaseLoadBalancingSensor):
         return value if value is not None else 0
 
 
-class GridCurrentSensor(BaseLoadBalancingSensor):
+class GridCurrentSensor(BaseExternalMeterSensor):
     _attr_device_class = SensorDeviceClass.CURRENT
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:current-dc"
