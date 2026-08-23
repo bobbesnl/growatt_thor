@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Structured charger configuration registry**: Preserve every returned OCPP and Growatt configuration value with its raw and parsed value, charger-provided read-only flag, type metadata, and enum label. Unknown keys are retained instead of being discarded after logging.
+- **Redacted configuration diagnostics**: Include the retained configuration snapshot, unknown keys, and requested key groups in Home Assistant diagnostics while redacting sensitive and unclassified values.
+
 ### Changed
 - **External meter device naming**: Rename the logical `Growatt THOR Load balancing` device to `Growatt THOR External Meter` because the measurements are shared by load balancing and PV Linkage. Device identifiers and entity IDs remain unchanged.
 
