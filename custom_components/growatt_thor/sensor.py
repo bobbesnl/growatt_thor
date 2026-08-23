@@ -293,6 +293,14 @@ class StatusSensor(BaseSensor):
         return normalize_ocpp_status(self.coordinator.status)
 
     @property
+    def available(self):
+        return (
+            super().available
+            and self.coordinator.connected
+            and self.coordinator.status is not None
+        )
+
+    @property
     def extra_state_attributes(self):
         return {
             "connected": self.coordinator.connected,

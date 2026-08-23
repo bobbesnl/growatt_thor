@@ -29,7 +29,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
 
         self.charge_point_id = None
-        self.status = "Unavailable"
+        self.status = None
         self.connected = False
         self.connection_started_at = None
         self.last_message_at = None
@@ -237,10 +237,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.async_set_updated_data(True)
 
     def set_disconnected(self):
-        """Mark the active OCPP connection as unavailable."""
+        """Mark the active OCPP transport connection as disconnected."""
         was_connected = self.connected
         self.connected = False
-        self.status = "Unavailable"
         if was_connected:
             _LOGGER.info("Charge point disconnected: %s", self.charge_point_id)
         self.async_set_updated_data(True)
