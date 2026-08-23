@@ -51,7 +51,7 @@ Home Assistant.
 | OCPP message / vendor message | Direction | Observed example or purpose | Current Home Assistant mapping | Firmware | Status |
 |---|---|---|---|---|---|
 | `BootNotification` | CP -> CS | `chargePointVendor=Growatt`, `chargePointModel=THOR_22AS`, serial and firmware | Payload is logged; connection creates the Charge Point ID sensor | 2.2.16 | observed, implemented |
-| `Heartbeat` | CP -> CS | Periodic clock synchronization | Returns current UTC time | 2.2.16 | observed, implemented |
+| `Heartbeat` | CP -> CS | Periodic clock synchronization; Central System requests a 60-second interval in `BootNotification.conf` | Returns current UTC time and refreshes connection liveness; any inbound OCPP message also counts as activity | 2.2.16 | observed, implemented |
 | `StatusNotification` | CP -> CS | `Preparing`, `Charging`, `Finishing`; `errorCode=NoError` and an empty `info` field | Status sensor; other diagnostic fields are not retained yet | 2.2.16 | observed, implemented |
 | `StartTransaction` | CP -> CS | Starts an OCPP transaction | Resets live session values and returns a CS-generated transaction ID | 2.2.16 | implemented |
 | `MeterValues` | CP -> CS | Charging energy, current, voltage, power, and temperature | Live charging and per-phase sensors | 2.2.16 | observed, implemented |

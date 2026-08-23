@@ -53,6 +53,7 @@ Your feedback helps identify patterns and improve integration stability! 🙏
 
 ### 📊 Real-time Monitoring
 - **Charger status**: Idle, Preparing, Charging, Finishing, Faulted, Unavailable
+- **Connection health**: Last OCPP message and heartbeat timestamps; inactive WebSockets are disconnected after 180 seconds without inbound activity
 - **Power monitoring**: Total power and per-phase (L1, L2, L3) in Watts
 - **Current monitoring**: Current draw per phase in Amperes
 - **Voltage monitoring**: Voltage per phase
