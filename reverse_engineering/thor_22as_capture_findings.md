@@ -55,9 +55,9 @@ Home Assistant.
 | `StatusNotification` | CP -> CS | `Preparing`, `Charging`, `Finishing`; `errorCode=NoError` and an empty `info` field | Status sensor; other diagnostic fields are not retained yet | 2.2.16 | observed, implemented |
 | `StartTransaction` | CP -> CS | Starts an OCPP transaction | Resets live session values and returns a CS-generated transaction ID | 2.2.16 | implemented |
 | `MeterValues` | CP -> CS | Charging energy, current, voltage, power, and temperature | Live charging and per-phase sensors | 2.2.16 | observed, implemented |
-| `StopTransaction` | CP -> CS | Ends a transaction with meter stop and reason | Clears active transaction state | 2.2.16 | observed, implemented |
-| `TriggerMessage` | CS -> CP | Captured requests for `BootNotification` and `StatusNotification` | Integration requests status during manual refresh | 2.2.16 | observed, implemented |
-| `GetConfiguration` | CS -> CP | Reads standard OCPP and Growatt `G_*` keys | Known operational values are mapped; informational values are currently logged | 2.2.16 | observed, implemented |
+| `StopTransaction` | CP -> CS | Ends a transaction with meter stop and reason | Clears active state and retains the complete start/stop transaction pair in HA diagnostics | 2.2.16 | observed, implemented |
+| `TriggerMessage` | CS -> CP | Captured requests for `BootNotification` and `StatusNotification` | Integration requests status during manual refresh and requests boot data once when reconnecting firmware omits it | 2.2.16 | observed, implemented |
+| `GetConfiguration` | CS -> CP | Reads standard OCPP and Growatt `G_*` keys | Returned values are retained in structured diagnostics; selected values also have entities | 2.2.16 | observed, implemented |
 | `ChangeConfiguration` | CS -> CP | Writes one configuration value | Used by numbers, switches, time entities, and charger mode | 2.2.16 | observed, implemented |
 | `DataTransfer/get_external_meterval` | CS -> CP | Requests the external power meter snapshot | Grid power, voltage, and current sensors | 2.2.16 | observed, implemented |
 | `DataTransfer/currentrecord` | CP -> CS | Current or latest Growatt session record | Last-session sensors and CSV logging | 2.2.16 | observed, implemented |

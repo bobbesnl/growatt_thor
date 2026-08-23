@@ -74,6 +74,7 @@ class GrowattChargePoint(OcppChargePoint):
         self._websocket = websocket
         self._activity = OcppConnectionActivity(hass.loop.time())
         self._transaction_id = 1
+        self._boot_notification_requested = False
 
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN]["charge_point"] = self
@@ -163,7 +164,8 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             _LOGGER.info("BootNotification payload: %s", payload)
             self.coordinator.record_boot_notification(payload)
-            self.hass.async_create_task(self._post_connect_init())
+            if not self._boot_notification_requested:
+                self.hass.async_create_task(self._post_connect_init())
             return call_result.BootNotification(
                 current_time=self.coordinator.now(),
                 interval=OCPP_HEARTBEAT_INTERVAL_SECONDS,
@@ -206,6 +208,13 @@ class GrowattChargePoint(OcppChargePoint):
 
             _LOGGER.info("Fetching external meter snapshot after connect")
             await self.trigger_external_meterval()
+
+            if (
+                self.coordinator.boot_notification is None
+                and not self._boot_notification_requested
+            ):
+                self._boot_notification_requested = True
+                await self.trigger_boot_notification()
 
         except Exception as exc:
             _LOGGER.warning("Post-connect init failed: %s", exc)
@@ -345,6 +354,14 @@ class GrowattChargePoint(OcppChargePoint):
             await self.call(call.TriggerMessage(requested_message="StatusNotification", connector_id=1))
         except Exception as exc:
             _LOGGER.warning("Failed to trigger StatusNotification: %s", exc)
+
+    async def trigger_boot_notification(self):
+        """Request BootNotification when a reconnect did not send one."""
+        try:
+            _LOGGER.info("Triggering BootNotification for diagnostics")
+            await self.call(call.TriggerMessage(requested_message="BootNotification"))
+        except Exception as exc:
+            _LOGGER.warning("Failed to trigger BootNotification: %s", exc)
 
     async def trigger_external_meterval(self):
         _LOGGER.info("Triggering Growatt get_external_meterval")
