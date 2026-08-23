@@ -67,6 +67,7 @@ def parse_external_meter_data(data: str) -> ExternalMeterSnapshot:
 
     return ExternalMeterSnapshot(
         used=_optional_int(values, "used"),
+        # Growatt sends "wring" on the wire; this may be a vendor typo for "wiring".
         wring=_optional_int(values, "wring"),
         power=_optional_float(values, "power"),
         voltages=voltages,
