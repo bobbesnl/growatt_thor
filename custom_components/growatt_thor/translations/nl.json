@@ -120,6 +120,39 @@
           "plug_and_charge": "Aansluiten en laden"
         }
       },
+      "solar_mode": {
+        "name": "Zonnemodus",
+        "state": {
+          "disabled": "Uitgeschakeld",
+          "pv_linkage": "PV-koppeling",
+          "pv_linkage_plus": "PV-koppeling+"
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "Toegestane netafname bij PV-koppeling"
+      },
+      "solar_boost": {
+        "name": "Boostconfiguratie bij PV-koppeling"
+      },
+      "solar_threshold_current": {
+        "name": "Drempelstroom voor zonne-energie"
+      },
+      "grid_off_peak_charging": {
+        "name": "Laden tijdens daltarief",
+        "state": {
+          "disabled": "Uitgeschakeld",
+          "enabled": "Ingeschakeld"
+        }
+      },
+      "off_peak_enable_setting": {
+        "name": "Daltariefinschakeling"
+      },
+      "off_peak_schedule": {
+        "name": "Daltariefschema"
+      },
+      "off_peak_current": {
+        "name": "Laadstroom tijdens daltarief"
+      },
       "power_meter_type": {
         "name": "Energiemetertype"
       },

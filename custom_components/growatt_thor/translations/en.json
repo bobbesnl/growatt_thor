@@ -120,6 +120,39 @@
           "plug_and_charge": "Plug & charge"
         }
       },
+      "solar_mode": {
+        "name": "Solar mode",
+        "state": {
+          "disabled": "Disabled",
+          "pv_linkage": "PV Linkage",
+          "pv_linkage_plus": "PV Linkage+"
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "PV Linkage grid import allowance"
+      },
+      "solar_boost": {
+        "name": "PV Linkage boost configuration"
+      },
+      "solar_threshold_current": {
+        "name": "Solar threshold current"
+      },
+      "grid_off_peak_charging": {
+        "name": "Grid off-peak charging",
+        "state": {
+          "disabled": "Disabled",
+          "enabled": "Enabled"
+        }
+      },
+      "off_peak_enable_setting": {
+        "name": "Off-peak enable setting"
+      },
+      "off_peak_schedule": {
+        "name": "Off-peak schedule"
+      },
+      "off_peak_current": {
+        "name": "Off-peak current"
+      },
       "power_meter_type": {
         "name": "Power meter type"
       },

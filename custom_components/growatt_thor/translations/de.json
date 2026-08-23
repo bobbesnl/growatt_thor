@@ -120,6 +120,39 @@
           "plug_and_charge": "Einstecken und laden"
         }
       },
+      "solar_mode": {
+        "name": "Solarmodus",
+        "state": {
+          "disabled": "Deaktiviert",
+          "pv_linkage": "PV-Kopplung",
+          "pv_linkage_plus": "PV-Kopplung+"
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "Erlaubter Netzbezug bei PV-Kopplung"
+      },
+      "solar_boost": {
+        "name": "Boost-Konfiguration bei PV-Kopplung"
+      },
+      "solar_threshold_current": {
+        "name": "Solarstrom-Schwelle"
+      },
+      "grid_off_peak_charging": {
+        "name": "Netzladen zum Niedertarif",
+        "state": {
+          "disabled": "Deaktiviert",
+          "enabled": "Aktiviert"
+        }
+      },
+      "off_peak_enable_setting": {
+        "name": "Niedertarif-Aktivierung"
+      },
+      "off_peak_schedule": {
+        "name": "Niedertarif-Zeitplan"
+      },
+      "off_peak_current": {
+        "name": "Niedertarif-Ladestrom"
+      },
       "power_meter_type": {
         "name": "Zählertyp"
       },

@@ -304,17 +304,19 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
             request_group=_INFORMATIONAL,
         ),
         "G_SolarLimitPower": _definition(
-            "Solar power threshold or limit",
+            "PV Linkage power threshold or grid-import allowance",
             data_type=ConfigurationDataType.FLOAT,
+            unit="kW",
             request_group=_INFORMATIONAL,
         ),
         "G_SolarBoost": _definition(
-            "Vendor-encoded solar boost setting",
+            "Vendor-encoded PV Linkage boost configuration",
             request_group=_INFORMATIONAL,
         ),
         "G_SolarThresholdCurr": _definition(
             "Solar current threshold",
             data_type=ConfigurationDataType.FLOAT,
+            unit="A",
             request_group=_INFORMATIONAL,
         ),
         "G_PeakValleyEnable": _definition(
@@ -332,6 +334,8 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         ),
         "G_OffPeakCurr": _definition(
             "Off-peak current setting",
+            data_type=ConfigurationDataType.FLOAT,
+            unit="A",
             request_group=_INFORMATIONAL,
         ),
         "G_MeterValueInterval": _definition(
@@ -439,6 +443,15 @@ CONFIGURATION_ENTITY_OPTIONS: Final[Mapping[str, tuple[str, ...]]] = MappingProx
             "power_meter",
             "ct_3000_1",
         ),
+        "G_SolarMode": (
+            "disabled",
+            "pv_linkage",
+            "pv_linkage_plus",
+        ),
+        "G_PeakValleyEnable": (
+            "disabled",
+            "enabled",
+        ),
     }
 )
 
@@ -467,6 +480,27 @@ _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
                     "0": "ct_2000_1",
                     "1": "power_meter",
                     "2": "ct_3000_1",
+                }
+            ),
+            "G_SolarMode": MappingProxyType(
+                {
+                    "0": "disabled",
+                    "1": "pv_linkage",
+                    "2": "pv_linkage_plus",
+                    "11": "pv_linkage",
+                    "12": "pv_linkage_plus",
+                }
+            ),
+            "G_PeakValleyEnable": MappingProxyType(
+                {
+                    "0": "disabled",
+                    "false": "disabled",
+                    "disable": "disabled",
+                    "disabled": "disabled",
+                    "1": "enabled",
+                    "true": "enabled",
+                    "enable": "enabled",
+                    "enabled": "enabled",
                 }
             ),
         }

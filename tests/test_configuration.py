@@ -244,6 +244,65 @@ class ConfigurationEntityStateTest(unittest.TestCase):
             )
         )
 
+    def test_solar_mode_values(self):
+        for raw_value, expected in (
+            ("0", "disabled"),
+            ("1", "pv_linkage"),
+            ("2", "pv_linkage_plus"),
+            ("1&1", "pv_linkage"),
+            ("1&2", "pv_linkage_plus"),
+        ):
+            with self.subTest(raw_value=raw_value):
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        "G_SolarMode",
+                        self._value("G_SolarMode", raw_value),
+                    ),
+                    expected,
+                )
+
+    def test_peak_valley_enable_values(self):
+        for raw_value, expected in (
+            ("0", "disabled"),
+            ("Disable", "disabled"),
+            ("1", "enabled"),
+            ("Enable", "enabled"),
+        ):
+            with self.subTest(raw_value=raw_value):
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        "G_PeakValleyEnable",
+                        self._value("G_PeakValleyEnable", raw_value),
+                    ),
+                    expected,
+                )
+
+    def test_mode_specific_numeric_settings_include_units(self):
+        for key, raw_value, parsed_value, unit in (
+            ("G_SolarLimitPower", "3.96", 3.96, "kW"),
+            ("G_SolarThresholdCurr", "6", 6.0, "A"),
+            ("G_OffPeakCurr", "16", 16.0, "A"),
+        ):
+            with self.subTest(key=key):
+                value = self._value(key, raw_value)
+                self.assertEqual(value.parsed_value, parsed_value)
+                self.assertEqual(value.definition.unit, unit)
+
+    def test_vendor_encoded_settings_remain_lossless(self):
+        for key, raw_value in (
+            ("G_SolarBoost", "1&Disable"),
+            ("G_OffPeakEnable", "1&Disable"),
+            ("G_OffPeakTime", "00:00-05:00=0&1"),
+        ):
+            with self.subTest(key=key):
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        key,
+                        self._value(key, raw_value),
+                    ),
+                    raw_value,
+                )
+
     def test_plain_meter_values_keep_their_parsed_type(self):
         self.assertEqual(
             configuration.configuration_entity_state(
@@ -306,6 +365,14 @@ class EntityTranslationTest(unittest.TestCase):
             "grid_current",
             "working_mode",
             "charger_mode",
+            "solar_mode",
+            "solar_grid_import_limit",
+            "solar_boost",
+            "solar_threshold_current",
+            "grid_off_peak_charging",
+            "off_peak_enable_setting",
+            "off_peak_schedule",
+            "off_peak_current",
             "power_meter_type",
             "power_meter_address",
             "external_sampling_wiring",
@@ -313,6 +380,8 @@ class EntityTranslationTest(unittest.TestCase):
         enum_entities = {
             "working_mode": "G_WorkingMode",
             "charger_mode": "G_ChargerMode",
+            "solar_mode": "G_SolarMode",
+            "grid_off_peak_charging": "G_PeakValleyEnable",
             "external_sampling_wiring": "G_ExternalSamplingCurWring",
         }
 
