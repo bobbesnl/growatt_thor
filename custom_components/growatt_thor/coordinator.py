@@ -13,6 +13,7 @@ from .configuration import (
     normalize_unknown_configuration_keys,
 )
 from .const import DOMAIN
+from .external_meter import parse_external_meter_data
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -94,6 +95,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.grid_voltages = {}
         self.grid_currents = {}
         self.wiring_type = None
+        self.external_meter_used = None
+        self.external_meter_last_updated_at = None
 
         # WRITE QUEUE SYSTEEM
         self._write_queue = deque()
@@ -587,60 +590,33 @@ class GrowattCoordinator(DataUpdateCoordinator):
     def process_external_meter(self, data_str: str):
         """Process external meter values from get_external_meterval DataTransfer."""
         try:
-            pairs = data_str.split("&")
-            values = {}
-            for pair in pairs:
-                if "=" in pair:
-                    key, val = pair.split("=", 1)
-                    values[key] = val
+            snapshot = parse_external_meter_data(data_str)
 
-            updated = False
+            if self.external_meter_used != snapshot.used:
+                self.external_meter_used = snapshot.used
 
-            if "wring" in values:
-                try:
-                    wiring = int(values["wring"])
-                    if self.wiring_type != wiring:
-                        self.wiring_type = wiring
-                        updated = True
-                        _LOGGER.debug("Wiring type: %s", "3-phase" if wiring == 1 else "1-phase")
-                except ValueError:
-                    pass
+            if self.wiring_type != snapshot.wiring:
+                self.wiring_type = snapshot.wiring
 
-            for phase_key, phase_name in [("u-voltage", "L1"), ("v-voltage", "L2"), ("w-voltage", "L3")]:
-                if phase_key in values:
-                    try:
-                        voltage = float(values[phase_key])
-                        if self.grid_voltages.get(phase_name) != voltage:
-                            self.grid_voltages[phase_name] = voltage
-                            updated = True
-                            _LOGGER.debug("Grid voltage %s: %.1f V", phase_name, voltage)
-                    except ValueError:
-                        pass
+            if self.grid_voltages != snapshot.voltages:
+                self.grid_voltages = snapshot.voltages
 
-            for phase_key, phase_name in [("u-current", "L1"), ("v-current", "L2"), ("w-current", "L3")]:
-                if phase_key in values:
-                    try:
-                        current = float(values[phase_key])
-                        if self.grid_currents.get(phase_name) != current:
-                            self.grid_currents[phase_name] = current
-                            updated = True
-                            _LOGGER.debug("Grid current %s: %.1f A", phase_name, current)
-                    except ValueError:
-                        pass
+            if self.grid_currents != snapshot.currents:
+                self.grid_currents = snapshot.currents
 
-            if "power" in values:
-                try:
-                    power = float(values["power"])
-                    if self.grid_power != power:
-                        self.grid_power = power
-                        updated = True
-                        _LOGGER.debug("Grid power: %.1f W", power)
-                except ValueError:
-                    pass
+            if self.grid_power != snapshot.power:
+                self.grid_power = snapshot.power
 
-            if updated:
-                _LOGGER.info("External meter values processed successfully")
-                self.async_set_updated_data(True)
+            self.external_meter_last_updated_at = self.now()
+            _LOGGER.debug(
+                "External meter snapshot: used=%s wiring=%s power=%s voltages=%s currents=%s",
+                snapshot.used,
+                snapshot.wiring,
+                snapshot.power,
+                snapshot.voltages,
+                snapshot.currents,
+            )
+            self.async_set_updated_data(True)
 
         except (ValueError, TypeError, KeyError) as exc:
             _LOGGER.warning("Failed to process external meter data '%s': %s", data_str, exc)
