@@ -426,6 +426,76 @@ INFORMATIONAL_CONFIGURATION_KEYS: Final[tuple[str, ...]] = tuple(
 )
 
 
+CONFIGURATION_ENTITY_OPTIONS: Final[Mapping[str, tuple[str, ...]]] = MappingProxyType(
+    {
+        "G_WorkingMode": ("fast", "pv_linkage", "off_peak"),
+        "G_ChargerMode": (
+            "home_assistant_rfid",
+            "rfid_only",
+            "plug_and_charge",
+        ),
+        "G_ExternalSamplingCurWring": (
+            "none",
+            "ct_2000_1",
+            "power_meter",
+            "ct_3000_1",
+        ),
+    }
+)
+
+_CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
+    MappingProxyType(
+        {
+            "G_WorkingMode": MappingProxyType(
+                {
+                    "fast": "fast",
+                    "fastmode": "fast",
+                    "pvlink": "pv_linkage",
+                    "pvlinkage": "pv_linkage",
+                    "offpeak": "off_peak",
+                    "offpeakmode": "off_peak",
+                }
+            ),
+            "G_ChargerMode": MappingProxyType(
+                {
+                    "1": "home_assistant_rfid",
+                    "2": "rfid_only",
+                    "3": "plug_and_charge",
+                }
+            ),
+            "G_ExternalSamplingCurWring": MappingProxyType(
+                {
+                    "0": "none",
+                    "1": "ct_2000_1",
+                    "2": "power_meter",
+                    "3": "ct_3000_1",
+                }
+            ),
+        }
+    )
+)
+
+
+def configuration_entity_state(
+    key: str,
+    value: ConfigurationValue | None,
+) -> ConfigurationScalar:
+    """Return a stable Home Assistant state for a retained configuration value."""
+    if value is None or value.raw_value is None or not value.raw_value.strip():
+        return None
+
+    aliases = _CONFIGURATION_ENTITY_ALIASES.get(key)
+    if aliases is None:
+        return value.parsed_value
+
+    normalized = "".join(
+        character
+        for character in value.raw_value.casefold()
+        if character.isalnum()
+    )
+    return aliases.get(normalized)
+
+
 def _parse_value(
     definition: ConfigurationDefinition | None,
     raw_value: str | None,

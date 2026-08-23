@@ -209,7 +209,7 @@ writable controls require separate before/after captures.
 | `G_CardPin` | `<redacted>` | Local card/PIN value | Not requested; sensitive | 2.2.16 | observed, inferred |
 | `G_ChargerID` | `<redacted>` | Charger identifier | Preserved in diagnostics; Charge Point ID comes from the OCPP connection | 2.2.16 | observed, implemented |
 | `G_ChargerLanguage` | `English` | Charger display language | Preserved in diagnostics | 2.2.16 | observed, implemented |
-| `G_ChargerMode` | `3` | `1=HA/RFID`, `2=RFID Only`, `3=Plug & Charge` | Charger mode in options flow | 2.2.16 | observed, implemented |
+| `G_ChargerMode` | `3` | `1=HA/RFID` (`APP` in the charger web page), `2=RFID Only`, `3=Plug & Charge` | Charger mode in options flow and read-only authorization-mode sensor | 2.2.16 | observed, implemented |
 | `G_ChargerNetDNS` | `<redacted>` | Charger DNS server | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
 | `G_ChargerNetGateway` | `<redacted>` | Charger network gateway | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
 | `G_ChargerNetIP` | `<redacted>` | Charger network address | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
@@ -219,7 +219,7 @@ writable controls require separate before/after captures.
 | `G_DaylightSavingTime` | `00-00&00-00` | Daylight-saving configuration; value format not confirmed | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_ExternalLimitPower` | `45` | External grid power limit in kW in the tested setup | Loadbalancing limit number | 2.2.16 | observed, implemented |
 | `G_ExternalLimitPowerEnable` | `0` | Enable external power limiting | Loadbalancing switch | 2.2.16 | observed, implemented |
-| `G_ExternalSamplingCurWring` | `1` | External meter wiring/sampling mode; exact enum needs confirmation | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
+| `G_ExternalSamplingCurWring` | `1` | External meter wiring/sampling mode; displayed with the charger web-page enum | Read-only External Sampling Method sensor | 2.2.16 | observed, inferred, implemented |
 | `G_LowPowerReserveEnable` | `Disable` | Low-power reserve setting | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_MaxCurrent` | `32.00` | Maximum charging current per phase in A | Max Current number | 2.2.16 | observed, implemented |
 | `G_MaxTemperature` | `80` | Maximum temperature threshold in Celsius | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
@@ -230,8 +230,8 @@ writable controls require separate before/after captures.
 | `G_OffPeakTime` | `00:00-05:00=0&1` | Vendor-encoded off-peak time window | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_PeakValleyEnable` | `0` | Peak/valley tariff enable setting | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_PeriodTime` | `1&time1=00:00-05:00` | Vendor-encoded period definition | Not requested | 2.2.16 | observed, inferred |
-| `G_PowerMeterAddr` | `2` | External Modbus meter address | Preserved in diagnostics | 2.2.16 | observed, implemented |
-| `G_PowerMeterType` | `Eastron SDM630` | External meter model/type | Preserved in diagnostics | 2.2.16 | observed, implemented |
+| `G_PowerMeterAddr` | `2` | External Modbus meter address | Read-only Power Meter Address sensor | 2.2.16 | observed, implemented |
+| `G_PowerMeterType` | `Eastron SDM630` | External meter model/type | Read-only Power Meter Type sensor | 2.2.16 | observed, implemented |
 | `G_RCDProtection` | `6` | RCD protection mode; enum not confirmed | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_RandDelayChargeTime` | `0` | Randomized charging delay | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_ServerURL` | `ws://<ha-host>:9000` | OCPP central-system endpoint | Server URL diagnostic sensor | 2.2.16 | observed, implemented |
@@ -243,7 +243,7 @@ writable controls require separate before/after captures.
 | `G_WebSocketPingInterval` | `30` | Growatt WebSocket ping interval in seconds | Preserved in diagnostics | 2.2.16 | observed, implemented |
 | `G_WifiPassword` | `<redacted>` | Wi-Fi password | Intentionally not requested; sensitive | 2.2.16 | observed |
 | `G_WifiSSID` | `<redacted>` | Wi-Fi network name | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
-| `G_WorkingMode` | `PVlink` | Charger working mode | Preserved in diagnostics; last session also exposes a work-mode code | 2.2.16 | observed, inferred, implemented |
+| `G_WorkingMode` | `PVlink` | Charger working mode: Fast, PV Linkage, or Off-Peak; separate from `G_ChargerMode` authorization | Read-only Working Mode sensor; last session also exposes a work-mode code | 2.2.16 | observed, implemented |
 
 ### Queried or implemented without matching local capture evidence
 

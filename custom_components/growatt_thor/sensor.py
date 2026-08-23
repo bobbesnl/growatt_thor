@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorDeviceClass,
+    SensorEntityDescription,
     SensorStateClass,
 )
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -16,11 +19,86 @@ from homeassistant.const import (
     UnitOfTime,
 )
 
+from .configuration import (
+    CONFIGURATION_ENTITY_OPTIONS,
+    configuration_entity_state,
+)
 from .const import DOMAIN
+
+
+@dataclass(frozen=True)
+class GrowattConfigurationSensorDefinition:
+    """Define a read-only Growatt configuration sensor."""
+
+    entity_description: SensorEntityDescription
+    configuration_key: str
+    external_meter: bool = False
+
+
+CONFIGURATION_SENSOR_DESCRIPTIONS = (
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="working_mode",
+            translation_key="working_mode",
+            device_class=SensorDeviceClass.ENUM,
+            options=list(CONFIGURATION_ENTITY_OPTIONS["G_WorkingMode"]),
+            icon="mdi:ev-station",
+        ),
+        configuration_key="G_WorkingMode",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="charger_mode",
+            translation_key="charger_mode",
+            device_class=SensorDeviceClass.ENUM,
+            options=list(CONFIGURATION_ENTITY_OPTIONS["G_ChargerMode"]),
+            icon="mdi:shield-key-outline",
+        ),
+        configuration_key="G_ChargerMode",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="power_meter_type",
+            translation_key="power_meter_type",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:counter",
+        ),
+        configuration_key="G_PowerMeterType",
+        external_meter=True,
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="power_meter_address",
+            translation_key="power_meter_address",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:numeric",
+        ),
+        configuration_key="G_PowerMeterAddr",
+        external_meter=True,
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="external_sampling_wiring",
+            translation_key="external_sampling_wiring",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            device_class=SensorDeviceClass.ENUM,
+            options=list(
+                CONFIGURATION_ENTITY_OPTIONS["G_ExternalSamplingCurWring"]
+            ),
+            icon="mdi:connection",
+        ),
+        configuration_key="G_ExternalSamplingCurWring",
+        external_meter=True,
+    ),
+)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN]["coordinator"]
+    configuration_sensors = [
+        GrowattConfigurationSensor(coordinator, entry, description)
+        for description in CONFIGURATION_SENSOR_DESCRIPTIONS
+    ]
 
     async_add_entities(
         [
@@ -72,6 +150,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
             # ── Elektricteitstarief ───────────────────
             ElectricityPriceSensor(coordinator, entry),
+
+            # ── Read-only Growatt configuration ──────
+            *configuration_sensors,
         ]
     )
 
@@ -116,6 +197,65 @@ class BaseExternalMeterSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.external_limit_power_enable:
             return {"note": "Only sensor data when Load balancing is enabled"}
         return None
+
+
+# ─────────────────────────────
+# Read-only retained configuration
+# ─────────────────────────────
+
+class GrowattConfigurationSensor(CoordinatorEntity, SensorEntity):
+    """Expose one retained Growatt configuration value."""
+
+    _attr_has_entity_name = True
+    def __init__(self, coordinator, entry, definition):
+        super().__init__(coordinator)
+        self.entity_description = definition.entity_description
+        self._configuration_key = definition.configuration_key
+
+        if definition.external_meter:
+            self._attr_unique_id = (
+                f"{entry.entry_id}_external_meter_{self.entity_description.key}"
+            )
+            self._attr_device_info = {
+                "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
+                "name": "Growatt THOR External Meter",
+                "manufacturer": "Growatt",
+                "model": "THOR External Meter",
+            }
+        else:
+            self._attr_unique_id = f"{entry.entry_id}_{self.entity_description.key}"
+            self._attr_device_info = {
+                "identifiers": {(DOMAIN, entry.entry_id)},
+                "name": "Growatt THOR EV Charger",
+                "manufacturer": "Growatt",
+                "model": "THOR",
+            }
+
+    @property
+    def _configuration_value(self):
+        return self.coordinator.configuration_values.get(self._configuration_key)
+
+    @property
+    def native_value(self):
+        return configuration_entity_state(
+            self._configuration_key,
+            self._configuration_value,
+        )
+
+    @property
+    def available(self):
+        return super().available and self.native_value is not None
+
+    @property
+    def extra_state_attributes(self):
+        value = self._configuration_value
+        if value is None:
+            return None
+        return {
+            "ocpp_key": value.key,
+            "raw_value": value.raw_value,
+            "readonly": value.readonly,
+        }
 
 
 # ─────────────────────────────

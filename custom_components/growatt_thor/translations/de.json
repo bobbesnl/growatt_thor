@@ -63,5 +63,40 @@
         "3": "Einstecken und laden"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "working_mode": {
+        "name": "Betriebsmodus",
+        "state": {
+          "fast": "Schnellladen",
+          "pv_linkage": "PV-Kopplung",
+          "off_peak": "Niedertarif"
+        }
+      },
+      "charger_mode": {
+        "name": "Autorisierungsmodus",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Nur RFID",
+          "plug_and_charge": "Einstecken und laden"
+        }
+      },
+      "power_meter_type": {
+        "name": "Zählertyp"
+      },
+      "power_meter_address": {
+        "name": "Zähleradresse"
+      },
+      "external_sampling_wiring": {
+        "name": "Externe Messmethode",
+        "state": {
+          "none": "Keine",
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Stromzähler",
+          "ct_3000_1": "CT 3000:1"
+        }
+      }
+    }
   }
 }

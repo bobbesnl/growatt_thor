@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -13,6 +14,7 @@ MODULE_PATH = (
     / "growatt_thor"
     / "configuration.py"
 )
+TRANSLATIONS_PATH = MODULE_PATH.parent / "translations"
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_configuration_test_target",
     MODULE_PATH,
@@ -176,6 +178,129 @@ class ConfigurationValueTest(unittest.TestCase):
             ),
             ("G_RFEnable", "LightIntensity"),
         )
+
+
+class ConfigurationEntityStateTest(unittest.TestCase):
+    """Verify stable states for read-only Home Assistant entities."""
+
+    @staticmethod
+    def _value(key: str, raw_value: str):
+        return configuration.configuration_value_from_item(
+            {"key": key, "value": raw_value, "readonly": True}
+        )
+
+    def test_working_mode_aliases(self):
+        for raw_value, expected in (
+            ("Fast", "fast"),
+            ("PVlink", "pv_linkage"),
+            ("PV Linkage", "pv_linkage"),
+            ("Off-Peak", "off_peak"),
+        ):
+            with self.subTest(raw_value=raw_value):
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        "G_WorkingMode",
+                        self._value("G_WorkingMode", raw_value),
+                    ),
+                    expected,
+                )
+
+    def test_charger_mode_values(self):
+        for raw_value, expected in (
+            ("1", "home_assistant_rfid"),
+            ("2", "rfid_only"),
+            ("3", "plug_and_charge"),
+        ):
+            with self.subTest(raw_value=raw_value):
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        "G_ChargerMode",
+                        self._value("G_ChargerMode", raw_value),
+                    ),
+                    expected,
+                )
+
+    def test_external_sampling_wiring_values(self):
+        for raw_value, expected in (
+            ("0", "none"),
+            ("1", "ct_2000_1"),
+            ("2", "power_meter"),
+            ("3", "ct_3000_1"),
+        ):
+            with self.subTest(raw_value=raw_value):
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        "G_ExternalSamplingCurWring",
+                        self._value("G_ExternalSamplingCurWring", raw_value),
+                    ),
+                    expected,
+                )
+
+    def test_plain_meter_values_keep_their_parsed_type(self):
+        self.assertEqual(
+            configuration.configuration_entity_state(
+                "G_PowerMeterType",
+                self._value("G_PowerMeterType", "Eastron SDM630"),
+            ),
+            "Eastron SDM630",
+        )
+        self.assertEqual(
+            configuration.configuration_entity_state(
+                "G_PowerMeterAddr",
+                self._value("G_PowerMeterAddr", "2"),
+            ),
+            2,
+        )
+
+    def test_unmapped_or_empty_enum_value_is_unavailable(self):
+        self.assertIsNone(
+            configuration.configuration_entity_state(
+                "G_WorkingMode",
+                self._value("G_WorkingMode", "FutureMode"),
+            )
+        )
+        self.assertIsNone(
+            configuration.configuration_entity_state(
+                "G_WorkingMode",
+                self._value("G_WorkingMode", ""),
+            )
+        )
+
+
+class EntityTranslationTest(unittest.TestCase):
+    """Keep translated enum states aligned with the entity contract."""
+
+    def test_configuration_entities_are_translated(self):
+        expected_entities = {
+            "working_mode",
+            "charger_mode",
+            "power_meter_type",
+            "power_meter_address",
+            "external_sampling_wiring",
+        }
+        enum_entities = {
+            "working_mode": "G_WorkingMode",
+            "charger_mode": "G_ChargerMode",
+            "external_sampling_wiring": "G_ExternalSamplingCurWring",
+        }
+
+        for language in ("en", "de", "nl"):
+            with self.subTest(language=language):
+                translation = json.loads(
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                sensors = translation["entity"]["sensor"]
+                self.assertTrue(expected_entities.issubset(sensors))
+
+                for translation_key, configuration_key in enum_entities.items():
+                    self.assertEqual(
+                        tuple(sensors[translation_key]["state"]),
+                        configuration.CONFIGURATION_ENTITY_OPTIONS[
+                            configuration_key
+                        ],
+                    )
 
 
 if __name__ == "__main__":

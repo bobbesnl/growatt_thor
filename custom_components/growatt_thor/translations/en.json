@@ -63,5 +63,40 @@
         "3": "Plug & charge"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "working_mode": {
+        "name": "Working mode",
+        "state": {
+          "fast": "Fast",
+          "pv_linkage": "PV Linkage",
+          "off_peak": "Off-Peak"
+        }
+      },
+      "charger_mode": {
+        "name": "Authorization mode",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "RFID only",
+          "plug_and_charge": "Plug & charge"
+        }
+      },
+      "power_meter_type": {
+        "name": "Power meter type"
+      },
+      "power_meter_address": {
+        "name": "Power meter address"
+      },
+      "external_sampling_wiring": {
+        "name": "External sampling method",
+        "state": {
+          "none": "None",
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Power meter",
+          "ct_3000_1": "CT 3000:1"
+        }
+      }
+    }
   }
 }

@@ -63,5 +63,40 @@
         "3": "Aansluiten en laden"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "working_mode": {
+        "name": "Bedrijfsmodus",
+        "state": {
+          "fast": "Snel laden",
+          "pv_linkage": "PV-koppeling",
+          "off_peak": "Daltarief"
+        }
+      },
+      "charger_mode": {
+        "name": "Autorisatiemodus",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Alleen RFID",
+          "plug_and_charge": "Aansluiten en laden"
+        }
+      },
+      "power_meter_type": {
+        "name": "Energiemetertype"
+      },
+      "power_meter_address": {
+        "name": "Energiemeteradres"
+      },
+      "external_sampling_wiring": {
+        "name": "Externe meetmethode",
+        "state": {
+          "none": "Geen",
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Energiemeter",
+          "ct_3000_1": "CT 3000:1"
+        }
+      }
+    }
   }
 }

@@ -72,6 +72,7 @@ Your feedback helps identify patterns and improve integration stability! 🙏
 - **Charging schedule**: Configure automatic start/stop times
 - **Charger modes**: Switch between Plug & Charge, RFID only, HomeAssistant(HA)/RFID mode
 - **Configuration diagnostics**: Preserve all returned OCPP and Growatt configuration values, including unknown keys and charger-provided read-only flags
+- **Read-only configuration sensors**: Show working mode, authorization mode, and external meter setup without exposing unverified write controls
 - **Manual charging control**: Start and stop charging sessions via buttons
 - **Load balancing toggle**: Enable/disable dynamic load balancing
 - **Auto update THOR time**: Auto sync time with server time at every heartbeat and with reboot (ocpp protocol)
@@ -360,10 +361,15 @@ After successful connection, the integration creates the entities below. The lis
 | Voltage L1/L2/L3 | `sensor.growatt_thor_ev_charger_voltage_l1`<br>`sensor.growatt_thor_ev_charger_voltage_l2`<br>`sensor.growatt_thor_ev_charger_voltage_l3` | Charger voltage per phase (V) |
 | Power L1/L2/L3 | `sensor.growatt_thor_ev_charger_power_l1`<br>`sensor.growatt_thor_ev_charger_power_l2`<br>`sensor.growatt_thor_ev_charger_power_l3` | Charging power per phase (W) |
 | Temperature | `sensor.growatt_thor_ev_charger_temperature` | Internal charger temperature (°C) |
-| Grid power | `sensor.growatt_thor_load_balancing_grid_power` | External meter power (W) |
-| Grid voltage L1/L2/L3 | `sensor.growatt_thor_load_balancing_grid_voltage_l1`<br>`sensor.growatt_thor_load_balancing_grid_voltage_l2`<br>`sensor.growatt_thor_load_balancing_grid_voltage_l3` | External meter voltage per phase (V) |
-| Grid current L1/L2/L3 | `sensor.growatt_thor_load_balancing_grid_current_l1`<br>`sensor.growatt_thor_load_balancing_grid_current_l2`<br>`sensor.growatt_thor_load_balancing_grid_current_l3` | External meter current per phase (A) |
+| Grid power | `sensor.growatt_thor_external_meter_grid_power` | External meter power (W) |
+| Grid voltage L1/L2/L3 | `sensor.growatt_thor_external_meter_grid_voltage_l1`<br>`sensor.growatt_thor_external_meter_grid_voltage_l2`<br>`sensor.growatt_thor_external_meter_grid_voltage_l3` | External meter voltage per phase (V) |
+| Grid current L1/L2/L3 | `sensor.growatt_thor_external_meter_grid_current_l1`<br>`sensor.growatt_thor_external_meter_grid_current_l2`<br>`sensor.growatt_thor_external_meter_grid_current_l3` | External meter current per phase (A) |
 | Server URL | `sensor.growatt_thor_ev_charger_server_url` | Configured OCPP endpoint |
+| Working mode | `sensor.growatt_thor_ev_charger_working_mode` | Fast, PV Linkage, or Off-Peak operation |
+| Authorization mode | `sensor.growatt_thor_ev_charger_authorization_mode` | Home Assistant/RFID, RFID only, or Plug & Charge authorization |
+| Power meter type | `sensor.growatt_thor_external_meter_power_meter_type` | Configured external meter model |
+| Power meter address | `sensor.growatt_thor_external_meter_power_meter_address` | Configured external Modbus address |
+| External sampling method | `sensor.growatt_thor_external_meter_external_sampling_method` | External meter or current-transformer wiring method |
 | Electricity Price | `sensor.growatt_thor_ev_charger_electricity_price` | Configured electricity price (EUR/kWh) |
 | Last Session Energy | `sensor.growatt_thor_ev_charger_last_session_energy` | Energy from the most recently completed session |
 | Last Session Cost | `sensor.growatt_thor_ev_charger_last_session_cost` | Cost from the most recently completed session |
@@ -381,9 +387,9 @@ After successful connection, the integration creates the entities below. The lis
 | Entity name | Type | Default entity ID | Purpose |
 |---|---|---|---|
 | Max Current | Number | `number.growatt_thor_ev_charger_max_current` | Maximum charging current (6-32 A) |
-| Loadbalancing limit | Number | `number.growatt_thor_load_balancing_loadbalancing_limit` | Grid import limit (kW) |
+| Loadbalancing limit | Number | `number.growatt_thor_external_meter_loadbalancing_limit` | Grid import limit (kW) |
 | Electricity Price | Number | `number.growatt_thor_ev_charger_electricity_price` | Electricity tariff (EUR/kWh) |
-| Loadbalancing | Switch | `switch.growatt_thor_load_balancing_loadbalancing` | Enable or disable dynamic load balancing |
+| Loadbalancing | Switch | `switch.growatt_thor_external_meter_loadbalancing` | Enable or disable dynamic load balancing |
 | LCD Display | Switch | `switch.growatt_thor_ev_charger_lcd_display` | Enable or disable the charger display |
 | Start charging | Button | `button.growatt_thor_ev_charger_start_charging` | Manually request a charging session |
 | Stop charging | Button | `button.growatt_thor_ev_charger_stop_charging` | Stop the active charging session |
