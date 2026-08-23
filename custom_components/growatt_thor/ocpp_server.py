@@ -162,6 +162,7 @@ class GrowattChargePoint(OcppChargePoint):
     async def on_boot_notification(self, **payload):
         try:
             _LOGGER.info("BootNotification payload: %s", payload)
+            self.coordinator.record_boot_notification(payload)
             self.hass.async_create_task(self._post_connect_init())
             return call_result.BootNotification(
                 current_time=self.coordinator.now(),
@@ -230,7 +231,13 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             transaction_id = self._transaction_id
             self._transaction_id += 1
-            self.coordinator.start_transaction(transaction_id, id_tag)
+            self.coordinator.start_transaction(
+                transaction_id,
+                id_tag,
+                connector_id=connector_id,
+                meter_start=meter_start,
+                **kwargs,
+            )
             return call_result.StartTransaction(
                 transaction_id=transaction_id,
                 id_tag_info={"status": AuthorizationStatus.accepted},
@@ -245,7 +252,12 @@ class GrowattChargePoint(OcppChargePoint):
     @on("StopTransaction")
     async def on_stop_transaction(self, transaction_id, meter_stop, reason=None, **kwargs):
         try:
-            self.coordinator.stop_transaction(reason)
+            self.coordinator.stop_transaction(
+                reason,
+                transaction_id=transaction_id,
+                meter_stop=meter_stop,
+                **kwargs,
+            )
             return call_result.StopTransaction(
                 id_tag_info={"status": AuthorizationStatus.accepted}
             )
@@ -262,7 +274,12 @@ class GrowattChargePoint(OcppChargePoint):
     @on("StatusNotification")
     async def on_status_notification(self, connector_id, status, error_code=None, **kwargs):
         try:
-            self.coordinator.set_status(status)
+            self.coordinator.record_status_notification(
+                connector_id,
+                status,
+                error_code,
+                **kwargs,
+            )
             return call_result.StatusNotification()
         except Exception as exc:
             _LOGGER.error("Error in StatusNotification handler (status=%s): %s", status, exc, exc_info=True)

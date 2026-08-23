@@ -14,6 +14,7 @@ from .configuration import (
 )
 from .const import DOMAIN
 from .external_meter import parse_external_meter_data
+from .ocpp_diagnostics import create_ocpp_snapshot
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +39,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_heartbeat_at = None
         self.transaction_id = None
         self.id_tag = None
+
+        # Latest normalized OCPP requests retained for HA diagnostics.
+        self.boot_notification = None
+        self.last_status_notification = None
+        self.active_transaction = None
+        self.last_completed_transaction = None
 
         # ── Totaal ─────────────────────────
         self.power = None        # W
@@ -257,21 +264,86 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         self.async_set_updated_data(True)
 
-    def start_transaction(self, transaction_id, id_tag=None):
+    def record_boot_notification(self, payload):
+        """Retain the latest BootNotification request."""
+        self.boot_notification = create_ocpp_snapshot(self.now(), payload)
+        self.async_set_updated_data(True)
+
+    def record_status_notification(
+        self,
+        connector_id,
+        status,
+        error_code=None,
+        **payload,
+    ):
+        """Retain the latest StatusNotification request and update its state."""
+        request = {
+            "connector_id": connector_id,
+            "status": status,
+            "error_code": error_code,
+            **payload,
+        }
+        self.last_status_notification = create_ocpp_snapshot(self.now(), request)
+        self.set_status(status)
+
+    def start_transaction(
+        self,
+        transaction_id,
+        id_tag=None,
+        *,
+        connector_id=None,
+        meter_start=None,
+        **payload,
+    ):
         """Start charging transaction."""
         self.transaction_id = transaction_id
         self.id_tag = id_tag
         self.status = "Charging"
 
+        request = {
+            "connector_id": connector_id,
+            "id_tag": id_tag,
+            "meter_start": meter_start,
+            **payload,
+        }
+        start_snapshot = create_ocpp_snapshot(self.now(), request)
+        start_snapshot["response"] = {"transaction_id": transaction_id}
+        self.active_transaction = {"start": start_snapshot}
+
         _LOGGER.info("🔋 New transaction started → Resetting energy counter")
         self.energy = 0
 
-        _LOGGER.info("Transaction started: %s (idTag=%s)", transaction_id, id_tag)
+        _LOGGER.info("Transaction started: %s", transaction_id)
         self.async_set_updated_data(True)
 
-    def stop_transaction(self, reason=None):
+    def stop_transaction(
+        self,
+        reason=None,
+        *,
+        transaction_id=None,
+        meter_stop=None,
+        **payload,
+    ):
         """Stop charging transaction."""
-        _LOGGER.info("Transaction stopped: %s (reason=%s)", self.transaction_id, reason)
+        stopped_transaction_id = (
+            self.transaction_id if transaction_id is None else transaction_id
+        )
+        _LOGGER.info(
+            "Transaction stopped: %s (reason=%s)",
+            stopped_transaction_id,
+            reason,
+        )
+
+        request = {
+            "transaction_id": stopped_transaction_id,
+            "meter_stop": meter_stop,
+            "reason": reason,
+            **payload,
+        }
+        completed = dict(self.active_transaction or {})
+        completed["stop"] = create_ocpp_snapshot(self.now(), request)
+        self.last_completed_transaction = completed
+        self.active_transaction = None
 
         _LOGGER.info("🛑 Transaction stopped → Resetting charge values")
         self.power = 0
