@@ -91,7 +91,6 @@
       "external_sampling_wiring": {
         "name": "External sampling method",
         "state": {
-          "none": "None",
           "ct_2000_1": "CT 2000:1",
           "power_meter": "Power meter",
           "ct_3000_1": "CT 3000:1"

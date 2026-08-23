@@ -219,7 +219,7 @@ writable controls require separate before/after captures.
 | `G_DaylightSavingTime` | `00-00&00-00` | Daylight-saving configuration; value format not confirmed | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_ExternalLimitPower` | `45` | External grid power limit in kW in the tested setup | Loadbalancing limit number | 2.2.16 | observed, implemented |
 | `G_ExternalLimitPowerEnable` | `0` | Enable external power limiting | Loadbalancing switch | 2.2.16 | observed, implemented |
-| `G_ExternalSamplingCurWring` | `1` | External meter wiring/sampling mode; displayed with the charger web-page enum | Read-only External Sampling Method sensor | 2.2.16 | observed, inferred, implemented |
+| `G_ExternalSamplingCurWring` | `1` | External current sampling: `0=CT 2000:1`, `1=PowerMeter`, `2=CT 3000:1`; these OCPP values differ from the shifted charger web-page dropdown values | Read-only External Sampling Method sensor | 2.2.16 | observed, implemented |
 | `G_LowPowerReserveEnable` | `Disable` | Low-power reserve setting | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_MaxCurrent` | `32.00` | Maximum charging current per phase in A | Max Current number | 2.2.16 | observed, implemented |
 | `G_MaxTemperature` | `80` | Maximum temperature threshold in Celsius | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |

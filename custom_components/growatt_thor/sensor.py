@@ -663,8 +663,11 @@ class TemperatureSensor(BaseSensor):
 
     @property
     def native_value(self):
-        value = self.coordinator.temperature
-        return value if value is not None else 0
+        return self.coordinator.temperature
+
+    @property
+    def available(self):
+        return super().available and self.coordinator.temperature is not None
 
 
 # ─────────────────────────────

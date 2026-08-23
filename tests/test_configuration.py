@@ -222,10 +222,9 @@ class ConfigurationEntityStateTest(unittest.TestCase):
 
     def test_external_sampling_wiring_values(self):
         for raw_value, expected in (
-            ("0", "none"),
-            ("1", "ct_2000_1"),
-            ("2", "power_meter"),
-            ("3", "ct_3000_1"),
+            ("0", "ct_2000_1"),
+            ("1", "power_meter"),
+            ("2", "ct_3000_1"),
         ):
             with self.subTest(raw_value=raw_value):
                 self.assertEqual(
@@ -235,6 +234,13 @@ class ConfigurationEntityStateTest(unittest.TestCase):
                     ),
                     expected,
                 )
+
+        self.assertIsNone(
+            configuration.configuration_entity_state(
+                "G_ExternalSamplingCurWring",
+                self._value("G_ExternalSamplingCurWring", "3"),
+            )
+        )
 
     def test_plain_meter_values_keep_their_parsed_type(self):
         self.assertEqual(

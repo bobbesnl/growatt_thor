@@ -435,7 +435,6 @@ CONFIGURATION_ENTITY_OPTIONS: Final[Mapping[str, tuple[str, ...]]] = MappingProx
             "plug_and_charge",
         ),
         "G_ExternalSamplingCurWring": (
-            "none",
             "ct_2000_1",
             "power_meter",
             "ct_3000_1",
@@ -465,10 +464,9 @@ _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
             ),
             "G_ExternalSamplingCurWring": MappingProxyType(
                 {
-                    "0": "none",
-                    "1": "ct_2000_1",
-                    "2": "power_meter",
-                    "3": "ct_3000_1",
+                    "0": "ct_2000_1",
+                    "1": "power_meter",
+                    "2": "ct_3000_1",
                 }
             ),
         }

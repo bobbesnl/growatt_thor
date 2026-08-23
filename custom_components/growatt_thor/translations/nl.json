@@ -91,7 +91,6 @@
       "external_sampling_wiring": {
         "name": "Externe meetmethode",
         "state": {
-          "none": "Geen",
           "ct_2000_1": "CT 2000:1",
           "power_meter": "Energiemeter",
           "ct_3000_1": "CT 3000:1"
