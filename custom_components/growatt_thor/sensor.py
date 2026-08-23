@@ -195,8 +195,8 @@ class BaseExternalMeterSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         return {
-            "meter_used": self.coordinator.external_meter_used,
-            "wiring": self.coordinator.wiring_type,
+            "vendor_used": self.coordinator.external_meter_used,
+            "vendor_wring": self.coordinator.external_meter_wring,
             "last_updated_at": self.coordinator.external_meter_last_updated_at,
         }
 

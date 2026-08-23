@@ -33,7 +33,7 @@ class ExternalMeterParserTest(unittest.TestCase):
         )
 
         self.assertEqual(snapshot.used, 1)
-        self.assertEqual(snapshot.wiring, 1)
+        self.assertEqual(snapshot.wring, 1)
         self.assertEqual(snapshot.power, -3446.0)
         self.assertEqual(
             snapshot.voltages,
@@ -59,7 +59,7 @@ class ExternalMeterParserTest(unittest.TestCase):
         )
 
         self.assertIsNone(snapshot.used)
-        self.assertIsNone(snapshot.wiring)
+        self.assertIsNone(snapshot.wring)
         self.assertIsNone(snapshot.power)
         self.assertEqual(snapshot.voltages, {"L2": 232.5})
         self.assertEqual(snapshot.currents, {})

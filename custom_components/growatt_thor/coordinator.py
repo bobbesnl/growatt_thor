@@ -94,8 +94,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.grid_power = None
         self.grid_voltages = {}
         self.grid_currents = {}
-        self.wiring_type = None
         self.external_meter_used = None
+        self.external_meter_wring = None
         self.external_meter_last_updated_at = None
 
         # WRITE QUEUE SYSTEEM
@@ -595,8 +595,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
             if self.external_meter_used != snapshot.used:
                 self.external_meter_used = snapshot.used
 
-            if self.wiring_type != snapshot.wiring:
-                self.wiring_type = snapshot.wiring
+            if self.external_meter_wring != snapshot.wring:
+                self.external_meter_wring = snapshot.wring
 
             if self.grid_voltages != snapshot.voltages:
                 self.grid_voltages = snapshot.voltages
@@ -609,9 +609,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
             self.external_meter_last_updated_at = self.now()
             _LOGGER.debug(
-                "External meter snapshot: used=%s wiring=%s power=%s voltages=%s currents=%s",
+                "External meter snapshot: used=%s wring=%s power=%s voltages=%s currents=%s",
                 snapshot.used,
-                snapshot.wiring,
+                snapshot.wring,
                 snapshot.power,
                 snapshot.voltages,
                 snapshot.currents,

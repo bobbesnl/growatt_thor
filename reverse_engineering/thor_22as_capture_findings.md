@@ -133,8 +133,8 @@ integration sends `vendorId=Growatt` and the tested charger accepts it.
 
 | Field | Interpretation | Current Home Assistant mapping | Firmware | Status |
 |---|---|---|---|---|
-| `used` | Usage/availability flag; exact semantics not confirmed | `meter_used` sensor attribute | 2.2.16 | observed, inferred, implemented |
-| `wring` | Vendor spelling; likely describes the active phase wiring | `wiring` sensor attribute | 2.2.16 | observed, inferred, implemented |
+| `used` | Usage/availability flag; exact semantics not confirmed | `vendor_used` sensor attribute | 2.2.16 | observed, inferred, implemented |
+| `wring` | Vendor spelling; exact semantics and relationship to `G_ExternalSamplingCurWring` are not confirmed | `vendor_wring` sensor attribute | 2.2.16 | observed, implemented |
 | `u-voltage` | L1 voltage in V | Grid voltage L1 | 2.2.16 | observed, implemented |
 | `v-voltage` | L2 voltage in V | Grid voltage L2 | 2.2.16 | observed, implemented |
 | `w-voltage` | L3 voltage in V | Grid voltage L3 | 2.2.16 | observed, implemented |
