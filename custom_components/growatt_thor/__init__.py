@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.const import Platform
 from homeassistant.components.persistent_notification import async_create as pn_create
+from homeassistant.helpers import device_registry as dr
 import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 
@@ -29,6 +30,25 @@ PLATFORMS = [
 SESSION_LOG_FILE = "growatt_thor_sessions.csv"
 SESSION_LOG_HEADERS = ["timestamp", "charger_id", "location", "start_time", "end_time", "energy_kwh", "cost", "duration_minutes", "transaction_id"]
 SESSION_EXPORT_HEADERS = ["charger_id", "location", "start_time", "end_time", "energy_kwh", "cost", "duration_minutes", "transaction_id"]
+
+
+def _migrate_external_meter_device(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Update legacy default metadata for the external meter device."""
+    registry = dr.async_get(hass)
+    device = registry.async_get_device(
+        identifiers={(DOMAIN, entry.entry_id, "grid_connection")}
+    )
+    if device is None:
+        return
+
+    changes = {}
+    if device.name == "Growatt THOR Load balancing":
+        changes["name"] = "Growatt THOR External Meter"
+    if device.model == "THOR Load balancing":
+        changes["model"] = "THOR External Meter"
+
+    if changes:
+        registry.async_update_device(device.id, **changes)
 
 
 async def _check_existing_connection(hass, coordinator):
@@ -90,6 +110,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.async_create_task(_check_existing_connection(hass, coordinator))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    _migrate_external_meter_device(hass, entry)
 
     async def periodic_smart_grid_poll():
         """Smart poll: only when load balancing enabled."""

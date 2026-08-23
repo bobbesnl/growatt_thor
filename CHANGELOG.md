@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Read-only configuration entities**: Show the charger working and authorization modes plus external meter type, address, and sampling method. Enum states are translated in English, German, and Dutch.
 
 ### Changed
-- **External meter device naming**: Rename the logical `Growatt THOR Load balancing` device to `Growatt THOR External Meter` because the measurements are shared by load balancing and PV Linkage. Device identifiers and entity IDs remain unchanged.
+- **External meter device naming**: Rename the logical `Growatt THOR Load balancing` device to `Growatt THOR External Meter` because the measurements are shared by load balancing and PV Linkage. Existing default device metadata is migrated while user-assigned names, device identifiers, and entity IDs remain unchanged.
 
 ## [1.5.4] - 2026-06-12
 
