@@ -22,7 +22,7 @@ class ExternalMeterSnapshot:
     """One parsed get_external_meterval response."""
 
     used: int | None
-    wiring: int | None
+    wring: int | None
     power: float | None
     voltages: dict[str, float]
     currents: dict[str, float]
@@ -67,7 +67,7 @@ def parse_external_meter_data(data: str) -> ExternalMeterSnapshot:
 
     return ExternalMeterSnapshot(
         used=_optional_int(values, "used"),
-        wiring=_optional_int(values, "wring"),
+        wring=_optional_int(values, "wring"),
         power=_optional_float(values, "power"),
         voltages=voltages,
         currents=currents,
