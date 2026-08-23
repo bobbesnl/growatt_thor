@@ -92,6 +92,19 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
     ),
 )
 
+OCPP_STATUS_OPTIONS = [
+    "Available",
+    "Preparing",
+    "Charging",
+    "SuspendedEVSE",
+    "SuspendedEV",
+    "Finishing",
+    "Reserved",
+    "Unavailable",
+    "Faulted",
+    "Idle",
+]
+
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN]["coordinator"]
@@ -263,7 +276,7 @@ class GrowattConfigurationSensor(CoordinatorEntity, SensorEntity):
 # ─────────────────────────────
 
 class ServerUrlSensor(BaseSensor):
-    _attr_name = "Server URL"
+    _attr_translation_key = "server_url"
     _attr_icon = "mdi:server"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -280,7 +293,9 @@ class ServerUrlSensor(BaseSensor):
 # ─────────────────────────────
 
 class StatusSensor(BaseSensor):
-    _attr_name = "Status"
+    _attr_translation_key = "status"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = OCPP_STATUS_OPTIONS
     _attr_icon = "mdi:ev-station"
 
     def __init__(self, coordinator, entry):
@@ -296,7 +311,7 @@ class StatusSensor(BaseSensor):
 # ─────────────────────────────
 
 class ChargePointIdSensor(BaseSensor):
-    _attr_name = "Charge Point ID"
+    _attr_translation_key = "charge_point_id"
     _attr_icon = "mdi:identifier"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -317,7 +332,7 @@ class ChargePointIdSensor(BaseSensor):
 # ─────────────────────────────
 
 class ChargingPowerSensor(BaseSensor):
-    _attr_name = "Charging Power"
+    _attr_translation_key = "charging_power"
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
 
@@ -338,7 +353,7 @@ class ChargingPowerSensor(BaseSensor):
 # ─────────────────────────────
 
 class EnergyChargedSensor(BaseSensor):
-    _attr_name = "Energy Charged"
+    _attr_translation_key = "energy_charged"
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
 
@@ -361,7 +376,7 @@ class EnergyChargedSensor(BaseSensor):
 # ─────────────────────────────
 
 class TotalEnergyChargedSensor(BaseSensor):
-    _attr_name = "Total Energy Charged"
+    _attr_translation_key = "total_energy_charged"
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_icon = "mdi:counter"
@@ -383,7 +398,7 @@ class TotalEnergyChargedSensor(BaseSensor):
 # ─────────────────────────────
 
 class ElectricityPriceSensor(BaseSensor):
-    _attr_name = "Electricity Price"
+    _attr_translation_key = "electricity_price"
     _attr_icon = "mdi:currency-eur"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "EUR/kWh"
@@ -403,7 +418,7 @@ class ElectricityPriceSensor(BaseSensor):
 # ─────────────────────────────
 
 class LastSessionEnergySensor(BaseSensor):
-    _attr_name = "Last Session Energy"
+    _attr_translation_key = "last_session_energy"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:lightning-bolt"
 
@@ -424,7 +439,7 @@ class LastSessionEnergySensor(BaseSensor):
 # ─────────────────────────────
 
 class LastSessionCostSensor(BaseSensor):
-    _attr_name = "Last Session Cost"
+    _attr_translation_key = "last_session_cost"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:currency-eur"
 
@@ -441,7 +456,7 @@ class LastSessionCostSensor(BaseSensor):
 # ─────────────────────────────
 
 class LastSessionDurationSensor(BaseSensor):
-    _attr_name = "Last Session Duration"
+    _attr_translation_key = "last_session_duration"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:timer-outline"
 
@@ -462,7 +477,7 @@ class LastSessionDurationSensor(BaseSensor):
 # ─────────────────────────────
 
 class LastSessionStartSensor(BaseSensor):
-    _attr_name = "Last Session Start"
+    _attr_translation_key = "last_session_start"
     _attr_icon = "mdi:clock-start"
 
     def __init__(self, coordinator, entry):
@@ -478,7 +493,7 @@ class LastSessionStartSensor(BaseSensor):
 # ─────────────────────────────
 
 class LastSessionEndSensor(BaseSensor):
-    _attr_name = "Last Session End"
+    _attr_translation_key = "last_session_end"
     _attr_icon = "mdi:clock-end"
 
     def __init__(self, coordinator, entry):
@@ -494,7 +509,7 @@ class LastSessionEndSensor(BaseSensor):
 # ─────────────────────────────
 
 class LastSessionPlugTimeSensor(BaseSensor):
-    _attr_name = "Last Session Plug Time"
+    _attr_translation_key = "last_session_plug_time"
     _attr_icon = "mdi:power-plug"
 
     def __init__(self, coordinator, entry):
@@ -510,7 +525,7 @@ class LastSessionPlugTimeSensor(BaseSensor):
 # ─────────────────────────────
 
 class LastSessionUnplugTimeSensor(BaseSensor):
-    _attr_name = "Last Session Unplug Time"
+    _attr_translation_key = "last_session_unplug_time"
     _attr_icon = "mdi:power-plug-off"
 
     def __init__(self, coordinator, entry):
@@ -526,7 +541,7 @@ class LastSessionUnplugTimeSensor(BaseSensor):
 # ─────────────────────────────
 
 class LastSessionTransactionIdSensor(BaseSensor):
-    _attr_name = "Last Session Transaction ID"
+    _attr_translation_key = "last_session_transaction_id"
     _attr_icon = "mdi:identifier"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -543,7 +558,7 @@ class LastSessionTransactionIdSensor(BaseSensor):
 # ─────────────────────────────
 
 class LastSessionChargeModeSensor(BaseSensor):
-    _attr_name = "Last Session Charge Mode"
+    _attr_translation_key = "last_session_charge_mode"
     _attr_icon = "mdi:cog-outline"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -560,7 +575,7 @@ class LastSessionChargeModeSensor(BaseSensor):
 # ─────────────────────────────
 
 class LastSessionWorkModeSensor(BaseSensor):
-    _attr_name = "Last Session Work Mode"
+    _attr_translation_key = "last_session_work_mode"
     _attr_icon = "mdi:cog-outline"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -577,13 +592,14 @@ class LastSessionWorkModeSensor(BaseSensor):
 # ─────────────────────────────
 
 class CurrentSensor(BaseSensor):
+    _attr_translation_key = "current"
     _attr_device_class = SensorDeviceClass.CURRENT
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, entry, phase):
         self.phase = phase
-        self._attr_name = f"Current {phase}"
+        self._attr_translation_placeholders = {"phase": phase}
         super().__init__(coordinator, entry, f"current_{phase.lower()}")
 
     @property
@@ -601,13 +617,14 @@ class CurrentSensor(BaseSensor):
 # ─────────────────────────────
 
 class VoltageSensor(BaseSensor):
+    _attr_translation_key = "voltage"
     _attr_device_class = SensorDeviceClass.VOLTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, entry, phase):
         self.phase = phase
-        self._attr_name = f"Voltage {phase}"
+        self._attr_translation_placeholders = {"phase": phase}
         super().__init__(coordinator, entry, f"voltage_{phase.lower()}")
 
     @property
@@ -625,13 +642,14 @@ class VoltageSensor(BaseSensor):
 # ─────────────────────────────
 
 class PhasePowerSensor(BaseSensor):
+    _attr_translation_key = "phase_power"
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, entry, phase):
         self.phase = phase
-        self._attr_name = f"Power {phase}"
+        self._attr_translation_placeholders = {"phase": phase}
         super().__init__(coordinator, entry, f"power_{phase.lower()}")
 
     @property
@@ -649,7 +667,7 @@ class PhasePowerSensor(BaseSensor):
 # ─────────────────────────────
 
 class TemperatureSensor(BaseSensor):
-    _attr_name = "Temperature"
+    _attr_translation_key = "temperature"
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -675,7 +693,7 @@ class TemperatureSensor(BaseSensor):
 # ─────────────────────────────
 
 class GridPowerSensor(BaseExternalMeterSensor):
-    _attr_name = "Grid power"
+    _attr_translation_key = "grid_power"
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:transmission-tower"
@@ -693,13 +711,14 @@ class GridPowerSensor(BaseExternalMeterSensor):
 
 
 class GridVoltageSensor(BaseExternalMeterSensor):
+    _attr_translation_key = "grid_voltage"
     _attr_device_class = SensorDeviceClass.VOLTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:current-ac"
 
     def __init__(self, coordinator, entry, phase):
         self.phase = phase
-        self._attr_name = f"Grid voltage {phase}"
+        self._attr_translation_placeholders = {"phase": phase}
         super().__init__(coordinator, entry, f"voltage_{phase.lower()}")
 
     @property
@@ -713,13 +732,14 @@ class GridVoltageSensor(BaseExternalMeterSensor):
 
 
 class GridCurrentSensor(BaseExternalMeterSensor):
+    _attr_translation_key = "grid_current"
     _attr_device_class = SensorDeviceClass.CURRENT
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:current-dc"
 
     def __init__(self, coordinator, entry, phase):
         self.phase = phase
-        self._attr_name = f"Grid current {phase}"
+        self._attr_translation_placeholders = {"phase": phase}
         super().__init__(coordinator, entry, f"current_{phase.lower()}")
 
     @property

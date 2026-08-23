@@ -1,6 +1,7 @@
 """Tests for the standalone configuration registry."""
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 from pathlib import Path
@@ -15,6 +16,7 @@ MODULE_PATH = (
     / "configuration.py"
 )
 TRANSLATIONS_PATH = MODULE_PATH.parent / "translations"
+SENSOR_PATH = MODULE_PATH.parent / "sensor.py"
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_configuration_test_target",
     MODULE_PATH,
@@ -278,6 +280,30 @@ class EntityTranslationTest(unittest.TestCase):
 
     def test_configuration_entities_are_translated(self):
         expected_entities = {
+            "server_url",
+            "status",
+            "charge_point_id",
+            "charging_power",
+            "energy_charged",
+            "total_energy_charged",
+            "electricity_price",
+            "last_session_energy",
+            "last_session_cost",
+            "last_session_duration",
+            "last_session_start",
+            "last_session_end",
+            "last_session_plug_time",
+            "last_session_unplug_time",
+            "last_session_transaction_id",
+            "last_session_charge_mode",
+            "last_session_work_mode",
+            "current",
+            "voltage",
+            "phase_power",
+            "temperature",
+            "grid_power",
+            "grid_voltage",
+            "grid_current",
             "working_mode",
             "charger_mode",
             "power_meter_type",
@@ -299,6 +325,21 @@ class EntityTranslationTest(unittest.TestCase):
                 )
                 sensors = translation["entity"]["sensor"]
                 self.assertTrue(expected_entities.issubset(sensors))
+                self.assertEqual(
+                    tuple(sensors["status"]["state"]),
+                    (
+                        "Available",
+                        "Preparing",
+                        "Charging",
+                        "SuspendedEVSE",
+                        "SuspendedEV",
+                        "Finishing",
+                        "Reserved",
+                        "Unavailable",
+                        "Faulted",
+                        "Idle",
+                    ),
+                )
 
                 for translation_key, configuration_key in enum_entities.items():
                     self.assertEqual(
@@ -307,6 +348,47 @@ class EntityTranslationTest(unittest.TestCase):
                             configuration_key
                         ],
                     )
+
+    def test_existing_sensor_names_use_translation_keys(self):
+        tree = ast.parse(SENSOR_PATH.read_text(encoding="utf-8"))
+        hardcoded_names = []
+        translation_keys = set()
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Assign):
+                continue
+            for target in node.targets:
+                attribute = (
+                    target.id
+                    if isinstance(target, ast.Name)
+                    else target.attr
+                    if isinstance(target, ast.Attribute)
+                    else None
+                )
+                if attribute == "_attr_name":
+                    hardcoded_names.append(node.lineno)
+                elif (
+                    attribute == "_attr_translation_key"
+                    and isinstance(node.value, ast.Constant)
+                    and isinstance(node.value.value, str)
+                ):
+                    translation_keys.add(node.value.value)
+
+        self.assertEqual(hardcoded_names, [])
+        self.assertTrue(
+            {
+                "status",
+                "charging_power",
+                "electricity_price",
+                "last_session_energy",
+                "current",
+                "voltage",
+                "phase_power",
+                "grid_power",
+                "grid_voltage",
+                "grid_current",
+            }.issubset(translation_keys)
+        )
 
 
 if __name__ == "__main__":

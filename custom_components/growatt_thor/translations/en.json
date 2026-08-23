@@ -66,6 +66,44 @@
   },
   "entity": {
     "sensor": {
+      "server_url": { "name": "Server URL" },
+      "status": {
+        "name": "Status",
+        "state": {
+          "Available": "Available",
+          "Preparing": "Preparing",
+          "Charging": "Charging",
+          "SuspendedEVSE": "Suspended by charger",
+          "SuspendedEV": "Suspended by vehicle",
+          "Finishing": "Finishing",
+          "Reserved": "Reserved",
+          "Unavailable": "Unavailable",
+          "Faulted": "Faulted",
+          "Idle": "Idle"
+        }
+      },
+      "charge_point_id": { "name": "Charge Point ID" },
+      "charging_power": { "name": "Charging Power" },
+      "energy_charged": { "name": "Energy Charged" },
+      "total_energy_charged": { "name": "Total Energy Charged" },
+      "electricity_price": { "name": "Electricity Price" },
+      "last_session_energy": { "name": "Last Session Energy" },
+      "last_session_cost": { "name": "Last Session Cost" },
+      "last_session_duration": { "name": "Last Session Duration" },
+      "last_session_start": { "name": "Last Session Start" },
+      "last_session_end": { "name": "Last Session End" },
+      "last_session_plug_time": { "name": "Last Session Plug Time" },
+      "last_session_unplug_time": { "name": "Last Session Unplug Time" },
+      "last_session_transaction_id": { "name": "Last Session Transaction ID" },
+      "last_session_charge_mode": { "name": "Last Session Charge Mode" },
+      "last_session_work_mode": { "name": "Last Session Work Mode" },
+      "current": { "name": "Current {phase}" },
+      "voltage": { "name": "Voltage {phase}" },
+      "phase_power": { "name": "Power {phase}" },
+      "temperature": { "name": "Temperature" },
+      "grid_power": { "name": "Grid power" },
+      "grid_voltage": { "name": "Grid voltage {phase}" },
+      "grid_current": { "name": "Grid current {phase}" },
       "working_mode": {
         "name": "Working mode",
         "state": {

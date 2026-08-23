@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **External meter device naming**: Rename the logical `Growatt THOR Load balancing` device to `Growatt THOR External Meter` because the measurements are shared by load balancing and PV Linkage. Existing default device metadata is migrated while user-assigned names, device identifiers, and entity IDs remain unchanged.
+- **Localized sensor names**: Replace hard-coded English names for the existing charger and external-meter sensors with Home Assistant translation keys. Sensor names and OCPP status values are available in English, German, and Dutch without changing unique IDs or existing entity IDs.
 
 ### Fixed
 - **External sampling method**: Use the OCPP value mapping `0=CT 2000:1`, `1=PowerMeter`, and `2=CT 3000:1`. The charger web page uses a separate, shifted dropdown because it includes an additional `NULL` option.
