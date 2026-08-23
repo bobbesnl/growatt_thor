@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **External sampling method**: Use the OCPP value mapping `0=CT 2000:1`, `1=PowerMeter`, and `2=CT 3000:1`. The charger web page uses a separate, shifted dropdown because it includes an additional `NULL` option.
 - **Temperature without samples**: Report the temperature sensor as unavailable until the charger sends an actual OCPP `MeterValues` temperature sample instead of displaying an artificial `0 °C`.
+- **Inactive OCPP connections**: Track inbound OCPP activity and disconnect the local WebSocket after 180 seconds without a Heartbeat or other OCPP message. Connection and heartbeat timestamps are exposed on the status sensor and in diagnostics without replacing the last charger-reported OCPP status.
 
 ## [1.5.4] - 2026-06-12
 
