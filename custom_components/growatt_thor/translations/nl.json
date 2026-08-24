@@ -154,7 +154,7 @@
         }
       },
       "solar_mode": {
-        "name": "Zonnemodus",
+        "name": "Gemelde zonnemodus",
         "state": {
           "disabled": "Uitgeschakeld",
           "pv_linkage": "PV-koppeling",
@@ -170,7 +170,7 @@
         }
       },
       "solar_grid_import_limit": {
-        "name": "Toegestane netafname bij PV-koppeling",
+        "name": "Gemelde netafname bij PV-koppeling",
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
@@ -290,7 +290,7 @@
         }
       },
       "warm_up_after_full_charge": {
-        "name": "Opwarmen na volledig laden",
+        "name": "Gemeld opwarmen na volledig laden",
         "state": {
           "disabled": "Uitgeschakeld",
           "enabled": "Ingeschakeld"

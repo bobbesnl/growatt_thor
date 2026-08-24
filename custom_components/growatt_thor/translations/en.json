@@ -154,7 +154,7 @@
         }
       },
       "solar_mode": {
-        "name": "Solar mode",
+        "name": "Reported solar mode",
         "state": {
           "disabled": "Disabled",
           "pv_linkage": "PV Linkage",
@@ -170,7 +170,7 @@
         }
       },
       "solar_grid_import_limit": {
-        "name": "PV Linkage grid import allowance",
+        "name": "Reported PV Linkage grid import allowance",
         "state_attributes": {
           "information": {
             "name": "About this setting",
@@ -290,7 +290,7 @@
         }
       },
       "warm_up_after_full_charge": {
-        "name": "Warm-up after full charge",
+        "name": "Reported warm-up after full charge",
         "state": {
           "disabled": "Disabled",
           "enabled": "Enabled"

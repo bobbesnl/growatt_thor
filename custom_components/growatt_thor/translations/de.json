@@ -154,7 +154,7 @@
         }
       },
       "solar_mode": {
-        "name": "Solarmodus",
+        "name": "Gemeldeter Solarmodus",
         "state": {
           "disabled": "Deaktiviert",
           "pv_linkage": "PV-Kopplung",
@@ -170,7 +170,7 @@
         }
       },
       "solar_grid_import_limit": {
-        "name": "Erlaubter Netzbezug bei PV-Kopplung",
+        "name": "Gemeldeter Netzbezug bei PV-Kopplung",
         "state_attributes": {
           "information": {
             "name": "Über diese Einstellung",
@@ -290,7 +290,7 @@
         }
       },
       "warm_up_after_full_charge": {
-        "name": "Aufwärmen nach Volladung",
+        "name": "Gemeldetes Aufwärmen nach Volladung",
         "state": {
           "disabled": "Deaktiviert",
           "enabled": "Aktiviert"

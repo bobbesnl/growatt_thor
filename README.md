@@ -392,15 +392,15 @@ After successful connection, the integration creates the entities below. The lis
 | Server URL | `sensor.growatt_thor_ev_charger_server_url` | Configured OCPP endpoint |
 | Working mode | `sensor.growatt_thor_ev_charger_working_mode` | Fast, PV Linkage, or Off-Peak operation |
 | Authorization mode | `sensor.growatt_thor_ev_charger_authorization_mode` | Home Assistant/RFID, RFID only, or Plug & Charge authorization |
-| Solar mode | `sensor.growatt_thor_ev_charger_solar_mode` | Disabled, PV Linkage, or PV Linkage+ |
-| PV Linkage grid import allowance | `sensor.growatt_thor_ev_charger_pv_linkage_grid_import_allowance` | Reported grid-import allowance in kW |
+| Reported solar mode | `sensor.growatt_thor_ev_charger_solar_mode` | Disabled, PV Linkage, or PV Linkage+ read back from the charger |
+| Reported PV Linkage grid import allowance | `sensor.growatt_thor_ev_charger_pv_linkage_grid_import_allowance` | Charger-normalized grid-import allowance in kW |
 | PV Linkage boost configuration | `sensor.growatt_thor_ev_charger_pv_linkage_boost_configuration` | Disabled, Manual, or Smart boost mode |
 | Solar threshold current | `sensor.growatt_thor_ev_charger_solar_threshold_current` | Reported PV threshold current in A |
 | Grid off-peak charging | `sensor.growatt_thor_ev_charger_grid_off_peak_charging` | Grid off-peak charging flag |
 | Off-peak enable setting | `sensor.growatt_thor_ev_charger_off_peak_enable_setting` | Normalized off-peak mode state |
 | Configured charging periods | `sensor.growatt_thor_ev_charger_off_peak_schedule` | Shared time windows used for Off-Peak charging or PV Linkage Manual Boost |
 | Off-peak current | `sensor.growatt_thor_ev_charger_off_peak_current` | Reported off-peak charging current in A |
-| Warm-up after full charge | `sensor.growatt_thor_ev_charger_warm_up_after_full_charge` | Whether compatible vehicles may continue drawing power after reaching full charge |
+| Reported warm-up after full charge | `sensor.growatt_thor_ev_charger_warm_up_after_full_charge` | Warm-up state read back from the charger |
 | Delayed charging time | `sensor.growatt_thor_ev_charger_delayed_charging_time` | Reported charger-side delay duration in seconds |
 | Power meter type | `sensor.growatt_thor_external_meter_power_meter_type` | Configured external meter model |
 | Power meter address | `sensor.growatt_thor_external_meter_power_meter_address` | Configured external Modbus address |
