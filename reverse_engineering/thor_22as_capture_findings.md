@@ -50,10 +50,10 @@ Home Assistant.
 
 | OCPP message / vendor message | Direction | Observed example or purpose | Current Home Assistant mapping | Firmware | Status |
 |---|---|---|---|---|---|
-| `BootNotification` | CP -> CS | `chargePointVendor=Growatt`, `chargePointModel=THOR_22AS`, serial and firmware | Payload is logged; connection creates the Charge Point ID sensor | 2.2.16 | observed, implemented |
+| `BootNotification` | CP -> CS | `chargePointVendor=Growatt`, `chargePointModel=THOR_22AS`, serial and firmware | Latest complete request in redacted HA diagnostics; connection creates the Charge Point ID sensor | 2.2.16 | observed, implemented |
 | `Heartbeat` | CP -> CS | Periodic clock synchronization; Central System requests a 60-second interval in `BootNotification.conf` | Returns current UTC time and refreshes connection liveness; any inbound OCPP message also counts as activity | 2.2.16 | observed, implemented |
-| `StatusNotification` | CP -> CS | `Preparing`, `Charging`, `Finishing`; `errorCode=NoError` and an empty `info` field | Status sensor; other diagnostic fields are not retained yet | 2.2.16 | observed, implemented |
-| `StartTransaction` | CP -> CS | Starts an OCPP transaction | Resets live session values and returns a CS-generated transaction ID | 2.2.16 | implemented |
+| `StatusNotification` | CP -> CS | `Preparing`, `Charging`, `Finishing`; `errorCode=NoError` and an empty `info` field | Status sensor plus latest complete request in HA diagnostics | 2.2.16 | observed, implemented |
+| `StartTransaction` | CP -> CS | Starts an OCPP transaction | Resets live session values, returns a CS-generated transaction ID, and starts the retained transaction diagnostics | 2.2.16 | implemented |
 | `MeterValues` | CP -> CS | Charging energy, current, voltage, power, and temperature | Live charging and per-phase sensors | 2.2.16 | observed, implemented |
 | `StopTransaction` | CP -> CS | Ends a transaction with meter stop and reason | Clears active state and retains the complete start/stop transaction pair in HA diagnostics | 2.2.16 | observed, implemented |
 | `TriggerMessage` | CS -> CP | Captured requests for `BootNotification` and `StatusNotification` | Integration requests status during manual refresh and requests boot data once when reconnecting firmware omits it | 2.2.16 | observed, implemented |
@@ -86,6 +86,21 @@ The central system assigns the OCPP `transactionId` in
 `StartTransaction.conf`. The charger then reuses that ID in `MeterValues`,
 `StopTransaction`, and Growatt session records. It is not assigned by the
 charger.
+
+### Retained OCPP diagnostics
+
+The coordinator keeps the latest complete `BootNotification` and
+`StatusNotification` requests, the active transaction, and the most recently
+completed start/stop transaction pair. Optional and additional fields routed by
+the OCPP library are kept as JSON-safe values, so firmware-specific diagnostic
+fields are not discarded. Retention is intentionally bounded and does not form
+a message history.
+
+Downloaded Home Assistant diagnostics redact authorization tags, SIM
+identifiers, meter serial numbers, and charge-point serial numbers. Firmware,
+model, connector, status and vendor error details, timestamps, meter start/stop,
+stop reason, transaction ID, and transaction data remain available for
+troubleshooting.
 
 ## MeterValues
 

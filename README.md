@@ -73,6 +73,7 @@ Your feedback helps identify patterns and improve integration stability! 🙏
 - **Charging schedule**: Configure automatic start/stop times
 - **Charger modes**: Switch between Plug & Charge, RFID only, HomeAssistant(HA)/RFID mode
 - **Configuration diagnostics**: Preserve all returned OCPP and Growatt configuration values, including unknown keys and charger-provided read-only flags
+- **OCPP message diagnostics**: Retain the latest boot and status payloads plus active and last-completed transaction metadata; sensitive identifiers are redacted from downloaded diagnostics
 - **Read-only configuration sensors**: Show working mode, authorization mode, and external meter setup without exposing unverified write controls
 - **Manual charging control**: Start and stop charging sessions via buttons
 - **Load balancing toggle**: Enable/disable dynamic load balancing
