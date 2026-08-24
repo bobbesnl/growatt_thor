@@ -431,7 +431,7 @@ class EntityTranslationTest(unittest.TestCase):
             "off_peak_current",
             "power_meter_type",
             "power_meter_address",
-            "external_sampling_wiring",
+            "reported_external_sampling_method",
             "warm_up_after_full_charge",
             "delayed_charging_time",
         }
@@ -442,7 +442,7 @@ class EntityTranslationTest(unittest.TestCase):
             "grid_off_peak_charging": "G_PeakValleyEnable",
             "solar_boost": "G_SolarBoost",
             "off_peak_enable_setting": "G_OffPeakEnable",
-            "external_sampling_wiring": "G_ExternalSamplingCurWring",
+            "reported_external_sampling_method": "G_ExternalSamplingCurWring",
             "warm_up_after_full_charge": "G_FullContinueChargeEnable",
         }
         session_enum_entities = {
@@ -471,7 +471,7 @@ class EntityTranslationTest(unittest.TestCase):
             "off_peak_current",
             "power_meter_type",
             "power_meter_address",
-            "external_sampling_wiring",
+            "reported_external_sampling_method",
             "warm_up_after_full_charge",
             "delayed_charging_time",
         }
@@ -578,7 +578,7 @@ class EntityTranslationTest(unittest.TestCase):
                 "electricity_price",
                 "solar_grid_import_limit",
             },
-            "select": {"working_mode"},
+            "select": {"working_mode", "external_sampling_method"},
             "switch": {
                 "load_balancing",
                 "lcd_display",

@@ -245,6 +245,28 @@ class ChargingControlEncodingTest(unittest.TestCase):
             "Disable",
         )
 
+    def test_external_sampling_method_uses_ocpp_values(self):
+        for logical, raw in (
+            ("ct_2000_1", "0"),
+            ("power_meter", "1"),
+            ("ct_3000_1", "2"),
+        ):
+            with self.subTest(logical=logical):
+                self.assertEqual(
+                    controls.encode_control_value(
+                        controls.ChargingControl.EXTERNAL_SAMPLING_METHOD,
+                        logical,
+                    ),
+                    raw,
+                )
+
+    def test_external_sampling_method_rejects_web_ui_null_value(self):
+        with self.assertRaises(ValueError):
+            controls.encode_control_value(
+                controls.ChargingControl.EXTERNAL_SAMPLING_METHOD,
+                "null",
+            )
+
     def test_compound_control_cannot_be_encoded_in_isolation(self):
         with self.assertRaises(ValueError):
             controls.encode_control_value(

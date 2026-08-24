@@ -12,9 +12,15 @@ from ocpp.v16.enums import ConfigurationStatus
 from .charging_controls import (
     ChargingControl,
     control_write_block_reason,
+    encode_control_value,
     encode_working_mode,
     selected_working_mode,
 )
+from .configuration import (
+    CONFIGURATION_ENTITY_OPTIONS,
+    configuration_entity_state,
+)
+from .configuration_control import GrowattConfigurationControlMixin
 from .const import DOMAIN
 
 
@@ -25,7 +31,12 @@ WORKING_MODE_OPTIONS = ["fast", "pv_linkage", "pv_linkage_plus", "off_peak"]
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Growatt THOR select entities."""
     coordinator = hass.data[DOMAIN]["coordinator"]
-    async_add_entities([WorkingModeSelect(coordinator, entry)])
+    async_add_entities(
+        [
+            WorkingModeSelect(coordinator, entry),
+            ExternalSamplingMethodSelect(coordinator, entry),
+        ]
+    )
 
 
 class WorkingModeSelect(CoordinatorEntity, SelectEntity):
@@ -162,3 +173,53 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         await asyncio.sleep(20)
         if self.hass.data.get(DOMAIN, {}).get("charge_point") is charge_point:
             await charge_point.trigger_get_configuration()
+
+
+class ExternalSamplingMethodSelect(
+    GrowattConfigurationControlMixin,
+    CoordinatorEntity,
+    SelectEntity,
+):
+    """Select the captured external current sampling method."""
+
+    _control = ChargingControl.EXTERNAL_SAMPLING_METHOD
+    _attr_has_entity_name = True
+    _attr_translation_key = "external_sampling_method"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:connection"
+    _attr_options = list(
+        CONFIGURATION_ENTITY_OPTIONS["G_ExternalSamplingCurWring"]
+    )
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator)
+        self.hass = coordinator.hass
+        self._attr_unique_id = (
+            f"{entry.entry_id}_external_sampling_method_control"
+        )
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
+            "name": "Growatt THOR External Meter",
+            "manufacturer": "Growatt",
+            "model": "THOR External Meter",
+        }
+
+    @property
+    def current_option(self):
+        return configuration_entity_state(
+            self._configuration_key,
+            self._configuration_value,
+        )
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self._control_available
+            and self.current_option is not None
+        )
+
+    async def async_select_option(self, option: str) -> None:
+        await self._async_write_configuration(
+            encode_control_value(self._control, option)
+        )

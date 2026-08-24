@@ -41,6 +41,7 @@ class ChargingControl(str, Enum):
     OFF_PEAK_CURRENT = "off_peak_current"
     WARM_UP = "warm_up"
     DELAYED_CHARGING = "delayed_charging"
+    EXTERNAL_SAMPLING_METHOD = "external_sampling_method"
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +129,10 @@ CONTROL_DEFINITIONS: Final[Mapping[ChargingControl, ControlDefinition]] = (
             ChargingControl.DELAYED_CHARGING: ControlDefinition(
                 ControlCapability.READ_ONLY,
                 "G_RandDelayChargeTime",
+            ),
+            ChargingControl.EXTERNAL_SAMPLING_METHOD: ControlDefinition(
+                ControlCapability.WRITABLE,
+                "G_ExternalSamplingCurWring",
             ),
         }
     )
@@ -239,6 +244,16 @@ def encode_control_value(control: ChargingControl, value: object) -> str:
 
     if control == ChargingControl.WARM_UP:
         return "Enable" if bool(value) else "Disable"
+
+    if control == ChargingControl.EXTERNAL_SAMPLING_METHOD:
+        encoded = {
+            "ct_2000_1": "0",
+            "power_meter": "1",
+            "ct_3000_1": "2",
+        }.get(str(value))
+        if encoded is None:
+            raise ValueError(f"Unsupported external sampling method: {value}")
+        return encoded
 
     raise ValueError(f"No encoder is defined for {control.value}")
 

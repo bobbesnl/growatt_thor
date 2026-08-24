@@ -189,7 +189,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
             key="external_sampling_wiring",
-            translation_key="external_sampling_wiring",
+            translation_key="reported_external_sampling_method",
             entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
             options=list(

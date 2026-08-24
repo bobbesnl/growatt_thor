@@ -285,11 +285,29 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         ),
         "G_PowerMeterType": _definition(
             "External power meter model",
+            enum_values=(
+                ("0", "None"),
+                ("1", "Acrel DDS1352"),
+                ("2", "Acrel DTSD1352 (three-phase)"),
+                ("3", "Eastron SDM230"),
+                ("4", "Eastron SDM630 (three-phase)"),
+                ("5", "Eastron SDM120 MID"),
+                ("6", "Eastron SDM72D MID (three-phase)"),
+                ("7", "Din-Rail DTSU666 MID (three-phase)"),
+                ("10", "CHINT DTSU666 MID (three-phase)"),
+                ("11", "CHINT DDSU666"),
+            ),
             request_group=_INFORMATIONAL,
         ),
         "G_ExternalSamplingCurWring": _definition(
             "External meter wiring or sampling mode",
             data_type=ConfigurationDataType.INTEGER,
+            enum_values=(
+                ("0", "CT 2000:1"),
+                ("1", "Power meter"),
+                ("2", "CT 3000:1"),
+            ),
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_TimeZone": _definition(

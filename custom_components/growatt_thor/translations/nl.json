@@ -273,8 +273,8 @@
           }
         }
       },
-      "external_sampling_wiring": {
-        "name": "Externe meetmethode",
+      "reported_external_sampling_method": {
+        "name": "Gemelde externe meetmethode",
         "state": {
           "ct_2000_1": "CT 2000:1",
           "power_meter": "Energiemeter",
@@ -350,6 +350,22 @@
             "name": "Over deze instelling",
             "state": {
               "details": "Selecteert Snel laden, PV-koppeling, PV-koppeling+ of Daltarief via de indirecte configuratiewaarden van Growatt. Bestaande boostdoelen en tijdvensters blijven ongewijzigd."
+            }
+          }
+        }
+      },
+      "external_sampling_method": {
+        "name": "Externe meetmethode",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Energiemeter",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Selecteert directe Modbus-metingen of een CT 2000:1/3000:1-stroomtransformator. Alleen beschikbaar zonder actieve laadtransactie. Growatt noemt de OCPP-sleutel 'G_ExternalSamplingCurWring', waarschijnlijk een typefout van de fabrikant."
             }
           }
         }

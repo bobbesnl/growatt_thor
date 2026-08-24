@@ -273,8 +273,8 @@
           }
         }
       },
-      "external_sampling_wiring": {
-        "name": "Externe Messmethode",
+      "reported_external_sampling_method": {
+        "name": "Gemeldete externe Messmethode",
         "state": {
           "ct_2000_1": "CT 2000:1",
           "power_meter": "Stromzähler",
@@ -350,6 +350,22 @@
             "name": "Über diese Einstellung",
             "state": {
               "details": "Wählt Schnellladen, PV-Kopplung, PV-Kopplung+ oder Niedertarif über die von Growatt verwendeten indirekten Konfigurationswerte. Vorhandene Boost-Ziele und Zeitfenster bleiben unverändert."
+            }
+          }
+        }
+      },
+      "external_sampling_method": {
+        "name": "Externe Messmethode",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Stromzähler",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Wählt direkte Modbus-Zählerwerte oder einen Stromwandler mit CT 2000:1 beziehungsweise 3000:1. Nur ohne aktive Ladetransaktion verfügbar. Growatt nennt den OCPP-Schlüssel „G_ExternalSamplingCurWring“, vermutlich ein herstellerspezifischer Tippfehler."
             }
           }
         }

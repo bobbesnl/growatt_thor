@@ -273,8 +273,8 @@
           }
         }
       },
-      "external_sampling_wiring": {
-        "name": "External sampling method",
+      "reported_external_sampling_method": {
+        "name": "Reported external sampling method",
         "state": {
           "ct_2000_1": "CT 2000:1",
           "power_meter": "Power meter",
@@ -350,6 +350,22 @@
             "name": "About this setting",
             "state": {
               "details": "Selects Fast, PV Linkage, PV Linkage+, or Off-Peak through the indirect configuration writes used by Growatt. Existing Boost targets and time windows are not changed."
+            }
+          }
+        }
+      },
+      "external_sampling_method": {
+        "name": "External sampling method",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Power meter",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Selects direct Modbus meter measurements or a CT 2000:1/3000:1 current transformer. Available only while no charging transaction is active. Growatt calls the OCPP key 'G_ExternalSamplingCurWring', likely a vendor typo."
             }
           }
         }
