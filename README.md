@@ -74,7 +74,7 @@ Your feedback helps identify patterns and improve integration stability! 🙏
 - **Charger modes**: Switch between Plug & Charge, RFID only, HomeAssistant(HA)/RFID mode
 - **Configuration diagnostics**: Preserve all returned OCPP and Growatt configuration values, including unknown keys and charger-provided read-only flags
 - **OCPP message diagnostics**: Retain the latest boot and status payloads plus active and last-completed transaction metadata; sensitive identifiers are redacted from downloaded diagnostics
-- **Read-only configuration sensors**: Show working mode, authorization mode, and external meter setup without exposing unverified write controls
+- **Read-only configuration sensors**: Show working mode, authorization mode, PV Linkage, boost, off-peak, and external meter settings without exposing unverified write controls
 - **Manual charging control**: Start and stop charging sessions via buttons
 - **Load balancing toggle**: Enable/disable dynamic load balancing
 - **Auto update THOR time**: Auto sync time with server time at every heartbeat and with reboot (ocpp protocol)
@@ -369,6 +369,16 @@ After successful connection, the integration creates the entities below. The lis
 | Server URL | `sensor.growatt_thor_ev_charger_server_url` | Configured OCPP endpoint |
 | Working mode | `sensor.growatt_thor_ev_charger_working_mode` | Fast, PV Linkage, or Off-Peak operation |
 | Authorization mode | `sensor.growatt_thor_ev_charger_authorization_mode` | Home Assistant/RFID, RFID only, or Plug & Charge authorization |
+| Solar mode | `sensor.growatt_thor_ev_charger_solar_mode` | Disabled, PV Linkage, or PV Linkage+ |
+| PV Linkage grid import allowance | `sensor.growatt_thor_ev_charger_pv_linkage_grid_import_allowance` | Reported grid-import allowance in kW |
+| PV Linkage boost configuration | `sensor.growatt_thor_ev_charger_pv_linkage_boost_configuration` | Disabled, Manual, or Smart boost mode |
+| Solar threshold current | `sensor.growatt_thor_ev_charger_solar_threshold_current` | Reported PV threshold current in A |
+| Grid off-peak charging | `sensor.growatt_thor_ev_charger_grid_off_peak_charging` | Grid off-peak charging flag |
+| Off-peak enable setting | `sensor.growatt_thor_ev_charger_off_peak_enable_setting` | Normalized off-peak mode state |
+| Off-peak schedule | `sensor.growatt_thor_ev_charger_off_peak_schedule` | Reported off-peak time windows |
+| Off-peak current | `sensor.growatt_thor_ev_charger_off_peak_current` | Reported off-peak charging current in A |
+| Warm-up after full charge | `sensor.growatt_thor_ev_charger_warm_up_after_full_charge` | Whether compatible vehicles may continue drawing power after reaching full charge |
+| Delayed charging time | `sensor.growatt_thor_ev_charger_delayed_charging_time` | Reported charger-side delay duration in seconds |
 | Power meter type | `sensor.growatt_thor_external_meter_power_meter_type` | Configured external meter model |
 | Power meter address | `sensor.growatt_thor_external_meter_power_meter_address` | Configured external Modbus address |
 | External sampling method | `sensor.growatt_thor_external_meter_external_sampling_method` | External meter or current-transformer wiring method |
@@ -388,6 +398,15 @@ After successful connection, the integration creates the entities below. The lis
 External-meter measurements are polled in every charger working mode because
 the same meter is used by load balancing and PV Linkage. A measurement remains
 unavailable until the charger returns its field in `get_external_meterval`.
+
+Warm-up support depends on the connected vehicle. The setting only allows a
+compatible vehicle to continue drawing power after reaching full charge; it
+does not directly control cabin or battery preconditioning.
+
+The ShinePhone delayed-charging screen is inconsistent on the tested firmware:
+both directions of its Random Delay switch wrote
+`G_RandDelayChargeTime=0`. The integration therefore exposes only the reported
+numeric delay and does not provide an unverified Random Delay control.
 
 #### Controls
 
