@@ -13,6 +13,7 @@ from .configuration import (
 )
 from .const import DOMAIN
 from .ocpp_diagnostics import redact_ocpp_data
+from .session_records import session_record_diagnostics
 
 
 async def async_get_config_entry_diagnostics(
@@ -34,6 +35,12 @@ async def async_get_config_entry_diagnostics(
             },
             "configuration": {},
             "unknown_configuration_keys": [],
+            "growatt": {
+                "session_records": {
+                    "current": None,
+                    "frozen": None,
+                }
+            },
         }
 
     return {
@@ -56,6 +63,16 @@ async def async_get_config_entry_diagnostics(
                 },
             }
         ),
+        "growatt": {
+            "session_records": {
+                "current": session_record_diagnostics(
+                    coordinator.last_current_record
+                ),
+                "frozen": session_record_diagnostics(
+                    coordinator.last_frozen_record
+                ),
+            }
+        },
         "configuration": serialize_configuration_values(
             coordinator.configuration_values,
             redact=True,

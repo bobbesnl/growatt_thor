@@ -16,6 +16,7 @@ from .const import DOMAIN
 from .external_meter import parse_external_meter_data
 from .meter_samples import parse_meter_values
 from .ocpp_diagnostics import create_ocpp_snapshot
+from .session_records import GrowattSessionRecord
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,6 +48,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_meter_values = None
         self.active_transaction = None
         self.last_completed_transaction = None
+        self.last_current_record = None
+        self.last_frozen_record = None
 
         # ── Totaal ─────────────────────────
         self.power = None        # W
@@ -94,7 +97,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_session_transaction_id = None   # str
         self.last_session_charge_mode = None      # str
         self.last_session_work_mode = None        # str
-        self._last_frozen_record_key = None
+        self._last_session_record_key = None
 
         # ── Cumulatief totaal (persistent) ─
         self.total_energy_charged = 0.0           # kWh
@@ -541,50 +544,68 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.async_set_updated_data(True)
 
     # ─────────────────────────────
-    # Growatt frozenrecord
+    # Growatt session records
     # ─────────────────────────────
 
-    def process_frozen_record(self, data: dict):
-        """Process Growatt frozen record and update session sensors + persistent total."""
-        try:
-            # Deduplication: skip if same transaction_id and end_time as last processed
-            transaction_id = data.get("transactionId", "")
-            end_str = data.get("endtime", "")
-            dedup_key = f"{transaction_id}_{end_str}"
+    def process_session_record(self, record: GrowattSessionRecord):
+        """Retain a Growatt session record and update session statistics."""
+        snapshot = {"received_at": self.now(), "record": record}
+        if record.message_id == "currentrecord":
+            self.last_current_record = snapshot
+        else:
+            self.last_frozen_record = snapshot
 
-            if self._last_frozen_record_key == dedup_key:
-                _LOGGER.debug("⏭️ Duplicate frozen record skipped (transaction=%s)", transaction_id)
+        try:
+            if record.parse_errors:
+                _LOGGER.warning(
+                    "Growatt %s contains invalid values: %s",
+                    record.message_id,
+                    "; ".join(record.parse_errors),
+                )
+
+            # The charger can send the same completed session as both message types.
+            dedup_key = record.dedup_key
+            if dedup_key is not None and self._last_session_record_key == dedup_key:
+                _LOGGER.debug(
+                    "Duplicate Growatt session record skipped (transaction=%s)",
+                    record.transaction_id,
+                )
+                self.async_set_updated_data(True)
                 return
 
-            self._last_frozen_record_key = dedup_key
+            energy_kwh = record.energy_kwh
+            cost = record.cost
+            if energy_kwh is None or cost is None:
+                _LOGGER.warning(
+                    "Growatt %s retained but not applied because energy or cost is invalid",
+                    record.message_id,
+                )
+                self.async_set_updated_data(True)
+                return
 
-            energy_kwh = float(data.get("costenergy", 0)) / 1000
-            cost = float(data.get("costmoney", 0)) / 100
-            start_str = data.get("starttime", "")
+            if dedup_key is not None:
+                self._last_session_record_key = dedup_key
 
-            duration_minutes = None
-            try:
-                start_dt = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
-                end_dt = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
-                duration_minutes = round((end_dt - start_dt).total_seconds() / 60, 1)
-            except (ValueError, TypeError):
-                pass
+            start_str = record.start_time
+            end_str = record.end_time
+            duration_minutes = record.duration_minutes
 
             self.last_session_energy = energy_kwh
             self.last_session_cost = cost
             self.last_session_start = start_str
             self.last_session_end = end_str
-            self.last_session_plug_time = data.get("plugtime", "")
-            self.last_session_unplug_time = data.get("unplugtime", "")
+            self.last_session_plug_time = record.plug_time
+            self.last_session_unplug_time = record.unplug_time
             self.last_session_duration_minutes = duration_minutes
-            self.last_session_transaction_id = transaction_id
-            self.last_session_charge_mode = data.get("chargemode", "")
-            self.last_session_work_mode = data.get("workmode", "")
+            self.last_session_transaction_id = record.transaction_id
+            self.last_session_charge_mode = record.charge_mode
+            self.last_session_work_mode = record.work_mode
 
             self.total_energy_charged += energy_kwh
 
             _LOGGER.info(
-                "Frozen record: energy=%.3f kWh, cost=%.2f, duration=%s min, total=%.3f kWh",
+                "%s: energy=%.3f kWh, cost=%.2f, duration=%s min, total=%.3f kWh",
+                record.message_id,
                 energy_kwh,
                 cost,
                 f"{duration_minutes:.1f}" if duration_minutes is not None else "unknown",
@@ -603,7 +624,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     "energy_kwh": round(energy_kwh, 3),
                     "cost": round(cost, 2),
                     "duration_minutes": duration_minutes if duration_minutes is not None else "",
-                    "transaction_id": data.get("transactionId", ""),
+                    "transaction_id": record.transaction_id,
                 }
                 self.hass.async_create_task(append_fn(session_row))
 
@@ -611,7 +632,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.async_set_updated_data(True)
 
         except (ValueError, TypeError, KeyError) as exc:
-            _LOGGER.warning("Failed to process frozen record %s: %s", data, exc)
+            _LOGGER.warning(
+                "Failed to process Growatt %s: %s",
+                record.message_id,
+                exc,
+            )
 
     # ─────────────────────────────
     # Growatt external meter values

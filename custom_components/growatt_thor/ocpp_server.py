@@ -1,7 +1,6 @@
 import logging
 import asyncio
 import websockets.exceptions
-from urllib.parse import parse_qs
 from websockets.server import serve
 
 from ocpp.v16 import ChargePoint as OcppChargePoint
@@ -28,6 +27,7 @@ from .connection import (
     OCPP_HEARTBEAT_INTERVAL_SECONDS,
     OcppConnectionActivity,
 )
+from .session_records import parse_growatt_session_record
 from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -322,9 +322,13 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             _LOGGER.debug("DataTransfer received: vendor=%s messageId=%s data=%s", vendor_id, message_id, data)
             if isinstance(data, str) and message_id in ("frozenrecord", "currentrecord"):
-                parsed = {k: v[0] for k, v in parse_qs(data).items()}
-                _LOGGER.info("Parsed %s: %s", message_id, parsed)
-                self.coordinator.process_frozen_record(parsed)
+                record = parse_growatt_session_record(message_id, data)
+                _LOGGER.info(
+                    "Parsed %s for transaction %s",
+                    message_id,
+                    record.transaction_id,
+                )
+                self.coordinator.process_session_record(record)
         except Exception as exc:
             _LOGGER.error("Error in DataTransfer handler (vendor=%s, messageId=%s): %s", vendor_id, message_id, exc, exc_info=True)
         return call_result.DataTransfer(status=DataTransferStatus.accepted)
