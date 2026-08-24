@@ -93,6 +93,23 @@ The central system assigns the OCPP `transactionId` in
 `StopTransaction`, and Growatt session records. It is not assigned by the
 charger.
 
+### Backlog: transaction identity across central systems
+
+An OCPP `transactionId` is scoped to the central system that assigned it. A
+charger that switches between the Growatt Cloud and Home Assistant can
+therefore legitimately receive the same numeric ID from both systems. The raw
+`transactionId` must not be treated as a globally unique key in session exports
+or the planned combined session model.
+
+Home Assistant should still use a persistent monotonic allocator so WebSocket
+reconnects and restarts do not reuse its own IDs. In addition, the session model
+needs a separate stable identity that includes the charge point and assigning
+central-system source or instance. Growatt records that cannot be linked to a
+locally retained `StartTransaction` must keep their source as external or
+unknown instead of being attributed to Home Assistant. Existing exports must
+continue to retain the original numeric OCPP transaction ID alongside that
+internal session identity.
+
 ### Connector IDs
 
 The captured THOR 07/11/22 AC product family has one charging connector and
