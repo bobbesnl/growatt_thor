@@ -207,6 +207,25 @@ internally; downloaded diagnostics redact the raw query string and values of
 unknown fields. A session received through both message types is counted only
 once when `transactionId` and `endtime` match.
 
+On THOR_22AS firmware 2.2.16, unlocking the vehicle while charging temporarily
+changed the connector from `Charging` to `SuspendedEV` with
+`errorCode=EVCommunicationError` and `info=ChargeWait`. The OCPP transaction
+remained active and charging resumed under the same transaction ID. Unplugging
+the vehicle then produced this final sequence:
+
+```text
+SuspendedEV -> Finishing -> StopTransaction(reason=EVDisconnected)
+-> Available -> DataTransfer/currentrecord
+```
+
+For that session, `StopTransaction.meterStop`, `currentrecord.costenergy`, and
+the periodic `MeterValues` energy used the same session counter. The last
+periodic sample was `411 Wh`; the completed example used `meterStop=412` and
+`costenergy=412` with transaction ID `1`, producing `0.412 kWh` in the Home
+Assistant last-session sensor. The charger sent `currentrecord` immediately
+after returning to `Available`; it did not send a `frozenrecord` for this
+completion.
+
 ### Negative result: `getChargerConfigInfo`
 
 `DataTransfer` calls with `messageId=getChargerConfigInfo` and vendor IDs
