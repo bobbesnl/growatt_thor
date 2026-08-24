@@ -8,6 +8,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.storage import Store
 
 from .charging_sessions import CORRELATION_MATCHED, build_unified_session
+from .charging_controls import transaction_state_is_active
 from .configuration import (
     ConfigurationValue,
     configuration_value_from_item,
@@ -315,6 +316,15 @@ class GrowattCoordinator(DataUpdateCoordinator):
     def now(self) -> str:
         """Return current UTC timestamp in ISO format."""
         return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+    @property
+    def transaction_is_active(self) -> bool:
+        """Return whether any retained OCPP state indicates an active charge."""
+        return transaction_state_is_active(
+            active_transaction=self.active_transaction,
+            transaction_id=self.transaction_id,
+            status=self.status,
+        )
 
     def set_charge_point(self, cp_id):
         """Set charge point ID and notify sensors."""

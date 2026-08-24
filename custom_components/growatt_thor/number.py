@@ -179,7 +179,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             ChargingControl.LOAD_BALANCING_LIMIT,
             self.coordinator.configuration_values,
             connected=self.coordinator.connected,
-            transaction_active=self.coordinator.active_transaction is not None,
+            transaction_active=self.coordinator.transaction_is_active,
         )
 
     async def async_set_native_value(self, value: float) -> None:

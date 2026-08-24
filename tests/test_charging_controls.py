@@ -155,6 +155,35 @@ class ChargingControlDependencyTest(unittest.TestCase):
             "configuration_read_only",
         )
 
+    def test_transaction_guard_survives_partial_reconnect_state(self):
+        for state in (
+            {
+                "active_transaction": {"start": {}},
+                "transaction_id": None,
+                "status": "Available",
+            },
+            {
+                "active_transaction": None,
+                "transaction_id": 42,
+                "status": "Available",
+            },
+            {
+                "active_transaction": None,
+                "transaction_id": None,
+                "status": "SuspendedEV",
+            },
+        ):
+            with self.subTest(state=state):
+                self.assertTrue(controls.transaction_state_is_active(**state))
+
+        self.assertFalse(
+            controls.transaction_state_is_active(
+                active_transaction=None,
+                transaction_id=None,
+                status="Available",
+            )
+        )
+
     def test_compound_and_unverified_settings_remain_read_only(self):
         expected = {
             controls.ChargingControl.SOLAR_BOOST:

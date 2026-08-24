@@ -199,6 +199,23 @@ def control_write_block_reason(
     return None
 
 
+def transaction_state_is_active(
+    *,
+    active_transaction: object,
+    transaction_id: object,
+    status: object,
+) -> bool:
+    """Combine retained transaction identifiers and OCPP charging states."""
+    normalized_status = (
+        status.value if hasattr(status, "value") else str(status or "")
+    )
+    return (
+        active_transaction is not None
+        or transaction_id is not None
+        or normalized_status in {"Charging", "SuspendedEV", "SuspendedEVSE"}
+    )
+
+
 def encode_control_value(control: ChargingControl, value: object) -> str:
     """Encode one verified logical control value for ChangeConfiguration."""
     if CONTROL_DEFINITIONS[control].capability != ControlCapability.WRITABLE:
