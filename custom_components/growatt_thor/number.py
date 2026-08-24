@@ -297,6 +297,14 @@ class ElectricityPriceNumber(BaseConfigNumber):
     def native_value(self):
         return self.coordinator.electricity_price
 
+    @property
+    def extra_state_attributes(self):
+        value = self.coordinator.configuration_values.get(self._config_key)
+        return {
+            "ocpp_key": self._config_key,
+            "raw_value": value.raw_value if value is not None else None,
+        }
+
     async def async_set_native_value(self, value: float) -> None:
         value = round(value, 2)
 

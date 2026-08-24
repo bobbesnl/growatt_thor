@@ -631,6 +631,44 @@ class EntityTranslationTest(unittest.TestCase):
 
         self.assertEqual(hardcoded_names, [])
 
+    def test_direct_control_shadow_sensors_are_disabled_by_default(self):
+        tree = ast.parse(SENSOR_PATH.read_text(encoding="utf-8"))
+        defaults = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if not isinstance(node.func, ast.Name):
+                continue
+            if node.func.id != "SensorEntityDescription":
+                continue
+            keywords = {keyword.arg: keyword.value for keyword in node.keywords}
+            key_node = keywords.get("key")
+            default_node = keywords.get("entity_registry_enabled_default")
+            if (
+                isinstance(key_node, ast.Constant)
+                and isinstance(key_node.value, str)
+                and isinstance(default_node, ast.Constant)
+            ):
+                defaults[key_node.value] = default_node.value
+
+        shadow_keys = {
+            "working_mode",
+            "solar_mode",
+            "solar_grid_import_limit",
+            "off_peak_enable_setting",
+            "warm_up_after_full_charge",
+        }
+        self.assertEqual(
+            {key: defaults.get(key) for key in shadow_keys},
+            {key: False for key in shadow_keys},
+        )
+
+        sensor_source = SENSOR_PATH.read_text(encoding="utf-8")
+        self.assertIn(
+            "_attr_entity_registry_enabled_default = False",
+            sensor_source,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

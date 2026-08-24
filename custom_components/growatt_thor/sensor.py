@@ -52,6 +52,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             device_class=SensorDeviceClass.ENUM,
             options=list(CONFIGURATION_ENTITY_OPTIONS["G_WorkingMode"]),
             icon="mdi:ev-station",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_WorkingMode",
         has_information=True,
@@ -75,6 +76,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             device_class=SensorDeviceClass.ENUM,
             options=list(CONFIGURATION_ENTITY_OPTIONS["G_SolarMode"]),
             icon="mdi:solar-power",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_SolarMode",
         has_information=True,
@@ -87,6 +89,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             device_class=SensorDeviceClass.POWER,
             native_unit_of_measurement=UnitOfPower.KILO_WATT,
             icon="mdi:transmission-tower-import",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_SolarLimitPower",
         has_information=True,
@@ -134,6 +137,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             device_class=SensorDeviceClass.ENUM,
             options=list(CONFIGURATION_ENTITY_OPTIONS["G_OffPeakEnable"]),
             icon="mdi:clock-check-outline",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_OffPeakEnable",
         has_information=True,
@@ -207,6 +211,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
                 CONFIGURATION_ENTITY_OPTIONS["G_FullContinueChargeEnable"]
             ),
             icon="mdi:car-defrost-front",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_FullContinueChargeEnable",
         has_information=True,
@@ -545,6 +550,7 @@ class ElectricityPriceSensor(BaseSensor):
     _attr_icon = "mdi:cash"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 2
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "electricity_price")

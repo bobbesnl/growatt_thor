@@ -71,7 +71,24 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def extra_state_attributes(self):
-        return {"information": "details"}
+        values = self.coordinator.configuration_values
+
+        def reported(key: str):
+            return configuration_entity_state(key, values.get(key))
+
+        def raw(key: str):
+            value = values.get(key)
+            return value.raw_value if value is not None else None
+
+        return {
+            "information": "details",
+            "reported_working_mode": reported("G_WorkingMode"),
+            "reported_solar_mode": reported("G_SolarMode"),
+            "reported_off_peak_enabled": reported("G_OffPeakEnable"),
+            "raw_working_mode": raw("G_WorkingMode"),
+            "raw_solar_mode": raw("G_SolarMode"),
+            "raw_off_peak_enabled": raw("G_OffPeakEnable"),
+        }
 
     async def async_select_option(self, option: str) -> None:
         block_reason = self._write_block_reason
