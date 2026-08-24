@@ -74,6 +74,8 @@ Your feedback helps identify patterns and improve integration stability! 🙏
 - **Charger modes**: Switch between Plug & Charge, RFID only, HomeAssistant(HA)/RFID mode
 - **Configuration diagnostics**: Preserve all returned OCPP and Growatt configuration values, including unknown keys and charger-provided read-only flags
 - **OCPP message diagnostics**: Retain the latest boot and status payloads plus active and last-completed transaction metadata; sensitive identifiers are redacted from downloaded diagnostics
+- **Meter sample diagnostics**: Preserve the latest complete `MeterValues` payload, including unknown measurands and vendor fields that do not have Home Assistant entities
+- **Growatt session diagnostics**: Preserve `currentrecord` and `frozenrecord` as separate structured records while keeping the existing last-session sensors and CSV export
 - **Read-only configuration sensors**: Show working mode, authorization mode, PV Linkage, boost, off-peak, and external meter settings without exposing unverified write controls
 - **Manual charging control**: Start and stop charging sessions via buttons
 - **Load balancing toggle**: Enable/disable dynamic load balancing
@@ -578,6 +580,11 @@ The integration keeps the last-known raw and normalized values returned by
 `GetConfiguration`. These values are included in the Home Assistant diagnostics
 download. Network identifiers, credentials, and unregistered keys are redacted
 in that export; sensitive credentials are also excluded from active requests.
+The same diagnostics include the latest complete `MeterValues` payload and the
+latest Growatt `currentrecord` and `frozenrecord`. Unknown meter measurands and
+vendor fields are retained without automatically creating entities for them.
+Raw Growatt session query strings and values of unknown session fields are
+redacted in the downloaded diagnostics.
 
 ---
 

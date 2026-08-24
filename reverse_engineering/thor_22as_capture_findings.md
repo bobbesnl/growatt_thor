@@ -54,14 +54,14 @@ Home Assistant.
 | `Heartbeat` | CP -> CS | Periodic clock synchronization; Central System requests a 60-second interval in `BootNotification.conf` | Returns current UTC time and refreshes connection liveness; any inbound OCPP message also counts as activity | 2.2.16 | observed, implemented |
 | `StatusNotification` | CP -> CS | `Preparing`, `Charging`, `Finishing`; `errorCode=NoError` and an empty `info` field | Status sensor plus latest complete request in HA diagnostics | 2.2.16 | observed, implemented |
 | `StartTransaction` | CP -> CS | Starts an OCPP transaction | Resets live session values, returns a CS-generated transaction ID, and starts the retained transaction diagnostics | 2.2.16 | implemented |
-| `MeterValues` | CP -> CS | Charging energy, current, voltage, power, and temperature | Live charging and per-phase sensors | 2.2.16 | observed, implemented |
+| `MeterValues` | CP -> CS | Charging energy, current, voltage, power, and temperature | Known values feed live sensors; the complete latest sample set is retained in HA diagnostics | 2.2.16 | observed, implemented |
 | `StopTransaction` | CP -> CS | Ends a transaction with meter stop and reason | Clears active state and retains the complete start/stop transaction pair in HA diagnostics | 2.2.16 | observed, implemented |
 | `TriggerMessage` | CS -> CP | Captured requests for `BootNotification` and `StatusNotification` | Integration requests status during manual refresh and requests boot data once when reconnecting firmware omits it | 2.2.16 | observed, implemented |
 | `GetConfiguration` | CS -> CP | Reads standard OCPP and Growatt `G_*` keys | Returned values are retained in structured diagnostics; selected values also have entities | 2.2.16 | observed, implemented |
 | `ChangeConfiguration` | CS -> CP | Writes one configuration value | Used by numbers, switches, time entities, and charger mode | 2.2.16 | observed, implemented |
 | `DataTransfer/get_external_meterval` | CS -> CP | Requests the external power meter snapshot | Grid power, voltage, and current sensors | 2.2.16 | observed, implemented |
-| `DataTransfer/currentrecord` | CP -> CS | Current or latest Growatt session record | Last-session sensors and CSV logging | 2.2.16 | observed, implemented |
-| `DataTransfer/frozenrecord` | CP -> CS | Completed Growatt session record | Last-session sensors and CSV logging | 2.2.16 | implemented |
+| `DataTransfer/currentrecord` | CP -> CS | Current or latest Growatt session record | Structured diagnostics, last-session sensors, and CSV logging | 2.2.16 | observed, implemented |
+| `DataTransfer/frozenrecord` | CP -> CS | Completed Growatt session record | Structured diagnostics, last-session sensors, and CSV logging | 2.2.16 | implemented |
 | `DataTransfer/appconfigmode` | CS -> CP | Enables charger AP mode | Options flow with confirmation | 2.2.16 | implemented |
 | `DataTransfer/solar_target_data` | CS -> CP | PV Linkage Smart Boost target time and energy | Documented; no Home Assistant control | 2.2.16 | observed |
 | `DataTransfer/G_SetTime` | CS -> CP | One-shot fast-charge duration in minutes | Documented; no Home Assistant control | 2.2.16 | observed |
@@ -134,8 +134,9 @@ additional measurands during an active session.
 | `Temperature` | `Celsius` | none | periodic samples | Temperature | 2.2.16 | observed, implemented |
 
 One capture represented a two-phase session: L1 and L2 carried current while
-L3 remained at zero. Unknown measurands are currently not retained by the
-coordinator.
+L3 remained at zero. The coordinator retains all samples from the latest
+`MeterValues` request, including unknown measurands and vendor fields. Only the
+validated measurands in the table above are mapped to Home Assistant entities.
 
 ## Growatt DataTransfer payloads
 
@@ -187,8 +188,8 @@ id=346&connectorId=1&chargemode=3&plugtime=2025-08-24 11:47:21&unplugtime=2025-0
 
 | Field | Interpretation | Current Home Assistant mapping | Firmware | Status |
 |---|---|---|---|---|
-| `id` | Growatt record identifier | Not exposed | 2.2.16 | observed |
-| `connectorId` | OCPP connector number | Parsed but not retained | 2.2.16 | observed |
+| `id` | Growatt record identifier | Structured session diagnostics | 2.2.16 | observed, implemented |
+| `connectorId` | OCPP connector number | Structured session diagnostics | 2.2.16 | observed, implemented |
 | `chargemode` | Growatt charging mode code | Last Session Charge Mode | 2.2.16 | observed, implemented |
 | `plugtime` | Cable connected time | Last Session Plug Time | 2.2.16 | observed, implemented |
 | `unplugtime` | Cable disconnected time | Last Session Unplug Time | 2.2.16 | observed, implemented |
@@ -199,8 +200,12 @@ id=346&connectorId=1&chargemode=3&plugtime=2025-08-24 11:47:21&unplugtime=2025-0
 | `transactionId` | OCPP transaction ID assigned by the central system | Last Session Transaction ID and CSV | 2.2.16 | observed, implemented |
 | `workmode` | Growatt work mode code; values `3` and `7` captured. Value `7` occurred together with `G_WorkingMode=Power Distribution`, but equivalence is not confirmed. | Last Session Work Mode; unknown numeric values remain raw | 2.2.16 | observed, implemented |
 
-The current integration uses the same session parser for `currentrecord` and
-`frozenrecord`.
+The integration parses both message types with the same lossless field model
+but retains the latest `currentrecord` and `frozenrecord` separately. Blank and
+duplicate query parameters are preserved. The raw payload remains available
+internally; downloaded diagnostics redact the raw query string and values of
+unknown fields. A session received through both message types is counted only
+once when `transactionId` and `endtime` match.
 
 ### Negative result: `getChargerConfigInfo`
 
@@ -334,8 +339,9 @@ rejected as unknown, while `G_PeriodTime` returned a value.
 
 The integration retains every returned configuration value in a generic
 registry and exposes only a validated subset as Home Assistant controls or
-read-only sensors. Unknown meter measurands and unrecognized DataTransfer fields
-are not retained yet.
+read-only sensors. It also retains all samples from the latest OCPP
+`MeterValues` request and structured Growatt `currentrecord` and `frozenrecord`
+payloads. Other, unrecognized `DataTransfer` message types are not retained yet.
 
 This is intentional for controls: a key name is not enough evidence to make a
 setting writable. Future controls should be added one use case at a time after
