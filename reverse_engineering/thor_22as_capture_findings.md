@@ -93,24 +93,32 @@ The central system assigns the OCPP `transactionId` in
 `StopTransaction`, and Growatt session records. It is not assigned by the
 charger.
 
-### Backlog: transaction identity across central systems
+### Transaction identity across central systems
 
 An OCPP `transactionId` is scoped to the central system that assigned it. A
 charger that switches between the Growatt Cloud and Home Assistant can
 therefore legitimately receive the same numeric ID from both systems. The raw
-`transactionId` must not be treated as a globally unique key in session exports
-or the planned combined session model.
+`transactionId` is therefore not treated as a globally unique key in session
+exports or the combined session model.
 
 Home Assistant uses a persistent monotonic allocator so WebSocket reconnects
 and restarts do not reuse its own IDs. The allocator saves its next value before
 returning `StartTransaction.conf`.
 
-The remaining cross-system case needs a separate stable session identity that
-includes the charge point and assigning central-system source or instance.
-Growatt records that cannot be linked to a locally retained `StartTransaction`
-keep their source as external or unknown instead of being attributed to Home
-Assistant. Existing exports must continue to retain the original numeric OCPP
-transaction ID alongside that future internal session identity.
+Each session receives a deterministic compact internal ID while retaining the
+original numeric OCPP transaction ID. Locally correlated sessions use an `ha-`
+namespace that includes the Home Assistant config-entry instance, charge point,
+transaction ID, and OCPP start time. Growatt records without a matching locally
+retained `StartTransaction` use `ext-` and keep their source as
+`external_or_unknown`. Their session start time disambiguates reused numeric
+transaction IDs; end time and record ID are fallbacks for incomplete records
+because no assigning central-system instance is available.
+
+Existing CSV rows cannot be assigned to Growatt Cloud or Home Assistant
+reliably. The schema migration gives them deterministic `legacy-` IDs and the
+source `legacy_unknown`. The readable prefix and source column carry
+provenance; the following 16 hexadecimal characters are a truncated SHA-256 of
+the source-specific identity fields.
 
 ### Connector IDs
 

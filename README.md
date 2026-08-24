@@ -107,6 +107,14 @@ After each completed charging session, the following data is automatically appen
 | `cost` | Session cost as reported by charger |
 | `duration_minutes` | Session duration in minutes |
 | `transaction_id` | OCPP transaction ID |
+| `session_id` | Stable internal ID with an `ha-`, `ext-`, or `legacy-` prefix |
+| `session_source` | `home_assistant`, `external_or_unknown`, or `legacy_unknown` |
+
+The OCPP `transaction_id` remains unchanged for protocol-level analysis. The
+additional `session_id` prevents equal numeric IDs assigned by different
+central systems from colliding in exports. Existing CSV files are extended on
+the next completed session. Since their original source cannot be reconstructed
+reliably, historical rows are marked `legacy_unknown`.
 
 ### Initial Setup
 
@@ -178,10 +186,10 @@ cards:
 
 Example Export Output:
 
-```yaml
-charger_id,location,start_time,end_time,energy_kwh,cost,duration_minutes,transaction_id
-XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-21 08:19:03,2026-03-21 09:42:02,3.170,0.63,83.0,1
-XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-22 07:05:11,2026-03-22 08:31:44,8.450,1.69,86.5,2
+```csv
+charger_id,location,start_time,end_time,energy_kwh,cost,duration_minutes,transaction_id,session_id,session_source
+XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-21 08:19:03,2026-03-21 09:42:02,3.170,0.63,83.0,1,ha-0123456789abcdef,home_assistant
+XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-22 07:05:11,2026-03-22 08:31:44,8.450,1.69,86.5,2,ext-fedcba9876543210,external_or_unknown
 ```
 
 ## 🛡️ Stability Features

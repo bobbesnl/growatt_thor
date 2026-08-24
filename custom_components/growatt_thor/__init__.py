@@ -16,6 +16,11 @@ import homeassistant.helpers.config_validation as cv
 from .const import DOMAIN, CONF_POLL_INTERVAL, CONF_LOCATION, DEFAULT_POLL_INTERVAL
 from .coordinator import GrowattCoordinator
 from .ocpp_server import start_ocpp_server
+from .session_csv import (
+    SESSION_EXPORT_HEADERS,
+    append_session_row,
+    normalize_session_row,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,8 +33,6 @@ PLATFORMS = [
 ]
 
 SESSION_LOG_FILE = "growatt_thor_sessions.csv"
-SESSION_LOG_HEADERS = ["timestamp", "charger_id", "location", "start_time", "end_time", "energy_kwh", "cost", "duration_minutes", "transaction_id"]
-SESSION_EXPORT_HEADERS = ["charger_id", "location", "start_time", "end_time", "energy_kwh", "cost", "duration_minutes", "transaction_id"]
 
 
 def _migrate_external_meter_device(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -74,12 +77,7 @@ async def _append_session_to_csv(hass, session: dict):
     path = _get_session_log_path(hass)
 
     def _write():
-        file_exists = os.path.isfile(path)
-        with open(path, "a", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=SESSION_LOG_HEADERS)
-            if not file_exists:
-                writer.writeheader()
-            writer.writerow(session)
+        append_session_row(path, session)
 
     await hass.async_add_executor_job(_write)
     _LOGGER.debug("📝 Session appended to CSV: %s", path)
@@ -209,7 +207,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     try:
                         row_date = datetime.strptime(row["start_time"], "%Y-%m-%d %H:%M:%S")
                         if date_from <= row_date <= date_to:
-                            rows.append(row)
+                            rows.append(normalize_session_row(row))
                     except (ValueError, KeyError):
                         continue
 

@@ -723,6 +723,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     "cost": round(cost, 2),
                     "duration_minutes": duration_minutes if duration_minutes is not None else "",
                     "transaction_id": record.transaction_id,
+                    "session_id": self.last_session_id,
+                    "session_source": self.last_session_source,
                 }
                 self.hass.async_create_task(append_fn(session_row))
 
