@@ -17,6 +17,7 @@ from .external_meter import parse_external_meter_data
 from .meter_samples import parse_meter_values
 from .ocpp_diagnostics import create_ocpp_snapshot
 from .session_records import GrowattSessionRecord
+from .transaction_ids import TransactionIdAllocator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,6 +32,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         super().__init__(hass, _LOGGER, name="Growatt THOR Coordinator")
 
         self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+        self._transaction_id_allocator = TransactionIdAllocator()
+        self._transaction_id_lock = asyncio.Lock()
 
         self.charge_point_id = None
         self.status = None
@@ -129,14 +132,45 @@ class GrowattCoordinator(DataUpdateCoordinator):
         data = await self._store.async_load()
         if data:
             self.total_energy_charged = float(data.get("total_energy_charged", 0.0))
-            _LOGGER.info("📦 Loaded from storage: total_energy_charged=%.3f kWh", self.total_energy_charged)
+            self._transaction_id_allocator.restore(
+                data.get("next_transaction_id", 1)
+            )
+            _LOGGER.info(
+                "📦 Loaded from storage: total_energy_charged=%.3f kWh, "
+                "next_transaction_id=%d",
+                self.total_energy_charged,
+                self._transaction_id_allocator.next_transaction_id,
+            )
         else:
             _LOGGER.info("📦 No persistent storage found, starting fresh")
 
     async def async_save_storage(self):
         """Save persistent statistics to HA storage."""
-        await self._store.async_save({"total_energy_charged": self.total_energy_charged})
-        _LOGGER.debug("💾 Saved to storage: total_energy_charged=%.3f kWh", self.total_energy_charged)
+        await self._store.async_save(
+            {
+                "total_energy_charged": self.total_energy_charged,
+                "next_transaction_id": (
+                    self._transaction_id_allocator.next_transaction_id
+                ),
+            }
+        )
+        _LOGGER.debug(
+            "💾 Saved to storage: total_energy_charged=%.3f kWh, "
+            "next_transaction_id=%d",
+            self.total_energy_charged,
+            self._transaction_id_allocator.next_transaction_id,
+        )
+
+    async def async_allocate_transaction_id(self) -> int:
+        """Allocate and persist the next local OCPP transaction ID."""
+        async with self._transaction_id_lock:
+            transaction_id = self._transaction_id_allocator.allocate()
+            await self.async_save_storage()
+            _LOGGER.debug(
+                "Allocated local OCPP transaction ID: %d",
+                transaction_id,
+            )
+            return transaction_id
 
     # ─────────────────────────────
     # WRITE QUEUE METHODS

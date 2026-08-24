@@ -101,14 +101,16 @@ therefore legitimately receive the same numeric ID from both systems. The raw
 `transactionId` must not be treated as a globally unique key in session exports
 or the planned combined session model.
 
-Home Assistant should still use a persistent monotonic allocator so WebSocket
-reconnects and restarts do not reuse its own IDs. In addition, the session model
-needs a separate stable identity that includes the charge point and assigning
-central-system source or instance. Growatt records that cannot be linked to a
-locally retained `StartTransaction` must keep their source as external or
-unknown instead of being attributed to Home Assistant. Existing exports must
-continue to retain the original numeric OCPP transaction ID alongside that
-internal session identity.
+Home Assistant uses a persistent monotonic allocator so WebSocket reconnects
+and restarts do not reuse its own IDs. The allocator saves its next value before
+returning `StartTransaction.conf`.
+
+The remaining cross-system case needs a separate stable session identity that
+includes the charge point and assigning central-system source or instance.
+Growatt records that cannot be linked to a locally retained `StartTransaction`
+keep their source as external or unknown instead of being attributed to Home
+Assistant. Existing exports must continue to retain the original numeric OCPP
+transaction ID alongside that future internal session identity.
 
 ### Connector IDs
 

@@ -73,7 +73,6 @@ class GrowattChargePoint(OcppChargePoint):
         self._cp_id = cp_id
         self._websocket = websocket
         self._activity = OcppConnectionActivity(hass.loop.time())
-        self._transaction_id = 1
         self._boot_notification_requested = False
 
         hass.data.setdefault(DOMAIN, {})
@@ -238,8 +237,7 @@ class GrowattChargePoint(OcppChargePoint):
     @on("StartTransaction")
     async def on_start_transaction(self, connector_id, id_tag, meter_start, **kwargs):
         try:
-            transaction_id = self._transaction_id
-            self._transaction_id += 1
+            transaction_id = await self.coordinator.async_allocate_transaction_id()
             self.coordinator.start_transaction(
                 transaction_id,
                 id_tag,
