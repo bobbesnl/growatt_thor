@@ -75,7 +75,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.auto_charge_stop_time_pending = None
 
         # ── Electricity price ──────────────
-        self.electricity_price = None  # EUR/kWh (parsed from GTimeSharingPrice)
+        self.electricity_price = None  # Currency per kWh, parsed from G_TimeSharingPrice
 
         # Last-known raw and normalized GetConfiguration values.
         self.configuration_values: dict[str, ConfigurationValue] = {}
@@ -567,7 +567,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         value = round(float(match.group(1)), 2)
                         if self.electricity_price != value:
                             self.electricity_price = value
-                            _LOGGER.debug("Config: G_TimeSharingPrice = %.2f EUR/kWh", value)
+                            _LOGGER.debug("Config: G_TimeSharingPrice = %.2f per kWh", value)
                             updated = True
                     else:
                         _LOGGER.warning("Could not parse G_TimeSharingPrice from raw value: %s", raw)

@@ -24,6 +24,7 @@ from .configuration import (
     configuration_entity_state,
 )
 from .const import DOMAIN
+from .currency import configured_currency, electricity_price_unit
 from .ocpp_status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
 
 
@@ -527,13 +528,15 @@ class TotalEnergyChargedSensor(BaseSensor):
 
 class ElectricityPriceSensor(BaseSensor):
     _attr_translation_key = "electricity_price"
-    _attr_icon = "mdi:currency-eur"
+    _attr_icon = "mdi:cash"
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = "EUR/kWh"
     _attr_suggested_display_precision = 2
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "electricity_price")
+        self._attr_native_unit_of_measurement = electricity_price_unit(
+            coordinator.hass
+        )
 
     @property
     def native_value(self):
@@ -569,10 +572,13 @@ class LastSessionEnergySensor(BaseSensor):
 class LastSessionCostSensor(BaseSensor):
     _attr_translation_key = "last_session_cost"
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_icon = "mdi:currency-eur"
+    _attr_icon = "mdi:cash"
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "last_session_cost")
+        self._attr_native_unit_of_measurement = configured_currency(
+            coordinator.hass
+        )
 
     @property
     def native_value(self):
