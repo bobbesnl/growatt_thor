@@ -14,6 +14,7 @@ from .configuration import (
 )
 from .const import DOMAIN
 from .external_meter import parse_external_meter_data
+from .meter_samples import parse_meter_values
 from .ocpp_diagnostics import create_ocpp_snapshot
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         # Latest normalized OCPP requests retained for HA diagnostics.
         self.boot_notification = None
         self.last_status_notification = None
+        self.last_meter_values = None
         self.active_transaction = None
         self.last_completed_transaction = None
 
@@ -359,123 +361,79 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # MeterValues
     # ─────────────────────────────
 
-    def process_meter_values(self, meter_values):
-        """Process meter values with TIER 1 error handling."""
-        _LOGGER.info("🔵 process_meter_values called with %d entries", len(meter_values))
+    def process_meter_values(
+        self,
+        meter_values,
+        *,
+        connector_id=None,
+        transaction_id=None,
+    ):
+        """Retain all MeterValues samples and update known live sensors."""
+        parsed_values = parse_meter_values(meter_values)
+        self.last_meter_values = {
+            "received_at": self.now(),
+            "connector_id": connector_id,
+            "transaction_id": transaction_id,
+            "meter_values": [entry.as_dict() for entry in parsed_values],
+        }
         updated = False
 
-        try:
-            for idx, entry in enumerate(meter_values):
-                _LOGGER.debug("  Entry %d type: %s", idx, type(entry))
-
-                sampled_values = None
-                if hasattr(entry, "sampled_value"):
-                    sampled_values = entry.sampled_value
-                    _LOGGER.debug("  → Using entry.sampled_value (attribute)")
-                elif isinstance(entry, dict) and "sampled_value" in entry:
-                    sampled_values = entry["sampled_value"]
-                    _LOGGER.debug("  → Using entry['sampled_value'] (dict, underscore)")
-                elif isinstance(entry, dict) and "sampledValue" in entry:
-                    sampled_values = entry["sampledValue"]
-                    _LOGGER.debug("  → Using entry['sampledValue'] (dict, camelCase)")
-                else:
+        for entry in parsed_values:
+            for sample in entry.samples:
+                value = sample.numeric_value
+                if value is None:
                     _LOGGER.warning(
-                        "  ⚠️ Cannot find sampledValue in entry keys: %s",
-                        list(entry.keys()) if isinstance(entry, dict) else "not a dict",
+                        "Failed to parse MeterValues sample value %r for %s",
+                        sample.raw_value,
+                        sample.measurand,
                     )
                     continue
 
-                if not sampled_values:
-                    _LOGGER.warning("  ⚠️ sampled_values is empty")
-                    continue
-
-                _LOGGER.info("  → Processing %d samples", len(sampled_values))
-
-                for sample in sampled_values:
-                    try:
-                        value_str = None
-                        measurand = None
-                        phase = None
-
-                        if hasattr(sample, "value"):
-                            value_str = sample.value
-                            measurand = sample.measurand
-                            phase = getattr(sample, "phase", None)
-                        elif isinstance(sample, dict):
-                            value_str = sample.get("value")
-                            measurand = sample.get("measurand")
-                            phase = sample.get("phase")
-                        else:
-                            _LOGGER.warning("    ⚠️ Unknown sample type: %s", type(sample))
-                            continue
-
-                        if not value_str:
-                            continue
-
-                        value = float(value_str)
-
-                    except (TypeError, ValueError, AttributeError) as e:
-                        _LOGGER.warning("    Failed to parse sample: %s", e)
-                        continue
-
-                    if measurand == "Energy.Active.Import.Register":
-                        context = (
-                            sample.get("context")
-                            if isinstance(sample, dict)
-                            else getattr(sample, "context", None)
+                if sample.measurand == "Energy.Active.Import.Register":
+                    if sample.context == "Transaction.Begin":
+                        _LOGGER.debug(
+                            "Skipping transaction-begin energy sample: %.3f Wh",
+                            value,
                         )
-                        if context == "Transaction.Begin":
-                            _LOGGER.debug(
-                                "    ⏭️ Skipping Energy sample (Transaction.Begin): %.3f Wh", value
-                            )
-                        else:
-                            if self.energy != value:
-                                self.energy = value
-                                _LOGGER.info("    ✅ Energy: %.3f Wh", value)
-                                updated = True
+                    elif self.energy != value:
+                        self.energy = value
+                        updated = True
 
-                    elif measurand == "Power.Active.Import":
-                        effective_phase = phase or "L1"
-                        if self.phase_power.get(effective_phase) != value:
-                            self.phase_power[effective_phase] = value
-                            _LOGGER.info("    ✅ Power %s: %.1f W", effective_phase, value)
-                            updated = True
+                elif sample.measurand == "Power.Active.Import":
+                    effective_phase = sample.phase or "L1"
+                    if self.phase_power.get(effective_phase) != value:
+                        self.phase_power[effective_phase] = value
+                        updated = True
 
-                    elif measurand == "Current.Import":
-                        effective_phase = phase or "L1"
-                        if self.currents.get(effective_phase) != value:
-                            self.currents[effective_phase] = value
-                            _LOGGER.info("    ✅ Current %s: %.2f A", effective_phase, value)
-                            updated = True
+                elif sample.measurand == "Current.Import":
+                    effective_phase = sample.phase or "L1"
+                    if self.currents.get(effective_phase) != value:
+                        self.currents[effective_phase] = value
+                        updated = True
 
-                    elif measurand == "Voltage":
-                        effective_phase = phase or "L1"
-                        if self.voltages.get(effective_phase) != value:
-                            self.voltages[effective_phase] = value
-                            _LOGGER.info("    ✅ Voltage %s: %.1f V", effective_phase, value)
-                            updated = True
+                elif sample.measurand == "Voltage":
+                    effective_phase = sample.phase or "L1"
+                    if self.voltages.get(effective_phase) != value:
+                        self.voltages[effective_phase] = value
+                        updated = True
 
-                    elif measurand == "Temperature":
-                        if self.temperature != value:
-                            self.temperature = value
-                            _LOGGER.info("    ✅ Temperature: %.1f °C", value)
-                            updated = True
+                elif sample.measurand == "Temperature":
+                    if self.temperature != value:
+                        self.temperature = value
+                        updated = True
 
-            if self.phase_power:
-                total = sum(self.phase_power.values())
-                if self.power != total:
-                    self.power = total
-                    _LOGGER.info("  ✅ Total power: %.1f W", total)
-                    updated = True
+        if self.phase_power:
+            total = sum(self.phase_power.values())
+            if self.power != total:
+                self.power = total
+                updated = True
 
-            if updated:
-                _LOGGER.info("🔄 Notifying sensors...")
-                self.async_set_updated_data(True)
-            else:
-                _LOGGER.warning("⚠️ No updates from MeterValues")
-
-        except Exception as exc:
-            _LOGGER.error("💥 CRASH in process_meter_values: %s", exc, exc_info=True)
+        _LOGGER.debug(
+            "Retained %d MeterValues entries%s",
+            len(parsed_values),
+            " and updated live sensors" if updated else "",
+        )
+        self.async_set_updated_data(True)
 
     # ─────────────────────────────
     # GetConfiguration verwerking

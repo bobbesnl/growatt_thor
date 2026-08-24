@@ -26,6 +26,7 @@ async def async_get_config_entry_diagnostics(
             "ocpp": {
                 "boot_notification": None,
                 "last_status_notification": None,
+                "last_meter_values": None,
                 "transactions": {
                     "active": None,
                     "last_completed": None,
@@ -48,6 +49,7 @@ async def async_get_config_entry_diagnostics(
             {
                 "boot_notification": coordinator.boot_notification,
                 "last_status_notification": coordinator.last_status_notification,
+                "last_meter_values": coordinator.last_meter_values,
                 "transactions": {
                     "active": coordinator.active_transaction,
                     "last_completed": coordinator.last_completed_transaction,

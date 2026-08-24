@@ -303,7 +303,11 @@ class GrowattChargePoint(OcppChargePoint):
                     self.coordinator.transaction_id = transaction_id
                     _LOGGER.info("✅ Transaction ID captured from MeterValues: %s", transaction_id)
                     self.coordinator.async_set_updated_data(True)
-            self.coordinator.process_meter_values(meter_value)
+            self.coordinator.process_meter_values(
+                meter_value,
+                connector_id=connector_id,
+                transaction_id=transaction_id,
+            )
             return call_result.MeterValues()
         except Exception as exc:
             _LOGGER.error("Error in MeterValues handler: %s", exc, exc_info=True)
