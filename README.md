@@ -584,7 +584,10 @@ The same diagnostics include the latest complete `MeterValues` payload and the
 latest Growatt `currentrecord` and `frozenrecord`. Unknown meter measurands and
 vendor fields are retained without automatically creating entities for them.
 Raw Growatt session query strings and values of unknown session fields are
-redacted in the downloaded diagnostics.
+redacted in the downloaded diagnostics. A separate `sessions` section combines
+matching OCPP and Growatt data without replacing either raw source. Its
+correlation status distinguishes sessions reported by both sources from
+OCPP-only and Growatt-only records, and energy differences remain visible.
 
 ---
 

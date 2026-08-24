@@ -136,6 +136,17 @@ model, connector, status and vendor error details, timestamps, meter start/stop,
 stop reason, transaction ID, and transaction data remain available for
 troubleshooting.
 
+The downloaded diagnostics also contain a source-aware session view. OCPP
+start/stop data, the latest transaction-scoped meter energy, and Growatt
+`currentrecord`/`frozenrecord` values are combined only when their transaction
+IDs match and the vendor record was received after that OCPP transaction began.
+This time guard prevents a reconnected central system from attaching an older
+record when a transaction ID is reused. Each session is labelled `matched`,
+`ocpp_only`, or `growatt_only`.
+Meter start/stop delta, the latest periodic energy value, Growatt session energy,
+and any difference between them remain separate so firmware behavior is not
+hidden by a single preferred value.
+
 ## MeterValues
 
 Although an observed configuration contained

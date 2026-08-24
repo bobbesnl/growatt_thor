@@ -6,6 +6,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
+from .charging_sessions import build_unified_session
 from .configuration import (
     INFORMATIONAL_CONFIGURATION_KEYS,
     OPERATIONAL_CONFIGURATION_KEYS,
@@ -41,8 +42,16 @@ async def async_get_config_entry_diagnostics(
                     "frozen": None,
                 }
             },
+            "sessions": {
+                "active": None,
+                "last_completed": None,
+            },
         }
 
+    session_records = (
+        coordinator.last_current_record,
+        coordinator.last_frozen_record,
+    )
     return {
         "connection": {
             "connected": coordinator.connected,
@@ -72,6 +81,22 @@ async def async_get_config_entry_diagnostics(
                     coordinator.last_frozen_record
                 ),
             }
+        },
+        "sessions": {
+            "active": (
+                build_unified_session(
+                    coordinator.active_transaction,
+                    meter_values=coordinator.last_meter_values,
+                    session_records=session_records,
+                )
+                if coordinator.active_transaction is not None
+                else None
+            ),
+            "last_completed": build_unified_session(
+                coordinator.last_completed_transaction,
+                meter_values=coordinator.last_meter_values,
+                session_records=session_records,
+            ),
         },
         "configuration": serialize_configuration_values(
             coordinator.configuration_values,
