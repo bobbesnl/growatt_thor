@@ -102,6 +102,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             device_class=SensorDeviceClass.ENUM,
             options=list(CONFIGURATION_ENTITY_OPTIONS["G_SolarBoost"]),
             icon="mdi:flash",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_SolarBoost",
         has_information=True,

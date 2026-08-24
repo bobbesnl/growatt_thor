@@ -671,6 +671,7 @@ class EntityTranslationTest(unittest.TestCase):
             "off_peak_enable_setting",
             "warm_up_after_full_charge",
             "external_sampling_wiring",
+            "solar_boost",
         }
         self.assertEqual(
             {key: defaults.get(key) for key in shadow_keys},

@@ -271,9 +271,21 @@ class PvBoostDraftSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def extra_state_attributes(self):
+        boost_value = self.coordinator.configuration_values.get("G_SolarBoost")
+        period_value = self.coordinator.configuration_values.get("G_PeriodTime")
         return {
             "information": "details",
             "pending_changes": self.coordinator.pv_linkage_draft_dirty,
+            "reported_boost_mode": configuration_entity_state(
+                "G_SolarBoost",
+                boost_value,
+            ),
+            "raw_boost_value": (
+                boost_value.raw_value if boost_value is not None else None
+            ),
+            "raw_period_value": (
+                period_value.raw_value if period_value is not None else None
+            ),
         }
 
     async def async_select_option(self, option: str) -> None:
