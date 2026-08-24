@@ -572,14 +572,23 @@ class EntityTranslationTest(unittest.TestCase):
 
     def test_control_entities_are_translated(self):
         expected = {
-            "button": {"start_charging", "stop_charging"},
+            "button": {
+                "start_charging",
+                "stop_charging",
+                "apply_pv_linkage",
+            },
             "number": {
                 "max_current",
                 "load_balancing_limit",
                 "electricity_price",
                 "solar_grid_import_limit",
+                "pv_smart_boost_target_energy",
             },
-            "select": {"working_mode", "external_sampling_method"},
+            "select": {
+                "working_mode",
+                "external_sampling_method",
+                "pv_boost_mode",
+            },
             "switch": {
                 "load_balancing",
                 "lcd_display",
@@ -588,6 +597,9 @@ class EntityTranslationTest(unittest.TestCase):
             "time": {
                 "auto_charge_start_time",
                 "auto_charge_stop_time",
+                "pv_manual_boost_start",
+                "pv_manual_boost_end",
+                "pv_smart_boost_finish",
             },
         }
 

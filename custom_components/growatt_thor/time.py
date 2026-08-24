@@ -16,6 +16,7 @@ from .charging_controls import (
     ChargingControl,
     control_write_block_reason,
 )
+from .pv_linkage import PvBoostMode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +28,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([
         AutoChargeStartTime(coordinator, entry),
         AutoChargeStopTime(coordinator, entry),
+        PvManualBoostStartTime(coordinator, entry),
+        PvManualBoostEndTime(coordinator, entry),
+        PvSmartBoostFinishTime(coordinator, entry),
     ])
 
 
@@ -198,3 +202,89 @@ class AutoChargeStopTime(BaseAutoChargeTime):
             "thor_value": thor_value.strftime("%H:%M") if thor_value else None,
             "note": "Auto-applies via write queue",
         }
+
+
+class BasePvBoostTime(CoordinatorEntity, TimeEntity):
+    """Edit one local PV Boost draft time."""
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:clock-outline"
+    _required_mode: PvBoostMode
+    _coordinator_field: str
+
+    def __init__(self, coordinator, entry, key):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_{key}_draft"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "Growatt THOR EV Charger",
+            "manufacturer": "Growatt",
+            "model": "THOR",
+        }
+
+    @property
+    def native_value(self):
+        return getattr(self.coordinator, self._coordinator_field)
+
+    @property
+    def _write_block_reason(self) -> str | None:
+        return control_write_block_reason(
+            ChargingControl.SOLAR_BOOST,
+            self.coordinator.configuration_values,
+            connected=self.coordinator.connected,
+            transaction_active=self.coordinator.active_transaction is not None,
+        )
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self._write_block_reason is None
+            and self.coordinator.pv_boost_mode_draft == self._required_mode
+        )
+
+    @property
+    def extra_state_attributes(self):
+        return {"information": "details"}
+
+    async def async_set_value(self, value: time) -> None:
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning("Cannot edit PV Boost time: %s", block_reason)
+            return
+        self.coordinator.update_pv_linkage_draft(
+            **{self._coordinator_field: value}
+        )
+
+
+class PvManualBoostStartTime(BasePvBoostTime):
+    """Edit the Manual Boost start time."""
+
+    _attr_translation_key = "pv_manual_boost_start"
+    _required_mode = PvBoostMode.MANUAL
+    _coordinator_field = "pv_manual_start_draft"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "pv_manual_boost_start")
+
+
+class PvManualBoostEndTime(BasePvBoostTime):
+    """Edit the Manual Boost end time."""
+
+    _attr_translation_key = "pv_manual_boost_end"
+    _required_mode = PvBoostMode.MANUAL
+    _coordinator_field = "pv_manual_end_draft"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "pv_manual_boost_end")
+
+
+class PvSmartBoostFinishTime(BasePvBoostTime):
+    """Edit the Smart Boost charging finish time."""
+
+    _attr_translation_key = "pv_smart_boost_finish"
+    _required_mode = PvBoostMode.SMART
+    _coordinator_field = "pv_smart_finish_draft"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "pv_smart_boost_finish")

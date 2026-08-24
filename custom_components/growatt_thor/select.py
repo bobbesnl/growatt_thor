@@ -22,6 +22,7 @@ from .configuration import (
 )
 from .configuration_control import GrowattConfigurationControlMixin
 from .const import DOMAIN
+from .pv_linkage import PvBoostMode
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,6 +36,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         [
             WorkingModeSelect(coordinator, entry),
             ExternalSamplingMethodSelect(coordinator, entry),
+            PvBoostDraftSelect(coordinator, entry),
         ]
     )
 
@@ -222,4 +224,62 @@ class ExternalSamplingMethodSelect(
     async def async_select_option(self, option: str) -> None:
         await self._async_write_configuration(
             encode_control_value(self._control, option)
+        )
+
+
+class PvBoostDraftSelect(CoordinatorEntity, SelectEntity):
+    """Edit the local PV Boost mode without immediately writing the charger."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "pv_boost_mode"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:rocket-launch-outline"
+    _attr_options = [mode.value for mode in PvBoostMode]
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator)
+        self.hass = coordinator.hass
+        self._attr_unique_id = f"{entry.entry_id}_pv_boost_mode_draft"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "Growatt THOR EV Charger",
+            "manufacturer": "Growatt",
+            "model": "THOR",
+        }
+
+    @property
+    def current_option(self):
+        mode = self.coordinator.pv_boost_mode_draft
+        return mode.value if mode is not None else None
+
+    @property
+    def _write_block_reason(self) -> str | None:
+        return control_write_block_reason(
+            ChargingControl.SOLAR_BOOST,
+            self.coordinator.configuration_values,
+            connected=self.coordinator.connected,
+            transaction_active=self.coordinator.active_transaction is not None,
+        )
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self._write_block_reason is None
+            and self.current_option is not None
+        )
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "information": "details",
+            "pending_changes": self.coordinator.pv_linkage_draft_dirty,
+        }
+
+    async def async_select_option(self, option: str) -> None:
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning("Cannot edit PV Boost mode: %s", block_reason)
+            return
+        self.coordinator.update_pv_linkage_draft(
+            pv_boost_mode_draft=PvBoostMode(option)
         )

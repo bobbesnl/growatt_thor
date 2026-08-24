@@ -21,6 +21,7 @@ from .configuration_control import (
     async_confirm_configuration,
 )
 from .currency import electricity_price_unit
+from .pv_linkage import PvBoostMode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         LoadBalancingLimitNumber(coordinator, entry),
         ElectricityPriceNumber(coordinator, entry),
         SolarGridImportLimitNumber(coordinator, entry),
+        PvSmartBoostTargetEnergyNumber(coordinator, entry),
     ])
 
 
@@ -410,4 +412,62 @@ class SolarGridImportLimitNumber(
     async def async_set_native_value(self, value: float) -> None:
         await self._async_write_configuration(
             encode_control_value(self._control, value)
+        )
+
+
+class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
+    """Edit the local Smart Boost target energy draft."""
+
+    _attr_translation_key = "pv_smart_boost_target_energy"
+    _attr_icon = "mdi:battery-charging-high"
+    _attr_device_class = NumberDeviceClass.ENERGY
+    _attr_native_min_value = 0.1
+    _attr_native_max_value = 200
+    _attr_native_step = 0.1
+    _attr_native_unit_of_measurement = "kWh"
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "pv_smart_boost_target_energy")
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "Growatt THOR EV Charger",
+            "manufacturer": "Growatt",
+            "model": "THOR",
+        }
+
+    @property
+    def native_value(self):
+        return self.coordinator.pv_smart_target_energy_draft
+
+    @property
+    def _write_block_reason(self) -> str | None:
+        return control_write_block_reason(
+            ChargingControl.SOLAR_BOOST,
+            self.coordinator.configuration_values,
+            connected=self.coordinator.connected,
+            transaction_active=self.coordinator.active_transaction is not None,
+        )
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self._write_block_reason is None
+            and self.coordinator.pv_boost_mode_draft == PvBoostMode.SMART
+        )
+
+    @property
+    def extra_state_attributes(self):
+        return {"information": "details"}
+
+    async def async_set_native_value(self, value: float) -> None:
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning(
+                "Cannot edit Smart Boost target energy: %s",
+                block_reason,
+            )
+            return
+        self.coordinator.update_pv_linkage_draft(
+            pv_smart_target_energy_draft=round(float(value), 3)
         )

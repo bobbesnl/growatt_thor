@@ -318,7 +318,18 @@
     },
     "button": {
       "start_charging": { "name": "Start charging" },
-      "stop_charging": { "name": "Stop charging" }
+      "stop_charging": { "name": "Stop charging" },
+      "apply_pv_linkage": {
+        "name": "Apply PV Linkage settings",
+        "state_attributes": {
+          "information": {
+            "name": "About this action",
+            "state": {
+              "details": "Applies the complete local Boost draft to the charger. Manual Boost sends its time window; Smart Boost sends finish time and target energy. The action is available only for a complete draft while the charger is idle in PV Linkage mode."
+            }
+          }
+        }
+      }
     },
     "number": {
       "max_current": { "name": "Maximum current" },
@@ -331,6 +342,17 @@
             "name": "About this setting",
             "state": {
               "details": "Available only in PV Linkage mode while solar charging is enabled. Decimal values are sent to the charger using dot notation."
+            }
+          }
+        }
+      },
+      "pv_smart_boost_target_energy": {
+        "name": "Smart Boost target energy",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Target energy for Smart Boost. This edits the local draft and is sent together with the finish time only after Apply is pressed."
             }
           }
         }
@@ -369,6 +391,22 @@
             }
           }
         }
+      },
+      "pv_boost_mode": {
+        "name": "PV Boost mode",
+        "state": {
+          "disabled": "Disabled",
+          "manual": "Manual",
+          "smart": "Smart"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Selects which Boost workflow to stage locally. Manual exposes a time window; Smart exposes finish time and target energy. No charger write occurs until Apply is pressed."
+            }
+          }
+        }
       }
     },
     "switch": {
@@ -388,7 +426,34 @@
     },
     "time": {
       "auto_charge_start_time": { "name": "Automatic charging start" },
-      "auto_charge_stop_time": { "name": "Automatic charging stop" }
+      "auto_charge_stop_time": { "name": "Automatic charging stop" },
+      "pv_manual_boost_start": {
+        "name": "Manual Boost start",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": { "details": "Start of the staged Manual Boost window. Press Apply to send the complete window." }
+          }
+        }
+      },
+      "pv_manual_boost_end": {
+        "name": "Manual Boost end",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": { "details": "End of the staged Manual Boost window. Press Apply to send the complete window." }
+          }
+        }
+      },
+      "pv_smart_boost_finish": {
+        "name": "Smart Boost finish time",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": { "details": "Requested Smart Boost finish time. A time already passed today is scheduled for tomorrow when Apply is pressed." }
+          }
+        }
+      }
     }
   }
 }

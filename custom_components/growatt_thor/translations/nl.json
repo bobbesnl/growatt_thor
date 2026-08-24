@@ -318,7 +318,18 @@
     },
     "button": {
       "start_charging": { "name": "Laden starten" },
-      "stop_charging": { "name": "Laden stoppen" }
+      "stop_charging": { "name": "Laden stoppen" },
+      "apply_pv_linkage": {
+        "name": "PV-koppeling toepassen",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze actie",
+            "state": {
+              "details": "Stuurt het volledige lokale Boost-concept naar de lader. Handmatige Boost stuurt het tijdvenster; Slimme Boost stuurt eindtijd en doelenergie. De actie is alleen beschikbaar voor een volledig concept, zonder actieve laadsessie en in PV-koppelingsmodus."
+            }
+          }
+        }
+      }
     },
     "number": {
       "max_current": { "name": "Maximale laadstroom" },
@@ -331,6 +342,17 @@
             "name": "Over deze instelling",
             "state": {
               "details": "Alleen beschikbaar bij PV-koppeling wanneer zonneladen is ingeschakeld. Decimale waarden worden met een punt naar de lader gestuurd."
+            }
+          }
+        }
+      },
+      "pv_smart_boost_target_energy": {
+        "name": "Doelenergie Slimme Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Doelenergie voor Slimme Boost. Dit bewerkt alleen het lokale concept en wordt pas samen met de eindtijd verstuurd wanneer Toepassen wordt ingedrukt."
             }
           }
         }
@@ -369,6 +391,22 @@
             }
           }
         }
+      },
+      "pv_boost_mode": {
+        "name": "PV-Boostmodus",
+        "state": {
+          "disabled": "Uitgeschakeld",
+          "manual": "Handmatig",
+          "smart": "Slim"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Selecteert welke Boost-workflow lokaal wordt voorbereid. Handmatig toont een tijdvenster; Slim toont eindtijd en doelenergie. Er wordt pas naar de lader geschreven wanneer Toepassen wordt ingedrukt."
+            }
+          }
+        }
       }
     },
     "switch": {
@@ -388,7 +426,34 @@
     },
     "time": {
       "auto_charge_start_time": { "name": "Automatische laadstart" },
-      "auto_charge_stop_time": { "name": "Automatisch laadeinde" }
+      "auto_charge_stop_time": { "name": "Automatisch laadeinde" },
+      "pv_manual_boost_start": {
+        "name": "Start Handmatige Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": { "details": "Start van het voorbereide Handmatige Boost-tijdvenster. Toepassen stuurt het volledige tijdvenster." }
+          }
+        }
+      },
+      "pv_manual_boost_end": {
+        "name": "Einde Handmatige Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": { "details": "Einde van het voorbereide Handmatige Boost-tijdvenster. Toepassen stuurt het volledige tijdvenster." }
+          }
+        }
+      },
+      "pv_smart_boost_finish": {
+        "name": "Eindtijd Slimme Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": { "details": "Gewenste eindtijd voor Slimme Boost. Een tijd die vandaag al voorbij is, wordt bij Toepassen voor morgen gepland." }
+          }
+        }
+      }
     }
   }
 }

@@ -5,9 +5,23 @@ import logging
 import asyncio
 
 from homeassistant.components.button import ButtonEntity
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
+from ocpp.v16.enums import ConfigurationStatus, DataTransferStatus
 
+from .charging_controls import (
+    ChargingControl,
+    control_write_block_reason,
+)
+from .configuration_control import async_confirm_configuration
 from .const import DOMAIN
+from .pv_linkage import (
+    ConfigurationWrite,
+    DataTransferWrite,
+    build_pv_linkage_writes,
+    draft_validation_errors,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,6 +35,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([
         StartChargingButton(coordinator, entry),
         StopChargingButton(coordinator, entry),
+        ApplyPvLinkageButton(coordinator, entry),
     ])
 
 
@@ -168,3 +183,148 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
             self.coordinator.async_set_updated_data(True)
         except Exception as exc:
             _LOGGER.error("❌ Failed to trigger status after stop: %s", exc, exc_info=True)
+
+
+class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
+    """Apply the complete local PV Linkage boost draft."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "apply_pv_linkage"
+    _attr_icon = "mdi:check-bold"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator)
+        self.hass = coordinator.hass
+        self._attr_unique_id = f"{entry.entry_id}_apply_pv_linkage"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "Growatt THOR EV Charger",
+            "manufacturer": "Growatt",
+            "model": "THOR",
+        }
+
+    @property
+    def _write_block_reason(self) -> str | None:
+        return control_write_block_reason(
+            ChargingControl.SOLAR_BOOST,
+            self.coordinator.configuration_values,
+            connected=self.coordinator.connected,
+            transaction_active=self.coordinator.active_transaction is not None,
+        )
+
+    @property
+    def _validation_errors(self) -> tuple[str, ...]:
+        draft = self.coordinator.pv_linkage_draft()
+        return (
+            ("draft_not_initialized",)
+            if draft is None
+            else draft_validation_errors(draft)
+        )
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self._write_block_reason is None
+            and not self._validation_errors
+        )
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "information": "details",
+            "pending_changes": self.coordinator.pv_linkage_draft_dirty,
+            "validation_errors": list(self._validation_errors),
+        }
+
+    async def async_press(self) -> None:
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning(
+                "Cannot apply PV Linkage configuration: %s",
+                block_reason,
+            )
+            return
+
+        draft = self.coordinator.pv_linkage_draft()
+        if draft is None or (errors := draft_validation_errors(draft)):
+            _LOGGER.warning(
+                "Cannot apply incomplete PV Linkage configuration: %s",
+                errors if draft is not None else ("draft_not_initialized",),
+            )
+            return
+
+        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        if charge_point is None:
+            _LOGGER.warning("Cannot apply PV Linkage: charger not connected")
+            return
+
+        writes = build_pv_linkage_writes(draft, now=dt_util.now())
+        await self.coordinator.queue_write(
+            self._apply_writes,
+            charge_point,
+            writes,
+            dedupe_key="pv_linkage_compound",
+        )
+
+    async def _apply_writes(self, charge_point, writes) -> None:
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning(
+                "Skipping queued PV Linkage configuration: %s",
+                block_reason,
+            )
+            return
+
+        accepted_configuration = False
+        for write in writes:
+            if isinstance(write, ConfigurationWrite):
+                self.coordinator.begin_configuration_write(
+                    write.key,
+                    write.value,
+                )
+                result = await charge_point.change_configuration(
+                    write.key,
+                    write.value,
+                )
+                accepted = result in {
+                    ConfigurationStatus.accepted,
+                    ConfigurationStatus.reboot_required,
+                }
+                self.coordinator.acknowledge_configuration_write(
+                    write.key,
+                    accepted=accepted,
+                    result=result,
+                )
+                if not accepted:
+                    _LOGGER.error(
+                        "PV Linkage write %s was rejected: %s",
+                        write.key,
+                        result,
+                    )
+                    return
+                self.coordinator.update_configuration_value(
+                    write.key,
+                    write.value,
+                )
+                accepted_configuration = True
+                continue
+
+            if isinstance(write, DataTransferWrite):
+                result = await charge_point.send_data_transfer(
+                    vendor_id=write.vendor_id,
+                    message_id=write.message_id,
+                    data=write.data,
+                )
+                if result != DataTransferStatus.accepted:
+                    _LOGGER.error(
+                        "PV Linkage DataTransfer %s was rejected: %s",
+                        write.message_id,
+                        result,
+                    )
+                    return
+
+        self.coordinator.mark_pv_linkage_draft_applied()
+        if accepted_configuration:
+            self.hass.async_create_task(
+                async_confirm_configuration(self.hass, charge_point)
+            )

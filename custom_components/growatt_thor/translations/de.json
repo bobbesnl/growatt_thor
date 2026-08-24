@@ -318,7 +318,18 @@
     },
     "button": {
       "start_charging": { "name": "Laden starten" },
-      "stop_charging": { "name": "Laden stoppen" }
+      "stop_charging": { "name": "Laden stoppen" },
+      "apply_pv_linkage": {
+        "name": "PV-Kopplung übernehmen",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Aktion",
+            "state": {
+              "details": "Überträgt den vollständigen lokalen Boost-Entwurf an die Wallbox. Manueller Boost sendet sein Zeitfenster; Smart Boost sendet Endzeit und Zielenergie. Die Aktion ist nur bei einem vollständigen Entwurf, inaktiver Ladetransaktion und aktiver PV-Kopplung verfügbar."
+            }
+          }
+        }
+      }
     },
     "number": {
       "max_current": { "name": "Maximaler Ladestrom" },
@@ -331,6 +342,17 @@
             "name": "Über diese Einstellung",
             "state": {
               "details": "Nur bei aktiver PV-Kopplung und aktiviertem Solarladen verfügbar. Dezimalwerte werden mit Punktnotation an die Wallbox gesendet."
+            }
+          }
+        }
+      },
+      "pv_smart_boost_target_energy": {
+        "name": "Smart-Boost-Zielenergie",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Zielenergie für Smart Boost. Bearbeitet nur den lokalen Entwurf und wird erst beim Übernehmen zusammen mit der Endzeit gesendet."
             }
           }
         }
@@ -369,6 +391,22 @@
             }
           }
         }
+      },
+      "pv_boost_mode": {
+        "name": "PV-Boost-Modus",
+        "state": {
+          "disabled": "Deaktiviert",
+          "manual": "Manuell",
+          "smart": "Smart"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Wählt den lokal vorzubereitenden Boost-Ablauf. Manuell blendet ein Zeitfenster ein; Smart blendet Endzeit und Zielenergie ein. Erst Übernehmen schreibt die Werte auf die Wallbox."
+            }
+          }
+        }
       }
     },
     "switch": {
@@ -388,7 +426,34 @@
     },
     "time": {
       "auto_charge_start_time": { "name": "Automatischer Ladestart" },
-      "auto_charge_stop_time": { "name": "Automatisches Ladeende" }
+      "auto_charge_stop_time": { "name": "Automatisches Ladeende" },
+      "pv_manual_boost_start": {
+        "name": "Start manueller Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": { "details": "Start des vorbereiteten manuellen Boost-Zeitfensters. Übernehmen sendet das vollständige Zeitfenster." }
+          }
+        }
+      },
+      "pv_manual_boost_end": {
+        "name": "Ende manueller Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": { "details": "Ende des vorbereiteten manuellen Boost-Zeitfensters. Übernehmen sendet das vollständige Zeitfenster." }
+          }
+        }
+      },
+      "pv_smart_boost_finish": {
+        "name": "Smart-Boost-Endzeit",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": { "details": "Gewünschte Smart-Boost-Endzeit. Eine heute bereits vergangene Uhrzeit wird beim Übernehmen für morgen angesetzt." }
+          }
+        }
+      }
     }
   }
 }
