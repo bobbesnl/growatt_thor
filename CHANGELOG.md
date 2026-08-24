@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Compound mode values**: Parse PV Linkage mode and boost variants, off-peak enable values, boost-suffixed working modes, and chained off-peak time windows into stable Home Assistant states without discarding their raw Growatt representation.
 - **Power Distribution working mode**: Recognize the observed `G_WorkingMode=Power Distribution` value as a translated read-only state instead of making the Working Mode sensor unavailable.
 - **Transaction IDs across reconnects**: Allocate Home Assistant OCPP transaction IDs from persistent storage instead of restarting at `1` for every WebSocket connection. The next ID is saved before `StartTransaction.conf` is returned.
+- **Last-session state after restart**: Persist the normalized last-session entity values and their deduplication key. Home Assistant restarts no longer clear these sensors or allow a repeated vendor record to increment the total and CSV log again.
 
 ### Scope notes
 - **No new ChangeConfiguration calls or writable controls were introduced by PR #41, #42, #44, or #45.**

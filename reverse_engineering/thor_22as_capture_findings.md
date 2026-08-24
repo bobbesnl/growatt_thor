@@ -235,7 +235,8 @@ but retains the latest `currentrecord` and `frozenrecord` separately. Blank and
 duplicate query parameters are preserved. The raw payload remains available
 internally; downloaded diagnostics redact the raw query string and values of
 unknown fields. A session received through both message types is counted only
-once when `transactionId` and `endtime` match.
+once when `transactionId` and `endtime` match. The normalized last-session
+values and this deduplication key persist across Home Assistant restarts.
 
 On THOR_22AS firmware 2.2.16, unlocking the vehicle while charging temporarily
 changed the connector from `Charging` to `SuspendedEV` with

@@ -451,6 +451,10 @@ For detailed per-session data (energy, cost, timestamps), check:
 - `/config/growatt_thor_sessions.csv` for the complete session log
 - the `growatt_thor.export_sessions` action for a date-filtered CSV export
 
+The normalized values backing the **Last Session** sensors are stored in Home
+Assistant and restored after a restart. Their record key is restored as well,
+so a repeated `currentrecord` or `frozenrecord` is not counted twice.
+
 
 ### Example Automations
 

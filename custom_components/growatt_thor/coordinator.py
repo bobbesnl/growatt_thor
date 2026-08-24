@@ -17,6 +17,7 @@ from .external_meter import parse_external_meter_data
 from .meter_samples import parse_meter_values
 from .ocpp_diagnostics import create_ocpp_snapshot
 from .session_records import GrowattSessionRecord
+from .session_state import LastSessionState
 from .transaction_ids import TransactionIdAllocator
 
 _LOGGER = logging.getLogger(__name__)
@@ -135,11 +136,15 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self._transaction_id_allocator.restore(
                 data.get("next_transaction_id", 1)
             )
+            self._restore_last_session_state(
+                LastSessionState.from_dict(data.get("last_session"))
+            )
             _LOGGER.info(
                 "📦 Loaded from storage: total_energy_charged=%.3f kWh, "
-                "next_transaction_id=%d",
+                "next_transaction_id=%d, last_session_transaction_id=%s",
                 self.total_energy_charged,
                 self._transaction_id_allocator.next_transaction_id,
+                self.last_session_transaction_id,
             )
         else:
             _LOGGER.info("📦 No persistent storage found, starting fresh")
@@ -152,6 +157,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 "next_transaction_id": (
                     self._transaction_id_allocator.next_transaction_id
                 ),
+                "last_session": self._last_session_state().as_dict(),
             }
         )
         _LOGGER.debug(
@@ -171,6 +177,36 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 transaction_id,
             )
             return transaction_id
+
+    def _last_session_state(self) -> LastSessionState:
+        """Build the normalized persistent last-session summary."""
+        return LastSessionState(
+            energy_kwh=self.last_session_energy,
+            cost=self.last_session_cost,
+            start_time=self.last_session_start,
+            end_time=self.last_session_end,
+            plug_time=self.last_session_plug_time,
+            unplug_time=self.last_session_unplug_time,
+            duration_minutes=self.last_session_duration_minutes,
+            transaction_id=self.last_session_transaction_id,
+            charge_mode=self.last_session_charge_mode,
+            work_mode=self.last_session_work_mode,
+            record_key=self._last_session_record_key,
+        )
+
+    def _restore_last_session_state(self, state: LastSessionState) -> None:
+        """Restore existing entity backing values from persistent storage."""
+        self.last_session_energy = state.energy_kwh
+        self.last_session_cost = state.cost
+        self.last_session_start = state.start_time
+        self.last_session_end = state.end_time
+        self.last_session_plug_time = state.plug_time
+        self.last_session_unplug_time = state.unplug_time
+        self.last_session_duration_minutes = state.duration_minutes
+        self.last_session_transaction_id = state.transaction_id
+        self.last_session_charge_mode = state.charge_mode
+        self.last_session_work_mode = state.work_mode
+        self._last_session_record_key = state.record_key
 
     # ─────────────────────────────
     # WRITE QUEUE METHODS
