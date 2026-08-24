@@ -110,6 +110,14 @@
           "fast": "Schnellladen",
           "pv_linkage": "PV-Kopplung",
           "off_peak": "Niedertarif"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Der Betriebsmodus bestimmt, welche Einstellungen gelten. Lastausgleich steht beim Schnellladen und im Niedertarifmodus zur Verfügung, nicht jedoch bei PV-Kopplung."
+            }
+          }
         }
       },
       "charger_mode": {
@@ -118,6 +126,14 @@
           "home_assistant_rfid": "Home Assistant / RFID",
           "rfid_only": "Nur RFID",
           "plug_and_charge": "Einstecken und laden"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Zeigt, wie Ladevorgänge autorisiert werden: über Home Assistant/RFID, ausschließlich per RFID oder durch Einstecken und Laden."
+            }
+          }
         }
       },
       "solar_mode": {
@@ -126,10 +142,26 @@
           "disabled": "Deaktiviert",
           "pv_linkage": "PV-Kopplung",
           "pv_linkage_plus": "PV-Kopplung+"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Zeigt den in der Wallbox aktiven Solarlademodus. PV-Kopplung und PV-Kopplung+ verwenden die Messwerte des konfigurierten externen Zählers."
+            }
+          }
         }
       },
       "solar_grid_import_limit": {
-        "name": "Erlaubter Netzbezug bei PV-Kopplung"
+        "name": "Erlaubter Netzbezug bei PV-Kopplung",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Maximale Netzleistung, welche die Wallbox bei PV-Kopplung ergänzen darf. Zum Start benötigt sie ungefähr 1,4 kW einphasig oder 4,1 kW dreiphasig."
+            }
+          }
+        }
       },
       "solar_boost": {
         "name": "Boost-Konfiguration bei PV-Kopplung",
@@ -137,6 +169,14 @@
           "disabled": "Deaktiviert",
           "manual": "Manuell",
           "smart": "Smart"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Manueller Boost verwendet konfigurierte Zeitfenster; Smart Boost verwendet Zielenergie und Endzeit. Anschließend wechselt die Wallbox zurück zur PV-Kopplung."
+            }
+          }
         }
       },
       "solar_threshold_current": {
@@ -147,6 +187,14 @@
         "state": {
           "disabled": "Deaktiviert",
           "enabled": "Aktiviert"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Erlaubt Netzladen in den konfigurierten Niedertarif-Zeitfenstern, wenn die Autorisierung „Einstecken und laden“ aktiv ist."
+            }
+          }
         }
       },
       "off_peak_enable_setting": {
@@ -154,19 +202,59 @@
         "state": {
           "disabled": "Deaktiviert",
           "enabled": "Aktiviert"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Aktiviert das Laden in den konfigurierten Niedertarif-Zeitfenstern des Niedertarifmodus."
+            }
+          }
         }
       },
       "off_peak_schedule": {
-        "name": "Niedertarif-Zeitplan"
+        "name": "Niedertarif-Zeitplan",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Listet die aktiven Niedertarif-Zeitfenster der Wallbox auf. Der ursprüngliche Growatt-Payload bleibt als Rohwert-Attribut erhalten."
+            }
+          }
+        }
       },
       "off_peak_current": {
-        "name": "Niedertarif-Ladestrom"
+        "name": "Niedertarif-Ladestrom",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Ladestrom, den die Wallbox innerhalb der konfigurierten Niedertarif-Zeitfenster verwendet."
+            }
+          }
+        }
       },
       "power_meter_type": {
-        "name": "Zählertyp"
+        "name": "Zählertyp",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Modell des externen Modbus-Zählers, der für die Netzmessung verwendet wird."
+            }
+          }
+        }
       },
       "power_meter_address": {
-        "name": "Zähleradresse"
+        "name": "Zähleradresse",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Modbus-Adresse des externen Zählers, der für die Netzmessung verwendet wird."
+            }
+          }
+        }
       },
       "external_sampling_wiring": {
         "name": "Externe Messmethode",
@@ -174,6 +262,14 @@
           "ct_2000_1": "CT 2000:1",
           "power_meter": "Stromzähler",
           "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Stromzähler verwendet direkte Modbus-Messwerte; CT-Modi verwenden Stromwandler. Growatt bezeichnet das OCPP-Feld als „wring“, vermutlich ein herstellerspezifischer Tippfehler."
+            }
+          }
         }
       },
       "warm_up_after_full_charge": {
@@ -181,10 +277,26 @@
         "state": {
           "disabled": "Deaktiviert",
           "enabled": "Aktiviert"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Nach der Volladung kann die Wallbox ein kompatibles Fahrzeug weiter versorgen, damit Innenraum oder Batterie vorgewärmt beziehungsweise enteist werden. Das Verhalten hängt vom Fahrzeug ab."
+            }
+          }
         }
       },
       "delayed_charging_time": {
-        "name": "Verzögerte Ladezeit"
+        "name": "Verzögerte Ladezeit",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Herstellerseitige Ladeverzögerung in Sekunden. 0 bedeutet keine Verzögerung. Das Verhalten der Zufallsverzögerung kann je nach Wallbox-Firmware abweichen."
+            }
+          }
+        }
       }
     }
   }

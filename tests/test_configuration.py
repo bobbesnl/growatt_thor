@@ -440,6 +440,22 @@ class EntityTranslationTest(unittest.TestCase):
             "external_sampling_wiring": "G_ExternalSamplingCurWring",
             "warm_up_after_full_charge": "G_FullContinueChargeEnable",
         }
+        informative_entities = {
+            "working_mode",
+            "charger_mode",
+            "solar_mode",
+            "solar_grid_import_limit",
+            "solar_boost",
+            "grid_off_peak_charging",
+            "off_peak_enable_setting",
+            "off_peak_schedule",
+            "off_peak_current",
+            "power_meter_type",
+            "power_meter_address",
+            "external_sampling_wiring",
+            "warm_up_after_full_charge",
+            "delayed_charging_time",
+        }
 
         for language in ("en", "de", "nl"):
             with self.subTest(language=language):
@@ -473,6 +489,19 @@ class EntityTranslationTest(unittest.TestCase):
                             configuration_key
                         ],
                     )
+
+                for translation_key in informative_entities:
+                    information = sensors[translation_key]["state_attributes"][
+                        "information"
+                    ]
+                    self.assertTrue(information["name"])
+                    self.assertEqual(tuple(information["state"]), ("details",))
+                    self.assertTrue(information["state"]["details"])
+
+        self.assertIn(
+            'attributes["information"] = "details"',
+            SENSOR_PATH.read_text(encoding="utf-8"),
+        )
 
     def test_existing_sensor_names_use_translation_keys(self):
         tree = ast.parse(SENSOR_PATH.read_text(encoding="utf-8"))

@@ -34,6 +34,7 @@ class GrowattConfigurationSensorDefinition:
     entity_description: SensorEntityDescription
     configuration_key: str
     external_meter: bool = False
+    has_information: bool = False
 
 
 CONFIGURATION_SENSOR_DESCRIPTIONS = (
@@ -46,6 +47,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             icon="mdi:ev-station",
         ),
         configuration_key="G_WorkingMode",
+        has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -56,6 +58,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             icon="mdi:shield-key-outline",
         ),
         configuration_key="G_ChargerMode",
+        has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -66,6 +69,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             icon="mdi:solar-power",
         ),
         configuration_key="G_SolarMode",
+        has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -76,6 +80,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             icon="mdi:transmission-tower-import",
         ),
         configuration_key="G_SolarLimitPower",
+        has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -86,6 +91,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             icon="mdi:flash",
         ),
         configuration_key="G_SolarBoost",
+        has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -106,6 +112,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             icon="mdi:transmission-tower",
         ),
         configuration_key="G_PeakValleyEnable",
+        has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -116,6 +123,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             icon="mdi:clock-check-outline",
         ),
         configuration_key="G_OffPeakEnable",
+        has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -124,6 +132,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             icon="mdi:calendar-clock",
         ),
         configuration_key="G_OffPeakTime",
+        has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -134,6 +143,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             icon="mdi:current-ac",
         ),
         configuration_key="G_OffPeakCurr",
+        has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -144,6 +154,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         ),
         configuration_key="G_PowerMeterType",
         external_meter=True,
+        has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -154,6 +165,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         ),
         configuration_key="G_PowerMeterAddr",
         external_meter=True,
+        has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -168,6 +180,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         ),
         configuration_key="G_ExternalSamplingCurWring",
         external_meter=True,
+        has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -181,6 +194,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             icon="mdi:car-defrost-front",
         ),
         configuration_key="G_FullContinueChargeEnable",
+        has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -192,6 +206,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             icon="mdi:timer-sand",
         ),
         configuration_key="G_RandDelayChargeTime",
+        has_information=True,
     ),
 )
 
@@ -315,6 +330,7 @@ class GrowattConfigurationSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self.entity_description = definition.entity_description
         self._configuration_key = definition.configuration_key
+        self._has_information = definition.has_information
 
         if definition.external_meter:
             self._attr_unique_id = (
@@ -355,11 +371,14 @@ class GrowattConfigurationSensor(CoordinatorEntity, SensorEntity):
         value = self._configuration_value
         if value is None:
             return None
-        return {
+        attributes = {
             "ocpp_key": value.key,
             "raw_value": value.raw_value,
             "readonly": value.readonly,
         }
+        if self._has_information:
+            attributes["information"] = "details"
+        return attributes
 
 
 # ─────────────────────────────
