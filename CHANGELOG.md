@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Localized entity explanations**: Add concise English, German, and Dutch information attributes to the read-only mode, PV, off-peak, external-meter, warm-up, and delayed-charging entities.
 - **Mode-aware charging controls**: Add a charging-strategy select, PV Linkage grid-import number, and Warm-up switch using only captured Growatt writes. Existing load-balancing and automatic-time controls become unavailable outside the working modes in which the Growatt app exposes them.
 - **Control dependency model**: Classify charger settings as directly writable, compound, or read-only. Smart/Manual Boost, shared charging periods, off-peak current, grid off-peak charging, and delayed charging remain diagnostic until their complete write workflows are verified.
+- **Verified control readback**: Block mode and installation changes while a charging transaction is active, re-check queued writes immediately before execution, and track accepted configuration writes until a matching `GetConfiguration` readback confirms the effective charger state.
 
 ### Changed
 - **External meter device naming**: Rename the logical Growatt THOR Load balancing device to Growatt THOR External Meter because the measurements are shared by load balancing and PV Linkage. Existing default device metadata is migrated in place; user-assigned names, device identifiers, and entity IDs remain unchanged. (PR #42)

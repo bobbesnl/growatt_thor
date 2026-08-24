@@ -10,6 +10,8 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ocpp.v16.enums import ConfigurationStatus
 
 from .charging_controls import (
+    ChargingControl,
+    control_write_block_reason,
     encode_working_mode,
     selected_working_mode,
 )
@@ -54,8 +56,17 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
     def available(self):
         return (
             super().available
-            and self.coordinator.connected
             and self.current_option is not None
+            and self._write_block_reason is None
+        )
+
+    @property
+    def _write_block_reason(self) -> str | None:
+        return control_write_block_reason(
+            ChargingControl.WORKING_MODE,
+            self.coordinator.configuration_values,
+            connected=self.coordinator.connected,
+            transaction_active=self.coordinator.active_transaction is not None,
         )
 
     @property
@@ -63,6 +74,10 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         return {"information": "details"}
 
     async def async_select_option(self, option: str) -> None:
+        block_reason = self._write_block_reason
+        if block_reason is not None:
+            _LOGGER.warning("Cannot change working mode: %s", block_reason)
+            return
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if charge_point is None:
             _LOGGER.warning("Cannot change working mode: charger not connected")
@@ -84,11 +99,23 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         raw_value: str,
         option: str,
     ) -> None:
+        block_reason = self._write_block_reason
+        if block_reason is not None:
+            _LOGGER.warning("Skipping queued working mode change: %s", block_reason)
+            return
+
+        self.coordinator.begin_configuration_write(key, raw_value)
         result = await charge_point.change_configuration(key, raw_value)
-        if result not in {
+        accepted = result in {
             ConfigurationStatus.accepted,
             ConfigurationStatus.reboot_required,
-        }:
+        }
+        self.coordinator.acknowledge_configuration_write(
+            key,
+            accepted=accepted,
+            result=result,
+        )
+        if not accepted:
             _LOGGER.error("Working mode change rejected by charger: %s", result)
             return
 

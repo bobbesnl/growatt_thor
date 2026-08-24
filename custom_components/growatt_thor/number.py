@@ -12,11 +12,14 @@ from ocpp.v16.enums import ConfigurationStatus
 from .const import DOMAIN
 from .charging_controls import (
     ChargingControl,
-    control_is_applicable,
+    control_write_block_reason,
     encode_control_value,
 )
 from .configuration import configuration_entity_state
-from .configuration_control import GrowattConfigurationControlMixin
+from .configuration_control import (
+    GrowattConfigurationControlMixin,
+    async_confirm_configuration,
+)
 from .currency import electricity_price_unit
 
 _LOGGER = logging.getLogger(__name__)
@@ -167,14 +170,25 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
     def available(self):
         return (
             super().available
-            and self.coordinator.connected
-            and control_is_applicable(
-                ChargingControl.LOAD_BALANCING_LIMIT,
-                self.coordinator.configuration_values,
-            )
+            and self._write_block_reason is None
+        )
+
+    @property
+    def _write_block_reason(self) -> str | None:
+        return control_write_block_reason(
+            ChargingControl.LOAD_BALANCING_LIMIT,
+            self.coordinator.configuration_values,
+            connected=self.coordinator.connected,
+            transaction_active=self.coordinator.active_transaction is not None,
         )
 
     async def async_set_native_value(self, value: float) -> None:
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning(
+                "Cannot change Load Balancing Limit: %s",
+                block_reason,
+            )
+            return
         value = int(round(value))
 
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
@@ -201,11 +215,36 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
         )
 
     async def _write_to_thor(self, charge_point, value: int, previous: int | None):
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning(
+                "Skipping queued Load Balancing Limit change: %s",
+                block_reason,
+            )
+            return
         try:
+            raw_value = str(value)
+            self.coordinator.begin_configuration_write(
+                self._config_key,
+                raw_value,
+            )
             result = await charge_point.change_configuration(
                 self._config_key,
-                str(value)
+                raw_value,
             )
+
+            accepted = result in {
+                ConfigurationStatus.accepted,
+                ConfigurationStatus.reboot_required,
+            }
+            self.coordinator.acknowledge_configuration_write(
+                self._config_key,
+                accepted=accepted,
+                result=result,
+            )
+            if accepted:
+                self.hass.async_create_task(
+                    async_confirm_configuration(self.hass, charge_point)
+                )
 
             if result == ConfigurationStatus.accepted:
                 self.coordinator.external_limit_power = value

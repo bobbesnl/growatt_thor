@@ -17,6 +17,13 @@ class ControlCapability(str, Enum):
     READ_ONLY = "read_only"
 
 
+class ControlWritePolicy(str, Enum):
+    """Describe when a configuration control may change charger state."""
+
+    ANYTIME = "anytime"
+    IDLE_ONLY = "idle_only"
+
+
 class ChargingControl(str, Enum):
     """Configuration controls whose applicability depends on charger state."""
 
@@ -42,9 +49,11 @@ class ControlDefinition:
 
     capability: ControlCapability
     configuration_key: str
+    write_policy: ControlWritePolicy = ControlWritePolicy.IDLE_ONLY
     working_modes: frozenset[str] = frozenset()
     charger_modes: frozenset[str] = frozenset()
     solar_modes: frozenset[str] = frozenset()
+    check_reported_readonly: bool = True
 
 
 CONTROL_DEFINITIONS: Final[Mapping[ChargingControl, ControlDefinition]] = (
@@ -68,6 +77,7 @@ CONTROL_DEFINITIONS: Final[Mapping[ChargingControl, ControlDefinition]] = (
             ChargingControl.WORKING_MODE: ControlDefinition(
                 ControlCapability.WRITABLE,
                 "G_WorkingMode",
+                check_reported_readonly=False,
             ),
             ChargingControl.SOLAR_MODE: ControlDefinition(
                 ControlCapability.WRITABLE,
@@ -154,6 +164,39 @@ def control_is_applicable(
             return False
 
     return True
+
+
+def control_write_block_reason(
+    control: ChargingControl,
+    values: Mapping[str, ConfigurationValue],
+    *,
+    connected: bool,
+    transaction_active: bool,
+) -> str | None:
+    """Return why a control cannot currently write, or ``None``."""
+    definition = CONTROL_DEFINITIONS[control]
+
+    if definition.capability == ControlCapability.READ_ONLY:
+        return "read_only_control"
+    if not connected:
+        return "charger_disconnected"
+    if (
+        definition.write_policy == ControlWritePolicy.IDLE_ONLY
+        and transaction_active
+    ):
+        return "active_transaction"
+    if not control_is_applicable(control, values):
+        return "control_not_applicable"
+
+    reported = values.get(definition.configuration_key)
+    if (
+        definition.check_reported_readonly
+        and reported is not None
+        and reported.readonly is True
+    ):
+        return "configuration_read_only"
+
+    return None
 
 
 def encode_control_value(control: ChargingControl, value: object) -> str:

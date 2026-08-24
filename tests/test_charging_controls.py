@@ -101,6 +101,60 @@ class ChargingControlDependencyTest(unittest.TestCase):
             )
         )
 
+    def test_configuration_controls_are_blocked_while_charging(self):
+        self.assertEqual(
+            controls.control_write_block_reason(
+                controls.ChargingControl.WORKING_MODE,
+                _values(G_WorkingMode="Fast"),
+                connected=True,
+                transaction_active=True,
+            ),
+            "active_transaction",
+        )
+
+    def test_control_write_requires_connection_and_applicable_mode(self):
+        control = controls.ChargingControl.SOLAR_GRID_IMPORT_LIMIT
+        values = _values(G_WorkingMode="PVlink", G_SolarMode="1&1")
+        self.assertEqual(
+            controls.control_write_block_reason(
+                control,
+                values,
+                connected=False,
+                transaction_active=False,
+            ),
+            "charger_disconnected",
+        )
+        self.assertIsNone(
+            controls.control_write_block_reason(
+                control,
+                values,
+                connected=True,
+                transaction_active=False,
+            )
+        )
+
+    def test_direct_control_respects_reported_readonly_flag(self):
+        values = {
+            "G_FullContinueChargeEnable": (
+                configuration.configuration_value_from_item(
+                    {
+                        "key": "G_FullContinueChargeEnable",
+                        "value": "Disable",
+                        "readonly": True,
+                    }
+                )
+            )
+        }
+        self.assertEqual(
+            controls.control_write_block_reason(
+                controls.ChargingControl.WARM_UP,
+                values,
+                connected=True,
+                transaction_active=False,
+            ),
+            "configuration_read_only",
+        )
+
     def test_compound_and_unverified_settings_remain_read_only(self):
         expected = {
             controls.ChargingControl.SOLAR_BOOST:

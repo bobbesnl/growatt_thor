@@ -11,9 +11,10 @@ from homeassistant.helpers.entity import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
 from .const import DOMAIN
+from .configuration_control import async_confirm_configuration
 from .charging_controls import (
     ChargingControl,
-    control_is_applicable,
+    control_write_block_reason,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,15 +54,23 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
     def available(self):
         return (
             super().available
-            and self.coordinator.connected
-            and control_is_applicable(
-                ChargingControl.AUTO_CHARGE_SCHEDULE,
-                self.coordinator.configuration_values,
-            )
+            and self._write_block_reason is None
+        )
+
+    @property
+    def _write_block_reason(self) -> str | None:
+        return control_write_block_reason(
+            ChargingControl.AUTO_CHARGE_SCHEDULE,
+            self.coordinator.configuration_values,
+            connected=self.coordinator.connected,
+            transaction_active=self.coordinator.active_transaction is not None,
         )
 
     async def async_set_value(self, value: time) -> None:
         """Update time and auto-apply schedule via write queue."""
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning("Cannot change %s: %s", self.name, block_reason)
+            return
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot change %s: charger not connected", self.name)
@@ -96,11 +105,35 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
 
     async def _apply_schedule(self, charge_point, formatted_value: str, start_time: time, stop_time: time):
         """Actually write schedule to the charger (runs inside write-queue)."""
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning(
+                "Skipping queued charging schedule change: %s",
+                block_reason,
+            )
+            return
         try:
+            self.coordinator.begin_configuration_write(
+                self._CONFIG_KEY,
+                formatted_value,
+            )
             result = await charge_point.change_configuration(
                 self._CONFIG_KEY,
                 formatted_value
             )
+
+            accepted = result in {
+                ConfigurationStatus.accepted,
+                ConfigurationStatus.reboot_required,
+            }
+            self.coordinator.acknowledge_configuration_write(
+                self._CONFIG_KEY,
+                accepted=accepted,
+                result=result,
+            )
+            if accepted:
+                self.hass.async_create_task(
+                    async_confirm_configuration(self.hass, charge_point)
+                )
 
             if result == ConfigurationStatus.accepted:
                 self.coordinator.auto_charge_start_time = start_time

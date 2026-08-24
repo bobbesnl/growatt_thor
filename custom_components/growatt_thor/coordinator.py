@@ -14,6 +14,12 @@ from .configuration import (
     merge_configuration_values,
     normalize_unknown_configuration_keys,
 )
+from .configuration_writes import (
+    ConfigurationWriteState,
+    acknowledge_configuration_write,
+    begin_configuration_write,
+    confirm_configuration_writes,
+)
 from .const import DOMAIN
 from .external_meter import parse_external_meter_data
 from .meter_samples import parse_meter_values
@@ -92,6 +98,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         # Last-known raw and normalized GetConfiguration values.
         self.configuration_values: dict[str, ConfigurationValue] = {}
         self.unknown_configuration_keys: tuple[str, ...] = ()
+        self.configuration_writes: dict[str, ConfigurationWriteState] = {}
 
         # ── Last session ─────────────────
         self.last_session_energy = None           # kWh
@@ -335,6 +342,33 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.configuration_values[key] = value
         self.async_set_updated_data(True)
 
+    def begin_configuration_write(self, key: str, raw_value: str) -> None:
+        """Track a configuration write separately from reported state."""
+        self.configuration_writes = begin_configuration_write(
+            self.configuration_writes,
+            key=key,
+            raw_value=raw_value,
+            requested_at=self.now(),
+        )
+        self.async_set_updated_data(True)
+
+    def acknowledge_configuration_write(
+        self,
+        key: str,
+        *,
+        accepted: bool,
+        result: object,
+    ) -> None:
+        """Retain the OCPP result while awaiting charger readback."""
+        result_value = result.value if hasattr(result, "value") else str(result)
+        self.configuration_writes = acknowledge_configuration_write(
+            self.configuration_writes,
+            key=key,
+            accepted=accepted,
+            result=result_value,
+        )
+        self.async_set_updated_data(True)
+
     def mark_connection_activity(self, action):
         """Record the latest inbound OCPP message."""
         timestamp = self.now()
@@ -546,6 +580,22 @@ class GrowattCoordinator(DataUpdateCoordinator):
         normalized_unknown_keys = normalize_unknown_configuration_keys(unknown_keys)
         if self.unknown_configuration_keys != normalized_unknown_keys:
             self.unknown_configuration_keys = normalized_unknown_keys
+            updated = True
+
+        reported_values = {
+            str(item["key"]): (
+                None if item.get("value") is None else str(item.get("value"))
+            )
+            for item in configuration
+            if isinstance(item, dict) and item.get("key")
+        }
+        confirmed_writes = confirm_configuration_writes(
+            self.configuration_writes,
+            reported_values,
+            readback_at=self.now(),
+        )
+        if confirmed_writes != self.configuration_writes:
+            self.configuration_writes = confirmed_writes
             updated = True
 
         for item in configuration:

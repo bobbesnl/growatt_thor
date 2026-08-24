@@ -10,8 +10,10 @@ from .charging_sessions import build_unified_session
 from .configuration import (
     INFORMATIONAL_CONFIGURATION_KEYS,
     OPERATIONAL_CONFIGURATION_KEYS,
+    redact_configuration_value,
     serialize_configuration_values,
 )
+from .configuration_writes import serialize_configuration_writes
 from .const import DOMAIN
 from .ocpp_diagnostics import redact_ocpp_data
 from .session_records import session_record_diagnostics
@@ -35,6 +37,7 @@ async def async_get_config_entry_diagnostics(
                 },
             },
             "configuration": {},
+            "configuration_writes": {},
             "unknown_configuration_keys": [],
             "growatt": {
                 "session_records": {
@@ -52,6 +55,19 @@ async def async_get_config_entry_diagnostics(
         coordinator.last_current_record,
         coordinator.last_frozen_record,
     )
+    configuration_writes = serialize_configuration_writes(
+        coordinator.configuration_writes,
+    )
+    for key, write in configuration_writes.items():
+        write["requested_raw_value"] = redact_configuration_value(
+            key,
+            write["requested_raw_value"],
+        )
+        write["reported_raw_value"] = redact_configuration_value(
+            key,
+            write["reported_raw_value"],
+        )
+
     return {
         "connection": {
             "connected": coordinator.connected,
@@ -106,6 +122,7 @@ async def async_get_config_entry_diagnostics(
             coordinator.configuration_values,
             redact=True,
         ),
+        "configuration_writes": configuration_writes,
         "unknown_configuration_keys": list(
             coordinator.unknown_configuration_keys
         ),

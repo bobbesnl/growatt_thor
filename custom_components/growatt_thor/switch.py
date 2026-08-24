@@ -12,11 +12,14 @@ from ocpp.v16.enums import ConfigurationStatus
 from .const import DOMAIN
 from .charging_controls import (
     ChargingControl,
-    control_is_applicable,
+    control_write_block_reason,
     encode_control_value,
 )
 from .configuration import configuration_entity_state
-from .configuration_control import GrowattConfigurationControlMixin
+from .configuration_control import (
+    GrowattConfigurationControlMixin,
+    async_confirm_configuration,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,11 +63,16 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
     def available(self):
         return (
             super().available
-            and self.coordinator.connected
-            and control_is_applicable(
-                ChargingControl.LOAD_BALANCING,
-                self.coordinator.configuration_values,
-            )
+            and self._write_block_reason is None
+        )
+
+    @property
+    def _write_block_reason(self) -> str | None:
+        return control_write_block_reason(
+            ChargingControl.LOAD_BALANCING,
+            self.coordinator.configuration_values,
+            connected=self.coordinator.connected,
+            transaction_active=self.coordinator.active_transaction is not None,
         )
 
     async def async_turn_on(self, **kwargs):
@@ -77,12 +85,35 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
 
     async def _apply_external_limit_power_enable(self, charge_point, value: str):
         """Actually write setting to the charger (runs inside write-queue)."""
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning(
+                "Skipping queued Load Balancing change: %s",
+                block_reason,
+            )
+            return
         _LOGGER.info("Setting G_ExternalLimitPowerEnable to %s", value)
 
+        key = "G_ExternalLimitPowerEnable"
+        self.coordinator.begin_configuration_write(key, value)
+
         result = await charge_point.change_configuration(
-            "G_ExternalLimitPowerEnable",
+            key,
             value
         )
+
+        accepted = result in {
+            ConfigurationStatus.accepted,
+            ConfigurationStatus.reboot_required,
+        }
+        self.coordinator.acknowledge_configuration_write(
+            key,
+            accepted=accepted,
+            result=result,
+        )
+        if accepted:
+            self.hass.async_create_task(
+                async_confirm_configuration(self.hass, charge_point)
+            )
 
         new_state = (value == "1")
 
@@ -105,6 +136,9 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
 
     async def _set_value(self, value: str):
         """Queue the configuration update (prevents rapid-fire FW crashes)."""
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning("Cannot change Load Balancing: %s", block_reason)
+            return
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
 
         if not charge_point:
