@@ -88,6 +88,8 @@ async def async_get_config_entry_diagnostics(
                     coordinator.active_transaction,
                     meter_values=coordinator.last_meter_values,
                     session_records=session_records,
+                    charge_point_id=coordinator.charge_point_id,
+                    source_instance_id=coordinator.source_instance_id,
                 )
                 if coordinator.active_transaction is not None
                 else None
@@ -96,6 +98,8 @@ async def async_get_config_entry_diagnostics(
                 coordinator.last_completed_transaction,
                 meter_values=coordinator.last_meter_values,
                 session_records=session_records,
+                charge_point_id=coordinator.charge_point_id,
+                source_instance_id=coordinator.source_instance_id,
             ),
         },
         "configuration": serialize_configuration_values(

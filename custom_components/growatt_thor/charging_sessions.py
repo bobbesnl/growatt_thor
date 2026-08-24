@@ -5,6 +5,12 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
+from .session_identity import (
+    SOURCE_EXTERNAL_OR_UNKNOWN,
+    SOURCE_HOME_ASSISTANT,
+    build_session_id,
+)
+
 
 CORRELATION_MATCHED = "matched"
 CORRELATION_OCPP_ONLY = "ocpp_only"
@@ -189,6 +195,8 @@ def build_unified_session(
     *,
     meter_values: Mapping[str, Any] | None = None,
     session_records: Sequence[Any] = (),
+    charge_point_id: str | None = None,
+    source_instance_id: str | None = None,
 ) -> dict[str, Any] | None:
     """Build one diagnostic session view without discarding source values."""
     transaction = _mapping(transaction)
@@ -246,6 +254,39 @@ def build_unified_session(
     if connector_id is None and record is not None:
         connector_id = _optional_text(getattr(record, "connector_id", None))
 
+    session_source = (
+        SOURCE_HOME_ASSISTANT if has_ocpp else SOURCE_EXTERNAL_OR_UNKNOWN
+    )
+    if has_ocpp:
+        session_started_at = (
+            _optional_text(start_request.get("timestamp"))
+            or _optional_text(start_snapshot.get("received_at"))
+        )
+        session_ended_at = (
+            _optional_text(stop_request.get("timestamp"))
+            or _optional_text(stop_snapshot.get("received_at"))
+        )
+    else:
+        session_started_at = _optional_text(
+            getattr(record, "start_time", None)
+        )
+        session_ended_at = _optional_text(
+            getattr(record, "end_time", None)
+        )
+    session_id = build_session_id(
+        source=session_source,
+        source_instance_id=source_instance_id,
+        charge_point_id=charge_point_id,
+        transaction_id=transaction_id or record_transaction_id,
+        started_at=session_started_at,
+        ended_at=session_ended_at,
+        record_id=(
+            _optional_text(getattr(record, "record_id", None))
+            if record is not None
+            else None
+        ),
+    )
+
     return {
         "correlation": {
             "status": correlation_status,
@@ -277,9 +318,9 @@ def build_unified_session(
             ],
         },
         "identity": {
-            "transaction_scope": (
-                "home_assistant" if has_ocpp else "external_or_unknown"
-            ),
+            "session_id": session_id,
+            "session_source": session_source,
+            "transaction_scope": session_source,
             "ocpp_transaction_id": transaction_id,
             "growatt_transaction_id": record_transaction_id,
             "connector_id": connector_id,

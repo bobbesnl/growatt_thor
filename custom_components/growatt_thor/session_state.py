@@ -42,6 +42,8 @@ class LastSessionState:
     plug_time: str | None = None
     unplug_time: str | None = None
     duration_minutes: float | None = None
+    session_id: str | None = None
+    session_source: str | None = None
     transaction_id: str | None = None
     charge_mode: str | None = None
     work_mode: str | None = None
@@ -59,6 +61,8 @@ class LastSessionState:
             plug_time=_optional_text(data.get("plug_time")),
             unplug_time=_optional_text(data.get("unplug_time")),
             duration_minutes=_optional_float(data.get("duration_minutes")),
+            session_id=_optional_text(data.get("session_id")),
+            session_source=_optional_text(data.get("session_source")),
             transaction_id=_optional_text(data.get("transaction_id")),
             charge_mode=_optional_text(data.get("charge_mode")),
             work_mode=_optional_text(data.get("work_mode")),
@@ -75,6 +79,8 @@ class LastSessionState:
             "plug_time": self.plug_time,
             "unplug_time": self.unplug_time,
             "duration_minutes": self.duration_minutes,
+            "session_id": self.session_id,
+            "session_source": self.session_source,
             "transaction_id": self.transaction_id,
             "charge_mode": self.charge_mode,
             "work_mode": self.work_mode,

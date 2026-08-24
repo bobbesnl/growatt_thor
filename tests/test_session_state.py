@@ -35,6 +35,8 @@ class LastSessionStateTest(unittest.TestCase):
             plug_time="2026-08-24 09:55:00",
             unplug_time="2026-08-24 10:31:00",
             duration_minutes=30.0,
+            session_id="ha-0123456789abcdef",
+            session_source="home_assistant",
             transaction_id="7",
             charge_mode="3",
             work_mode="0",

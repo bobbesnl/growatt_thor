@@ -4,12 +4,17 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import sys
+import types
 import unittest
 
 
 COMPONENT_PATH = (
     Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 )
+PACKAGE_NAME = "growatt_thor_charging_sessions_test_package"
+PACKAGE = types.ModuleType(PACKAGE_NAME)
+PACKAGE.__path__ = [str(COMPONENT_PATH)]
+sys.modules[PACKAGE_NAME] = PACKAGE
 
 
 def _load_module(name: str, filename: str):
@@ -22,11 +27,15 @@ def _load_module(name: str, filename: str):
 
 
 session_records = _load_module(
-    "growatt_thor_session_records_for_session_test",
+    f"{PACKAGE_NAME}.session_records",
     "session_records.py",
 )
+_load_module(
+    f"{PACKAGE_NAME}.session_identity",
+    "session_identity.py",
+)
 charging_sessions = _load_module(
-    "growatt_thor_charging_sessions_test_target",
+    f"{PACKAGE_NAME}.charging_sessions",
     "charging_sessions.py",
 )
 
@@ -103,6 +112,11 @@ class UnifiedChargingSessionTest(unittest.TestCase):
         self.assertEqual(session["identity"]["ocpp_transaction_id"], "7")
         self.assertEqual(session["identity"]["growatt_transaction_id"], "7")
         self.assertEqual(session["identity"]["connector_id"], "1")
+        self.assertTrue(session["identity"]["session_id"].startswith("ha-"))
+        self.assertEqual(
+            session["identity"]["session_source"],
+            "home_assistant",
+        )
         self.assertEqual(session["metering"]["ocpp_meter_delta_wh"], 412.0)
         self.assertEqual(session["metering"]["latest_meter_value_wh"], 412.0)
         self.assertEqual(session["metering"]["growatt_energy_wh"], 412.0)
@@ -150,6 +164,7 @@ class UnifiedChargingSessionTest(unittest.TestCase):
             session["identity"]["transaction_scope"],
             "external_or_unknown",
         )
+        self.assertTrue(session["identity"]["session_id"].startswith("ext-"))
         self.assertEqual(session["identity"]["growatt_transaction_id"], "8")
 
     def test_uses_latest_meter_energy_for_active_ocpp_session(self):
@@ -198,6 +213,26 @@ class UnifiedChargingSessionTest(unittest.TestCase):
         )
 
         self.assertIsNone(session["metering"]["latest_meter_value_wh"])
+
+    def test_home_assistant_session_id_is_stable_across_lifecycle(self):
+        active_transaction = _transaction()
+        active_transaction.pop("stop")
+        active = charging_sessions.build_unified_session(
+            active_transaction,
+            charge_point_id="XGJ0000322340519",
+            source_instance_id="config-entry-1",
+        )
+        completed = charging_sessions.build_unified_session(
+            _transaction(),
+            session_records=(_record_snapshot(),),
+            charge_point_id="XGJ0000322340519",
+            source_instance_id="config-entry-1",
+        )
+
+        self.assertEqual(
+            active["identity"]["session_id"],
+            completed["identity"]["session_id"],
+        )
 
 
 if __name__ == "__main__":

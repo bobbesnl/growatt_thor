@@ -88,7 +88,7 @@ async def _append_session_to_csv(hass, session: dict):
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Growatt THOR from config entry."""
 
-    coordinator = GrowattCoordinator(hass)
+    coordinator = GrowattCoordinator(hass, source_instance_id=entry.entry_id)
     await coordinator.async_load_storage()
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["coordinator"] = coordinator

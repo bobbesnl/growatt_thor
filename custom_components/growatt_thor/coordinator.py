@@ -7,6 +7,7 @@ import asyncio
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.storage import Store
 
+from .charging_sessions import CORRELATION_MATCHED, build_unified_session
 from .configuration import (
     ConfigurationValue,
     merge_configuration_values,
@@ -29,10 +30,11 @@ STORAGE_VERSION = 1
 class GrowattCoordinator(DataUpdateCoordinator):
     """Coordinator for Growatt THOR OCPP data."""
 
-    def __init__(self, hass):
+    def __init__(self, hass, source_instance_id=None):
         super().__init__(hass, _LOGGER, name="Growatt THOR Coordinator")
 
         self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+        self.source_instance_id = source_instance_id
         self._transaction_id_allocator = TransactionIdAllocator()
         self._transaction_id_lock = asyncio.Lock()
 
@@ -98,6 +100,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_session_plug_time = None        # str
         self.last_session_unplug_time = None      # str
         self.last_session_duration_minutes = None # float
+        self.last_session_id = None               # str
+        self.last_session_source = None           # str
         self.last_session_transaction_id = None   # str
         self.last_session_charge_mode = None      # str
         self.last_session_work_mode = None        # str
@@ -188,6 +192,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
             plug_time=self.last_session_plug_time,
             unplug_time=self.last_session_unplug_time,
             duration_minutes=self.last_session_duration_minutes,
+            session_id=self.last_session_id,
+            session_source=self.last_session_source,
             transaction_id=self.last_session_transaction_id,
             charge_mode=self.last_session_charge_mode,
             work_mode=self.last_session_work_mode,
@@ -203,6 +209,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_session_plug_time = state.plug_time
         self.last_session_unplug_time = state.unplug_time
         self.last_session_duration_minutes = state.duration_minutes
+        self.last_session_id = state.session_id
+        self.last_session_source = state.session_source
         self.last_session_transaction_id = state.transaction_id
         self.last_session_charge_mode = state.charge_mode
         self.last_session_work_mode = state.work_mode
@@ -659,6 +667,24 @@ class GrowattCoordinator(DataUpdateCoordinator):
             start_str = record.start_time
             end_str = record.end_time
             duration_minutes = record.duration_minutes
+            session = build_unified_session(
+                self.last_completed_transaction,
+                meter_values=self.last_meter_values,
+                session_records=(snapshot,),
+                charge_point_id=self.charge_point_id,
+                source_instance_id=self.source_instance_id,
+            )
+            if (
+                session is None
+                or session["correlation"]["status"] != CORRELATION_MATCHED
+            ):
+                session = build_unified_session(
+                    None,
+                    session_records=(snapshot,),
+                    charge_point_id=self.charge_point_id,
+                    source_instance_id=self.source_instance_id,
+                )
+            identity = session["identity"]
 
             self.last_session_energy = energy_kwh
             self.last_session_cost = cost
@@ -667,6 +693,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.last_session_plug_time = record.plug_time
             self.last_session_unplug_time = record.unplug_time
             self.last_session_duration_minutes = duration_minutes
+            self.last_session_id = identity["session_id"]
+            self.last_session_source = identity["session_source"]
             self.last_session_transaction_id = record.transaction_id
             self.last_session_charge_mode = record.charge_mode
             self.last_session_work_mode = record.work_mode
