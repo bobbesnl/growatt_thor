@@ -548,6 +548,40 @@ class GrowattChargePoint(OcppChargePoint):
             )
             return ConfigurationStatus.rejected
 
+    async def send_data_transfer(
+        self,
+        *,
+        vendor_id: str,
+        message_id: str,
+        data: str,
+    ):
+        """Send one vendor control payload and return its OCPP status."""
+        try:
+            _LOGGER.info(
+                "DataTransfer control: vendor=%s messageId=%s",
+                vendor_id,
+                message_id,
+            )
+            result = await self.call(
+                call.DataTransfer(
+                    vendor_id=vendor_id,
+                    message_id=message_id,
+                    data=data,
+                )
+            )
+            status = getattr(result, "status", DataTransferStatus.rejected)
+            _LOGGER.info("DataTransfer control result: %s", status)
+            return status
+        except Exception as exc:
+            _LOGGER.error(
+                "Failed DataTransfer control %s/%s: %s",
+                vendor_id,
+                message_id,
+                exc,
+                exc_info=True,
+            )
+            return DataTransferStatus.rejected
+
     # ─────────────────────────────
     # Remote Start/Stop Transaction
     # ─────────────────────────────

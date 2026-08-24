@@ -1,6 +1,6 @@
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 from collections import deque
 import asyncio
 
@@ -11,6 +11,7 @@ from .charging_sessions import CORRELATION_MATCHED, build_unified_session
 from .charging_controls import transaction_state_is_active
 from .configuration import (
     ConfigurationValue,
+    configuration_entity_state,
     configuration_value_from_item,
     merge_configuration_values,
     normalize_unknown_configuration_keys,
@@ -25,6 +26,7 @@ from .const import DOMAIN
 from .external_meter import parse_external_meter_data
 from .meter_samples import parse_meter_values
 from .ocpp_diagnostics import create_ocpp_snapshot
+from .pv_linkage import PvBoostMode, PvLinkageDraft, parse_manual_period
 from .session_records import GrowattSessionRecord
 from .session_state import LastSessionState
 from .transaction_ids import TransactionIdAllocator
@@ -100,6 +102,14 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.configuration_values: dict[str, ConfigurationValue] = {}
         self.unknown_configuration_keys: tuple[str, ...] = ()
         self.configuration_writes: dict[str, ConfigurationWriteState] = {}
+
+        # Local compound PV Linkage draft. It is sent only by the Apply button.
+        self.pv_boost_mode_draft: PvBoostMode | None = None
+        self.pv_manual_start_draft: time | None = None
+        self.pv_manual_end_draft: time | None = None
+        self.pv_smart_finish_draft: time | None = None
+        self.pv_smart_target_energy_draft: float | None = None
+        self.pv_linkage_draft_dirty = False
 
         # ── Last session ─────────────────
         self.last_session_energy = None           # kWh
@@ -379,6 +389,72 @@ class GrowattCoordinator(DataUpdateCoordinator):
         )
         self.async_set_updated_data(True)
 
+    def pv_linkage_draft(self) -> PvLinkageDraft | None:
+        """Return the current local PV Linkage draft when initialized."""
+        if self.pv_boost_mode_draft is None:
+            return None
+        return PvLinkageDraft(
+            boost_mode=self.pv_boost_mode_draft,
+            manual_start=self.pv_manual_start_draft,
+            manual_end=self.pv_manual_end_draft,
+            smart_finish=self.pv_smart_finish_draft,
+            smart_target_energy_kwh=self.pv_smart_target_energy_draft,
+        )
+
+    def update_pv_linkage_draft(self, **changes) -> None:
+        """Update local compound-control fields without writing the charger."""
+        for attribute, value in changes.items():
+            if attribute not in {
+                "pv_boost_mode_draft",
+                "pv_manual_start_draft",
+                "pv_manual_end_draft",
+                "pv_smart_finish_draft",
+                "pv_smart_target_energy_draft",
+            }:
+                raise ValueError(f"Unsupported PV Linkage draft field: {attribute}")
+            setattr(self, attribute, value)
+        self.pv_linkage_draft_dirty = True
+        self.async_set_updated_data(True)
+
+    def mark_pv_linkage_draft_applied(self) -> None:
+        """Mark the local draft as sent while readback is still tracked."""
+        self.pv_linkage_draft_dirty = False
+        self.async_set_updated_data(True)
+
+    def _initialize_pv_linkage_draft(self) -> bool:
+        """Initialize an untouched draft from reported configuration values."""
+        if self.pv_linkage_draft_dirty:
+            return False
+
+        updated = False
+        reported_mode = configuration_entity_state(
+            "G_SolarBoost",
+            self.configuration_values.get("G_SolarBoost"),
+        )
+        if isinstance(reported_mode, str):
+            try:
+                mode = PvBoostMode(reported_mode)
+            except ValueError:
+                mode = None
+            if mode is not None and self.pv_boost_mode_draft != mode:
+                self.pv_boost_mode_draft = mode
+                updated = True
+
+        period_value = self.configuration_values.get("G_PeriodTime")
+        period = parse_manual_period(
+            period_value.raw_value if period_value is not None else None
+        )
+        if period is not None:
+            start, end = period
+            if self.pv_manual_start_draft != start:
+                self.pv_manual_start_draft = start
+                updated = True
+            if self.pv_manual_end_draft != end:
+                self.pv_manual_end_draft = end
+                updated = True
+
+        return updated
+
     def mark_connection_activity(self, action):
         """Record the latest inbound OCPP message."""
         timestamp = self.now()
@@ -606,6 +682,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
         )
         if confirmed_writes != self.configuration_writes:
             self.configuration_writes = confirmed_writes
+            updated = True
+
+        if self._initialize_pv_linkage_draft():
             updated = True
 
         for item in configuration:

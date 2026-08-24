@@ -52,6 +52,7 @@ class ConfigurationRegistryTest(unittest.TestCase):
                 "ElectricityMeterOnline",
                 "G_WebSocketPingInterval",
                 "G_TimeSharingPrice",
+                "G_PeriodTime",
             ),
         )
         self.assertEqual(

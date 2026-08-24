@@ -332,6 +332,7 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         ),
         "G_SolarBoost": _definition(
             "Vendor-encoded PV Linkage boost configuration",
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_SolarThresholdCurr": _definition(
@@ -434,7 +435,11 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
             sensitivity=_SECRET,
         ),
         "G_CardPin": _definition("Local card or PIN value", sensitivity=_SECRET),
-        "G_PeriodTime": _definition("Vendor-encoded period definition"),
+        "G_PeriodTime": _definition(
+            "Vendor-encoded period definition",
+            writable=True,
+            request_group=_OPERATIONAL,
+        ),
         "G_WifiPassword": _definition("Wi-Fi password", sensitivity=_SECRET),
         "G_RFEnable": _definition("Unconfirmed Growatt RF setting"),
         "LightIntensity": _definition("Unconfirmed light intensity setting"),
