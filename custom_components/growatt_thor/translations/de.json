@@ -230,12 +230,12 @@
         }
       },
       "off_peak_schedule": {
-        "name": "Niedertarif-Zeitplan",
+        "name": "Konfigurierte Ladezeitfenster",
         "state_attributes": {
           "information": {
             "name": "Über diese Einstellung",
             "state": {
-              "details": "Listet die aktiven Niedertarif-Zeitfenster der Wallbox auf. Der ursprüngliche Growatt-Payload bleibt als Rohwert-Attribut erhalten."
+              "details": "Listet die gemeinsam genutzten Zeitfenster der Wallbox auf. Growatt verwendet sie je nach Betriebsmodus für Niedertarifladen oder den manuellen Boost bei PV-Kopplung."
             }
           }
         }
@@ -315,6 +315,64 @@
           }
         }
       }
+    },
+    "button": {
+      "start_charging": { "name": "Laden starten" },
+      "stop_charging": { "name": "Laden stoppen" }
+    },
+    "number": {
+      "max_current": { "name": "Maximaler Ladestrom" },
+      "load_balancing_limit": { "name": "Lastausgleichsgrenze" },
+      "electricity_price": { "name": "Strompreis" },
+      "solar_grid_import_limit": {
+        "name": "Erlaubter Netzbezug bei PV-Kopplung",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Nur bei aktiver PV-Kopplung und aktiviertem Solarladen verfügbar. Dezimalwerte werden mit Punktnotation an die Wallbox gesendet."
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "working_mode": {
+        "name": "Ladestrategie",
+        "state": {
+          "fast": "Schnellladen",
+          "pv_linkage": "PV-Kopplung",
+          "pv_linkage_plus": "PV-Kopplung+",
+          "off_peak": "Niedertarif"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Wählt Schnellladen, PV-Kopplung, PV-Kopplung+ oder Niedertarif über die von Growatt verwendeten indirekten Konfigurationswerte. Vorhandene Boost-Ziele und Zeitfenster bleiben unverändert."
+            }
+          }
+        }
+      }
+    },
+    "switch": {
+      "load_balancing": { "name": "Lastausgleich" },
+      "lcd_display": { "name": "LCD-Anzeige" },
+      "warm_up": {
+        "name": "Aufwärmen nach Volladung",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Erlaubt einem kompatiblen Fahrzeug nach der Volladung weiterhin Leistung zum Vorwärmen oder Enteisen zu beziehen. Das Fahrzeug muss diese Funktion unterstützen."
+            }
+          }
+        }
+      }
+    },
+    "time": {
+      "auto_charge_start_time": { "name": "Automatischer Ladestart" },
+      "auto_charge_stop_time": { "name": "Automatisches Ladeende" }
     }
   }
 }

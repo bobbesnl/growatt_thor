@@ -17,6 +17,10 @@ MODULE_PATH = (
 )
 TRANSLATIONS_PATH = MODULE_PATH.parent / "translations"
 SENSOR_PATH = MODULE_PATH.parent / "sensor.py"
+CONTROL_PATHS = tuple(
+    MODULE_PATH.parent / f"{platform}.py"
+    for platform in ("button", "number", "select", "switch", "time")
+)
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_configuration_test_target",
     MODULE_PATH,
@@ -564,6 +568,68 @@ class EntityTranslationTest(unittest.TestCase):
                 "grid_current",
             }.issubset(translation_keys)
         )
+
+    def test_control_entities_are_translated(self):
+        expected = {
+            "button": {"start_charging", "stop_charging"},
+            "number": {
+                "max_current",
+                "load_balancing_limit",
+                "electricity_price",
+                "solar_grid_import_limit",
+            },
+            "select": {"working_mode"},
+            "switch": {
+                "load_balancing",
+                "lcd_display",
+                "warm_up",
+            },
+            "time": {
+                "auto_charge_start_time",
+                "auto_charge_stop_time",
+            },
+        }
+
+        for language in ("en", "de", "nl"):
+            with self.subTest(language=language):
+                translation = json.loads(
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                entities = translation["entity"]
+                for platform, keys in expected.items():
+                    self.assertTrue(keys.issubset(entities[platform]))
+                self.assertEqual(
+                    tuple(entities["select"]["working_mode"]["state"]),
+                    ("fast", "pv_linkage", "pv_linkage_plus", "off_peak"),
+                )
+                for platform, key in (
+                    ("number", "solar_grid_import_limit"),
+                    ("select", "working_mode"),
+                    ("switch", "warm_up"),
+                ):
+                    information = entities[platform][key]["state_attributes"][
+                        "information"
+                    ]
+                    self.assertTrue(information["name"])
+                    self.assertTrue(information["state"]["details"])
+
+    def test_control_entities_do_not_use_hardcoded_names(self):
+        hardcoded_names = []
+        for path in CONTROL_PATHS:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Assign):
+                    continue
+                for target in node.targets:
+                    if (
+                        isinstance(target, ast.Attribute)
+                        and target.attr == "_attr_name"
+                    ):
+                        hardcoded_names.append((path.name, node.lineno))
+
+        self.assertEqual(hardcoded_names, [])
 
 
 if __name__ == "__main__":

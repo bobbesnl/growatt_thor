@@ -101,6 +101,30 @@ class ChargingControlDependencyTest(unittest.TestCase):
             )
         )
 
+    def test_compound_and_unverified_settings_remain_read_only(self):
+        expected = {
+            controls.ChargingControl.SOLAR_BOOST:
+                controls.ControlCapability.COMPOUND,
+            controls.ChargingControl.OFF_PEAK_SCHEDULE:
+                controls.ControlCapability.COMPOUND,
+            controls.ChargingControl.SOLAR_THRESHOLD_CURRENT:
+                controls.ControlCapability.READ_ONLY,
+            controls.ChargingControl.GRID_OFF_PEAK_CHARGING:
+                controls.ControlCapability.READ_ONLY,
+            controls.ChargingControl.OFF_PEAK_CURRENT:
+                controls.ControlCapability.READ_ONLY,
+            controls.ChargingControl.OFF_PEAK_ENABLE:
+                controls.ControlCapability.READ_ONLY,
+            controls.ChargingControl.DELAYED_CHARGING:
+                controls.ControlCapability.READ_ONLY,
+        }
+        for control, capability in expected.items():
+            with self.subTest(control=control.value):
+                self.assertEqual(
+                    controls.CONTROL_DEFINITIONS[control].capability,
+                    capability,
+                )
+
 
 class ChargingControlEncodingTest(unittest.TestCase):
     """Verify captured Growatt payload encodings."""
@@ -132,13 +156,6 @@ class ChargingControlEncodingTest(unittest.TestCase):
     def test_boolean_payloads_match_captured_values(self):
         self.assertEqual(
             controls.encode_control_value(
-                controls.ChargingControl.OFF_PEAK_ENABLE,
-                True,
-            ),
-            "1&Enable",
-        )
-        self.assertEqual(
-            controls.encode_control_value(
                 controls.ChargingControl.WARM_UP,
                 False,
             ),
@@ -151,6 +168,30 @@ class ChargingControlEncodingTest(unittest.TestCase):
                 controls.ChargingControl.SOLAR_BOOST,
                 "smart",
             )
+
+    def test_working_mode_uses_captured_indirect_keys(self):
+        for option, encoded in (
+            ("fast", ("G_SolarMode", "1&0")),
+            ("pv_linkage", ("G_SolarMode", "1&1")),
+            ("pv_linkage_plus", ("G_SolarMode", "1&2")),
+            ("off_peak", ("G_OffPeakEnable", "1&Enable")),
+        ):
+            with self.subTest(option=option):
+                self.assertEqual(controls.encode_working_mode(option), encoded)
+
+    def test_selected_working_mode_includes_pv_submode(self):
+        self.assertEqual(
+            controls.selected_working_mode(
+                _values(G_WorkingMode="PVlink", G_SolarMode="1&2")
+            ),
+            "pv_linkage_plus",
+        )
+        self.assertEqual(
+            controls.selected_working_mode(
+                _values(G_WorkingMode="Off Peak", G_SolarMode="1&0")
+            ),
+            "off_peak",
+        )
 
 
 if __name__ == "__main__":

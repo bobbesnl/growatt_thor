@@ -302,12 +302,14 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         ),
         "G_SolarMode": _definition(
             "Vendor-encoded solar charging mode",
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_SolarLimitPower": _definition(
             "PV Linkage power threshold or grid-import allowance",
             data_type=ConfigurationDataType.FLOAT,
             unit="kW",
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_SolarBoost": _definition(
@@ -331,6 +333,7 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         ),
         "G_OffPeakEnable": _definition(
             "Vendor-encoded off-peak enable setting",
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_OffPeakCurr": _definition(
@@ -355,6 +358,7 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         ),
         "G_FullContinueChargeEnable": _definition(
             "Allow compatible vehicles to draw power after reaching full charge",
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_RandDelayChargeTime": _definition(

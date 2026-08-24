@@ -11,6 +11,10 @@ from homeassistant.helpers.entity import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
 from .const import DOMAIN
+from .charging_controls import (
+    ChargingControl,
+    control_is_applicable,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,6 +48,17 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
             "model": "THOR",
         }
         self.hass = coordinator.hass
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self.coordinator.connected
+            and control_is_applicable(
+                ChargingControl.AUTO_CHARGE_SCHEDULE,
+                self.coordinator.configuration_values,
+            )
+        )
 
     async def async_set_value(self, value: time) -> None:
         """Update time and auto-apply schedule via write queue."""
@@ -107,7 +122,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
 class AutoChargeStartTime(BaseAutoChargeTime):
     """Auto charge start time configuration."""
 
-    _attr_name = "Auto Charge Start Time"
+    _attr_translation_key = "auto_charge_start_time"
     _is_start = True
 
     def __init__(self, coordinator, entry):
@@ -131,7 +146,7 @@ class AutoChargeStartTime(BaseAutoChargeTime):
 class AutoChargeStopTime(BaseAutoChargeTime):
     """Auto charge stop time configuration."""
 
-    _attr_name = "Auto Charge Stop Time"
+    _attr_translation_key = "auto_charge_stop_time"
     _is_start = False
 
     def __init__(self, coordinator, entry):

@@ -10,6 +10,7 @@ from homeassistant.helpers.storage import Store
 from .charging_sessions import CORRELATION_MATCHED, build_unified_session
 from .configuration import (
     ConfigurationValue,
+    configuration_value_from_item,
     merge_configuration_values,
     normalize_unknown_configuration_keys,
 )
@@ -317,6 +318,21 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_message_action = "WebSocketConnect"
         self.last_heartbeat_at = None
         _LOGGER.info("Charge point connected: %s", cp_id)
+        self.async_set_updated_data(True)
+
+    def update_configuration_value(self, key: str, raw_value: str) -> None:
+        """Update one acknowledged configuration value without dropping metadata."""
+        previous = self.configuration_values.get(key)
+        value = configuration_value_from_item(
+            {
+                "key": key,
+                "value": raw_value,
+                "readonly": previous.readonly if previous is not None else False,
+            }
+        )
+        if value is None:
+            return
+        self.configuration_values[key] = value
         self.async_set_updated_data(True)
 
     def mark_connection_activity(self, action):

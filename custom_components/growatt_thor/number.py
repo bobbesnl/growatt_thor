@@ -10,6 +10,13 @@ from homeassistant.helpers.entity import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
 from .const import DOMAIN
+from .charging_controls import (
+    ChargingControl,
+    control_is_applicable,
+    encode_control_value,
+)
+from .configuration import configuration_entity_state
+from .configuration_control import GrowattConfigurationControlMixin
 from .currency import electricity_price_unit
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,6 +29,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         MaxCurrentNumber(coordinator, entry),
         LoadBalancingLimitNumber(coordinator, entry),
         ElectricityPriceNumber(coordinator, entry),
+        SolarGridImportLimitNumber(coordinator, entry),
     ])
 
 
@@ -50,7 +58,7 @@ class BaseConfigNumber(CoordinatorEntity, NumberEntity):
 
 class MaxCurrentNumber(BaseConfigNumber):
 
-    _attr_name = "Max Current"
+    _attr_translation_key = "max_current"
     _attr_icon = "mdi:current-ac"
     _attr_native_min_value = 6
     _attr_native_max_value = 32
@@ -132,7 +140,7 @@ class MaxCurrentNumber(BaseConfigNumber):
 
 class LoadBalancingLimitNumber(BaseConfigNumber):
 
-    _attr_name = "Loadbalancing limit"
+    _attr_translation_key = "load_balancing_limit"
     _attr_icon = "mdi:speedometer"
     _attr_device_class = NumberDeviceClass.POWER
     _attr_native_min_value = 4
@@ -154,6 +162,17 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
     def native_value(self):
         value = self.coordinator.external_limit_power
         return int(value) if value is not None else 10
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self.coordinator.connected
+            and control_is_applicable(
+                ChargingControl.LOAD_BALANCING_LIMIT,
+                self.coordinator.configuration_values,
+            )
+        )
 
     async def async_set_native_value(self, value: float) -> None:
         value = int(round(value))
@@ -215,7 +234,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
 
 class ElectricityPriceNumber(BaseConfigNumber):
 
-    _attr_name = "Electricity Price"
+    _attr_translation_key = "electricity_price"
     _attr_icon = "mdi:cash"
     _attr_native_min_value = -2.0
     _attr_native_max_value = 2.0
@@ -292,3 +311,56 @@ class ElectricityPriceNumber(BaseConfigNumber):
             if previous is not None:
                 self.coordinator.electricity_price = previous
                 self.coordinator.async_set_updated_data(True)
+
+
+class SolarGridImportLimitNumber(
+    GrowattConfigurationControlMixin,
+    CoordinatorEntity,
+    NumberEntity,
+):
+    """Configure the grid power allowance used by PV Linkage."""
+
+    _control = ChargingControl.SOLAR_GRID_IMPORT_LIMIT
+    _attr_has_entity_name = True
+    _attr_translation_key = "solar_grid_import_limit"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_device_class = NumberDeviceClass.POWER
+    _attr_native_mode = NumberMode.BOX
+    _attr_native_min_value = 0
+    _attr_native_max_value = 22
+    _attr_native_step = 0.1
+    _attr_native_unit_of_measurement = "kW"
+    _attr_suggested_display_precision = 1
+    _attr_icon = "mdi:transmission-tower-import"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator)
+        self.hass = coordinator.hass
+        self._attr_unique_id = f"{entry.entry_id}_solar_grid_import_limit_control"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "Growatt THOR EV Charger",
+            "manufacturer": "Growatt",
+            "model": "THOR",
+        }
+
+    @property
+    def native_value(self):
+        value = configuration_entity_state(
+            self._configuration_key,
+            self._configuration_value,
+        )
+        return float(value) if isinstance(value, (int, float)) else None
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self._control_available
+            and self.native_value is not None
+        )
+
+    async def async_set_native_value(self, value: float) -> None:
+        await self._async_write_configuration(
+            encode_control_value(self._control, value)
+        )

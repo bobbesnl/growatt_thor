@@ -230,12 +230,12 @@
         }
       },
       "off_peak_schedule": {
-        "name": "Off-peak schedule",
+        "name": "Configured charging periods",
         "state_attributes": {
           "information": {
             "name": "About this setting",
             "state": {
-              "details": "Lists the active charger-side off-peak windows. The original Growatt payload remains available as the raw value attribute."
+              "details": "Lists the shared charger-side time windows. Depending on the working mode, Growatt uses them for Off-Peak charging or PV Linkage Manual Boost."
             }
           }
         }
@@ -315,6 +315,64 @@
           }
         }
       }
+    },
+    "button": {
+      "start_charging": { "name": "Start charging" },
+      "stop_charging": { "name": "Stop charging" }
+    },
+    "number": {
+      "max_current": { "name": "Maximum current" },
+      "load_balancing_limit": { "name": "Load balancing limit" },
+      "electricity_price": { "name": "Electricity price" },
+      "solar_grid_import_limit": {
+        "name": "PV Linkage grid import allowance",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Available only in PV Linkage mode while solar charging is enabled. Decimal values are sent to the charger using dot notation."
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "working_mode": {
+        "name": "Charging strategy",
+        "state": {
+          "fast": "Fast",
+          "pv_linkage": "PV Linkage",
+          "pv_linkage_plus": "PV Linkage+",
+          "off_peak": "Off-Peak"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Selects Fast, PV Linkage, PV Linkage+, or Off-Peak through the indirect configuration writes used by Growatt. Existing Boost targets and time windows are not changed."
+            }
+          }
+        }
+      }
+    },
+    "switch": {
+      "load_balancing": { "name": "Load balancing" },
+      "lcd_display": { "name": "LCD display" },
+      "warm_up": {
+        "name": "Warm-up after full charge",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Allows a compatible vehicle to continue drawing power for preheating or defrosting after reaching full charge. Vehicle support is required."
+            }
+          }
+        }
+      }
+    },
+    "time": {
+      "auto_charge_start_time": { "name": "Automatic charging start" },
+      "auto_charge_stop_time": { "name": "Automatic charging stop" }
     }
   }
 }

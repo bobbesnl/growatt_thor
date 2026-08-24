@@ -6,7 +6,6 @@ import asyncio
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.helpers.entity import EntityCategory
 
 from .const import DOMAIN
 
@@ -33,9 +32,8 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
     """Button to start a charging session."""
 
     _attr_has_entity_name = True
-    _attr_name = "Start charging"
+    _attr_translation_key = "start_charging"
     _attr_icon = "mdi:play-circle"
-    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator)
@@ -101,9 +99,8 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
     """Button to stop a charging session."""
 
     _attr_has_entity_name = True
-    _attr_name = "Stop charging"
+    _attr_translation_key = "stop_charging"
     _attr_icon = "mdi:stop-circle"
-    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator)

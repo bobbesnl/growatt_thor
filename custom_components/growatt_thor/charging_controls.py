@@ -23,6 +23,7 @@ class ChargingControl(str, Enum):
     LOAD_BALANCING = "load_balancing"
     LOAD_BALANCING_LIMIT = "load_balancing_limit"
     AUTO_CHARGE_SCHEDULE = "auto_charge_schedule"
+    WORKING_MODE = "working_mode"
     SOLAR_MODE = "solar_mode"
     SOLAR_GRID_IMPORT_LIMIT = "solar_grid_import_limit"
     SOLAR_BOOST = "solar_boost"
@@ -64,6 +65,10 @@ CONTROL_DEFINITIONS: Final[Mapping[ChargingControl, ControlDefinition]] = (
                 "G_AutoChargeTime",
                 working_modes=frozenset({"fast"}),
             ),
+            ChargingControl.WORKING_MODE: ControlDefinition(
+                ControlCapability.WRITABLE,
+                "G_WorkingMode",
+            ),
             ChargingControl.SOLAR_MODE: ControlDefinition(
                 ControlCapability.WRITABLE,
                 "G_SolarMode",
@@ -92,7 +97,7 @@ CONTROL_DEFINITIONS: Final[Mapping[ChargingControl, ControlDefinition]] = (
                 charger_modes=frozenset({"plug_and_charge"}),
             ),
             ChargingControl.OFF_PEAK_ENABLE: ControlDefinition(
-                ControlCapability.WRITABLE,
+                ControlCapability.READ_ONLY,
                 "G_OffPeakEnable",
                 working_modes=frozenset({"off_peak"}),
             ),
@@ -172,10 +177,34 @@ def encode_control_value(control: ChargingControl, value: object) -> str:
             raise ValueError("Solar grid import limit must not be negative")
         return f"{numeric:.2f}".rstrip("0").rstrip(".")
 
-    if control == ChargingControl.OFF_PEAK_ENABLE:
-        return "1&Enable" if bool(value) else "1&Disable"
-
     if control == ChargingControl.WARM_UP:
         return "Enable" if bool(value) else "Disable"
 
     raise ValueError(f"No encoder is defined for {control.value}")
+
+
+def encode_working_mode(option: str) -> tuple[str, str]:
+    """Return the captured configuration write used to select a working mode."""
+    encoded = {
+        "fast": ("G_SolarMode", "1&0"),
+        "pv_linkage": ("G_SolarMode", "1&1"),
+        "pv_linkage_plus": ("G_SolarMode", "1&2"),
+        "off_peak": ("G_OffPeakEnable", "1&Enable"),
+    }.get(option)
+    if encoded is None:
+        raise ValueError(f"Unsupported working mode: {option}")
+    return encoded
+
+
+def selected_working_mode(
+    values: Mapping[str, ConfigurationValue],
+) -> str | None:
+    """Combine effective working mode and PV submode for the HA selector."""
+    working_mode = _state(values, "G_WorkingMode")
+    if working_mode != "pv_linkage":
+        return working_mode if isinstance(working_mode, str) else None
+
+    solar_mode = _state(values, "G_SolarMode")
+    if solar_mode == "pv_linkage_plus":
+        return "pv_linkage_plus"
+    return "pv_linkage"

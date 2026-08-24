@@ -10,6 +10,13 @@ from homeassistant.helpers.entity import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
 from .const import DOMAIN
+from .charging_controls import (
+    ChargingControl,
+    control_is_applicable,
+    encode_control_value,
+)
+from .configuration import configuration_entity_state
+from .configuration_control import GrowattConfigurationControlMixin
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,14 +28,15 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([
         LoadBalancingEnableSwitch(coordinator, entry),
         LcdDisplaySwitch(coordinator, entry),
+        WarmUpSwitch(coordinator, entry),
     ])
 
 
 class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
     """Switch to enable/disable load balancing."""
 
-    _attr_has_entity_name = False
-    _attr_name = "Loadbalancing"
+    _attr_has_entity_name = True
+    _attr_translation_key = "load_balancing"
     _attr_icon = "mdi:power-plug-outline"
     _attr_entity_category = EntityCategory.CONFIG
 
@@ -47,6 +55,17 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
     def is_on(self):
         """Return true if load balancing is enabled."""
         return self.coordinator.external_limit_power_enable
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self.coordinator.connected
+            and control_is_applicable(
+                ChargingControl.LOAD_BALANCING,
+                self.coordinator.configuration_values,
+            )
+        )
 
     async def async_turn_on(self, **kwargs):
         """Enable load balancing."""
@@ -106,8 +125,8 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
 class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
     """Switch to enable/disable LCD display (G_LCDCloseEnable)."""
 
-    _attr_has_entity_name = False
-    _attr_name = "LCD Display"
+    _attr_has_entity_name = True
+    _attr_translation_key = "lcd_display"
     _attr_icon = "mdi:monitor"
     _attr_entity_category = EntityCategory.CONFIG
 
@@ -182,3 +201,60 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
 
         except Exception as exc:
             _LOGGER.error("❌ Failed to change LCD display: %s", exc, exc_info=True)
+
+
+class BaseModeAwareSwitch(
+    GrowattConfigurationControlMixin,
+    CoordinatorEntity,
+    SwitchEntity,
+):
+    """Base class for verified boolean Growatt configuration controls."""
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator, entry, key):
+        super().__init__(coordinator)
+        self.hass = coordinator.hass
+        self._attr_unique_id = f"{entry.entry_id}_{key}_control"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "Growatt THOR EV Charger",
+            "manufacturer": "Growatt",
+            "model": "THOR",
+        }
+
+    @property
+    def is_on(self):
+        state = configuration_entity_state(
+            self._configuration_key,
+            self._configuration_value,
+        )
+        if state is None:
+            return None
+        return state == "enabled"
+
+    @property
+    def available(self):
+        return super().available and self._control_available
+
+    async def async_turn_on(self, **kwargs):
+        await self._async_write_configuration(
+            encode_control_value(self._control, True)
+        )
+
+    async def async_turn_off(self, **kwargs):
+        await self._async_write_configuration(
+            encode_control_value(self._control, False)
+        )
+
+
+class WarmUpSwitch(BaseModeAwareSwitch):
+    """Allow compatible vehicles to draw power after reaching full charge."""
+
+    _control = ChargingControl.WARM_UP
+    _attr_translation_key = "warm_up"
+    _attr_icon = "mdi:car-defrost-front"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "warm_up")
