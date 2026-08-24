@@ -446,7 +446,7 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
             ChargingControl.SOLAR_BOOST,
             self.coordinator.configuration_values,
             connected=self.coordinator.connected,
-            transaction_active=self.coordinator.active_transaction is not None,
+            transaction_active=self.coordinator.transaction_is_active,
         )
 
     @property
