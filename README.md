@@ -398,7 +398,7 @@ After successful connection, the integration creates the entities below. The lis
 | Solar threshold current | `sensor.growatt_thor_ev_charger_solar_threshold_current` | Reported PV threshold current in A |
 | Grid off-peak charging | `sensor.growatt_thor_ev_charger_grid_off_peak_charging` | Grid off-peak charging flag |
 | Off-peak enable setting | `sensor.growatt_thor_ev_charger_off_peak_enable_setting` | Normalized off-peak mode state |
-| Off-peak schedule | `sensor.growatt_thor_ev_charger_off_peak_schedule` | Reported off-peak time windows |
+| Configured charging periods | `sensor.growatt_thor_ev_charger_off_peak_schedule` | Shared time windows used for Off-Peak charging or PV Linkage Manual Boost |
 | Off-peak current | `sensor.growatt_thor_ev_charger_off_peak_current` | Reported off-peak charging current in A |
 | Warm-up after full charge | `sensor.growatt_thor_ev_charger_warm_up_after_full_charge` | Whether compatible vehicles may continue drawing power after reaching full charge |
 | Delayed charging time | `sensor.growatt_thor_ev_charger_delayed_charging_time` | Reported charger-side delay duration in seconds |
@@ -443,8 +443,40 @@ numeric delay and does not provide an unverified Random Delay control.
 | Stop charging | Button | `button.growatt_thor_ev_charger_stop_charging` | Stop the active charging session |
 | Auto Charge Start Time | Time | `time.growatt_thor_ev_charger_auto_charge_start_time` | Schedule start time; changes auto-apply through the write queue |
 | Auto Charge Stop Time | Time | `time.growatt_thor_ev_charger_auto_charge_stop_time` | Schedule stop time; changes auto-apply through the write queue |
+| Charging strategy | Select | `select.growatt_thor_ev_charger_charging_strategy` | Select Fast, PV Linkage, PV Linkage+, or Off-Peak mode |
+| PV Linkage grid import allowance | Number | `number.growatt_thor_ev_charger_pv_linkage_grid_import_allowance` | Grid power the charger may add while PV Linkage is active |
+| Warm-up after full charge | Switch | `switch.growatt_thor_ev_charger_warm_up_after_full_charge` | Allow compatible vehicles to continue drawing power for preheating or defrosting |
 
 Charger mode and AP mode are intentionally configured through **Settings → Devices & Services → Growatt THOR → Configure**. They are not select or button entities.
+
+Control availability follows the effective mode reported by the charger:
+
+| Control | Available in |
+|---|---|
+| Charging strategy | Any connected mode |
+| Load balancing and its limit | Fast and Off-Peak |
+| Automatic charging start/stop | Fast |
+| PV Linkage grid import allowance | PV Linkage or PV Linkage+, with solar charging enabled |
+| Warm-up after full charge | Any connected mode |
+
+The charging-strategy select does not write `G_WorkingMode`; that key is a
+readback of the effective mode. It uses the indirect writes captured from the
+Growatt app: `G_SolarMode` selects Fast/PV Linkage variants and
+`G_OffPeakEnable=1&Enable` selects Off-Peak. Home Assistant refreshes the
+configuration after the charger has applied a change.
+
+Boost and period controls are intentionally not writable yet. Manual Boost
+requires `G_SolarBoost` together with `G_PeriodTime`; Smart Boost additionally
+requires `DataTransfer/solar_target_data`. The period readback is shared with
+Off-Peak mode, so changing only one of these values would create an incomplete
+charger configuration.
+
+### Entity semantics
+
+- Live measurements, session totals, and effective operating states are normal sensors.
+- Values that can safely change charger behavior use `select`, `number`, `switch`, or `time` entities in the Configuration category.
+- Retained vendor fields that are static, compound, or not safely writable are diagnostic sensors and keep their raw OCPP value as an attribute.
+- Start and Stop are operational buttons rather than configuration entities.
 
 
 ## ⚡ Energy Dashboard

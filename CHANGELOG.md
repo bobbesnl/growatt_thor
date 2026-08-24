@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Mode-specific configuration sensors**: Expose reported PV Linkage, boost, and off-peak settings as read-only entities. Confirmed compound values are normalized into translated states while their original values remain available as raw attributes.
 - **Warm-up and delayed-charging diagnostics**: Expose reported `G_FullContinueChargeEnable` and `G_RandDelayChargeTime` values as read-only diagnostic sensors. No Random Delay control is created because the tested ShinePhone app writes the same value for both switch directions.
 - **Localized entity explanations**: Add concise English, German, and Dutch information attributes to the read-only mode, PV, off-peak, external-meter, warm-up, and delayed-charging entities.
+- **Mode-aware charging controls**: Add a charging-strategy select, PV Linkage grid-import number, and Warm-up switch using only captured Growatt writes. Existing load-balancing and automatic-time controls become unavailable outside the working modes in which the Growatt app exposes them.
+- **Control dependency model**: Classify charger settings as directly writable, compound, or read-only. Smart/Manual Boost, shared charging periods, off-peak current, grid off-peak charging, and delayed charging remain diagnostic until their complete write workflows are verified.
 
 ### Changed
 - **External meter device naming**: Rename the logical Growatt THOR Load balancing device to Growatt THOR External Meter because the measurements are shared by load balancing and PV Linkage. Existing default device metadata is migrated in place; user-assigned names, device identifiers, and entity IDs remain unchanged. (PR #42)
@@ -36,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **External meter polling scope**: Request get_external_meterval in every charger working mode, both on connect and periodically, instead of only while load balancing is enabled — PV Linkage now receives the same grid measurements. (PR #44)
 - **Translated last-session modes**: Show known Growatt `chargemode` and `workmode` values as localized enum states in entity history and the activity log. The original numeric vendor code remains available as a `raw_value` attribute, and unverified work-mode codes are shown as unknown instead of being guessed.
 - **Currency-aware cost entities**: Use the Home Assistant system currency for electricity-price and last-session-cost units because the charger reports numeric prices without a currency. EUR remains the fallback when Home Assistant has no configured currency.
+- **Entity semantics and translations**: Treat measurements and effective operating states as sensors, writable settings as configuration controls, retained vendor settings as diagnostics, and start/stop as operational buttons. Existing controls and the new charging controls now use English, German, and Dutch translation keys.
+- **Shared charging periods**: Describe `G_OffPeakTime` as the charger-reported shared period list because captures show the same underlying `G_PeriodTime` is used for both Off-Peak charging and PV Linkage Manual Boost.
 
 ### Fixed
 - **Home Assistant startup delay**: Run the permanent OCPP connection watchdog as a background task so Home Assistant does not wait for it until the five-minute setup timeout during every restart.

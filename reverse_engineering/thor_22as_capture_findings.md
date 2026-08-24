@@ -377,8 +377,8 @@ writable controls require separate before/after captures.
 | `G_MeterValueInterval` | `5` | Growatt meter-value interval in seconds | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_NetworkMode` | `DHCP` | Charger network mode | Preserved in diagnostics | 2.2.16 | observed, implemented |
 | `G_OffPeakCurr` | empty | Off-peak current setting in A | Read-only Off-Peak Current sensor when a non-empty value is reported | 2.2.16 | observed, inferred, implemented |
-| `G_OffPeakEnable` | `1&Enable`, `1&Disable` | Vendor-encoded off-peak enable setting | Read-only translated Off-Peak Enable Setting sensor; raw value retained as an attribute | 2.2.16 | observed, implemented |
-| `G_OffPeakTime` | `12:00-13:00=0&00:00-05:00=0&1` | Vendor-encoded off-peak time windows | Read-only Off-Peak Schedule sensor displays the extracted windows; raw value retained as an attribute | 2.2.16 | observed, implemented |
+| `G_OffPeakEnable` | `1&Enable`, `1&Disable` | Vendor-encoded off-peak mode setting; enabling it selects the effective Off-Peak working mode | Read-only diagnostic state plus indirect Off-Peak option in the Charging Strategy select | 2.2.16 | observed, implemented |
+| `G_OffPeakTime` | `12:00-13:00=0&00:00-05:00=0&1` | Charger-derived windows from shared `G_PeriodTime`; used for Off-Peak or PV Manual Boost depending on mode | Read-only Configured Charging Periods diagnostic; raw value retained as an attribute | 2.2.16 | observed, implemented |
 | `G_PeakValleyEnable` | `0` | Peak/valley tariff enable setting | Read-only Grid Off-Peak Charging sensor | 2.2.16 | observed, inferred, implemented |
 | `G_PeriodTime` | `1&time1=00:00-05:00` | Vendor-encoded period definition | Not requested | 2.2.16 | observed, inferred |
 | `G_PowerMeterAddr` | `2` | External Modbus meter address | Read-only Power Meter Address sensor | 2.2.16 | observed, implemented |
@@ -387,14 +387,14 @@ writable controls require separate before/after captures.
 | `G_RandDelayChargeTime` | `600`, `0` | Charger-side delayed charging duration in seconds; ShinePhone writes `0` for both Random Delay switch directions | Read-only Delayed Charging Time diagnostic sensor; no Boolean control | 2.2.16 | observed, implemented |
 | `G_ServerURL` | `ws://<ha-host>:9000` | OCPP central-system endpoint | Server URL diagnostic sensor | 2.2.16 | observed, implemented |
 | `G_SolarBoost` | `1&Disable`, `1&ManualBoost`, `1&SmartBoost` | Vendor-encoded PV Linkage boost setting | Read-only translated PV Linkage Boost Configuration sensor; raw value retained as an attribute | 2.2.16 | observed, implemented |
-| `G_SolarLimitPower` | write `4.2`, readback `3.96` | PV Linkage grid-import allowance in kW; charger-adjusted readback depends on phase configuration | Read-only PV Linkage Grid Import Allowance sensor | 2.2.16 | observed, inferred, implemented |
-| `G_SolarMode` | `1&0`, `1&1`, `1&2` | Vendor-encoded solar mode; suffix values are `0=Disable`, `1=PVLink`, `2=PVLink+` | Read-only translated Solar Mode sensor | 2.2.16 | observed, implemented |
+| `G_SolarLimitPower` | write `4.2`, readback `3.96` | PV Linkage grid-import allowance in kW; charger-adjusted readback depends on phase configuration | Read-only diagnostic plus mode-aware PV Linkage Grid Import Allowance number | 2.2.16 | observed, inferred, implemented |
+| `G_SolarMode` | `1&0`, `1&1`, `1&2` | Vendor-encoded solar mode; suffix values are `0=Disable`, `1=PVLink`, `2=PVLink+`; writes also drive the effective working mode | Read-only diagnostic plus Fast/PV options in the Charging Strategy select | 2.2.16 | observed, implemented |
 | `G_SolarThresholdCurr` | `0` | Solar current threshold in A | Read-only Solar Threshold Current sensor | 2.2.16 | observed, inferred, implemented |
 | `G_TimeZone` | `UTC+2` | Charger time zone | Preserved in diagnostics | 2.2.16 | observed, implemented |
 | `G_WebSocketPingInterval` | `30` | Growatt WebSocket ping interval in seconds | Preserved in diagnostics | 2.2.16 | observed, implemented |
 | `G_WifiPassword` | `<redacted>` | Wi-Fi password | Intentionally not requested; sensitive | 2.2.16 | observed |
 | `G_WifiSSID` | `<redacted>` | Wi-Fi network name | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
-| `G_WorkingMode` | `Fast`, `Off Peak`, `PVlink`, `PVlink ManualBoost`, `Power Distribution` | Charger working mode; boost suffixes do not change the base PV Linkage mode. `Power Distribution` is retained as a distinct reported state because its relationship to the app's Fast mode is not confirmed. | Read-only Working Mode sensor; last session also exposes a separate work-mode code | 2.2.16 | observed, implemented |
+| `G_WorkingMode` | `Fast`, `Off Peak`, `PVlink`, `PVlink ManualBoost`, `Power Distribution` | Effective charger working-mode readback; boost suffixes do not change the base PV Linkage mode. `Power Distribution` is retained as a distinct reported state because its relationship to the app's Fast mode is not confirmed. | Working Mode sensor plus mode-aware Charging Strategy select that writes the underlying mode keys; last session exposes a separate work-mode code | 2.2.16 | observed, implemented |
 
 ### Write-confirmed or implemented without GetConfiguration readback
 
@@ -404,7 +404,7 @@ capture set used for the tables above:
 | Key | Current use | Status |
 |---|---|---|
 | `ElectricityMeterOnline` | Preserved in diagnostics | implemented |
-| `G_FullContinueChargeEnable` | `Enable` and `Disable` writes were accepted. Exposed as a read-only diagnostic sensor when the charger reports it; compatible vehicle support is required. | observed, implemented |
+| `G_FullContinueChargeEnable` | `Enable` and `Disable` writes were accepted; readback was not confirmed. Exposed as a Warm-up switch, with a read-only diagnostic mirror only when reported. Compatible vehicle support is required. | observed, implemented |
 | `G_LCDCloseEnable` | LCD Display switch | implemented |
 | `G_TimeSharingPrice` | Electricity price number and sensor | implemented |
 
@@ -428,6 +428,10 @@ read-only sensors. It also retains all samples from the latest OCPP
 `MeterValues` request and structured Growatt `currentrecord` and `frozenrecord`
 payloads. Other, unrecognized `DataTransfer` message types are not retained yet.
 
-This is intentional for controls: a key name is not enough evidence to make a
-setting writable. Future controls should be added one use case at a time after
-capturing the value before and after the corresponding charger/app change.
+Controls are classified as directly writable, compound, or read-only. Direct
+controls use only captured values and become unavailable outside their valid
+working mode. Compound workflows stay read-only until Home Assistant can write
+the complete operation: Boost needs its mode plus target/period data, and the
+shared `G_PeriodTime` must not be edited as though it belonged only to
+Off-Peak mode. A key name or `readonly=false` response alone is not treated as
+proof that a standalone write is safe.
