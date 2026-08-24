@@ -26,7 +26,12 @@ from .const import DOMAIN
 from .external_meter import parse_external_meter_data
 from .meter_samples import parse_meter_values
 from .ocpp_diagnostics import create_ocpp_snapshot
-from .pv_linkage import PvBoostMode, PvLinkageDraft, parse_manual_period
+from .pv_linkage import (
+    PvBoostMode,
+    PvLinkageDraft,
+    draft_matches_reported,
+    parse_manual_period,
+)
 from .session_records import GrowattSessionRecord
 from .session_state import LastSessionState
 from .transaction_ids import TransactionIdAllocator
@@ -413,7 +418,26 @@ class GrowattCoordinator(DataUpdateCoordinator):
             }:
                 raise ValueError(f"Unsupported PV Linkage draft field: {attribute}")
             setattr(self, attribute, value)
-        self.pv_linkage_draft_dirty = True
+        draft = self.pv_linkage_draft()
+        reported_mode = configuration_entity_state(
+            "G_SolarBoost",
+            self.configuration_values.get("G_SolarBoost"),
+        )
+        period_value = self.configuration_values.get("G_PeriodTime")
+        self.pv_linkage_draft_dirty = not (
+            draft is not None
+            and draft_matches_reported(
+                draft,
+                reported_mode=(
+                    reported_mode if isinstance(reported_mode, str) else None
+                ),
+                reported_period=(
+                    period_value.raw_value
+                    if period_value is not None
+                    else None
+                ),
+            )
+        )
         self.async_set_updated_data(True)
 
     def mark_pv_linkage_draft_applied(self) -> None:

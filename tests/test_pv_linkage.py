@@ -102,6 +102,49 @@ class PvLinkageControlTest(unittest.TestCase):
             ("smart_target_energy_required",),
         )
 
+    def test_draft_matches_only_readable_reported_state(self):
+        disabled = pv.PvLinkageDraft(pv.PvBoostMode.DISABLED)
+        self.assertTrue(
+            pv.draft_matches_reported(
+                disabled,
+                reported_mode="disabled",
+                reported_period="1&time1=12:00-13:00",
+            )
+        )
+
+        manual = pv.PvLinkageDraft(
+            pv.PvBoostMode.MANUAL,
+            manual_start=time(12, 0),
+            manual_end=time(13, 0),
+        )
+        self.assertTrue(
+            pv.draft_matches_reported(
+                manual,
+                reported_mode="manual",
+                reported_period="1&time1=12:00-13:00",
+            )
+        )
+        self.assertFalse(
+            pv.draft_matches_reported(
+                manual,
+                reported_mode="manual",
+                reported_period="1&time1=00:00-05:00",
+            )
+        )
+
+        smart = pv.PvLinkageDraft(
+            pv.PvBoostMode.SMART,
+            smart_finish=time(10, 0),
+            smart_target_energy_kwh=4,
+        )
+        self.assertFalse(
+            pv.draft_matches_reported(
+                smart,
+                reported_mode="smart",
+                reported_period=None,
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

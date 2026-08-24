@@ -85,6 +85,29 @@ def draft_validation_errors(draft: PvLinkageDraft) -> tuple[str, ...]:
     return tuple(errors)
 
 
+def draft_matches_reported(
+    draft: PvLinkageDraft,
+    *,
+    reported_mode: str | None,
+    reported_period: str | None,
+) -> bool:
+    """Return whether all readable parts already match the charger."""
+    try:
+        mode = PvBoostMode(reported_mode) if reported_mode is not None else None
+    except ValueError:
+        return False
+    if draft.boost_mode != mode:
+        return False
+    if draft.boost_mode == PvBoostMode.DISABLED:
+        return True
+    if draft.boost_mode == PvBoostMode.MANUAL:
+        period = parse_manual_period(reported_period)
+        return period == (draft.manual_start, draft.manual_end)
+
+    # Smart target data is sent via DataTransfer and has no independent readback.
+    return False
+
+
 def _format_number(value: float) -> str:
     return f"{value:.3f}".rstrip("0").rstrip(".")
 
