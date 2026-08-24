@@ -382,10 +382,9 @@ After successful connection, the integration creates the entities below. The lis
 | Power meter type | `sensor.growatt_thor_external_meter_power_meter_type` | Configured external meter model |
 | Power meter address | `sensor.growatt_thor_external_meter_power_meter_address` | Configured external Modbus address |
 | External sampling method | `sensor.growatt_thor_external_meter_external_sampling_method` | External meter or current-transformer wiring method |
-
-| Electricity Price | `sensor.growatt_thor_ev_charger_electricity_price` | Configured electricity price (EUR/kWh) |
+| Electricity Price | `sensor.growatt_thor_ev_charger_electricity_price` | Configured electricity price using the Home Assistant system currency per kWh |
 | Last Session Energy | `sensor.growatt_thor_ev_charger_last_session_energy` | Energy from the most recently completed session |
-| Last Session Cost | `sensor.growatt_thor_ev_charger_last_session_cost` | Cost from the most recently completed session |
+| Last Session Cost | `sensor.growatt_thor_ev_charger_last_session_cost` | Cost from the most recently completed session using the Home Assistant system currency |
 | Last Session Duration | `sensor.growatt_thor_ev_charger_last_session_duration` | Duration of the most recently completed session |
 | Last Session Start | `sensor.growatt_thor_ev_charger_last_session_start` | Charging start timestamp |
 | Last Session End | `sensor.growatt_thor_ev_charger_last_session_end` | Charging end timestamp |
@@ -414,7 +413,7 @@ numeric delay and does not provide an unverified Random Delay control.
 |---|---|---|---|
 | Max Current | Number | `number.growatt_thor_ev_charger_max_current` | Maximum charging current (6-32 A) |
 | Loadbalancing limit | Number | `number.growatt_thor_external_meter_loadbalancing_limit` | Grid import limit (kW) |
-| Electricity Price | Number | `number.growatt_thor_ev_charger_electricity_price` | Electricity tariff (EUR/kWh) |
+| Electricity Price | Number | `number.growatt_thor_ev_charger_electricity_price` | Electricity tariff using the Home Assistant system currency per kWh |
 | Loadbalancing | Switch | `switch.growatt_thor_external_meter_loadbalancing` | Enable or disable dynamic load balancing |
 | LCD Display | Switch | `switch.growatt_thor_ev_charger_lcd_display` | Enable or disable the charger display |
 | Start charging | Button | `button.growatt_thor_ev_charger_start_charging` | Manually request a charging session |

@@ -209,6 +209,11 @@ The current integration uses the same session parser for `currentrecord` and
 firmware. This API/app concept is therefore not a confirmed charger
 `DataTransfer` message.
 
+The charger reports numeric tariff and cost values without a currency. Changing
+the ShinePhone currency from EUR to USD produced no OCPP write and left
+`G_ChargerRate` unchanged. Home Assistant entities therefore use the Home
+Assistant system currency instead of inferring one from the charger value.
+
 ## ShinePhone operation captures
 
 The ShinePhone UI combines persistent charger configuration, one-shot vendor
@@ -271,7 +276,7 @@ writable controls require separate before/after captures.
 | `G_ChargerNetIP` | `<redacted>` | Charger network address | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
 | `G_ChargerNetMac` | `<redacted>` | Charger MAC address | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
 | `G_ChargerNetMask` | `<redacted>` | Charger network mask | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
-| `G_ChargerRate` | `0.23` | Charger tariff/rate; relationship to time-sharing price needs confirmation | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
+| `G_ChargerRate` | `0.23` | Numeric charger tariff/rate; no currency is included and changing ShinePhone currency produced no OCPP write | Preserved in diagnostics | 2.2.16 | observed, implemented |
 | `G_DaylightSavingTime` | `00-00&00-00` | Daylight-saving configuration; value format not confirmed | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_ExternalLimitPower` | `45` | External grid power limit in kW in the tested setup | Loadbalancing limit number | 2.2.16 | observed, implemented |
 | `G_ExternalLimitPowerEnable` | `0` | Enable external power limiting | Loadbalancing switch | 2.2.16 | observed, implemented |
