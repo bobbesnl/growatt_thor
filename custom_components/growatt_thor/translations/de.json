@@ -95,8 +95,24 @@
       "last_session_plug_time": { "name": "Einsteckzeit der letzten Sitzung" },
       "last_session_unplug_time": { "name": "Aussteckzeit der letzten Sitzung" },
       "last_session_transaction_id": { "name": "Transaktions-ID der letzten Sitzung" },
-      "last_session_charge_mode": { "name": "Lademodus der letzten Sitzung" },
-      "last_session_work_mode": { "name": "Betriebsmodus der letzten Sitzung" },
+      "last_session_charge_mode": {
+        "name": "Lademodus der letzten Sitzung",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Nur RFID",
+          "plug_and_charge": "Einstecken und laden",
+          "unknown_mode": "Unbekannt"
+        }
+      },
+      "last_session_work_mode": {
+        "name": "Betriebsmodus der letzten Sitzung",
+        "state": {
+          "fast": "Schnellladen",
+          "pv_linkage": "PV-Kopplung",
+          "off_peak": "Niedertarif",
+          "unknown_mode": "Unbekannt"
+        }
+      },
       "current": { "name": "Strom {phase}" },
       "voltage": { "name": "Spannung {phase}" },
       "phase_power": { "name": "Leistung {phase}" },

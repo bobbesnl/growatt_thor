@@ -441,6 +441,20 @@ class EntityTranslationTest(unittest.TestCase):
             "external_sampling_wiring": "G_ExternalSamplingCurWring",
             "warm_up_after_full_charge": "G_FullContinueChargeEnable",
         }
+        session_enum_entities = {
+            "last_session_charge_mode": (
+                "home_assistant_rfid",
+                "rfid_only",
+                "plug_and_charge",
+                "unknown_mode",
+            ),
+            "last_session_work_mode": (
+                "fast",
+                "pv_linkage",
+                "off_peak",
+                "unknown_mode",
+            ),
+        }
         informative_entities = {
             "working_mode",
             "charger_mode",
@@ -489,6 +503,12 @@ class EntityTranslationTest(unittest.TestCase):
                         configuration.CONFIGURATION_ENTITY_OPTIONS[
                             configuration_key
                         ],
+                    )
+
+                for translation_key, options in session_enum_entities.items():
+                    self.assertEqual(
+                        tuple(sensors[translation_key]["state"]),
+                        options,
                     )
 
                 for translation_key in informative_entities:

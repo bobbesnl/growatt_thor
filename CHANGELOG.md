@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **External meter device naming**: Rename the logical Growatt THOR Load balancing device to Growatt THOR External Meter because the measurements are shared by load balancing and PV Linkage. Existing default device metadata is migrated in place; user-assigned names, device identifiers, and entity IDs remain unchanged. (PR #42)
 - **Localized entity names and status values**: Replace hard-coded English names on existing charger and external-meter sensors with Home Assistant translation keys, and translate OCPP status values. Available in English, German, and Dutch without changing unique IDs or existing entity IDs. (PR #41, #42)
 - **External meter polling scope**: Request get_external_meterval in every charger working mode, both on connect and periodically, instead of only while load balancing is enabled — PV Linkage now receives the same grid measurements. (PR #44)
+- **Translated last-session modes**: Show known Growatt `chargemode` and `workmode` values as localized enum states in entity history and the activity log. The original numeric vendor code remains available as a `raw_value` attribute, and unverified work-mode codes are shown as unknown instead of being guessed.
 - **Currency-aware cost entities**: Use the Home Assistant system currency for electricity-price and last-session-cost units because the charger reports numeric prices without a currency. EUR remains the fallback when Home Assistant has no configured currency.
 
 ### Fixed

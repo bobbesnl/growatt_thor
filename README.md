@@ -393,8 +393,8 @@ After successful connection, the integration creates the entities below. The lis
 | Last Session Plug Time | `sensor.growatt_thor_ev_charger_last_session_plug_time` | Cable connection timestamp |
 | Last Session Unplug Time | `sensor.growatt_thor_ev_charger_last_session_unplug_time` | Cable disconnection timestamp |
 | Last Session Transaction ID | `sensor.growatt_thor_ev_charger_last_session_transaction_id` | OCPP transaction ID for the last session |
-| Last Session Charge Mode | `sensor.growatt_thor_ev_charger_last_session_charge_mode` | Growatt charging mode for the last session |
-| Last Session Work Mode | `sensor.growatt_thor_ev_charger_last_session_work_mode` | Growatt work mode for the last session |
+| Last Session Charge Mode | `sensor.growatt_thor_ev_charger_last_session_charge_mode` | Translated Growatt authorization/charging mode for the last session; raw vendor code retained as an attribute |
+| Last Session Work Mode | `sensor.growatt_thor_ev_charger_last_session_work_mode` | Translated Growatt operating mode when its vendor code is confirmed; raw code retained as an attribute |
 
 External-meter measurements are polled in every charger working mode because
 the same meter is used by load balancing and PV Linkage. A measurement remains

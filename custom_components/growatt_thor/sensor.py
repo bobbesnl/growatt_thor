@@ -26,6 +26,12 @@ from .configuration import (
 from .const import DOMAIN
 from .currency import configured_currency, electricity_price_unit
 from .ocpp_status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
+from .session_records import (
+    SESSION_CHARGE_MODE_OPTIONS,
+    SESSION_WORK_MODE_OPTIONS,
+    normalize_session_charge_mode,
+    normalize_session_work_mode,
+)
 
 
 @dataclass(frozen=True)
@@ -693,7 +699,9 @@ class LastSessionTransactionIdSensor(BaseSensor):
 
 class LastSessionChargeModeSensor(BaseSensor):
     _attr_translation_key = "last_session_charge_mode"
-    _attr_icon = "mdi:cog-outline"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = list(SESSION_CHARGE_MODE_OPTIONS)
+    _attr_icon = "mdi:shield-key-outline"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, entry):
@@ -701,7 +709,17 @@ class LastSessionChargeModeSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.last_session_charge_mode
+        return normalize_session_charge_mode(
+            self.coordinator.last_session_charge_mode
+        )
+
+    @property
+    def available(self):
+        return super().available and self.native_value is not None
+
+    @property
+    def extra_state_attributes(self):
+        return {"raw_value": self.coordinator.last_session_charge_mode}
 
 
 # ─────────────────────────────
@@ -710,7 +728,9 @@ class LastSessionChargeModeSensor(BaseSensor):
 
 class LastSessionWorkModeSensor(BaseSensor):
     _attr_translation_key = "last_session_work_mode"
-    _attr_icon = "mdi:cog-outline"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = list(SESSION_WORK_MODE_OPTIONS)
+    _attr_icon = "mdi:ev-station"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, entry):
@@ -718,7 +738,17 @@ class LastSessionWorkModeSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.last_session_work_mode
+        return normalize_session_work_mode(
+            self.coordinator.last_session_work_mode
+        )
+
+    @property
+    def available(self):
+        return super().available and self.native_value is not None
+
+    @property
+    def extra_state_attributes(self):
+        return {"raw_value": self.coordinator.last_session_work_mode}
 
 
 # ─────────────────────────────

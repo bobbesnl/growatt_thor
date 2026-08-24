@@ -9,6 +9,38 @@ from urllib.parse import parse_qsl
 
 REDACTED = "<redacted>"
 _DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+UNKNOWN_MODE = "unknown_mode"
+SESSION_CHARGE_MODE_OPTIONS = (
+    "home_assistant_rfid",
+    "rfid_only",
+    "plug_and_charge",
+    UNKNOWN_MODE,
+)
+SESSION_WORK_MODE_OPTIONS = (
+    "fast",
+    "pv_linkage",
+    "off_peak",
+    UNKNOWN_MODE,
+)
+_SESSION_CHARGE_MODE_ALIASES = {
+    "1": "home_assistant_rfid",
+    "app": "home_assistant_rfid",
+    "2": "rfid_only",
+    "rfid": "rfid_only",
+    "3": "plug_and_charge",
+    "plugcharge": "plug_and_charge",
+    "plugandcharge": "plug_and_charge",
+}
+_SESSION_WORK_MODE_ALIASES = {
+    # Numeric work-mode mappings are only added after a matching live capture.
+    "0": "fast",
+    "fast": "fast",
+    "fastmode": "fast",
+    "pvlink": "pv_linkage",
+    "pvlinkage": "pv_linkage",
+    "offpeak": "off_peak",
+    "offpeakmode": "off_peak",
+}
 _KNOWN_FIELDS = frozenset(
     {
         "id",
@@ -42,6 +74,32 @@ def _optional_datetime(value: str | None) -> datetime | None:
         return datetime.strptime(value, _DATETIME_FORMAT)
     except ValueError:
         return None
+
+
+def _normalized_mode_key(value: str | None) -> str | None:
+    if value is None or not str(value).strip():
+        return None
+    return "".join(
+        character
+        for character in str(value).casefold()
+        if character.isalnum()
+    )
+
+
+def normalize_session_charge_mode(value: str | None) -> str | None:
+    """Return the translated-state key for a Growatt chargemode value."""
+    normalized = _normalized_mode_key(value)
+    if normalized is None:
+        return None
+    return _SESSION_CHARGE_MODE_ALIASES.get(normalized, UNKNOWN_MODE)
+
+
+def normalize_session_work_mode(value: str | None) -> str | None:
+    """Return the translated-state key for a captured Growatt workmode value."""
+    normalized = _normalized_mode_key(value)
+    if normalized is None:
+        return None
+    return _SESSION_WORK_MODE_ALIASES.get(normalized, UNKNOWN_MODE)
 
 
 @dataclass(frozen=True, slots=True)

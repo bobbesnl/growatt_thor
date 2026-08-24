@@ -207,7 +207,7 @@ id=346&connectorId=1&chargemode=3&plugtime=2025-08-24 11:47:21&unplugtime=2025-0
 |---|---|---|---|---|
 | `id` | Growatt record identifier | Structured session diagnostics | 2.2.16 | observed, implemented |
 | `connectorId` | OCPP connector number | Structured session diagnostics | 2.2.16 | observed, implemented |
-| `chargemode` | Growatt charging mode code | Last Session Charge Mode | 2.2.16 | observed, implemented |
+| `chargemode` | Growatt charging/authorization mode: `1=APP/HA-RFID`, `2=RFID`, `3=Plug & Charge` | Translated Last Session Charge Mode; raw code retained | 2.2.16 | observed, implemented |
 | `plugtime` | Cable connected time | Last Session Plug Time | 2.2.16 | observed, implemented |
 | `unplugtime` | Cable disconnected time | Last Session Unplug Time | 2.2.16 | observed, implemented |
 | `starttime` | Charging start time | Last Session Start | 2.2.16 | observed, implemented |
@@ -215,7 +215,7 @@ id=346&connectorId=1&chargemode=3&plugtime=2025-08-24 11:47:21&unplugtime=2025-0
 | `costenergy` | Energy in Wh; integration divides by 1000 for kWh | Last Session Energy and CSV | 2.2.16 | observed, inferred, implemented |
 | `costmoney` | Currency minor unit; integration divides by 100 | Last Session Cost and CSV | 2.2.16 | observed, inferred, implemented |
 | `transactionId` | OCPP transaction ID assigned by the central system | Last Session Transaction ID and CSV | 2.2.16 | observed, implemented |
-| `workmode` | Growatt work mode code; values `3` and `7` captured. Value `7` occurred together with `G_WorkingMode=Power Distribution`, but equivalence is not confirmed. | Last Session Work Mode; unknown numeric values remain raw | 2.2.16 | observed, implemented |
+| `workmode` | Growatt work mode code; `0=Fast` is confirmed, while values `3` and `7` were captured but remain unmapped. Value `7` occurred together with `G_WorkingMode=Power Distribution`, but equivalence is not confirmed. | Translated Last Session Work Mode; raw code retained | 2.2.16 | observed, implemented |
 
 The integration parses both message types with the same lossless field model
 but retains the latest `currentrecord` and `frozenrecord` separately. Blank and

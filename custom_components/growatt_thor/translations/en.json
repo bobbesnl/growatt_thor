@@ -95,8 +95,24 @@
       "last_session_plug_time": { "name": "Last Session Plug Time" },
       "last_session_unplug_time": { "name": "Last Session Unplug Time" },
       "last_session_transaction_id": { "name": "Last Session Transaction ID" },
-      "last_session_charge_mode": { "name": "Last Session Charge Mode" },
-      "last_session_work_mode": { "name": "Last Session Work Mode" },
+      "last_session_charge_mode": {
+        "name": "Last Session Charge Mode",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "RFID only",
+          "plug_and_charge": "Plug & charge",
+          "unknown_mode": "Unknown"
+        }
+      },
+      "last_session_work_mode": {
+        "name": "Last Session Work Mode",
+        "state": {
+          "fast": "Fast",
+          "pv_linkage": "PV Linkage",
+          "off_peak": "Off-Peak",
+          "unknown_mode": "Unknown"
+        }
+      },
       "current": { "name": "Current {phase}" },
       "voltage": { "name": "Voltage {phase}" },
       "phase_power": { "name": "Power {phase}" },

@@ -95,8 +95,24 @@
       "last_session_plug_time": { "name": "Inplugtijd laatste sessie" },
       "last_session_unplug_time": { "name": "Uitplugtijd laatste sessie" },
       "last_session_transaction_id": { "name": "Transactie-ID laatste sessie" },
-      "last_session_charge_mode": { "name": "Laadmodus laatste sessie" },
-      "last_session_work_mode": { "name": "Werkmodus laatste sessie" },
+      "last_session_charge_mode": {
+        "name": "Laadmodus laatste sessie",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Alleen RFID",
+          "plug_and_charge": "Aansluiten en laden",
+          "unknown_mode": "Onbekend"
+        }
+      },
+      "last_session_work_mode": {
+        "name": "Werkmodus laatste sessie",
+        "state": {
+          "fast": "Snel laden",
+          "pv_linkage": "PV-koppeling",
+          "off_peak": "Daltarief",
+          "unknown_mode": "Onbekend"
+        }
+      },
       "current": { "name": "Stroom {phase}" },
       "voltage": { "name": "Spanning {phase}" },
       "phase_power": { "name": "Vermogen {phase}" },

@@ -107,5 +107,36 @@ class GrowattSessionRecordTest(unittest.TestCase):
             )
 
 
+class GrowattSessionModeTest(unittest.TestCase):
+    """Verify stable entity states for vendor session mode codes."""
+
+    def test_charge_mode_codes(self):
+        for raw_value, expected in (
+            ("1", "home_assistant_rfid"),
+            ("2", "rfid_only"),
+            ("3", "plug_and_charge"),
+            ("future", session_records.UNKNOWN_MODE),
+        ):
+            with self.subTest(raw_value=raw_value):
+                self.assertEqual(
+                    session_records.normalize_session_charge_mode(raw_value),
+                    expected,
+                )
+
+    def test_only_confirmed_numeric_work_mode_is_mapped(self):
+        self.assertEqual(
+            session_records.normalize_session_work_mode("0"),
+            "fast",
+        )
+        self.assertEqual(
+            session_records.normalize_session_work_mode("3"),
+            session_records.UNKNOWN_MODE,
+        )
+
+    def test_empty_modes_remain_unavailable(self):
+        self.assertIsNone(session_records.normalize_session_charge_mode(""))
+        self.assertIsNone(session_records.normalize_session_work_mode(None))
+
+
 if __name__ == "__main__":
     unittest.main()
