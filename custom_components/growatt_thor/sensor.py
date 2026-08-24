@@ -196,6 +196,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
                 CONFIGURATION_ENTITY_OPTIONS["G_ExternalSamplingCurWring"]
             ),
             icon="mdi:connection",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_ExternalSamplingCurWring",
         external_meter=True,
