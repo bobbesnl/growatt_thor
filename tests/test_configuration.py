@@ -196,6 +196,8 @@ class ConfigurationEntityStateTest(unittest.TestCase):
             ("Fast", "fast"),
             ("PVlink", "pv_linkage"),
             ("PV Linkage", "pv_linkage"),
+            ("PVlink ManualBoost", "pv_linkage"),
+            ("PVlink SmartBoost", "pv_linkage"),
             ("Off-Peak", "off_peak"),
         ):
             with self.subTest(raw_value=raw_value):
@@ -249,6 +251,7 @@ class ConfigurationEntityStateTest(unittest.TestCase):
             ("0", "disabled"),
             ("1", "pv_linkage"),
             ("2", "pv_linkage_plus"),
+            ("1&0", "disabled"),
             ("1&1", "pv_linkage"),
             ("1&2", "pv_linkage_plus"),
         ):
@@ -277,31 +280,79 @@ class ConfigurationEntityStateTest(unittest.TestCase):
                     expected,
                 )
 
+    def test_solar_boost_values(self):
+        for raw_value, expected in (
+            ("1&Disable", "disabled"),
+            ("1&ManualBoost", "manual"),
+            ("1&SmartBoost", "smart"),
+        ):
+            with self.subTest(raw_value=raw_value):
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        "G_SolarBoost",
+                        self._value("G_SolarBoost", raw_value),
+                    ),
+                    expected,
+                )
+
+    def test_off_peak_enable_values(self):
+        for raw_value, expected in (
+            ("1&Disable", "disabled"),
+            ("1&Enable", "enabled"),
+        ):
+            with self.subTest(raw_value=raw_value):
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        "G_OffPeakEnable",
+                        self._value("G_OffPeakEnable", raw_value),
+                    ),
+                    expected,
+                )
+
+    def test_warm_up_values(self):
+        for raw_value, expected in (
+            ("Disable", "disabled"),
+            ("Enable", "enabled"),
+        ):
+            with self.subTest(raw_value=raw_value):
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        "G_FullContinueChargeEnable",
+                        self._value("G_FullContinueChargeEnable", raw_value),
+                    ),
+                    expected,
+                )
+
+    def test_off_peak_schedule_extracts_time_windows(self):
+        for raw_value, expected in (
+            ("00:00-05:00=0&1", "00:00-05:00"),
+            (
+                "12:00-13:00=0&00:00-05:00=0&1",
+                "12:00-13:00, 00:00-05:00",
+            ),
+        ):
+            with self.subTest(raw_value=raw_value):
+                value = self._value("G_OffPeakTime", raw_value)
+                self.assertEqual(value.raw_value, raw_value)
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        "G_OffPeakTime",
+                        value,
+                    ),
+                    expected,
+                )
+
     def test_mode_specific_numeric_settings_include_units(self):
         for key, raw_value, parsed_value, unit in (
             ("G_SolarLimitPower", "3.96", 3.96, "kW"),
             ("G_SolarThresholdCurr", "6", 6.0, "A"),
             ("G_OffPeakCurr", "16", 16.0, "A"),
+            ("G_RandDelayChargeTime", "600", 600, "s"),
         ):
             with self.subTest(key=key):
                 value = self._value(key, raw_value)
                 self.assertEqual(value.parsed_value, parsed_value)
                 self.assertEqual(value.definition.unit, unit)
-
-    def test_vendor_encoded_settings_remain_lossless(self):
-        for key, raw_value in (
-            ("G_SolarBoost", "1&Disable"),
-            ("G_OffPeakEnable", "1&Disable"),
-            ("G_OffPeakTime", "00:00-05:00=0&1"),
-        ):
-            with self.subTest(key=key):
-                self.assertEqual(
-                    configuration.configuration_entity_state(
-                        key,
-                        self._value(key, raw_value),
-                    ),
-                    raw_value,
-                )
 
     def test_plain_meter_values_keep_their_parsed_type(self):
         self.assertEqual(
@@ -376,13 +427,18 @@ class EntityTranslationTest(unittest.TestCase):
             "power_meter_type",
             "power_meter_address",
             "external_sampling_wiring",
+            "warm_up_after_full_charge",
+            "delayed_charging_time",
         }
         enum_entities = {
             "working_mode": "G_WorkingMode",
             "charger_mode": "G_ChargerMode",
             "solar_mode": "G_SolarMode",
             "grid_off_peak_charging": "G_PeakValleyEnable",
+            "solar_boost": "G_SolarBoost",
+            "off_peak_enable_setting": "G_OffPeakEnable",
             "external_sampling_wiring": "G_ExternalSamplingCurWring",
+            "warm_up_after_full_charge": "G_FullContinueChargeEnable",
         }
 
         for language in ("en", "de", "nl"):

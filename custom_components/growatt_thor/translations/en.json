@@ -132,7 +132,12 @@
         "name": "PV Linkage grid import allowance"
       },
       "solar_boost": {
-        "name": "PV Linkage boost configuration"
+        "name": "PV Linkage boost configuration",
+        "state": {
+          "disabled": "Disabled",
+          "manual": "Manual",
+          "smart": "Smart"
+        }
       },
       "solar_threshold_current": {
         "name": "Solar threshold current"
@@ -145,7 +150,11 @@
         }
       },
       "off_peak_enable_setting": {
-        "name": "Off-peak enable setting"
+        "name": "Off-peak enable setting",
+        "state": {
+          "disabled": "Disabled",
+          "enabled": "Enabled"
+        }
       },
       "off_peak_schedule": {
         "name": "Off-peak schedule"
@@ -166,6 +175,16 @@
           "power_meter": "Power meter",
           "ct_3000_1": "CT 3000:1"
         }
+      },
+      "warm_up_after_full_charge": {
+        "name": "Warm-up after full charge",
+        "state": {
+          "disabled": "Disabled",
+          "enabled": "Enabled"
+        }
+      },
+      "delayed_charging_time": {
+        "name": "Delayed charging time"
       }
     }
   }

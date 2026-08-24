@@ -81,6 +81,8 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         entity_description=SensorEntityDescription(
             key="solar_boost",
             translation_key="solar_boost",
+            device_class=SensorDeviceClass.ENUM,
+            options=list(CONFIGURATION_ENTITY_OPTIONS["G_SolarBoost"]),
             icon="mdi:flash",
         ),
         configuration_key="G_SolarBoost",
@@ -109,6 +111,8 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         entity_description=SensorEntityDescription(
             key="off_peak_enable_setting",
             translation_key="off_peak_enable_setting",
+            device_class=SensorDeviceClass.ENUM,
+            options=list(CONFIGURATION_ENTITY_OPTIONS["G_OffPeakEnable"]),
             icon="mdi:clock-check-outline",
         ),
         configuration_key="G_OffPeakEnable",
@@ -164,6 +168,30 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         ),
         configuration_key="G_ExternalSamplingCurWring",
         external_meter=True,
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="warm_up_after_full_charge",
+            translation_key="warm_up_after_full_charge",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            device_class=SensorDeviceClass.ENUM,
+            options=list(
+                CONFIGURATION_ENTITY_OPTIONS["G_FullContinueChargeEnable"]
+            ),
+            icon="mdi:car-defrost-front",
+        ),
+        configuration_key="G_FullContinueChargeEnable",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="delayed_charging_time",
+            translation_key="delayed_charging_time",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            device_class=SensorDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            icon="mdi:timer-sand",
+        ),
+        configuration_key="G_RandDelayChargeTime",
     ),
 )
 

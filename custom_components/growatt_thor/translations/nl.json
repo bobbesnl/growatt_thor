@@ -132,7 +132,12 @@
         "name": "Toegestane netafname bij PV-koppeling"
       },
       "solar_boost": {
-        "name": "Boostconfiguratie bij PV-koppeling"
+        "name": "Boostconfiguratie bij PV-koppeling",
+        "state": {
+          "disabled": "Uitgeschakeld",
+          "manual": "Handmatig",
+          "smart": "Slim"
+        }
       },
       "solar_threshold_current": {
         "name": "Drempelstroom voor zonne-energie"
@@ -145,7 +150,11 @@
         }
       },
       "off_peak_enable_setting": {
-        "name": "Daltariefinschakeling"
+        "name": "Daltariefinschakeling",
+        "state": {
+          "disabled": "Uitgeschakeld",
+          "enabled": "Ingeschakeld"
+        }
       },
       "off_peak_schedule": {
         "name": "Daltariefschema"
@@ -166,6 +175,16 @@
           "power_meter": "Energiemeter",
           "ct_3000_1": "CT 3000:1"
         }
+      },
+      "warm_up_after_full_charge": {
+        "name": "Opwarmen na volledig laden",
+        "state": {
+          "disabled": "Uitgeschakeld",
+          "enabled": "Ingeschakeld"
+        }
+      },
+      "delayed_charging_time": {
+        "name": "Uitgestelde laadtijd"
       }
     }
   }

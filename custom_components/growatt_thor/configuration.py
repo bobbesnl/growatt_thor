@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import Enum
+import re
 from types import MappingProxyType
 from typing import Final, TypeAlias
 
@@ -353,12 +354,13 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
             request_group=_INFORMATIONAL,
         ),
         "G_FullContinueChargeEnable": _definition(
-            "Continue charging after reaching full state",
+            "Allow compatible vehicles to draw power after reaching full charge",
             request_group=_INFORMATIONAL,
         ),
         "G_RandDelayChargeTime": _definition(
-            "Randomized charging delay",
+            "Delayed charging duration",
             data_type=ConfigurationDataType.INTEGER,
+            unit="s",
             request_group=_INFORMATIONAL,
         ),
 
@@ -452,6 +454,19 @@ CONFIGURATION_ENTITY_OPTIONS: Final[Mapping[str, tuple[str, ...]]] = MappingProx
             "disabled",
             "enabled",
         ),
+        "G_SolarBoost": (
+            "disabled",
+            "manual",
+            "smart",
+        ),
+        "G_OffPeakEnable": (
+            "disabled",
+            "enabled",
+        ),
+        "G_FullContinueChargeEnable": (
+            "disabled",
+            "enabled",
+        ),
     }
 )
 
@@ -464,6 +479,8 @@ _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
                     "fastmode": "fast",
                     "pvlink": "pv_linkage",
                     "pvlinkage": "pv_linkage",
+                    "pvlinkmanualboost": "pv_linkage",
+                    "pvlinksmartboost": "pv_linkage",
                     "offpeak": "off_peak",
                     "offpeakmode": "off_peak",
                 }
@@ -487,6 +504,7 @@ _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
                     "0": "disabled",
                     "1": "pv_linkage",
                     "2": "pv_linkage_plus",
+                    "10": "disabled",
                     "11": "pv_linkage",
                     "12": "pv_linkage_plus",
                 }
@@ -503,9 +521,59 @@ _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
                     "enabled": "enabled",
                 }
             ),
+            "G_SolarBoost": MappingProxyType(
+                {
+                    "disable": "disabled",
+                    "disabled": "disabled",
+                    "1disable": "disabled",
+                    "manual": "manual",
+                    "manualboost": "manual",
+                    "1manualboost": "manual",
+                    "smart": "smart",
+                    "smartboost": "smart",
+                    "1smartboost": "smart",
+                }
+            ),
+            "G_OffPeakEnable": MappingProxyType(
+                {
+                    "0": "disabled",
+                    "disable": "disabled",
+                    "disabled": "disabled",
+                    "1disable": "disabled",
+                    "1": "enabled",
+                    "enable": "enabled",
+                    "enabled": "enabled",
+                    "1enable": "enabled",
+                }
+            ),
+            "G_FullContinueChargeEnable": MappingProxyType(
+                {
+                    "0": "disabled",
+                    "disable": "disabled",
+                    "disabled": "disabled",
+                    "1": "enabled",
+                    "enable": "enabled",
+                    "enabled": "enabled",
+                }
+            ),
         }
     )
 )
+
+
+_OFF_PEAK_WINDOW_PATTERN = re.compile(
+    r"^(?P<window>\d{2}:\d{2}-\d{2}:\d{2})(?:=[^&]*)?$"
+)
+
+
+def _parse_off_peak_schedule(raw_value: str) -> str:
+    """Return the time windows from Growatt's compound off-peak value."""
+    windows = []
+    for segment in raw_value.split("&"):
+        match = _OFF_PEAK_WINDOW_PATTERN.fullmatch(segment.strip())
+        if match:
+            windows.append(match.group("window"))
+    return ", ".join(windows) if windows else raw_value
 
 
 def configuration_entity_state(
@@ -515,6 +583,9 @@ def configuration_entity_state(
     """Return a stable Home Assistant state for a retained configuration value."""
     if value is None or value.raw_value is None or not value.raw_value.strip():
         return None
+
+    if key == "G_OffPeakTime":
+        return _parse_off_peak_schedule(value.raw_value)
 
     aliases = _CONFIGURATION_ENTITY_ALIASES.get(key)
     if aliases is None:

@@ -132,7 +132,12 @@
         "name": "Erlaubter Netzbezug bei PV-Kopplung"
       },
       "solar_boost": {
-        "name": "Boost-Konfiguration bei PV-Kopplung"
+        "name": "Boost-Konfiguration bei PV-Kopplung",
+        "state": {
+          "disabled": "Deaktiviert",
+          "manual": "Manuell",
+          "smart": "Smart"
+        }
       },
       "solar_threshold_current": {
         "name": "Solarstrom-Schwelle"
@@ -145,7 +150,11 @@
         }
       },
       "off_peak_enable_setting": {
-        "name": "Niedertarif-Aktivierung"
+        "name": "Niedertarif-Aktivierung",
+        "state": {
+          "disabled": "Deaktiviert",
+          "enabled": "Aktiviert"
+        }
       },
       "off_peak_schedule": {
         "name": "Niedertarif-Zeitplan"
@@ -166,6 +175,16 @@
           "power_meter": "Stromzähler",
           "ct_3000_1": "CT 3000:1"
         }
+      },
+      "warm_up_after_full_charge": {
+        "name": "Aufwärmen nach Volladung",
+        "state": {
+          "disabled": "Deaktiviert",
+          "enabled": "Aktiviert"
+        }
+      },
+      "delayed_charging_time": {
+        "name": "Verzögerte Ladezeit"
       }
     }
   }
