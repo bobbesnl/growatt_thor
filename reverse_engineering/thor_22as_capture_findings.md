@@ -232,7 +232,7 @@ id=346&connectorId=1&chargemode=3&plugtime=2025-08-24 11:47:21&unplugtime=2025-0
 | `plugtime` | Cable connected time | Last Session Plug Time | 2.2.16 | observed, implemented |
 | `unplugtime` | Cable disconnected time | Last Session Unplug Time | 2.2.16 | observed, implemented |
 | `starttime` | Charging start time | Last Session Start | 2.2.16 | observed, implemented |
-| `endtime` | Charging end time | Last Session End | 2.2.16 | observed, implemented |
+| `endtime` | Session end time; on a naturally completed charge this matched `unplugtime`, not the earlier zero-power transition | Last Session End | 2.2.16 | observed, implemented |
 | `costenergy` | Energy in Wh; integration divides by 1000 for kWh | Last Session Energy and CSV | 2.2.16 | observed, inferred, implemented |
 | `costmoney` | Currency minor unit; integration divides by 100 | Last Session Cost and CSV | 2.2.16 | observed, inferred, implemented |
 | `transactionId` | OCPP transaction ID assigned by the central system | Last Session Transaction ID and CSV | 2.2.16 | observed, implemented |
@@ -264,6 +264,29 @@ periodic sample was `411 Wh`; the completed example used `meterStop=412` and
 Assistant last-session sensor. The charger sent `currentrecord` immediately
 after returning to `Available`; it did not send a `frozenrecord` for this
 completion.
+
+A full charge that ended while the cable remained connected produced a distinct
+intermediate state. Periodic meter values stopped increasing at `8203 Wh` and
+continued with zero current and power before the charger reported
+`SuspendedEV`, `errorCode=EVCommunicationError`, and `info=ChargeWait`. The
+transaction remained open and neither `StopTransaction` nor a Growatt session
+record was sent while the cable stayed connected.
+
+Unplugging completed that same transaction:
+
+```text
+SuspendedEV -> Finishing -> StopTransaction(reason=EVDisconnected)
+-> Preparing -> DataTransfer/currentrecord -> Available
+```
+
+`StopTransaction.meterStop` and `currentrecord.costenergy` both contained
+`8203`, and the transaction ID remained `1`. The Growatt record used the unplug
+timestamp for both `endtime` and `unplugtime`, about three minutes after the
+charger first entered `SuspendedEV`. Consumers must therefore not interpret
+`currentrecord.endtime` as the exact point at which charging power reached zero.
+The completed session was correlated with the local OCPP transaction, assigned
+the `home_assistant` source and a stable `ha-` session ID, exported after the
+legacy CSV migration, and restored unchanged after a Home Assistant restart.
 
 ### Negative result: `getChargerConfigInfo`
 
