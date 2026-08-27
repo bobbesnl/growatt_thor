@@ -144,9 +144,9 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
         super().__init__(coordinator, entry, "load_balancing_limit")
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
-            "name": "Growatt THOR Load balancing",
+            "name": "Growatt THOR External Meter",
             "manufacturer": "Growatt",
-            "model": "THOR Load balancing",
+            "model": "THOR External Meter",
         }
 
     @property

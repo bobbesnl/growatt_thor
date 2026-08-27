@@ -63,5 +63,77 @@
         "3": "Einstecken und laden"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "server_url": { "name": "Server-URL" },
+      "status": {
+        "name": "Status",
+        "state": {
+          "available": "Verfügbar",
+          "preparing": "Vorbereitung",
+          "charging": "Lädt",
+          "suspended_evse": "Durch Ladestation pausiert",
+          "suspended_ev": "Durch Fahrzeug pausiert",
+          "finishing": "Abschluss",
+          "reserved": "Reserviert",
+          "unavailable": "Nicht verfügbar",
+          "faulted": "Störung",
+          "idle": "Leerlauf"
+        }
+      },
+      "charge_point_id": { "name": "Ladepunkt-ID" },
+      "charging_power": { "name": "Ladeleistung" },
+      "energy_charged": { "name": "Geladene Energie" },
+      "total_energy_charged": { "name": "Gesamte Ladeenergie" },
+      "electricity_price": { "name": "Strompreis" },
+      "last_session_energy": { "name": "Energie der letzten Sitzung" },
+      "last_session_cost": { "name": "Kosten der letzten Sitzung" },
+      "last_session_duration": { "name": "Dauer der letzten Sitzung" },
+      "last_session_start": { "name": "Start der letzten Sitzung" },
+      "last_session_end": { "name": "Ende der letzten Sitzung" },
+      "last_session_plug_time": { "name": "Einsteckzeit der letzten Sitzung" },
+      "last_session_unplug_time": { "name": "Aussteckzeit der letzten Sitzung" },
+      "last_session_transaction_id": { "name": "Transaktions-ID der letzten Sitzung" },
+      "last_session_charge_mode": { "name": "Lademodus der letzten Sitzung" },
+      "last_session_work_mode": { "name": "Betriebsmodus der letzten Sitzung" },
+      "current": { "name": "Strom {phase}" },
+      "voltage": { "name": "Spannung {phase}" },
+      "phase_power": { "name": "Leistung {phase}" },
+      "temperature": { "name": "Temperatur" },
+      "grid_power": { "name": "Netzleistung" },
+      "grid_voltage": { "name": "Netzspannung {phase}" },
+      "grid_current": { "name": "Netzstrom {phase}" },
+      "working_mode": {
+        "name": "Betriebsmodus",
+        "state": {
+          "fast": "Schnellladen",
+          "pv_linkage": "PV-Kopplung",
+          "off_peak": "Niedertarif"
+        }
+      },
+      "charger_mode": {
+        "name": "Autorisierungsmodus",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Nur RFID",
+          "plug_and_charge": "Einstecken und laden"
+        }
+      },
+      "power_meter_type": {
+        "name": "Zählertyp"
+      },
+      "power_meter_address": {
+        "name": "Zähleradresse"
+      },
+      "external_sampling_wiring": {
+        "name": "Externe Messmethode",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Stromzähler",
+          "ct_3000_1": "CT 3000:1"
+        }
+      }
+    }
   }
 }

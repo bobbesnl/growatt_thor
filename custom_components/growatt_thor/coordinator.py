@@ -7,6 +7,11 @@ import asyncio
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.storage import Store
 
+from .configuration import (
+    ConfigurationValue,
+    merge_configuration_values,
+    normalize_unknown_configuration_keys,
+)
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -58,6 +63,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         # ── Electricity price ──────────────
         self.electricity_price = None  # EUR/kWh (parsed from GTimeSharingPrice)
+
+        # Last-known raw and normalized GetConfiguration values.
+        self.configuration_values: dict[str, ConfigurationValue] = {}
+        self.unknown_configuration_keys: tuple[str, ...] = ()
 
         # ── Last session ─────────────────
         self.last_session_energy = None           # kWh
@@ -370,11 +379,21 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # GetConfiguration verwerking
     # ─────────────────────────────
 
-    def process_configuration(self, configuration: list):
+    def process_configuration(self, configuration: list, unknown_keys=()):
         """Process GetConfiguration response with TIER 1 error handling."""
-        updated = False
+        self.configuration_values, updated = merge_configuration_values(
+            self.configuration_values,
+            (item for item in configuration if isinstance(item, dict)),
+        )
+
+        normalized_unknown_keys = normalize_unknown_configuration_keys(unknown_keys)
+        if self.unknown_configuration_keys != normalized_unknown_keys:
+            self.unknown_configuration_keys = normalized_unknown_keys
+            updated = True
 
         for item in configuration:
+            if not isinstance(item, dict):
+                continue
             key = item.get("key")
             raw = item.get("value")
 

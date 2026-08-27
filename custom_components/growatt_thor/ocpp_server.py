@@ -16,6 +16,12 @@ from ocpp.v16.enums import (
 
 from ocpp.routing import on
 
+from .configuration import (
+    INFORMATIONAL_CONFIGURATION_KEYS,
+    OPERATIONAL_CONFIGURATION_KEYS,
+    normalize_unknown_configuration_keys,
+    redact_configuration_value,
+)
 from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -308,25 +314,7 @@ class GrowattChargePoint(OcppChargePoint):
             # compatible with all THOR firmware variants (incl. 07AS)
             # ═══════════════════════════════════════════════════════
 
-            operational_keys = [
-                # Processed by coordinator
-                "G_MaxCurrent",
-                "G_ExternalLimitPower",
-                "G_ExternalLimitPowerEnable",
-                "G_ChargerMode",
-                "G_ServerURL",
-                "G_AutoChargeTime",
-                "G_LCDCloseEnable",
-                # Essential OCPP / diagnostics
-                "HeartbeatInterval",
-                "MeterValueSampleInterval",
-                "MeterValuesSampledData",
-                "UnlockConnectorOnEVSideDisconnect",
-                "ElectricityMeterOnline",
-                "G_WebSocketPingInterval",
-                # Price setting
-                "G_TimeSharingPrice",
-            ]
+            operational_keys = list(OPERATIONAL_CONFIGURATION_KEYS)
 
             _LOGGER.info("Triggering GetConfiguration CALL 1 (operational keys: %d)", len(operational_keys))
             result1 = await asyncio.wait_for(
@@ -354,27 +342,7 @@ class GrowattChargePoint(OcppChargePoint):
 
             await asyncio.sleep(0.5)
 
-            informational_keys = [
-                # Device identity
-                "G_ChargerID", "G_ChargerRate", "G_ChargerLanguage",
-                # Network
-                "G_ChargerNetIP", "G_ChargerNetDNS", "G_ChargerNetMask",
-                "G_ChargerNetMac", "G_ChargerNetGateway", "G_NetworkMode", "G_WifiSSID",
-                # Hardware limits
-                "G_MaxTemperature", "G_RCDProtection",
-                # Power meter
-                "G_PowerMeterAddr", "G_PowerMeterType", "G_ExternalSamplingCurWring",
-                # Time / zone
-                "G_TimeZone", "G_DaylightSavingTime",
-                # Solar
-                "G_SolarMode", "G_SolarLimitPower", "G_SolarBoost", "G_SolarThresholdCurr",
-                # Off-peak
-                "G_PeakValleyEnable", "G_OffPeakTime", "G_OffPeakEnable", "G_OffPeakCurr",
-                # Misc
-                "G_MeterValueInterval", "G_WorkingMode",
-                "G_LowPowerReserveEnable", "G_FullContinueChargeEnable",
-                "G_RandDelayChargeTime",
-            ]
+            informational_keys = list(INFORMATIONAL_CONFIGURATION_KEYS)
 
             _LOGGER.info("Triggering GetConfiguration CALL 2 (informational keys: %d)", len(informational_keys))
             result2 = await asyncio.wait_for(
@@ -398,7 +366,9 @@ class GrowattChargePoint(OcppChargePoint):
             # ═══════════════════════════════════════════════════════
 
             all_config_keys = config_keys_1 + config_keys_2
-            all_unknown_keys = list(set(unknown_keys_1 + unknown_keys_2))
+            all_unknown_keys = normalize_unknown_configuration_keys(
+                unknown_keys_1 + unknown_keys_2
+            )
             _LOGGER.info("Total received: %d keys (%d unknown)", len(all_config_keys), len(all_unknown_keys))
 
             for item in all_config_keys:
@@ -409,13 +379,21 @@ class GrowattChargePoint(OcppChargePoint):
                 key = item.get("key")
                 value = item.get("value")
                 readonly = item.get("readonly")
-                _LOGGER.debug("Config key: %s = %s (readonly=%s)", key, value, readonly)
+                _LOGGER.debug(
+                    "Config key: %s = %s (readonly=%s)",
+                    key,
+                    redact_configuration_value(key, value),
+                    readonly,
+                )
 
             if all_unknown_keys:
                 _LOGGER.info("Unknown keys: %s", ", ".join(str(k) for k in all_unknown_keys))
 
-            if all_config_keys:
-                self.coordinator.process_configuration(all_config_keys)
+            if all_config_keys or all_unknown_keys:
+                self.coordinator.process_configuration(
+                    all_config_keys,
+                    all_unknown_keys,
+                )
             else:
                 _LOGGER.warning("GetConfiguration returned no usable configuration keys")
 
@@ -432,13 +410,23 @@ class GrowattChargePoint(OcppChargePoint):
 
     async def change_configuration(self, key: str, value: str):
         try:
-            _LOGGER.info("ChangeConfiguration: %s = %s", key, value)
+            _LOGGER.info(
+                "ChangeConfiguration: %s = %s",
+                key,
+                redact_configuration_value(key, value),
+            )
             result = await self.call(call.ChangeConfiguration(key=key, value=value))
             status = getattr(result, "status", ConfigurationStatus.rejected)
             _LOGGER.info("ChangeConfiguration result: %s", status)
             return status
         except Exception as exc:
-            _LOGGER.error("Failed to change configuration %s=%s: %s", key, value, exc, exc_info=True)
+            _LOGGER.error(
+                "Failed to change configuration %s=%s: %s",
+                key,
+                redact_configuration_value(key, value),
+                exc,
+                exc_info=True,
+            )
             return ConfigurationStatus.rejected
 
     # ─────────────────────────────

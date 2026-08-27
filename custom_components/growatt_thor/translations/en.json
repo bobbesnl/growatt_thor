@@ -63,5 +63,77 @@
         "3": "Plug & charge"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "server_url": { "name": "Server URL" },
+      "status": {
+        "name": "Status",
+        "state": {
+          "available": "Available",
+          "preparing": "Preparing",
+          "charging": "Charging",
+          "suspended_evse": "Suspended by charger",
+          "suspended_ev": "Suspended by vehicle",
+          "finishing": "Finishing",
+          "reserved": "Reserved",
+          "unavailable": "Unavailable",
+          "faulted": "Faulted",
+          "idle": "Idle"
+        }
+      },
+      "charge_point_id": { "name": "Charge Point ID" },
+      "charging_power": { "name": "Charging Power" },
+      "energy_charged": { "name": "Energy Charged" },
+      "total_energy_charged": { "name": "Total Energy Charged" },
+      "electricity_price": { "name": "Electricity Price" },
+      "last_session_energy": { "name": "Last Session Energy" },
+      "last_session_cost": { "name": "Last Session Cost" },
+      "last_session_duration": { "name": "Last Session Duration" },
+      "last_session_start": { "name": "Last Session Start" },
+      "last_session_end": { "name": "Last Session End" },
+      "last_session_plug_time": { "name": "Last Session Plug Time" },
+      "last_session_unplug_time": { "name": "Last Session Unplug Time" },
+      "last_session_transaction_id": { "name": "Last Session Transaction ID" },
+      "last_session_charge_mode": { "name": "Last Session Charge Mode" },
+      "last_session_work_mode": { "name": "Last Session Work Mode" },
+      "current": { "name": "Current {phase}" },
+      "voltage": { "name": "Voltage {phase}" },
+      "phase_power": { "name": "Power {phase}" },
+      "temperature": { "name": "Temperature" },
+      "grid_power": { "name": "Grid power" },
+      "grid_voltage": { "name": "Grid voltage {phase}" },
+      "grid_current": { "name": "Grid current {phase}" },
+      "working_mode": {
+        "name": "Working mode",
+        "state": {
+          "fast": "Fast",
+          "pv_linkage": "PV Linkage",
+          "off_peak": "Off-Peak"
+        }
+      },
+      "charger_mode": {
+        "name": "Authorization mode",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "RFID only",
+          "plug_and_charge": "Plug & charge"
+        }
+      },
+      "power_meter_type": {
+        "name": "Power meter type"
+      },
+      "power_meter_address": {
+        "name": "Power meter address"
+      },
+      "external_sampling_wiring": {
+        "name": "External sampling method",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Power meter",
+          "ct_3000_1": "CT 3000:1"
+        }
+      }
+    }
   }
 }
