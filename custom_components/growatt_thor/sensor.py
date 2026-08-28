@@ -194,9 +194,11 @@ class BaseExternalMeterSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        if not self.coordinator.external_limit_power_enable:
-            return {"note": "Only sensor data when Load balancing is enabled"}
-        return None
+        return {
+            "vendor_used": self.coordinator.external_meter_used,
+            "vendor_wring": self.coordinator.external_meter_wring,
+            "last_updated_at": self.coordinator.external_meter_last_updated_at,
+        }
 
 
 # ─────────────────────────────
@@ -291,6 +293,24 @@ class StatusSensor(BaseSensor):
     @property
     def native_value(self):
         return normalize_ocpp_status(self.coordinator.status)
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self.coordinator.connected
+            and self.coordinator.status is not None
+        )
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "connected": self.coordinator.connected,
+            "connection_started_at": self.coordinator.connection_started_at,
+            "last_message_at": self.coordinator.last_message_at,
+            "last_message_action": self.coordinator.last_message_action,
+            "last_heartbeat_at": self.coordinator.last_heartbeat_at,
+        }
 
 
 # ─────────────────────────────
@@ -694,7 +714,15 @@ class GridPowerSensor(BaseExternalMeterSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.grid_power if self.coordinator.grid_power is not None else 0
+        return self.coordinator.grid_power
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self.coordinator.connected
+            and self.coordinator.grid_power is not None
+        )
 
 
 class GridVoltageSensor(BaseExternalMeterSensor):
@@ -714,8 +742,15 @@ class GridVoltageSensor(BaseExternalMeterSensor):
 
     @property
     def native_value(self):
-        value = self.coordinator.grid_voltages.get(self.phase)
-        return value if value is not None else 0
+        return self.coordinator.grid_voltages.get(self.phase)
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self.coordinator.connected
+            and self.native_value is not None
+        )
 
 
 class GridCurrentSensor(BaseExternalMeterSensor):
@@ -735,5 +770,12 @@ class GridCurrentSensor(BaseExternalMeterSensor):
 
     @property
     def native_value(self):
-        value = self.coordinator.grid_currents.get(self.phase)
-        return value if value is not None else 0
+        return self.coordinator.grid_currents.get(self.phase)
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self.coordinator.connected
+            and self.native_value is not None
+        )

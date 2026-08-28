@@ -6,6 +6,7 @@ from websockets.server import serve
 
 from ocpp.v16 import ChargePoint as OcppChargePoint
 from ocpp.v16 import call_result, call
+from ocpp.messages import unpack
 from ocpp.v16.enums import (
     RegistrationStatus,
     AuthorizationStatus,
@@ -21,6 +22,11 @@ from .configuration import (
     OPERATIONAL_CONFIGURATION_KEYS,
     normalize_unknown_configuration_keys,
     redact_configuration_value,
+)
+from .connection import (
+    CONNECTION_WATCHDOG_INTERVAL_SECONDS,
+    OCPP_HEARTBEAT_INTERVAL_SECONDS,
+    OcppConnectionActivity,
 )
 from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
 
@@ -64,6 +70,9 @@ class GrowattChargePoint(OcppChargePoint):
 
         self.coordinator = coordinator
         self.hass = hass
+        self._cp_id = cp_id
+        self._websocket = websocket
+        self._activity = OcppConnectionActivity(hass.loop.time())
         self._transaction_id = 1
 
         hass.data.setdefault(DOMAIN, {})
@@ -71,6 +80,79 @@ class GrowattChargePoint(OcppChargePoint):
 
         self.coordinator.set_charge_point(cp_id)
         _LOGGER.info("GrowattChargePoint initialised for %s", cp_id)
+
+    def _is_current_connection(self):
+        """Return whether this charge point owns the active connection slot."""
+        return self.hass.data.get(DOMAIN, {}).get("charge_point") is self
+
+    def _mark_activity(self, action):
+        """Record an inbound message for the connection watchdog."""
+        self._activity.mark(self.hass.loop.time())
+        if self._is_current_connection():
+            self.coordinator.mark_connection_activity(action)
+
+    async def route_message(self, raw_msg):
+        """Track every inbound OCPP frame before routing it."""
+        action = "OCPPMessage"
+        try:
+            message = unpack(raw_msg)
+            message_action = getattr(message, "action", None)
+            if message_action is None:
+                action = type(message).__name__
+            elif hasattr(message_action, "value"):
+                action = str(message_action.value)
+            else:
+                action = str(message_action)
+        except Exception:
+            action = "InvalidOCPPMessage"
+
+        self._mark_activity(action)
+        await super().route_message(raw_msg)
+
+    async def async_watch_connection(self):
+        """Close and invalidate a connection with no inbound OCPP activity."""
+        while True:
+            await asyncio.sleep(CONNECTION_WATCHDOG_INTERVAL_SECONDS)
+
+            if not self._is_current_connection():
+                return
+
+            now_monotonic = self.hass.loop.time()
+            if not self._activity.is_stale(now_monotonic):
+                continue
+
+            idle_seconds = self._activity.idle_seconds(now_monotonic)
+            _LOGGER.warning(
+                "No OCPP activity from %s for %.0f seconds; marking disconnected",
+                self._cp_id,
+                idle_seconds,
+            )
+            self.coordinator.set_disconnected()
+
+            try:
+                await asyncio.wait_for(
+                    self._websocket.close(
+                        code=1001,
+                        reason="OCPP activity timeout",
+                    ),
+                    timeout=5.0,
+                )
+            except asyncio.TimeoutError:
+                _LOGGER.warning("Timed out closing stale OCPP connection: %s", self._cp_id)
+                transport = getattr(self._websocket, "transport", None)
+                if transport is not None:
+                    transport.close()
+            except Exception as exc:
+                _LOGGER.debug(
+                    "Failed to close stale OCPP connection %s: %s",
+                    self._cp_id,
+                    exc,
+                )
+            finally:
+                domain_data = self.hass.data.get(DOMAIN, {})
+                if domain_data.get("charge_point") is self:
+                    domain_data.pop("charge_point", None)
+            return
 
     # ─────────────────────────────
     # Boot / keepalive
@@ -83,14 +165,14 @@ class GrowattChargePoint(OcppChargePoint):
             self.hass.async_create_task(self._post_connect_init())
             return call_result.BootNotification(
                 current_time=self.coordinator.now(),
-                interval=60,
+                interval=OCPP_HEARTBEAT_INTERVAL_SECONDS,
                 status=RegistrationStatus.accepted,
             )
         except Exception as exc:
             _LOGGER.error("Error in BootNotification handler: %s", exc, exc_info=True)
             return call_result.BootNotification(
                 current_time=self.coordinator.now(),
-                interval=60,
+                interval=OCPP_HEARTBEAT_INTERVAL_SECONDS,
                 status=RegistrationStatus.accepted,
             )
 
@@ -121,11 +203,8 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.info("🔄 Auto GetConfiguration after connect")
             await self.trigger_get_configuration()
 
-            if self.coordinator.external_limit_power_enable:
-                _LOGGER.info("🔄 Auto external meterval (load balancing ON)")
-                await self.trigger_external_meterval()
-            else:
-                _LOGGER.debug("⏸️ Skip external meterval (load balancing OFF)")
+            _LOGGER.info("Fetching external meter snapshot after connect")
+            await self.trigger_external_meterval()
 
         except Exception as exc:
             _LOGGER.warning("Post-connect init failed: %s", exc)
@@ -465,6 +544,7 @@ class GrowattChargePoint(OcppChargePoint):
 # ─────────────────────────────
 
 async def _on_connect(websocket, path, coordinator, hass):
+    watchdog_task = None
     try:
         if not path.startswith(DEFAULT_PATH):
             await websocket.close()
@@ -473,6 +553,7 @@ async def _on_connect(websocket, path, coordinator, hass):
         cp_id = path.rstrip("/").split("/")[-1]
         _LOGGER.info("THOR connected: %s", cp_id)
         cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
+        watchdog_task = hass.async_create_task(cp.async_watch_connection())
         try:
             await cp.start()
         except (websockets.exceptions.ConnectionClosedError, websockets.exceptions.ConnectionClosedOK):
@@ -480,8 +561,22 @@ async def _on_connect(websocket, path, coordinator, hass):
         except Exception as exc:
             _LOGGER.error("Error in connection handler: %s", exc, exc_info=True)
         finally:
-            hass.data.get(DOMAIN, {}).pop("charge_point", None)
-            coordinator.set_status("Unavailable")
+            if watchdog_task is not None:
+                watchdog_task.cancel()
+                try:
+                    await watchdog_task
+                except asyncio.CancelledError:
+                    pass
+
+            domain_data = hass.data.get(DOMAIN, {})
+            if domain_data.get("charge_point") is cp:
+                domain_data.pop("charge_point", None)
+                coordinator.set_disconnected()
+            else:
+                _LOGGER.debug(
+                    "Ignoring disconnect cleanup for superseded connection: %s",
+                    cp_id,
+                )
             try:
                 await asyncio.wait_for(websocket.close(), timeout=5.0)
             except (asyncio.TimeoutError, Exception):
@@ -506,6 +601,8 @@ async def start_ocpp_server(host, port, coordinator, hass):
             host,
             port,
             subprotocols=[OCPP_SUBPROTOCOL],
+            # THOR uses OCPP messages for keepalive; the activity watchdog
+            # detects stale sockets without websocket-level ping futures.
             ping_interval=None,
             ping_timeout=None,
         )

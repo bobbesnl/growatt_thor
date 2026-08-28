@@ -53,6 +53,7 @@ Your feedback helps identify patterns and improve integration stability! 🙏
 
 ### 📊 Real-time Monitoring
 - **Charger status**: Idle, Preparing, Charging, Finishing, Faulted, Unavailable
+- **Connection health**: Last OCPP message and heartbeat timestamps; inactive WebSockets are disconnected after 180 seconds without inbound activity
 - **Power monitoring**: Total power and per-phase (L1, L2, L3) in Watts
 - **Current monitoring**: Current draw per phase in Amperes
 - **Voltage monitoring**: Voltage per phase
@@ -370,6 +371,7 @@ After successful connection, the integration creates the entities below. The lis
 | Power meter type | `sensor.growatt_thor_external_meter_power_meter_type` | Configured external meter model |
 | Power meter address | `sensor.growatt_thor_external_meter_power_meter_address` | Configured external Modbus address |
 | External sampling method | `sensor.growatt_thor_external_meter_external_sampling_method` | External meter or current-transformer wiring method |
+
 | Electricity Price | `sensor.growatt_thor_ev_charger_electricity_price` | Configured electricity price (EUR/kWh) |
 | Last Session Energy | `sensor.growatt_thor_ev_charger_last_session_energy` | Energy from the most recently completed session |
 | Last Session Cost | `sensor.growatt_thor_ev_charger_last_session_cost` | Cost from the most recently completed session |
@@ -381,6 +383,10 @@ After successful connection, the integration creates the entities below. The lis
 | Last Session Transaction ID | `sensor.growatt_thor_ev_charger_last_session_transaction_id` | OCPP transaction ID for the last session |
 | Last Session Charge Mode | `sensor.growatt_thor_ev_charger_last_session_charge_mode` | Growatt charging mode for the last session |
 | Last Session Work Mode | `sensor.growatt_thor_ev_charger_last_session_work_mode` | Growatt work mode for the last session |
+
+External-meter measurements are polled in every charger working mode because
+the same meter is used by load balancing and PV Linkage. A measurement remains
+unavailable until the charger returns its field in `get_external_meterval`.
 
 #### Controls
 

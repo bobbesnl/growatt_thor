@@ -51,7 +51,7 @@ Home Assistant.
 | OCPP message / vendor message | Direction | Observed example or purpose | Current Home Assistant mapping | Firmware | Status |
 |---|---|---|---|---|---|
 | `BootNotification` | CP -> CS | `chargePointVendor=Growatt`, `chargePointModel=THOR_22AS`, serial and firmware | Payload is logged; connection creates the Charge Point ID sensor | 2.2.16 | observed, implemented |
-| `Heartbeat` | CP -> CS | Periodic clock synchronization | Returns current UTC time | 2.2.16 | observed, implemented |
+| `Heartbeat` | CP -> CS | Periodic clock synchronization; Central System requests a 60-second interval in `BootNotification.conf` | Returns current UTC time and refreshes connection liveness; any inbound OCPP message also counts as activity | 2.2.16 | observed, implemented |
 | `StatusNotification` | CP -> CS | `Preparing`, `Charging`, `Finishing`; `errorCode=NoError` and an empty `info` field | Status sensor; other diagnostic fields are not retained yet | 2.2.16 | observed, implemented |
 | `StartTransaction` | CP -> CS | Starts an OCPP transaction | Resets live session values and returns a CS-generated transaction ID | 2.2.16 | implemented |
 | `MeterValues` | CP -> CS | Charging energy, current, voltage, power, and temperature | Live charging and per-phase sensors | 2.2.16 | observed, implemented |
@@ -118,6 +118,10 @@ The integration sends:
 DataTransfer(vendorId="Growatt", messageId="get_external_meterval")
 ```
 
+The request is sent after connecting and periodically in every working mode.
+The external meter supplies both load-balancing and PV-Linkage measurements;
+`G_ExternalLimitPowerEnable=0` therefore does not disable this polling.
+
 An observed response payload was:
 
 ```text
@@ -129,8 +133,8 @@ integration sends `vendorId=Growatt` and the tested charger accepts it.
 
 | Field | Interpretation | Current Home Assistant mapping | Firmware | Status |
 |---|---|---|---|---|
-| `used` | Usage/availability flag; exact semantics not confirmed | Ignored | 2.2.16 | observed, inferred |
-| `wring` | Vendor spelling; code treats `1` as three-phase and other values as one-phase | Stored internally, no entity | 2.2.16 | observed, inferred, implemented |
+| `used` | Usage/availability flag; exact semantics not confirmed | `vendor_used` sensor attribute | 2.2.16 | observed, inferred, implemented |
+| `wring` | Vendor spelling; exact semantics and relationship to `G_ExternalSamplingCurWring` are not confirmed | `vendor_wring` sensor attribute | 2.2.16 | observed, implemented |
 | `u-voltage` | L1 voltage in V | Grid voltage L1 | 2.2.16 | observed, implemented |
 | `v-voltage` | L2 voltage in V | Grid voltage L2 | 2.2.16 | observed, implemented |
 | `w-voltage` | L3 voltage in V | Grid voltage L3 | 2.2.16 | observed, implemented |
