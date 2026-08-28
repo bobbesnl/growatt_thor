@@ -7,24 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## 🎉 [Version number] - yyyy-mm-dd
 
 ### Added
-- **Structured charger configuration registry**: Preserve every returned OCPP and Growatt configuration value with its raw and parsed value, charger-provided read-only flag, type metadata, and enum label. Unknown keys are retained instead of being discarded after logging.
-- **Redacted configuration diagnostics**: Include the retained configuration snapshot, unknown keys, and requested key groups in Home Assistant diagnostics while redacting sensitive and unclassified values.
-- **Read-only configuration entities**: Show the charger working and authorization modes plus external meter type, address, and sampling method. Enum states are translated in English, German, and Dutch.
-- **OCPP message diagnostics**: Retain the complete latest `BootNotification` and `StatusNotification` requests plus active and last-completed transaction metadata. Home Assistant diagnostics keep firmware, model, error fields, meter readings, timestamps, stop reasons, and vendor extensions while redacting personal device and authorization identifiers.
+- **Structured charger configuration registry**: Preserve every returned OCPP and Growatt configuration value with its raw and parsed value, charger-provided read-only flag, type metadata, and enum label. Unknown keys are retained instead of being discarded after logging. (PR #42)
+- **Redacted configuration diagnostics**: Include the retained configuration snapshot, unknown keys, and requested key groups in Home Assistant diagnostics while redacting sensitive and unclassified values. (PR #42)
+- **Read-only configuration entities**: Add five diagnostic sensors — Working Mode, Authorization Mode, Power Meter Type, Power Meter Address, and External Sampling Method — sourced from the retained configuration registry. Enum states are translated in English, German, and Dutch. (PR #42)
+- **Connection health on the status sensor**: The Status sensor now exposes connected, connection_started_at, last_message_at, last_message_action, and last_heartbeat_at as attributes, and uses a translated enum state (Available, Preparing, Charging, Suspended by charger/vehicle, Finishing, Reserved, Unavailable, Faulted, Idle) in English, German, and Dutch. (PR #42, extended in #44)
+- **OCPP connection liveness tracking**: Track inbound OCPP activity independently from the last reported charger status, and close the local WebSocket after 180 seconds without any OCPP message (Heartbeat or otherwise). Connection and heartbeat timestamps are included in diagnostics. (PR #44)
+- **External meter diagnostic attributes**: Retain Growatt's raw used and wring fields from get_external_meterval and expose them as vendor_used/vendor_wring attributes on the Grid Power sensor, alongside a last_updated_at timestamp. (PR #44)
+- **OCPP boot, status, and transaction diagnostics**: Retain the latest complete BootNotification and StatusNotification requests, plus active and last-completed Start/StopTransaction metadata, in a normalized and redacted form included in Home Assistant diagnostics. Preserves firmware, model, and serial metadata, connector IDs, meter start/stop values, stop reasons, error codes, vendor error codes, and vendor-specific fields (e.g. ChargeWait) without changing existing operational entities. (PR #45)
+- **Automatic BootNotification recovery**: Request a BootNotification via TriggerMessage once when a reconnecting charger does not send one on its own, ensuring diagnostics always have boot metadata available. (PR #45)
 
 ### Changed
-- **External meter device naming**: Rename the logical `Growatt THOR Load balancing` device to `Growatt THOR External Meter` because the measurements are shared by load balancing and PV Linkage. Existing default device metadata is migrated while user-assigned names, device identifiers, and entity IDs remain unchanged.
-- **Localized sensor names**: Replace hard-coded English names for the existing charger and external-meter sensors with Home Assistant translation keys. Sensor names and OCPP status values are available in English, German, and Dutch without changing unique IDs or existing entity IDs.
+- **External meter device naming**: Rename the logical Growatt THOR Load balancing device to Growatt THOR External Meter because the measurements are shared by load balancing and PV Linkage. Existing default device metadata is migrated in place; user-assigned names, device identifiers, and entity IDs remain unchanged. (PR #42)
+- **Localized entity names and status values**: Replace hard-coded English names on existing charger and external-meter sensors with Home Assistant translation keys, and translate OCPP status values. Available in English, German, and Dutch without changing unique IDs or existing entity IDs. (PR #41, #42)
+- **External meter polling scope**: Request get_external_meterval in every charger working mode, both on connect and periodically, instead of only while load balancing is enabled — PV Linkage now receives the same grid measurements. (PR #44)
 
 ### Fixed
-- **External sampling method**: Use the OCPP value mapping `0=CT 2000:1`, `1=PowerMeter`, and `2=CT 3000:1`. The charger web page uses a separate, shifted dropdown because it includes an additional `NULL` option.
-- **External meter polling**: Request `get_external_meterval` in every charger working mode so PV Linkage receives the same grid measurements as load balancing.
-- **External meter availability**: Keep grid power, voltage, and current unavailable until the charger returns the corresponding field instead of displaying synthetic zero values.
-- **Temperature without samples**: Report the temperature sensor as unavailable until the charger sends an actual OCPP `MeterValues` temperature sample instead of displaying an artificial `0 °C`.
-- **Inactive OCPP connections**: Track inbound OCPP activity and disconnect the local WebSocket after 180 seconds without a Heartbeat or other OCPP message. Connection and heartbeat timestamps are exposed on the status sensor and in diagnostics without replacing the last charger-reported OCPP status.
+- **External sampling method mapping**: Use the OCPP value mapping 0=CT 2000:1, 1=PowerMeter, and 2=CT 3000:1. The charger web page uses a separate, shifted dropdown because it includes an additional NULL option. (PR #42)
+- **External meter availability**: Keep grid power, voltage, and current unavailable until the charger returns the corresponding field and the connection is active, instead of displaying synthetic zero values. (PR #44)
+- **Temperature without samples**: Report the temperature sensor as unavailable until the charger sends an actual OCPP MeterValues temperature sample instead of displaying an artificial 0 °C. (PR #42)
+- **Stale connections shown as available**: The Status sensor now becomes unavailable when the OCPP connection has timed out, while diagnostics retain the last charger-reported status for troubleshooting. (PR #44)
+
+### Scope notes
+- **No new ChangeConfiguration calls or writable controls were introduced by PR #41, #42, #44, or #45.**
+- **The existing 14-key operational and 30-key informational GetConfiguration request groups remain unchanged, including the THOR firmware limit of 30 keys per request.**
+- **Diagnostics retain only the latest relevant snapshot per message type, not a full message history.**
+
+---
 
 ## [1.5.4] - 2026-06-12
 
@@ -314,8 +325,3 @@ See README.md for full documentation including a Lovelace UI export panel exampl
 - [Issue Tracker](https://github.com/bobbesnl/growatt_thor/issues)
 
 ---
-
-**Legend:**
-- 🎉 Major milestone
-- ⚠️ Important notice
-- ❗ Breaking change
