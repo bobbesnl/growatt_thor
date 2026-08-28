@@ -26,14 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **External sampling method mapping**: Use the OCPP value mapping 0=CT 2000:1, 1=PowerMeter, and 2=CT 3000:1. The charger web page uses a separate, shifted dropdown because it includes an additional NULL option. (PR #42)
-- **External meter availability: Keep grid power, voltage, and current unavailable until the charger returns the corresponding field and the connection is active, instead of displaying synthetic zero values. (PR #44)
-- **Temperature without samples: Report the temperature sensor as unavailable until the charger sends an actual OCPP MeterValues temperature sample instead of displaying an artificial 0 °C. (PR #42)
-- **Stale connections shown as available: The Status sensor now becomes unavailable when the OCPP connection has timed out, while diagnostics retain the last charger-reported status for troubleshooting. (PR #44)
+- **External meter availability**: Keep grid power, voltage, and current unavailable until the charger returns the corresponding field and the connection is active, instead of displaying synthetic zero values. (PR #44)
+- **Temperature without samples**: Report the temperature sensor as unavailable until the charger sends an actual OCPP MeterValues temperature sample instead of displaying an artificial 0 °C. (PR #42)
+- **Stale connections shown as available**: The Status sensor now becomes unavailable when the OCPP connection has timed out, while diagnostics retain the last charger-reported status for troubleshooting. (PR #44)
 
 ### Scope notes
-**No new ChangeConfiguration calls or writable controls were introduced by PR #41, #42, #44, or #45.**
-**The existing 14-key operational and 30-key informational GetConfiguration request groups remain unchanged, including the THOR firmware limit of 30 keys per request.**
-**Diagnostics retain only the latest relevant snapshot per message type, not a full message history.**
+- **No new ChangeConfiguration calls or writable controls were introduced by PR #41, #42, #44, or #45.**
+- **The existing 14-key operational and 30-key informational GetConfiguration request groups remain unchanged, including the THOR firmware limit of 30 keys per request.**
+- **Diagnostics retain only the latest relevant snapshot per message type, not a full message history.**
 
 ---
 
