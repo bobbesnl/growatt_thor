@@ -116,6 +116,25 @@ class ChargingControlDependencyTest(unittest.TestCase):
             )
         )
 
+    def test_power_meter_settings_require_power_meter_sampling(self):
+        for control in (
+            controls.ChargingControl.POWER_METER_TYPE,
+            controls.ChargingControl.POWER_METER_ADDRESS,
+        ):
+            with self.subTest(control=control.value):
+                self.assertFalse(
+                    controls.control_is_applicable(
+                        control,
+                        _values(G_ExternalSamplingCurWring="0"),
+                    )
+                )
+                self.assertTrue(
+                    controls.control_is_applicable(
+                        control,
+                        _values(G_ExternalSamplingCurWring="1"),
+                    )
+                )
+
     def test_configuration_controls_are_blocked_while_charging(self):
         self.assertEqual(
             controls.control_write_block_reason(
@@ -281,6 +300,43 @@ class ChargingControlEncodingTest(unittest.TestCase):
                 controls.ChargingControl.EXTERNAL_SAMPLING_METHOD,
                 "null",
             )
+
+    def test_power_meter_type_uses_web_ui_and_ocpp_codes(self):
+        for logical, raw in (
+            ("none", "0"),
+            ("acrel_dds1352", "1"),
+            ("acrel_dtsd1352_three", "2"),
+            ("eastron_sdm230", "3"),
+            ("eastron_sdm630_three", "4"),
+            ("eastron_sdm120_mid", "5"),
+            ("eastron_sdm72d_mid_three", "6"),
+            ("din_rail_dtsu666_mid_three", "7"),
+            ("chint_dtsu666_mid_three", "10"),
+            ("chint_ddsu666", "11"),
+        ):
+            with self.subTest(logical=logical):
+                self.assertEqual(
+                    controls.encode_control_value(
+                        controls.ChargingControl.POWER_METER_TYPE,
+                        logical,
+                    ),
+                    raw,
+                )
+
+    def test_power_meter_address_requires_valid_modbus_address(self):
+        self.assertEqual(
+            controls.encode_control_value(
+                controls.ChargingControl.POWER_METER_ADDRESS,
+                2,
+            ),
+            "2",
+        )
+        for invalid in (0, 1.5, 248):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                controls.encode_control_value(
+                    controls.ChargingControl.POWER_METER_ADDRESS,
+                    invalid,
+                )
 
     def test_compound_control_cannot_be_encoded_in_isolation(self):
         with self.assertRaises(ValueError):

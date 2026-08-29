@@ -287,6 +287,7 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         "G_PowerMeterAddr": _definition(
             "External Modbus meter address",
             data_type=ConfigurationDataType.INTEGER,
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_PowerMeterType": _definition(
@@ -303,6 +304,7 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
                 ("10", "CHINT DTSU666 MID (three-phase)"),
                 ("11", "CHINT DDSU666"),
             ),
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_ExternalSamplingCurWring": _definition(
@@ -509,6 +511,18 @@ CONFIGURATION_ENTITY_OPTIONS: Final[Mapping[str, tuple[str, ...]]] = MappingProx
             "dhcp",
             "static",
         ),
+        "G_PowerMeterType": (
+            "none",
+            "acrel_dds1352",
+            "acrel_dtsd1352_three",
+            "eastron_sdm230",
+            "eastron_sdm630_three",
+            "eastron_sdm120_mid",
+            "eastron_sdm72d_mid_three",
+            "din_rail_dtsu666_mid_three",
+            "chint_dtsu666_mid_three",
+            "chint_ddsu666",
+        ),
     }
 )
 
@@ -605,6 +619,37 @@ _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
                     "static": "static",
                     "1": "dhcp",
                     "dhcp": "dhcp",
+                }
+            ),
+            "G_PowerMeterType": MappingProxyType(
+                {
+                    "0": "none",
+                    "none": "none",
+                    "null": "none",
+                    "1": "acrel_dds1352",
+                    "acreldds1352": "acrel_dds1352",
+                    "2": "acrel_dtsd1352_three",
+                    "acreldtsd1352three": "acrel_dtsd1352_three",
+                    "acreldtsd1352threephase": "acrel_dtsd1352_three",
+                    "3": "eastron_sdm230",
+                    "eastronsdm230": "eastron_sdm230",
+                    "4": "eastron_sdm630_three",
+                    "eastronsdm630": "eastron_sdm630_three",
+                    "eastronsdm630three": "eastron_sdm630_three",
+                    "eastronsdm630threephase": "eastron_sdm630_three",
+                    "5": "eastron_sdm120_mid",
+                    "eastronsdm120mid": "eastron_sdm120_mid",
+                    "6": "eastron_sdm72d_mid_three",
+                    "eastronsdm72dmidthree": "eastron_sdm72d_mid_three",
+                    "eastronsdm72dmidthreephase": "eastron_sdm72d_mid_three",
+                    "7": "din_rail_dtsu666_mid_three",
+                    "dinraildtsu666midthree": "din_rail_dtsu666_mid_three",
+                    "dinraildtsu666midthreephase": "din_rail_dtsu666_mid_three",
+                    "10": "chint_dtsu666_mid_three",
+                    "chintdtsu666midthree": "chint_dtsu666_mid_three",
+                    "chintdtsu666midthreephase": "chint_dtsu666_mid_three",
+                    "11": "chint_ddsu666",
+                    "chintddsu666": "chint_ddsu666",
                 }
             ),
         }

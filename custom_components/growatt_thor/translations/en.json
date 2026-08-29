@@ -281,6 +281,18 @@
       },
       "power_meter_type": {
         "name": "Power meter type",
+        "state": {
+          "none": "None",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (three-phase)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (three-phase)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (three-phase)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (three-phase)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (three-phase)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
         "state_attributes": {
           "information": {
             "name": "About this setting",
@@ -363,6 +375,17 @@
       "max_current": { "name": "Maximum current" },
       "load_balancing_limit": { "name": "Load balancing limit" },
       "electricity_price": { "name": "Electricity price" },
+      "power_meter_address": {
+        "name": "Power meter address",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Modbus address of the external meter. Available only when Power meter is selected as the external sampling method and no charging transaction is active."
+            }
+          }
+        }
+      },
       "solar_grid_import_limit": {
         "name": "PV Linkage grid import allowance",
         "state_attributes": {
@@ -416,6 +439,29 @@
             "name": "About this setting",
             "state": {
               "details": "Selects direct Modbus meter measurements or a CT 2000:1/3000:1 current transformer. Available only while no charging transaction is active. Growatt calls the OCPP key 'G_ExternalSamplingCurWring', likely a vendor typo."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Power meter type",
+        "state": {
+          "none": "None",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (three-phase)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (three-phase)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (three-phase)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (three-phase)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (three-phase)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Selects the external Modbus meter model. Available only when Power meter is selected as the external sampling method and no charging transaction is active."
             }
           }
         }

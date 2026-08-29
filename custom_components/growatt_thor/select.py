@@ -36,6 +36,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         [
             WorkingModeSelect(coordinator, entry),
             ExternalSamplingMethodSelect(coordinator, entry),
+            PowerMeterTypeSelect(coordinator, entry),
             PvBoostDraftSelect(coordinator, entry),
         ]
     )
@@ -217,6 +218,52 @@ class ExternalSamplingMethodSelect(
         self._attr_unique_id = (
             f"{entry.entry_id}_external_sampling_method_control"
         )
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
+            "name": "Growatt THOR External Meter",
+            "manufacturer": "Growatt",
+            "model": "THOR External Meter",
+        }
+
+    @property
+    def current_option(self):
+        return configuration_entity_state(
+            self._configuration_key,
+            self._configuration_value,
+        )
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self._control_available
+            and self.current_option is not None
+        )
+
+    async def async_select_option(self, option: str) -> None:
+        await self._async_write_configuration(
+            encode_control_value(self._control, option)
+        )
+
+
+class PowerMeterTypeSelect(
+    GrowattConfigurationControlMixin,
+    CoordinatorEntity,
+    SelectEntity,
+):
+    """Select the Modbus meter model reported through OCPP."""
+
+    _control = ChargingControl.POWER_METER_TYPE
+    _attr_has_entity_name = True
+    _attr_translation_key = "power_meter_type"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:counter"
+    _attr_options = list(CONFIGURATION_ENTITY_OPTIONS["G_PowerMeterType"])
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator)
+        self.hass = coordinator.hass
+        self._attr_unique_id = f"{entry.entry_id}_power_meter_type_control"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
             "name": "Growatt THOR External Meter",

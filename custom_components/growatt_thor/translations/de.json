@@ -281,6 +281,18 @@
       },
       "power_meter_type": {
         "name": "Zählertyp",
+        "state": {
+          "none": "Kein Zähler",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (dreiphasig)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (dreiphasig)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (dreiphasig)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (dreiphasig)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (dreiphasig)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
         "state_attributes": {
           "information": {
             "name": "Über diese Einstellung",
@@ -363,6 +375,17 @@
       "max_current": { "name": "Maximaler Ladestrom" },
       "load_balancing_limit": { "name": "Lastausgleichsgrenze" },
       "electricity_price": { "name": "Strompreis" },
+      "power_meter_address": {
+        "name": "Zähleradresse",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Modbus-Adresse des externen Zählers. Nur verfügbar, wenn Stromzähler als externe Messmethode gewählt ist und keine Ladetransaktion läuft."
+            }
+          }
+        }
+      },
       "solar_grid_import_limit": {
         "name": "Erlaubter Netzbezug bei PV-Kopplung",
         "state_attributes": {
@@ -416,6 +439,29 @@
             "name": "Über diese Einstellung",
             "state": {
               "details": "Wählt direkte Modbus-Zählerwerte oder einen Stromwandler mit CT 2000:1 beziehungsweise 3000:1. Nur ohne aktive Ladetransaktion verfügbar. Growatt nennt den OCPP-Schlüssel „G_ExternalSamplingCurWring“, vermutlich ein herstellerspezifischer Tippfehler."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Zählertyp",
+        "state": {
+          "none": "Kein Zähler",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (dreiphasig)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (dreiphasig)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (dreiphasig)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (dreiphasig)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (dreiphasig)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Wählt das Modell des externen Modbus-Zählers. Nur verfügbar, wenn Stromzähler als externe Messmethode gewählt ist und keine Ladetransaktion läuft."
             }
           }
         }

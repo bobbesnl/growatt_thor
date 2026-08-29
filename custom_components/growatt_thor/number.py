@@ -33,6 +33,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         MaxCurrentNumber(coordinator, entry),
         LoadBalancingLimitNumber(coordinator, entry),
         ElectricityPriceNumber(coordinator, entry),
+        PowerMeterAddressNumber(coordinator, entry),
         SolarGridImportLimitNumber(coordinator, entry),
         PvSmartBoostTargetEnergyNumber(coordinator, entry),
     ])
@@ -400,6 +401,56 @@ class SolarGridImportLimitNumber(
             self._configuration_value,
         )
         return float(value) if isinstance(value, (int, float)) else None
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self._control_available
+            and self.native_value is not None
+        )
+
+    async def async_set_native_value(self, value: float) -> None:
+        await self._async_write_configuration(
+            encode_control_value(self._control, value)
+        )
+
+
+class PowerMeterAddressNumber(
+    GrowattConfigurationControlMixin,
+    CoordinatorEntity,
+    NumberEntity,
+):
+    """Configure the Modbus address of the external power meter."""
+
+    _control = ChargingControl.POWER_METER_ADDRESS
+    _attr_has_entity_name = True
+    _attr_translation_key = "power_meter_address"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_native_mode = NumberMode.BOX
+    _attr_native_min_value = 1
+    _attr_native_max_value = 247
+    _attr_native_step = 1
+    _attr_icon = "mdi:numeric"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator)
+        self.hass = coordinator.hass
+        self._attr_unique_id = f"{entry.entry_id}_power_meter_address_control"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
+            "name": "Growatt THOR External Meter",
+            "manufacturer": "Growatt",
+            "model": "THOR External Meter",
+        }
+
+    @property
+    def native_value(self):
+        value = configuration_entity_state(
+            self._configuration_key,
+            self._configuration_value,
+        )
+        return int(value) if isinstance(value, (int, float)) else None
 
     @property
     def available(self):

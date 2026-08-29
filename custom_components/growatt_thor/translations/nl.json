@@ -281,6 +281,18 @@
       },
       "power_meter_type": {
         "name": "Energiemetertype",
+        "state": {
+          "none": "Geen meter",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (driefasig)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (driefasig)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (driefasig)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (driefasig)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (driefasig)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
@@ -363,6 +375,17 @@
       "max_current": { "name": "Maximale laadstroom" },
       "load_balancing_limit": { "name": "Limiet voor load balancing" },
       "electricity_price": { "name": "Elektriciteitsprijs" },
+      "power_meter_address": {
+        "name": "Energiemeteradres",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Modbus-adres van de externe meter. Alleen beschikbaar wanneer Energiemeter als externe meetmethode is gekozen en er geen laadtransactie actief is."
+            }
+          }
+        }
+      },
       "solar_grid_import_limit": {
         "name": "Toegestane netafname bij PV-koppeling",
         "state_attributes": {
@@ -416,6 +439,29 @@
             "name": "Over deze instelling",
             "state": {
               "details": "Selecteert directe Modbus-metingen of een CT 2000:1/3000:1-stroomtransformator. Alleen beschikbaar zonder actieve laadtransactie. Growatt noemt de OCPP-sleutel 'G_ExternalSamplingCurWring', waarschijnlijk een typefout van de fabrikant."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Energiemetertype",
+        "state": {
+          "none": "Geen meter",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (driefasig)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (driefasig)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (driefasig)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (driefasig)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (driefasig)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Selecteert het model van de externe Modbus-meter. Alleen beschikbaar wanneer Energiemeter als externe meetmethode is gekozen en er geen laadtransactie actief is."
             }
           }
         }

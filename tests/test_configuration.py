@@ -379,14 +379,26 @@ class ConfigurationEntityStateTest(unittest.TestCase):
                 self.assertEqual(value.parsed_value, parsed_value)
                 self.assertEqual(value.definition.unit, unit)
 
-    def test_plain_meter_values_keep_their_parsed_type(self):
-        self.assertEqual(
-            configuration.configuration_entity_state(
-                "G_PowerMeterType",
-                self._value("G_PowerMeterType", "Eastron SDM630"),
-            ),
-            "Eastron SDM630",
-        )
+    def test_power_meter_type_values(self):
+        for raw_value, expected in (
+            ("0", "none"),
+            ("1", "acrel_dds1352"),
+            ("Acrel DTSD1352(Three)", "acrel_dtsd1352_three"),
+            ("Eastron SDM630", "eastron_sdm630_three"),
+            ("Eastron SDM72D MID (three-phase)", "eastron_sdm72d_mid_three"),
+            ("CHINT DTSU666 MID(Three)", "chint_dtsu666_mid_three"),
+            ("CHINT DDSU666", "chint_ddsu666"),
+        ):
+            with self.subTest(raw_value=raw_value):
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        "G_PowerMeterType",
+                        self._value("G_PowerMeterType", raw_value),
+                    ),
+                    expected,
+                )
+
+    def test_power_meter_address_keeps_its_parsed_type(self):
         self.assertEqual(
             configuration.configuration_entity_state(
                 "G_PowerMeterAddr",
@@ -477,6 +489,7 @@ class EntityTranslationTest(unittest.TestCase):
             "reported_external_sampling_method": "G_ExternalSamplingCurWring",
             "warm_up_after_full_charge": "G_FullContinueChargeEnable",
             "network_mode": "G_NetworkMode",
+            "power_meter_type": "G_PowerMeterType",
         }
         session_enum_entities = {
             "last_session_charge_mode": (
@@ -651,10 +664,12 @@ class EntityTranslationTest(unittest.TestCase):
                 "electricity_price",
                 "solar_grid_import_limit",
                 "pv_smart_boost_target_energy",
+                "power_meter_address",
             },
             "select": {
                 "working_mode",
                 "external_sampling_method",
+                "power_meter_type",
                 "pv_boost_mode",
             },
             "switch": {
@@ -687,7 +702,9 @@ class EntityTranslationTest(unittest.TestCase):
                 )
                 for platform, key in (
                     ("number", "solar_grid_import_limit"),
+                    ("number", "power_meter_address"),
                     ("select", "working_mode"),
+                    ("select", "power_meter_type"),
                     ("switch", "warm_up"),
                 ):
                     information = entities[platform][key]["state_attributes"][
@@ -789,6 +806,8 @@ class EntityTranslationTest(unittest.TestCase):
             "off_peak_enable_setting",
             "warm_up_after_full_charge",
             "external_sampling_wiring",
+            "power_meter_type",
+            "power_meter_address",
             "solar_boost",
         }
         self.assertEqual(

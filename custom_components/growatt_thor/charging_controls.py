@@ -42,6 +42,8 @@ class ChargingControl(str, Enum):
     WARM_UP = "warm_up"
     DELAYED_CHARGING = "delayed_charging"
     EXTERNAL_SAMPLING_METHOD = "external_sampling_method"
+    POWER_METER_TYPE = "power_meter_type"
+    POWER_METER_ADDRESS = "power_meter_address"
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +56,7 @@ class ControlDefinition:
     working_modes: frozenset[str] = frozenset()
     charger_modes: frozenset[str] = frozenset()
     solar_modes: frozenset[str] = frozenset()
+    external_sampling_methods: frozenset[str] = frozenset()
     check_reported_readonly: bool = True
 
 
@@ -134,6 +137,16 @@ CONTROL_DEFINITIONS: Final[Mapping[ChargingControl, ControlDefinition]] = (
                 ControlCapability.WRITABLE,
                 "G_ExternalSamplingCurWring",
             ),
+            ChargingControl.POWER_METER_TYPE: ControlDefinition(
+                ControlCapability.WRITABLE,
+                "G_PowerMeterType",
+                external_sampling_methods=frozenset({"power_meter"}),
+            ),
+            ChargingControl.POWER_METER_ADDRESS: ControlDefinition(
+                ControlCapability.WRITABLE,
+                "G_PowerMeterAddr",
+                external_sampling_methods=frozenset({"power_meter"}),
+            ),
         }
     )
 )
@@ -166,6 +179,11 @@ def control_is_applicable(
     if definition.solar_modes:
         solar_mode = _state(values, "G_SolarMode")
         if solar_mode not in definition.solar_modes:
+            return False
+
+    if definition.external_sampling_methods:
+        sampling_method = _state(values, "G_ExternalSamplingCurWring")
+        if sampling_method not in definition.external_sampling_methods:
             return False
 
     return True
@@ -254,6 +272,29 @@ def encode_control_value(control: ChargingControl, value: object) -> str:
         if encoded is None:
             raise ValueError(f"Unsupported external sampling method: {value}")
         return encoded
+
+    if control == ChargingControl.POWER_METER_TYPE:
+        encoded = {
+            "none": "0",
+            "acrel_dds1352": "1",
+            "acrel_dtsd1352_three": "2",
+            "eastron_sdm230": "3",
+            "eastron_sdm630_three": "4",
+            "eastron_sdm120_mid": "5",
+            "eastron_sdm72d_mid_three": "6",
+            "din_rail_dtsu666_mid_three": "7",
+            "chint_dtsu666_mid_three": "10",
+            "chint_ddsu666": "11",
+        }.get(str(value))
+        if encoded is None:
+            raise ValueError(f"Unsupported power meter type: {value}")
+        return encoded
+
+    if control == ChargingControl.POWER_METER_ADDRESS:
+        numeric = float(value)
+        if not numeric.is_integer() or not 1 <= numeric <= 247:
+            raise ValueError("Power meter address must be an integer from 1 to 247")
+        return str(int(numeric))
 
     raise ValueError(f"No encoder is defined for {control.value}")
 
