@@ -109,7 +109,8 @@
         "state": {
           "fast": "Fast",
           "pv_linkage": "PV Linkage",
-          "off_peak": "Off-Peak"
+          "off_peak": "Off-Peak",
+          "power_distribution": "Power distribution"
         },
         "state_attributes": {
           "information": {

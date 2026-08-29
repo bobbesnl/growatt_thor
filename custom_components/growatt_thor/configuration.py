@@ -434,7 +434,12 @@ INFORMATIONAL_CONFIGURATION_KEYS: Final[tuple[str, ...]] = tuple(
 
 CONFIGURATION_ENTITY_OPTIONS: Final[Mapping[str, tuple[str, ...]]] = MappingProxyType(
     {
-        "G_WorkingMode": ("fast", "pv_linkage", "off_peak"),
+        "G_WorkingMode": (
+            "fast",
+            "pv_linkage",
+            "off_peak",
+            "power_distribution",
+        ),
         "G_ChargerMode": (
             "home_assistant_rfid",
             "rfid_only",
@@ -483,6 +488,7 @@ _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
                     "pvlinksmartboost": "pv_linkage",
                     "offpeak": "off_peak",
                     "offpeakmode": "off_peak",
+                    "powerdistribution": "power_distribution",
                 }
             ),
             "G_ChargerMode": MappingProxyType(

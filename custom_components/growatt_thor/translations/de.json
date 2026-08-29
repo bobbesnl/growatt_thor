@@ -109,7 +109,8 @@
         "state": {
           "fast": "Schnellladen",
           "pv_linkage": "PV-Kopplung",
-          "off_peak": "Niedertarif"
+          "off_peak": "Niedertarif",
+          "power_distribution": "Leistungsverteilung"
         },
         "state_attributes": {
           "information": {

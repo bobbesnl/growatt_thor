@@ -199,6 +199,7 @@ class ConfigurationEntityStateTest(unittest.TestCase):
             ("PVlink ManualBoost", "pv_linkage"),
             ("PVlink SmartBoost", "pv_linkage"),
             ("Off-Peak", "off_peak"),
+            ("Power Distribution", "power_distribution"),
         ):
             with self.subTest(raw_value=raw_value):
                 self.assertEqual(

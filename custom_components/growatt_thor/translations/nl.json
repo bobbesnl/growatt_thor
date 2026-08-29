@@ -109,7 +109,8 @@
         "state": {
           "fast": "Snel laden",
           "pv_linkage": "PV-koppeling",
-          "off_peak": "Daltarief"
+          "off_peak": "Daltarief",
+          "power_distribution": "Vermogensverdeling"
         },
         "state_attributes": {
           "information": {
