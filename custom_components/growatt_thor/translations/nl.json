@@ -320,12 +320,12 @@
       "start_charging": { "name": "Laden starten" },
       "stop_charging": { "name": "Laden stoppen" },
       "apply_pv_linkage": {
-        "name": "PV-koppeling toepassen",
+        "name": "PV-Boost-instellingen toepassen",
         "state_attributes": {
           "information": {
             "name": "Over deze actie",
             "state": {
-              "details": "Stuurt het volledige lokale Boost-concept naar de lader. Handmatige Boost stuurt het tijdvenster; Slimme Boost stuurt eindtijd en doelenergie. De actie is alleen beschikbaar voor een volledig concept, zonder actieve laadsessie en in PV-koppelingsmodus."
+              "details": "Stuurt het volledige gewijzigde PV-Boost-concept naar de lader. Handmatige Boost stuurt het tijdvenster; Slimme Boost stuurt eindtijd en doelenergie. De actie is alleen beschikbaar wanneer het concept volledig is, afwijkt van de gemelde instellingen, er geen laadsessie actief is en de lader in een PV-modus staat."
             }
           }
         }

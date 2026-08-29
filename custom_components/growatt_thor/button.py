@@ -228,6 +228,7 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
             super().available
             and self._write_block_reason is None
             and not self._validation_errors
+            and self.coordinator.pv_linkage_draft_dirty
         )
 
     @property

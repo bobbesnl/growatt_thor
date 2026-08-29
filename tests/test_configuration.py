@@ -628,6 +628,24 @@ class EntityTranslationTest(unittest.TestCase):
                     self.assertTrue(information["name"])
                     self.assertTrue(information["state"]["details"])
 
+    def test_apply_button_names_the_pv_boost_scope(self):
+        expected_names = {
+            "en": "Apply PV Boost settings",
+            "de": "PV-Boost-Einstellungen anwenden",
+            "nl": "PV-Boost-instellingen toepassen",
+        }
+        for language, expected_name in expected_names.items():
+            with self.subTest(language=language):
+                translation = json.loads(
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                self.assertEqual(
+                    translation["entity"]["button"]["apply_pv_linkage"]["name"],
+                    expected_name,
+                )
+
     def test_control_entities_do_not_use_hardcoded_names(self):
         hardcoded_names = []
         for path in CONTROL_PATHS:

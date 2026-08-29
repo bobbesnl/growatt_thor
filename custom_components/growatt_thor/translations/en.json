@@ -320,12 +320,12 @@
       "start_charging": { "name": "Start charging" },
       "stop_charging": { "name": "Stop charging" },
       "apply_pv_linkage": {
-        "name": "Apply PV Linkage settings",
+        "name": "Apply PV Boost settings",
         "state_attributes": {
           "information": {
             "name": "About this action",
             "state": {
-              "details": "Applies the complete local Boost draft to the charger. Manual Boost sends its time window; Smart Boost sends finish time and target energy. The action is available only for a complete draft while the charger is idle in PV Linkage mode."
+              "details": "Applies the complete changed PV Boost draft to the charger. Manual Boost sends its time window; Smart Boost sends finish time and target energy. The action is available only when the draft is complete, differs from the reported settings, and the charger is idle in PV Linkage mode."
             }
           }
         }

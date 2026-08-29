@@ -469,11 +469,12 @@ Growatt's naming is counterintuitive: PV Linkage allows the configured regular
 grid import, while PV Linkage+ uses only solar surplus. Manual and Smart Boost
 may still draw grid power in either PV variant.
 
-Boost settings are staged locally and sent only after Apply is pressed. Manual
-Boost requires its complete time window; Smart Boost requires both finish time
-and target energy. The period readback is shared with Off-Peak mode, so the
-integration always writes the complete applicable configuration instead of an
-isolated partial value.
+Boost settings are staged locally and sent only after Apply PV Boost settings
+is pressed. The button is available only when the complete draft differs from
+the reported configuration. Manual Boost requires its complete time window;
+Smart Boost requires both finish time and target energy. The period readback is
+shared with Off-Peak mode, so the integration always writes the complete
+applicable configuration instead of an isolated partial value.
 
 ### Entity semantics
 

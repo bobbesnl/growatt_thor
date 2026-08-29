@@ -320,12 +320,12 @@
       "start_charging": { "name": "Laden starten" },
       "stop_charging": { "name": "Laden stoppen" },
       "apply_pv_linkage": {
-        "name": "PV-Kopplung übernehmen",
+        "name": "PV-Boost-Einstellungen anwenden",
         "state_attributes": {
           "information": {
             "name": "Über diese Aktion",
             "state": {
-              "details": "Überträgt den vollständigen lokalen Boost-Entwurf an die Wallbox. Manueller Boost sendet sein Zeitfenster; Smart Boost sendet Endzeit und Zielenergie. Die Aktion ist nur bei einem vollständigen Entwurf, inaktiver Ladetransaktion und aktiver PV-Kopplung verfügbar."
+              "details": "Überträgt den vollständigen geänderten PV-Boost-Entwurf an die Wallbox. Manueller Boost sendet sein Zeitfenster; Smart Boost sendet Endzeit und Zielenergie. Die Aktion ist nur verfügbar, wenn der Entwurf vollständig ist, von den gemeldeten Einstellungen abweicht, keine Ladetransaktion aktiv ist und die Wallbox im PV-Modus arbeitet."
             }
           }
         }
