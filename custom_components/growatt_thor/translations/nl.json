@@ -90,6 +90,17 @@
       "last_session_energy": { "name": "Energie laatste sessie" },
       "last_session_cost": { "name": "Kosten laatste sessie" },
       "last_session_duration": { "name": "Duur laatste sessie" },
+      "last_session_effective_charging_duration": {
+        "name": "Effectieve laadtijd laatste sessie",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze waarde",
+            "state": {
+              "details": "Geschatte tijd met werkelijke energieoverdracht, opgebouwd uit MeterValues van de transactie boven 100 W. Bij ontbrekend vermogen worden stijgende energietellers gebruikt; lange rapportageonderbrekingen tellen niet mee. Oudere sessies blijven voor deze waarde niet beschikbaar."
+            }
+          }
+        }
+      },
       "last_session_start": { "name": "Start laatste sessie" },
       "last_session_end": { "name": "Einde laatste sessie" },
       "last_session_plug_time": { "name": "Inplugtijd laatste sessie" },

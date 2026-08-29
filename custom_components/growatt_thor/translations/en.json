@@ -90,6 +90,17 @@
       "last_session_energy": { "name": "Last Session Energy" },
       "last_session_cost": { "name": "Last Session Cost" },
       "last_session_duration": { "name": "Last Session Duration" },
+      "last_session_effective_charging_duration": {
+        "name": "Last Session Effective Charging Time",
+        "state_attributes": {
+          "information": {
+            "name": "About this value",
+            "state": {
+              "details": "Approximate time with actual energy transfer, accumulated from transaction MeterValues above 100 W. Energy-counter increases are used when power is unavailable; long reporting gaps are excluded. Historical sessions recorded before this feature remain unavailable."
+            }
+          }
+        }
+      },
       "last_session_start": { "name": "Last Session Start" },
       "last_session_end": { "name": "Last Session End" },
       "last_session_plug_time": { "name": "Last Session Plug Time" },

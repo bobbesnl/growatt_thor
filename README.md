@@ -113,6 +113,7 @@ After each completed charging session, the following data is automatically appen
 | `energy_kwh` | Energy delivered during session (kWh) |
 | `cost` | Session cost as reported by charger |
 | `duration_minutes` | Session duration in minutes |
+| `effective_charging_minutes` | MeterValues-based time with actual energy transfer; blank for historical sessions |
 | `transaction_id` | OCPP transaction ID |
 | `session_id` | Stable internal ID with an `ha-`, `ext-`, or `legacy-` prefix |
 | `session_source` | `home_assistant`, `external_or_unknown`, or `legacy_unknown` |
@@ -194,9 +195,9 @@ cards:
 Example Export Output:
 
 ```csv
-charger_id,location,start_time,end_time,energy_kwh,cost,duration_minutes,transaction_id,session_id,session_source
-XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-21 08:19:03,2026-03-21 09:42:02,3.170,0.63,83.0,1,ha-0123456789abcdef,home_assistant
-XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-22 07:05:11,2026-03-22 08:31:44,8.450,1.69,86.5,2,ext-fedcba9876543210,external_or_unknown
+charger_id,location,start_time,end_time,energy_kwh,cost,duration_minutes,transaction_id,session_id,session_source,effective_charging_minutes
+XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-21 08:19:03,2026-03-21 09:42:02,3.170,0.63,83.0,1,ha-0123456789abcdef,home_assistant,79.5
+XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-22 07:05:11,2026-03-22 08:31:44,8.450,1.69,86.5,2,ext-fedcba9876543210,external_or_unknown,
 ```
 
 ## 🛡️ Stability Features
@@ -409,6 +410,7 @@ After successful connection, the integration creates the entities below. The lis
 | Last Session Energy | `sensor.growatt_thor_ev_charger_last_session_energy` | Energy from the most recently completed session |
 | Last Session Cost | `sensor.growatt_thor_ev_charger_last_session_cost` | Cost from the most recently completed session using the Home Assistant system currency |
 | Last Session Duration | `sensor.growatt_thor_ev_charger_last_session_duration` | Duration of the most recently completed session; stored in minutes with hours suggested for display |
+| Last Session Effective Charging Time | `sensor.growatt_thor_ev_charger_last_session_effective_charging_duration` | MeterValues-based time with actual energy transfer; historical sessions remain unavailable |
 | Last Session Start | `sensor.growatt_thor_ev_charger_last_session_start` | Charging start timestamp |
 | Last Session End | `sensor.growatt_thor_ev_charger_last_session_end` | Charging end timestamp |
 | Last Session Plug Time | `sensor.growatt_thor_ev_charger_last_session_plug_time` | Cable connection timestamp |

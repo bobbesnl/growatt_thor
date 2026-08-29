@@ -68,6 +68,16 @@ async def async_get_config_entry_diagnostics(
             write["reported_raw_value"],
         )
 
+    active_transaction = (
+        dict(coordinator.active_transaction)
+        if coordinator.active_transaction is not None
+        else None
+    )
+    if active_transaction is not None:
+        active_transaction["effective_charging_duration_minutes"] = (
+            coordinator.effective_charging.effective_minutes
+        )
+
     return {
         "connection": {
             "connected": coordinator.connected,
@@ -83,7 +93,7 @@ async def async_get_config_entry_diagnostics(
                 "last_status_notification": coordinator.last_status_notification,
                 "last_meter_values": coordinator.last_meter_values,
                 "transactions": {
-                    "active": coordinator.active_transaction,
+                    "active": active_transaction,
                     "last_completed": coordinator.last_completed_transaction,
                 },
             }
@@ -101,7 +111,7 @@ async def async_get_config_entry_diagnostics(
         "sessions": {
             "active": (
                 build_unified_session(
-                    coordinator.active_transaction,
+                    active_transaction,
                     meter_values=coordinator.last_meter_values,
                     session_records=session_records,
                     charge_point_id=coordinator.charge_point_id,

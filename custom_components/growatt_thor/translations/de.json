@@ -90,6 +90,17 @@
       "last_session_energy": { "name": "Energie der letzten Sitzung" },
       "last_session_cost": { "name": "Kosten der letzten Sitzung" },
       "last_session_duration": { "name": "Dauer der letzten Sitzung" },
+      "last_session_effective_charging_duration": {
+        "name": "Effektive Ladezeit der letzten Sitzung",
+        "state_attributes": {
+          "information": {
+            "name": "Über diesen Wert",
+            "state": {
+              "details": "Näherungsweise Zeit mit tatsächlichem Energiefluss, ermittelt aus den MeterValues der Transaktion oberhalb von 100 W. Fehlt die Leistung, werden steigende Energiezähler verwendet; lange Meldelücken zählen nicht mit. Frühere Sitzungen bleiben für diesen Wert nicht verfügbar."
+            }
+          }
+        }
+      },
       "last_session_start": { "name": "Start der letzten Sitzung" },
       "last_session_end": { "name": "Ende der letzten Sitzung" },
       "last_session_plug_time": { "name": "Einsteckzeit der letzten Sitzung" },

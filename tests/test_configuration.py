@@ -406,6 +406,7 @@ class EntityTranslationTest(unittest.TestCase):
             "last_session_energy",
             "last_session_cost",
             "last_session_duration",
+            "last_session_effective_charging_duration",
             "last_session_start",
             "last_session_end",
             "last_session_plug_time",

@@ -26,6 +26,7 @@ SESSION_LOG_HEADERS = [
     "transaction_id",
     "session_id",
     "session_source",
+    "effective_charging_minutes",
 ]
 SESSION_EXPORT_HEADERS = [
     "charger_id",
@@ -38,6 +39,7 @@ SESSION_EXPORT_HEADERS = [
     "transaction_id",
     "session_id",
     "session_source",
+    "effective_charging_minutes",
 ]
 
 

@@ -7,6 +7,7 @@ import asyncio
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.storage import Store
 
+from .charging_duration import EffectiveChargingTracker
 from .charging_sessions import CORRELATION_MATCHED, build_unified_session
 from .charging_controls import transaction_state_is_active
 from .configuration import (
@@ -71,6 +72,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_completed_transaction = None
         self.last_current_record = None
         self.last_frozen_record = None
+        self.effective_charging = EffectiveChargingTracker()
+        self._pending_effective_charging_minutes: dict[str, float] = {}
 
         # ── Totaal ─────────────────────────
         self.power = None        # W
@@ -123,7 +126,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_session_end = None              # str
         self.last_session_plug_time = None        # str
         self.last_session_unplug_time = None      # str
-        self.last_session_duration_minutes = None # float
+        self.last_session_duration_minutes = None  # float
+        self.last_session_effective_charging_minutes = None  # float
         self.last_session_id = None               # str
         self.last_session_source = None           # str
         self.last_session_transaction_id = None   # str
@@ -167,6 +171,18 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self._restore_last_session_state(
                 LastSessionState.from_dict(data.get("last_session"))
             )
+            self.effective_charging = EffectiveChargingTracker.from_dict(
+                data.get("active_effective_charging")
+            )
+            pending_effective = data.get("pending_effective_charging_minutes")
+            if isinstance(pending_effective, dict):
+                for key, value in pending_effective.items():
+                    try:
+                        self._pending_effective_charging_minutes[str(key)] = float(
+                            value
+                        )
+                    except (TypeError, ValueError):
+                        continue
             _LOGGER.info(
                 "📦 Loaded from storage: total_energy_charged=%.3f kWh, "
                 "next_transaction_id=%d, last_session_transaction_id=%s",
@@ -179,21 +195,29 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     async def async_save_storage(self):
         """Save persistent statistics to HA storage."""
-        await self._store.async_save(
-            {
-                "total_energy_charged": self.total_energy_charged,
-                "next_transaction_id": (
-                    self._transaction_id_allocator.next_transaction_id
-                ),
-                "last_session": self._last_session_state().as_dict(),
-            }
-        )
+        await self._store.async_save(self._storage_data())
         _LOGGER.debug(
             "💾 Saved to storage: total_energy_charged=%.3f kWh, "
             "next_transaction_id=%d",
             self.total_energy_charged,
             self._transaction_id_allocator.next_transaction_id,
         )
+
+    def _storage_data(self) -> dict[str, object]:
+        """Build the current JSON-safe persistent payload."""
+        return {
+            "total_energy_charged": self.total_energy_charged,
+            "next_transaction_id": self._transaction_id_allocator.next_transaction_id,
+            "last_session": self._last_session_state().as_dict(),
+            "active_effective_charging": self.effective_charging.as_dict(),
+            "pending_effective_charging_minutes": dict(
+                self._pending_effective_charging_minutes
+            ),
+        }
+
+    def _schedule_storage_save(self) -> None:
+        """Coalesce frequent MeterValues persistence into one delayed write."""
+        self._store.async_delay_save(self._storage_data, 60)
 
     async def async_allocate_transaction_id(self) -> int:
         """Allocate and persist the next local OCPP transaction ID."""
@@ -216,6 +240,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
             plug_time=self.last_session_plug_time,
             unplug_time=self.last_session_unplug_time,
             duration_minutes=self.last_session_duration_minutes,
+            effective_charging_minutes=(
+                self.last_session_effective_charging_minutes
+            ),
             session_id=self.last_session_id,
             session_source=self.last_session_source,
             transaction_id=self.last_session_transaction_id,
@@ -233,6 +260,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_session_plug_time = state.plug_time
         self.last_session_unplug_time = state.unplug_time
         self.last_session_duration_minutes = state.duration_minutes
+        self.last_session_effective_charging_minutes = (
+            state.effective_charging_minutes
+        )
         self.last_session_id = state.session_id
         self.last_session_source = state.session_source
         self.last_session_transaction_id = state.transaction_id
@@ -554,6 +584,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         start_snapshot = create_ocpp_snapshot(self.now(), request)
         start_snapshot["response"] = {"transaction_id": transaction_id}
         self.active_transaction = {"start": start_snapshot}
+        self.effective_charging.start(transaction_id)
+        self._schedule_storage_save()
 
         _LOGGER.info("🔋 New transaction started → Resetting energy counter")
         self.energy = 0
@@ -587,6 +619,23 @@ class GrowattCoordinator(DataUpdateCoordinator):
         }
         completed = dict(self.active_transaction or {})
         completed["stop"] = create_ocpp_snapshot(self.now(), request)
+        effective_minutes = None
+        normalized_transaction_id = (
+            str(stopped_transaction_id)
+            if stopped_transaction_id is not None
+            else None
+        )
+        if self.effective_charging.transaction_id == normalized_transaction_id:
+            effective_minutes = self.effective_charging.effective_minutes
+        completed["effective_charging_duration_minutes"] = effective_minutes
+        if normalized_transaction_id is not None and effective_minutes is not None:
+            self._pending_effective_charging_minutes[normalized_transaction_id] = (
+                effective_minutes
+            )
+            while len(self._pending_effective_charging_minutes) > 10:
+                oldest = next(iter(self._pending_effective_charging_minutes))
+                self._pending_effective_charging_minutes.pop(oldest)
+        self.effective_charging = EffectiveChargingTracker()
         self.last_completed_transaction = completed
         self.active_transaction = None
 
@@ -598,6 +647,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         self.transaction_id = None
         self.status = "Idle"
+        self.hass.async_create_task(self.async_save_storage())
         self.async_set_updated_data(True)
 
     # ─────────────────────────────
@@ -620,6 +670,28 @@ class GrowattCoordinator(DataUpdateCoordinator):
             "meter_values": [entry.as_dict() for entry in parsed_values],
         }
         updated = False
+        effective_transaction_id = (
+            transaction_id
+            if transaction_id is not None
+            else self.transaction_id
+        )
+        if effective_transaction_id is not None:
+            previous_transaction_id = self.effective_charging.transaction_id
+            self.effective_charging.start(effective_transaction_id)
+            effective_updated = (
+                previous_transaction_id != self.effective_charging.transaction_id
+            )
+            max_gap_seconds = self._effective_meter_gap_seconds()
+            for entry in parsed_values:
+                effective_updated = (
+                    self.effective_charging.observe(
+                        entry,
+                        max_gap_seconds=max_gap_seconds,
+                    )
+                    or effective_updated
+                )
+            if effective_updated:
+                self._schedule_storage_save()
 
         for entry in parsed_values:
             for sample in entry.samples:
@@ -677,6 +749,20 @@ class GrowattCoordinator(DataUpdateCoordinator):
             " and updated live sensors" if updated else "",
         )
         self.async_set_updated_data(True)
+
+    def _effective_meter_gap_seconds(self) -> float:
+        """Bound counted intervals using the charger-reported sample period."""
+        for key in ("G_MeterValueInterval", "MeterValueSampleInterval"):
+            value = self.configuration_values.get(key)
+            if value is None:
+                continue
+            try:
+                interval = float(value.parsed_value)
+            except (TypeError, ValueError):
+                continue
+            if interval > 0:
+                return max(30.0, interval * 3)
+        return 180.0
 
     # ─────────────────────────────
     # GetConfiguration verwerking
@@ -825,6 +911,29 @@ class GrowattCoordinator(DataUpdateCoordinator):
             # The charger can send the same completed session as both message types.
             dedup_key = record.dedup_key
             if dedup_key is not None and self._last_session_record_key == dedup_key:
+                duplicate_session = build_unified_session(
+                    self.last_completed_transaction,
+                    session_records=(snapshot,),
+                    charge_point_id=self.charge_point_id,
+                    source_instance_id=self.source_instance_id,
+                )
+                effective_minutes = None
+                if (
+                    duplicate_session is not None
+                    and duplicate_session["correlation"]["status"]
+                    == CORRELATION_MATCHED
+                ):
+                    effective_minutes = (
+                        self._pending_effective_charging_minutes.pop(
+                            str(record.transaction_id),
+                            None,
+                        )
+                    )
+                if effective_minutes is not None:
+                    self.last_session_effective_charging_minutes = (
+                        effective_minutes
+                    )
+                    self.hass.async_create_task(self.async_save_storage())
                 _LOGGER.debug(
                     "Duplicate Growatt session record skipped (transaction=%s)",
                     record.transaction_id,
@@ -855,10 +964,19 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 charge_point_id=self.charge_point_id,
                 source_instance_id=self.source_instance_id,
             )
-            if (
-                session is None
-                or session["correlation"]["status"] != CORRELATION_MATCHED
-            ):
+            matched = (
+                session is not None
+                and session["correlation"]["status"] == CORRELATION_MATCHED
+            )
+            effective_minutes = (
+                self._pending_effective_charging_minutes.pop(
+                    str(record.transaction_id),
+                    None,
+                )
+                if matched
+                else None
+            )
+            if not matched:
                 session = build_unified_session(
                     None,
                     session_records=(snapshot,),
@@ -874,6 +992,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.last_session_plug_time = record.plug_time
             self.last_session_unplug_time = record.unplug_time
             self.last_session_duration_minutes = duration_minutes
+            self.last_session_effective_charging_minutes = effective_minutes
             self.last_session_id = identity["session_id"]
             self.last_session_source = identity["session_source"]
             self.last_session_transaction_id = record.transaction_id
@@ -903,6 +1022,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     "energy_kwh": round(energy_kwh, 3),
                     "cost": round(cost, 2),
                     "duration_minutes": duration_minutes if duration_minutes is not None else "",
+                    "effective_charging_minutes": (
+                        effective_minutes if effective_minutes is not None else ""
+                    ),
                     "transaction_id": record.transaction_id,
                     "session_id": self.last_session_id,
                     "session_source": self.last_session_source,

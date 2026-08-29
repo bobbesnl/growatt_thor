@@ -36,7 +36,16 @@ session_csv = _load_module(
 )
 
 
-LEGACY_HEADERS = session_csv.SESSION_LOG_HEADERS[:-2]
+LEGACY_HEADERS = [
+    header
+    for header in session_csv.SESSION_LOG_HEADERS
+    if header
+    not in (
+        "effective_charging_minutes",
+        "session_id",
+        "session_source",
+    )
+]
 
 
 def _row(**overrides):
@@ -49,9 +58,16 @@ def _row(**overrides):
         "energy_kwh": "0.412",
         "cost": "0.09",
         "duration_minutes": "30.0",
+        "effective_charging_minutes": "24.5",
         "transaction_id": "7",
     }
     row.update(overrides)
+    return row
+
+
+def _legacy_row(**overrides):
+    row = _row(**overrides)
+    row.pop("effective_charging_minutes", None)
     return row
 
 
@@ -76,6 +92,7 @@ class SessionCsvTest(unittest.TestCase):
             self.assertEqual(reader.fieldnames, session_csv.SESSION_LOG_HEADERS)
             self.assertEqual(rows[0]["session_id"], "ha-0123456789abcdef")
             self.assertEqual(rows[0]["session_source"], "home_assistant")
+            self.assertEqual(rows[0]["effective_charging_minutes"], "24.5")
 
     def test_legacy_log_is_migrated_before_new_row_is_appended(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -83,7 +100,7 @@ class SessionCsvTest(unittest.TestCase):
             with path.open("w", newline="", encoding="utf-8") as target:
                 writer = csv.DictWriter(target, fieldnames=LEGACY_HEADERS)
                 writer.writeheader()
-                writer.writerow(_row())
+                writer.writerow(_legacy_row())
             path.chmod(0o640)
 
             session_csv.append_session_row(
@@ -102,6 +119,7 @@ class SessionCsvTest(unittest.TestCase):
             self.assertEqual(reader.fieldnames, session_csv.SESSION_LOG_HEADERS)
             self.assertTrue(rows[0]["session_id"].startswith("legacy-"))
             self.assertEqual(rows[0]["session_source"], "legacy_unknown")
+            self.assertEqual(rows[0]["effective_charging_minutes"], "")
             self.assertEqual(rows[1]["session_id"], "ext-fedcba9876543210")
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o640)
 
@@ -112,7 +130,7 @@ class SessionCsvTest(unittest.TestCase):
             with path.open("w", newline="", encoding="utf-8") as target:
                 writer = csv.DictWriter(target, fieldnames=headers)
                 writer.writeheader()
-                writer.writerow(_row(custom="retained"))
+                writer.writerow(_legacy_row(custom="retained"))
 
             session_csv.append_session_row(path, _row(transaction_id="8"))
 

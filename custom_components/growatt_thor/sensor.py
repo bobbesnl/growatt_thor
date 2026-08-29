@@ -256,6 +256,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             LastSessionPlugTimeSensor(coordinator, entry),
             LastSessionUnplugTimeSensor(coordinator, entry),
             LastSessionDurationSensor(coordinator, entry),
+            LastSessionEffectiveChargingDurationSensor(coordinator, entry),
             LastSessionTransactionIdSensor(coordinator, entry),
             LastSessionChargeModeSensor(coordinator, entry),
             LastSessionWorkModeSensor(coordinator, entry),
@@ -629,6 +630,40 @@ class LastSessionDurationSensor(BaseSensor):
     @property
     def native_value(self):
         return self.coordinator.last_session_duration_minutes
+
+
+class LastSessionEffectiveChargingDurationSensor(BaseSensor):
+    """Duration with measured energy transfer during the last session."""
+
+    _attr_translation_key = "last_session_effective_charging_duration"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_unit_of_measurement = UnitOfTime.HOURS
+    _attr_suggested_display_precision = 2
+    _attr_icon = "mdi:ev-plug-type2"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(
+            coordinator,
+            entry,
+            "last_session_effective_charging_duration",
+        )
+
+    @property
+    def native_unit_of_measurement(self):
+        return UnitOfTime.MINUTES
+
+    @property
+    def native_value(self):
+        return self.coordinator.last_session_effective_charging_minutes
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "information": "details",
+            "calculation_method": "ocpp_meter_values",
+            "active_power_threshold_w": 100,
+        }
 
 
 # ─────────────────────────────

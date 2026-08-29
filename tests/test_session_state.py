@@ -35,6 +35,7 @@ class LastSessionStateTest(unittest.TestCase):
             plug_time="2026-08-24 09:55:00",
             unplug_time="2026-08-24 10:31:00",
             duration_minutes=30.0,
+            effective_charging_minutes=24.5,
             session_id="ha-0123456789abcdef",
             session_source="home_assistant",
             transaction_id="7",
@@ -58,6 +59,7 @@ class LastSessionStateTest(unittest.TestCase):
                 "energy_kwh": "invalid",
                 "cost": "0.23",
                 "duration_minutes": "5.5",
+                "effective_charging_minutes": "4.2",
                 "transaction_id": 9,
                 "record_key": ["9"],
             }
@@ -66,6 +68,7 @@ class LastSessionStateTest(unittest.TestCase):
         self.assertIsNone(restored.energy_kwh)
         self.assertEqual(restored.cost, 0.23)
         self.assertEqual(restored.duration_minutes, 5.5)
+        self.assertEqual(restored.effective_charging_minutes, 4.2)
         self.assertEqual(restored.transaction_id, "9")
         self.assertIsNone(restored.record_key)
 
