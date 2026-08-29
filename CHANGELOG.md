@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## 🎉 [Version number] - yyyy-mm-dd
+## [Unreleased]
+
+_Target version: 1.6.0_
 
 ### Added
 - **Structured charger configuration registry**: Preserve every returned OCPP and Growatt configuration value with its raw and parsed value, charger-provided read-only flag, type metadata, and enum label. Unknown keys are retained instead of being discarded after logging. (PR #42)
@@ -45,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Last-session state after restart**: Persist the normalized last-session entity values and their deduplication key. Home Assistant restarts no longer clear these sensors or allow a repeated vendor record to increment the total and CSV log again.
 
 ### Scope notes
-- **No new ChangeConfiguration calls or writable controls were introduced by PR #41, #42, #44, or #45.**
+- **No new ChangeConfiguration calls or writable controls are introduced in the planned 1.6.0 scope; the existing controls remain unchanged.**
 - **The existing 14-key operational and 30-key informational GetConfiguration request groups remain unchanged, including the THOR firmware limit of 30 keys per request.**
 - **Diagnostics retain only the latest relevant snapshot per message type, not a full message history.**
 
