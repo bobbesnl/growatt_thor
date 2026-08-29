@@ -485,6 +485,14 @@ applicable configuration instead of an isolated partial value.
 - Retained vendor fields that are static, compound, or not safely writable are diagnostic sensors and keep their raw OCPP value as an attribute.
 - Start and Stop are operational buttons rather than configuration entities.
 
+Directly writable settings have a single enabled control entity. Their reported
+read-only shadow sensors are disabled by default, while raw configuration values
+and write acknowledgements remain available in the Home Assistant diagnostics
+download. Control entities expose only stable attributes, so pending writes and
+readback confirmations do not create repeated activity entries when the effective
+setting did not change. A Home Assistant or integration reload may still produce
+the standard initial `unavailable` to current-value transition.
+
 
 ## ⚡ Energy Dashboard
 

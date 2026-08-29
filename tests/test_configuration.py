@@ -17,6 +17,8 @@ MODULE_PATH = (
 )
 TRANSLATIONS_PATH = MODULE_PATH.parent / "translations"
 SENSOR_PATH = MODULE_PATH.parent / "sensor.py"
+CONFIGURATION_CONTROL_PATH = MODULE_PATH.parent / "configuration_control.py"
+SELECT_PATH = MODULE_PATH.parent / "select.py"
 CONTROL_PATHS = tuple(
     MODULE_PATH.parent / f"{platform}.py"
     for platform in ("button", "number", "select", "switch", "time")
@@ -762,6 +764,28 @@ class EntityTranslationTest(unittest.TestCase):
             "_attr_entity_registry_enabled_default = False",
             sensor_source,
         )
+
+    def test_control_state_attributes_exclude_write_lifecycle_details(self):
+        configuration_control_source = CONFIGURATION_CONTROL_PATH.read_text(
+            encoding="utf-8"
+        )
+        for volatile_attribute in ('"raw_value"', '"write_status"'):
+            self.assertNotIn(
+                volatile_attribute,
+                configuration_control_source,
+            )
+
+        select_source = SELECT_PATH.read_text(encoding="utf-8")
+        for volatile_attribute in (
+            '"pending_option"',
+            '"pending_changes"',
+            '"reported_working_mode"',
+            '"raw_working_mode"',
+            '"reported_boost_mode"',
+            '"raw_boost_value"',
+            '"raw_period_value"',
+        ):
+            self.assertNotIn(volatile_attribute, select_source)
 
 
 if __name__ == "__main__":

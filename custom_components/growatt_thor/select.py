@@ -88,25 +88,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def extra_state_attributes(self):
-        values = self.coordinator.configuration_values
-
-        def reported(key: str):
-            return configuration_entity_state(key, values.get(key))
-
-        def raw(key: str):
-            value = values.get(key)
-            return value.raw_value if value is not None else None
-
-        return {
-            "information": "details",
-            "pending_option": self._pending_option,
-            "reported_working_mode": reported("G_WorkingMode"),
-            "reported_solar_mode": reported("G_SolarMode"),
-            "reported_off_peak_enabled": reported("G_OffPeakEnable"),
-            "raw_working_mode": raw("G_WorkingMode"),
-            "raw_solar_mode": raw("G_SolarMode"),
-            "raw_off_peak_enabled": raw("G_OffPeakEnable"),
-        }
+        return {"information": "details"}
 
     async def async_select_option(self, option: str) -> None:
         block_reason = self._write_block_reason
@@ -307,22 +289,7 @@ class PvBoostDraftSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def extra_state_attributes(self):
-        boost_value = self.coordinator.configuration_values.get("G_SolarBoost")
-        period_value = self.coordinator.configuration_values.get("G_PeriodTime")
-        return {
-            "information": "details",
-            "pending_changes": self.coordinator.pv_linkage_draft_dirty,
-            "reported_boost_mode": configuration_entity_state(
-                "G_SolarBoost",
-                boost_value,
-            ),
-            "raw_boost_value": (
-                boost_value.raw_value if boost_value is not None else None
-            ),
-            "raw_period_value": (
-                period_value.raw_value if period_value is not None else None
-            ),
-        }
+        return {"information": "details"}
 
     async def async_select_option(self, option: str) -> None:
         if (block_reason := self._write_block_reason) is not None:

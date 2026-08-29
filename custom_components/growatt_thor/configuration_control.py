@@ -52,16 +52,10 @@ class GrowattConfigurationControlMixin:
 
     @property
     def extra_state_attributes(self):
-        """Expose the acknowledged raw value and a translated explanation."""
-        value = self._configuration_value
-        write = self.coordinator.configuration_writes.get(
-            self._configuration_key
-        )
+        """Expose stable metadata without creating attribute-only history."""
         return {
             "information": "details",
             "ocpp_key": self._configuration_key,
-            "raw_value": value.raw_value if value is not None else None,
-            "write_status": write.status.value if write is not None else None,
         }
 
     async def _async_write_configuration(self, raw_value: str) -> None:
