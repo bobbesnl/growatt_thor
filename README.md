@@ -391,6 +391,10 @@ After successful connection, the integration creates the entities below. The lis
 | Grid voltage L1/L2/L3 | `sensor.growatt_thor_external_meter_grid_voltage_l1`<br>`sensor.growatt_thor_external_meter_grid_voltage_l2`<br>`sensor.growatt_thor_external_meter_grid_voltage_l3` | External meter voltage per phase (V) |
 | Grid current L1/L2/L3 | `sensor.growatt_thor_external_meter_grid_current_l1`<br>`sensor.growatt_thor_external_meter_grid_current_l2`<br>`sensor.growatt_thor_external_meter_grid_current_l3` | External meter current per phase (A) |
 | Server URL | `sensor.growatt_thor_ev_charger_server_url` | Configured OCPP endpoint |
+| Charger manufacturer/model | `sensor.growatt_thor_ev_charger_charger_manufacturer`<br>`sensor.growatt_thor_ev_charger_charger_model` | Identity reported in OCPP BootNotification |
+| Firmware version | `sensor.growatt_thor_ev_charger_firmware_version` | Firmware reported in OCPP BootNotification |
+| Charger serial number | `sensor.growatt_thor_ev_charger_charger_serial_number` | Serial number reported in OCPP BootNotification |
+| Network configuration | `sensor.growatt_thor_ev_charger_network_mode`<br>`sensor.growatt_thor_ev_charger_ip_address`<br>`sensor.growatt_thor_ev_charger_subnet_mask`<br>`sensor.growatt_thor_ev_charger_default_gateway`<br>`sensor.growatt_thor_ev_charger_dns_server`<br>`sensor.growatt_thor_ev_charger_mac_address`<br>`sensor.growatt_thor_ev_charger_wi_fi_ssid` | Read-only charger network diagnostics; sensitive values remain redacted in diagnostic downloads |
 | Working mode | `sensor.growatt_thor_ev_charger_working_mode` | Fast, PV Linkage, or Off-Peak operation |
 | Authorization mode | `sensor.growatt_thor_ev_charger_authorization_mode` | Home Assistant/RFID, RFID only, or Plug & Charge authorization |
 | Reported solar mode | `sensor.growatt_thor_ev_charger_solar_mode` | Disabled, PV Linkage with grid import, or solar-only PV Linkage+ read back from the charger |
@@ -403,9 +407,9 @@ After successful connection, the integration creates the entities below. The lis
 | Off-peak current | `sensor.growatt_thor_ev_charger_off_peak_current` | Reported off-peak charging current in A |
 | Reported warm-up after full charge | `sensor.growatt_thor_ev_charger_warm_up_after_full_charge` | Warm-up state read back from the charger |
 | Delayed charging time | `sensor.growatt_thor_ev_charger_delayed_charging_time` | Reported charger-side delay duration in seconds |
-| Power meter type | `sensor.growatt_thor_external_meter_power_meter_type` | Configured external meter model |
-| Power meter address | `sensor.growatt_thor_external_meter_power_meter_address` | Configured external Modbus address |
-| External sampling method | `sensor.growatt_thor_external_meter_external_sampling_method` | External meter or current-transformer wiring method |
+| Reported power meter type | `sensor.growatt_thor_external_meter_power_meter_type` | Optional readback shadow of the configured external meter model |
+| Reported power meter address | `sensor.growatt_thor_external_meter_power_meter_address` | Optional readback shadow of the configured external Modbus address |
+| Reported external sampling method | `sensor.growatt_thor_external_meter_external_sampling_method` | Optional readback shadow of the external meter or current-transformer wiring method |
 | Electricity Price | `sensor.growatt_thor_ev_charger_electricity_price` | Configured electricity price using the Home Assistant system currency per kWh |
 | Last Session Energy | `sensor.growatt_thor_ev_charger_last_session_energy` | Energy from the most recently completed session |
 | Last Session Cost | `sensor.growatt_thor_ev_charger_last_session_cost` | Cost from the most recently completed session using the Home Assistant system currency |
@@ -446,6 +450,9 @@ numeric delay and does not provide an unverified Random Delay control.
 | Auto Charge Start Time | Time | `time.growatt_thor_ev_charger_auto_charge_start_time` | Schedule start time; changes auto-apply through the write queue |
 | Auto Charge Stop Time | Time | `time.growatt_thor_ev_charger_auto_charge_stop_time` | Schedule stop time; changes auto-apply through the write queue |
 | Charging strategy | Select | `select.growatt_thor_ev_charger_charging_strategy` | Select Fast, PV Linkage with grid import, solar-only PV Linkage+, or Off-Peak mode |
+| External sampling method | Select | `select.growatt_thor_external_meter_external_sampling_method` | Select Power Meter, CT 2000:1, or CT 3000:1 |
+| Power meter type | Select | `select.growatt_thor_external_meter_power_meter_type` | Select the external Modbus meter model when Power Meter sampling is active |
+| Power meter address | Number | `number.growatt_thor_external_meter_power_meter_address` | Configure the Modbus address from 1 to 247 when Power Meter sampling is active |
 | PV Linkage grid import allowance | Number | `number.growatt_thor_ev_charger_pv_linkage_grid_import_allowance` | Grid power the charger may add in PV Linkage mode |
 | Warm-up after full charge | Switch | `switch.growatt_thor_ev_charger_warm_up_after_full_charge` | Allow compatible vehicles to continue drawing power for preheating or defrosting |
 
@@ -457,6 +464,8 @@ Control availability follows the effective mode reported by the charger:
 |---|---|
 | Charging strategy | Any connected mode |
 | Load balancing and its limit | Fast and Off-Peak |
+| External sampling method | Any connected mode while no transaction is active |
+| Power meter type and address | Any connected mode with Power Meter sampling while no transaction is active |
 | Automatic charging start/stop | Fast |
 | PV Linkage grid import allowance | PV Linkage only; unavailable in solar-only PV Linkage+ |
 | Warm-up after full charge | Any connected mode |

@@ -370,7 +370,7 @@ writable controls require separate before/after captures.
 | `G_DaylightSavingTime` | `00-00&00-00` | Daylight-saving configuration; value format not confirmed | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_ExternalLimitPower` | `45` | External grid power limit in kW in the tested setup | Loadbalancing limit number | 2.2.16 | observed, implemented |
 | `G_ExternalLimitPowerEnable` | `0` | Enable external power limiting | Loadbalancing switch | 2.2.16 | observed, implemented |
-| `G_ExternalSamplingCurWring` | `1` | External current sampling: `0=CT 2000:1`, `1=PowerMeter`, `2=CT 3000:1`; these OCPP values differ from the shifted charger web-page dropdown values | Read-only External Sampling Method sensor | 2.2.16 | observed, implemented |
+| `G_ExternalSamplingCurWring` | `1` | External current sampling: `0=CT 2000:1`, `1=PowerMeter`, `2=CT 3000:1`; these OCPP values differ from the shifted charger web-page dropdown values | External Sampling Method select; optional readback sensor | 2.2.16 | observed, implemented |
 | `G_LowPowerReserveEnable` | `Disable` | Low-power reserve setting | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_MaxCurrent` | `32.00` | Maximum charging current per phase in A | Max Current number | 2.2.16 | observed, implemented |
 | `G_MaxTemperature` | `80` | Maximum temperature threshold in Celsius | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
@@ -381,8 +381,8 @@ writable controls require separate before/after captures.
 | `G_OffPeakTime` | `12:00-13:00=0&00:00-05:00=0&1` | Charger-derived windows from shared `G_PeriodTime`; used for Off-Peak or PV Manual Boost depending on mode | Read-only Configured Charging Periods diagnostic; raw value retained as an attribute | 2.2.16 | observed, implemented |
 | `G_PeakValleyEnable` | `0` | Peak/valley tariff enable setting | Read-only Grid Off-Peak Charging sensor | 2.2.16 | observed, inferred, implemented |
 | `G_PeriodTime` | `1&time1=00:00-05:00` | Vendor-encoded period definition | Not requested | 2.2.16 | observed, inferred |
-| `G_PowerMeterAddr` | `2` | External Modbus meter address | Read-only Power Meter Address sensor | 2.2.16 | observed, implemented |
-| `G_PowerMeterType` | `Eastron SDM630` | External meter model/type | Read-only Power Meter Type sensor | 2.2.16 | observed, implemented |
+| `G_PowerMeterAddr` | `2` | External Modbus meter address; Growatt API accepts positive integer addresses | Power Meter Address number; optional readback sensor | 2.2.16 | observed, implemented |
+| `G_PowerMeterType` | `Eastron SDM630` | External meter model/type; Growatt API writes the web-page model code and firmware may read it back as a model name | Power Meter Type select; optional readback sensor | 2.2.16 | observed, implemented |
 | `G_RCDProtection` | `6` | RCD protection mode; enum not confirmed | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_RandDelayChargeTime` | `600`, `0` | Charger-side delayed charging duration in seconds; ShinePhone writes `0` for both Random Delay switch directions | Read-only Delayed Charging Time diagnostic sensor; no Boolean control | 2.2.16 | observed, implemented |
 | `G_ServerURL` | `ws://<ha-host>:9000` | OCPP central-system endpoint | Server URL diagnostic sensor | 2.2.16 | observed, implemented |
