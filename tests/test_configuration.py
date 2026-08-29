@@ -733,6 +733,24 @@ class EntityTranslationTest(unittest.TestCase):
                     expected_name,
                 )
 
+    def test_load_balancing_name_explains_mode_limit(self):
+        expected_names = {
+            "en": "Load balancing (Fast/Off-Peak only)",
+            "de": "Lastausgleich (nur Schnellladen/Niedertarif)",
+            "nl": "Load balancing (alleen Snel/Daltarief)",
+        }
+        for language, expected_name in expected_names.items():
+            with self.subTest(language=language):
+                translation = json.loads(
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                self.assertEqual(
+                    translation["entity"]["switch"]["load_balancing"]["name"],
+                    expected_name,
+                )
+
     def test_control_entities_do_not_use_hardcoded_names(self):
         hardcoded_names = []
         for path in CONTROL_PATHS:

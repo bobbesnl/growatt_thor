@@ -495,7 +495,7 @@
     },
     "switch": {
       "load_balancing": {
-        "name": "Load balancing",
+        "name": "Load balancing (alleen Snel/Daltarief)",
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",

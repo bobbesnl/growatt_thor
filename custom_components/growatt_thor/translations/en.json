@@ -495,7 +495,7 @@
     },
     "switch": {
       "load_balancing": {
-        "name": "Load balancing",
+        "name": "Load balancing (Fast/Off-Peak only)",
         "state_attributes": {
           "information": {
             "name": "About this setting",

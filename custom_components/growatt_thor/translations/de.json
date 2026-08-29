@@ -495,7 +495,7 @@
     },
     "switch": {
       "load_balancing": {
-        "name": "Lastausgleich",
+        "name": "Lastausgleich (nur Schnellladen/Niedertarif)",
         "state_attributes": {
           "information": {
             "name": "Über diese Einstellung",
