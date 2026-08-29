@@ -373,7 +373,17 @@
     },
     "number": {
       "max_current": { "name": "Maximaler Ladestrom" },
-      "load_balancing_limit": { "name": "Lastausgleichsgrenze" },
+      "load_balancing_limit": {
+        "name": "Lastausgleichsgrenze",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Legt die Netzlastgrenze für den Lastausgleich fest. Nur bei den Ladestrategien Schnellladen und Niedertarif verfügbar; in den PV-Kopplungsmodi deaktiviert."
+            }
+          }
+        }
+      },
       "electricity_price": { "name": "Strompreis" },
       "power_meter_address": {
         "name": "Zähleradresse",
@@ -484,7 +494,17 @@
       }
     },
     "switch": {
-      "load_balancing": { "name": "Lastausgleich" },
+      "load_balancing": {
+        "name": "Lastausgleich",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Verhindert das Überschreiten der konfigurierten Netzlastgrenze. Nur bei den Ladestrategien Schnellladen und Niedertarif verfügbar; in den PV-Kopplungsmodi deaktiviert."
+            }
+          }
+        }
+      },
       "lcd_display": { "name": "LCD-Anzeige" },
       "warm_up": {
         "name": "Aufwärmen nach Volladung",

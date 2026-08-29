@@ -373,7 +373,17 @@
     },
     "number": {
       "max_current": { "name": "Maximale laadstroom" },
-      "load_balancing_limit": { "name": "Limiet voor load balancing" },
+      "load_balancing_limit": {
+        "name": "Limiet voor load balancing",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Stelt de netbelastingslimiet voor load balancing in. Alleen beschikbaar bij de laadstrategieën Snel laden en Daltarief; niet beschikbaar in de PV-koppelingsmodi."
+            }
+          }
+        }
+      },
       "electricity_price": { "name": "Elektriciteitsprijs" },
       "power_meter_address": {
         "name": "Energiemeteradres",
@@ -484,7 +494,17 @@
       }
     },
     "switch": {
-      "load_balancing": { "name": "Load balancing" },
+      "load_balancing": {
+        "name": "Load balancing",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Voorkomt dat de ingestelde netbelastingslimiet wordt overschreden. Alleen beschikbaar bij de laadstrategieën Snel laden en Daltarief; niet beschikbaar in de PV-koppelingsmodi."
+            }
+          }
+        }
+      },
       "lcd_display": { "name": "LCD-scherm" },
       "warm_up": {
         "name": "Opwarmen na volledig laden",

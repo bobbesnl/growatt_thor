@@ -185,6 +185,13 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             transaction_active=self.coordinator.transaction_is_active,
         )
 
+    @property
+    def extra_state_attributes(self):
+        return {
+            "information": "details",
+            "ocpp_key": self._config_key,
+        }
+
     async def async_set_native_value(self, value: float) -> None:
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning(

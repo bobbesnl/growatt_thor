@@ -373,7 +373,17 @@
     },
     "number": {
       "max_current": { "name": "Maximum current" },
-      "load_balancing_limit": { "name": "Load balancing limit" },
+      "load_balancing_limit": {
+        "name": "Load balancing limit",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Sets the grid-load limit used by load balancing. Available only with the Fast and Off-Peak charging strategies; unavailable in PV Linkage modes."
+            }
+          }
+        }
+      },
       "electricity_price": { "name": "Electricity price" },
       "power_meter_address": {
         "name": "Power meter address",
@@ -484,7 +494,17 @@
       }
     },
     "switch": {
-      "load_balancing": { "name": "Load balancing" },
+      "load_balancing": {
+        "name": "Load balancing",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Prevents the configured grid-load limit from being exceeded. Available only with the Fast and Off-Peak charging strategies; unavailable in PV Linkage modes."
+            }
+          }
+        }
+      },
       "lcd_display": { "name": "LCD display" },
       "warm_up": {
         "name": "Warm-up after full charge",

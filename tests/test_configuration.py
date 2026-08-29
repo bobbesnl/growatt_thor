@@ -703,8 +703,10 @@ class EntityTranslationTest(unittest.TestCase):
                 for platform, key in (
                     ("number", "solar_grid_import_limit"),
                     ("number", "power_meter_address"),
+                    ("number", "load_balancing_limit"),
                     ("select", "working_mode"),
                     ("select", "power_meter_type"),
+                    ("switch", "load_balancing"),
                     ("switch", "warm_up"),
                 ):
                     information = entities[platform][key]["state_attributes"][

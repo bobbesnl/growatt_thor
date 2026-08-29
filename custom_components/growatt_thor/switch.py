@@ -75,6 +75,13 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             transaction_active=self.coordinator.transaction_is_active,
         )
 
+    @property
+    def extra_state_attributes(self):
+        return {
+            "information": "details",
+            "ocpp_key": "G_ExternalLimitPowerEnable",
+        }
+
     async def async_turn_on(self, **kwargs):
         """Enable load balancing."""
         await self._set_value("1")
