@@ -83,6 +83,10 @@
         }
       },
       "charge_point_id": { "name": "Charge Point ID" },
+      "charger_vendor": { "name": "Charger manufacturer" },
+      "charger_model": { "name": "Charger model" },
+      "firmware_version": { "name": "Firmware version" },
+      "charger_serial_number": { "name": "Charger serial number" },
       "charging_power": { "name": "Charging Power" },
       "energy_charged": { "name": "Energy Charged" },
       "total_energy_charged": { "name": "Total Energy Charged" },

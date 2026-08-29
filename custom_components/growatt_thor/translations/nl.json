@@ -83,6 +83,10 @@
         }
       },
       "charge_point_id": { "name": "Laadpunt-ID" },
+      "charger_vendor": { "name": "Fabrikant laadstation" },
+      "charger_model": { "name": "Model laadstation" },
+      "firmware_version": { "name": "Firmwareversie" },
+      "charger_serial_number": { "name": "Serienummer laadstation" },
       "charging_power": { "name": "Laadvermogen" },
       "energy_charged": { "name": "Geladen energie" },
       "total_energy_charged": { "name": "Totaal geladen energie" },

@@ -106,6 +106,40 @@ class OcppDiagnosticsTest(unittest.TestCase):
             "E42",
         )
 
+    def test_boot_notification_field_returns_retained_metadata(self):
+        snapshot = {
+            "received_at": "2026-08-23T20:00:00Z",
+            "request": {
+                "charge_point_model": "THOR_22AS",
+                "firmware_version": " THOR_22AS-V2.2.16-20240902 ",
+                "charge_point_serial_number": "",
+            },
+        }
+
+        self.assertEqual(
+            ocpp_diagnostics.boot_notification_field(
+                snapshot,
+                "charge_point_model",
+            ),
+            "THOR_22AS",
+        )
+        self.assertEqual(
+            ocpp_diagnostics.boot_notification_field(
+                snapshot,
+                "firmware_version",
+            ),
+            "THOR_22AS-V2.2.16-20240902",
+        )
+        self.assertIsNone(
+            ocpp_diagnostics.boot_notification_field(
+                snapshot,
+                "charge_point_serial_number",
+            )
+        )
+        self.assertIsNone(
+            ocpp_diagnostics.boot_notification_field(None, "firmware_version")
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

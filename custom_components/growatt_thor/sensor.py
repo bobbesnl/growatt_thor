@@ -25,6 +25,7 @@ from .configuration import (
 )
 from .const import DOMAIN
 from .currency import configured_currency, electricity_price_unit
+from .ocpp_diagnostics import boot_notification_field
 from .ocpp_status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
 from .session_records import (
     SESSION_CHARGE_MODE_OPTIONS,
@@ -42,6 +43,54 @@ class GrowattConfigurationSensorDefinition:
     configuration_key: str
     external_meter: bool = False
     has_information: bool = False
+
+
+@dataclass(frozen=True)
+class OcppBootSensorDefinition:
+    """Define a diagnostic sensor sourced from BootNotification."""
+
+    entity_description: SensorEntityDescription
+    payload_key: str
+
+
+OCPP_BOOT_SENSOR_DESCRIPTIONS = (
+    OcppBootSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="charger_vendor",
+            translation_key="charger_vendor",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:factory",
+        ),
+        payload_key="charge_point_vendor",
+    ),
+    OcppBootSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="charger_model",
+            translation_key="charger_model",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:ev-station",
+        ),
+        payload_key="charge_point_model",
+    ),
+    OcppBootSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="firmware_version",
+            translation_key="firmware_version",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:chip",
+        ),
+        payload_key="firmware_version",
+    ),
+    OcppBootSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="charger_serial_number",
+            translation_key="charger_serial_number",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:identifier",
+        ),
+        payload_key="charge_point_serial_number",
+    ),
+)
 
 
 CONFIGURATION_SENSOR_DESCRIPTIONS = (
@@ -234,6 +283,10 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN]["coordinator"]
+    boot_sensors = [
+        OcppBootSensor(coordinator, entry, description)
+        for description in OCPP_BOOT_SENSOR_DESCRIPTIONS
+    ]
     configuration_sensors = [
         GrowattConfigurationSensor(coordinator, entry, description)
         for description in CONFIGURATION_SENSOR_DESCRIPTIONS
@@ -244,6 +297,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             # ── Status / live ─────────────────────────
             StatusSensor(coordinator, entry),
             ChargePointIdSensor(coordinator, entry),
+            *boot_sensors,
             ChargingPowerSensor(coordinator, entry),
             EnergyChargedSensor(coordinator, entry),
             ServerUrlSensor(coordinator, entry),
@@ -402,6 +456,30 @@ class GrowattConfigurationSensor(CoordinatorEntity, SensorEntity):
         if self._has_information:
             attributes["information"] = "details"
         return attributes
+
+
+# ─────────────────────────────
+# Retained OCPP BootNotification metadata
+# ─────────────────────────────
+
+class OcppBootSensor(BaseSensor):
+    """Expose one retained BootNotification field."""
+
+    def __init__(self, coordinator, entry, definition):
+        super().__init__(coordinator, entry, definition.entity_description.key)
+        self.entity_description = definition.entity_description
+        self._payload_key = definition.payload_key
+
+    @property
+    def native_value(self):
+        return boot_notification_field(
+            self.coordinator.boot_notification,
+            self._payload_key,
+        )
+
+    @property
+    def available(self):
+        return super().available and self.native_value is not None
 
 
 # ─────────────────────────────

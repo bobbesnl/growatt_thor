@@ -83,6 +83,10 @@
         }
       },
       "charge_point_id": { "name": "Ladepunkt-ID" },
+      "charger_vendor": { "name": "Hersteller der Wallbox" },
+      "charger_model": { "name": "Wallbox-Modell" },
+      "firmware_version": { "name": "Firmware-Version" },
+      "charger_serial_number": { "name": "Seriennummer der Wallbox" },
       "charging_power": { "name": "Ladeleistung" },
       "energy_charged": { "name": "Geladene Energie" },
       "total_energy_charged": { "name": "Gesamte Ladeenergie" },
