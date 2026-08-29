@@ -25,6 +25,7 @@ from .const import (
 from .coordinator import GrowattCoordinator
 from .entity_migrations import (
     LEGACY_SESSION_DURATION_UNIT_MIGRATION,
+    disable_redundant_external_meter_readbacks,
     migrate_session_duration_unit,
 )
 from .ocpp_server import start_ocpp_server
@@ -68,6 +69,16 @@ async def async_migrate_entry(
         registry = er.async_get(hass)
         if migrate_session_duration_unit(registry, entry.entry_id):
             _LOGGER.info("Migrated last-session duration display from min to h")
+        disabled_readbacks = disable_redundant_external_meter_readbacks(
+            registry,
+            entry.entry_id,
+            er.RegistryEntryDisabler.INTEGRATION,
+        )
+        if disabled_readbacks:
+            _LOGGER.info(
+                "Disabled redundant External Meter readback entities: %s",
+                ", ".join(disabled_readbacks),
+            )
 
         migrated_data = dict(entry.data)
         migrated_data.pop(LEGACY_SESSION_DURATION_UNIT_MIGRATION, None)

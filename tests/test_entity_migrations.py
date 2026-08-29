@@ -35,12 +35,20 @@ entity_migrations = _load_module(
 
 
 class _Entity:
-    def __init__(self, unit_of_measurement, *, unique_id="entry-id_last_session_duration"):
-        self.entity_id = "sensor.growatt_thor_ev_charger_last_session_duration"
+    def __init__(
+        self,
+        unit_of_measurement,
+        *,
+        unique_id="entry-id_last_session_duration",
+        entity_id="sensor.growatt_thor_ev_charger_last_session_duration",
+        disabled_by=None,
+    ):
+        self.entity_id = entity_id
         self.config_entry_id = "entry-id"
         self.platform = "growatt_thor"
         self.unique_id = unique_id
         self.unit_of_measurement = unit_of_measurement
+        self.disabled_by = disabled_by
         self.options = {
             "conversation": {"should_expose": False},
             "sensor": {"suggested_display_precision": 1},
@@ -83,6 +91,40 @@ class _Registry:
         self.updates.append(
             (entity_id, {"domain": domain, "options": options})
         )
+
+
+class _ExternalMeterRegistry:
+    def __init__(self):
+        self.entities = {}
+        self.updates = []
+
+    def add(self, suffix, *, disabled_by=None):
+        entity = _Entity(
+            None,
+            unique_id=f"entry-id_{suffix}",
+            entity_id=f"sensor.{suffix}",
+            disabled_by=disabled_by,
+        )
+        self.entities[entity.entity_id] = entity
+        return entity
+
+    def async_get_entity_id(self, domain, platform, unique_id):
+        return next(
+            (
+                entity.entity_id
+                for entity in self.entities.values()
+                if domain == "sensor"
+                and platform == entity.platform
+                and unique_id == entity.unique_id
+            ),
+            None,
+        )
+
+    def async_get(self, entity_id):
+        return self.entities.get(entity_id)
+
+    def async_update_entity(self, entity_id, **changes):
+        self.updates.append((entity_id, changes))
 
 
 class EntityMigrationTest(unittest.TestCase):
@@ -170,6 +212,49 @@ class EntityMigrationTest(unittest.TestCase):
         )
         self.assertEqual(registry.updates, [])
 
+    def test_redundant_external_meter_readbacks_are_disabled_once(self):
+        registry = _ExternalMeterRegistry()
+        expected = []
+        for suffix in (
+            "external_meter_external_sampling_wiring",
+            "external_meter_power_meter_type",
+            "external_meter_power_meter_address",
+        ):
+            expected.append(registry.add(suffix).entity_id)
+        registry.add("unrelated_sensor")
+
+        changed = entity_migrations.disable_redundant_external_meter_readbacks(
+            registry,
+            "entry-id",
+            "integration",
+        )
+
+        self.assertEqual(changed, tuple(expected))
+        self.assertEqual(
+            registry.updates,
+            [
+                (entity_id, {"disabled_by": "integration"})
+                for entity_id in expected
+            ],
+        )
+
+    def test_existing_disabled_readback_is_preserved(self):
+        registry = _ExternalMeterRegistry()
+        registry.add(
+            "external_meter_power_meter_type",
+            disabled_by="user",
+        )
+
+        self.assertEqual(
+            entity_migrations.disable_redundant_external_meter_readbacks(
+                registry,
+                "entry-id",
+                "integration",
+            ),
+            (),
+        )
+        self.assertEqual(registry.updates, [])
+
     def test_migration_runs_before_platform_setup_without_reload(self):
         source = INIT_PATH.read_text(encoding="utf-8")
         self.assertIn(
@@ -208,7 +293,9 @@ class EntityMigrationTest(unittest.TestCase):
 
     def test_config_entry_version_retries_the_registry_migration(self):
         const_source = (COMPONENT_PATH / "const.py").read_text(encoding="utf-8")
-        self.assertIn("CONFIG_ENTRY_VERSION = 8", const_source)
+        self.assertIn("CONFIG_ENTRY_VERSION = 9", const_source)
+        source = INIT_PATH.read_text(encoding="utf-8")
+        self.assertIn("disable_redundant_external_meter_readbacks(", source)
 
 
 if __name__ == "__main__":
