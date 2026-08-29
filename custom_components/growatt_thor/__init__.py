@@ -25,6 +25,7 @@ from .const import (
 from .coordinator import GrowattCoordinator
 from .entity_migrations import (
     LEGACY_SESSION_DURATION_UNIT_MIGRATION,
+    PENDING_EXTERNAL_METER_READBACK_MIGRATION,
     disable_redundant_external_meter_readbacks,
     migrate_session_duration_unit,
 )
@@ -69,19 +70,11 @@ async def async_migrate_entry(
         registry = er.async_get(hass)
         if migrate_session_duration_unit(registry, entry.entry_id):
             _LOGGER.info("Migrated last-session duration display from min to h")
-        disabled_readbacks = disable_redundant_external_meter_readbacks(
-            registry,
-            entry.entry_id,
-            er.RegistryEntryDisabler.INTEGRATION,
-        )
-        if disabled_readbacks:
-            _LOGGER.info(
-                "Disabled redundant External Meter readback entities: %s",
-                ", ".join(disabled_readbacks),
-            )
 
         migrated_data = dict(entry.data)
         migrated_data.pop(LEGACY_SESSION_DURATION_UNIT_MIGRATION, None)
+        if entry.version < CONFIG_ENTRY_VERSION:
+            migrated_data[PENDING_EXTERNAL_METER_READBACK_MIGRATION] = True
         hass.config_entries.async_update_entry(
             entry,
             data=migrated_data,
@@ -105,6 +98,31 @@ async def _recover_pending_entity_migrations(
 
     migrated_data = dict(entry.data)
     migrated_data.pop(LEGACY_SESSION_DURATION_UNIT_MIGRATION, None)
+    hass.config_entries.async_update_entry(entry, data=migrated_data)
+
+
+def _complete_external_meter_readback_migration(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> None:
+    """Disable redundant readbacks after entity setup loads the registry."""
+    if not entry.data.get(PENDING_EXTERNAL_METER_READBACK_MIGRATION):
+        return
+
+    registry = er.async_get(hass)
+    disabled_readbacks = disable_redundant_external_meter_readbacks(
+        registry,
+        entry.entry_id,
+        er.RegistryEntryDisabler.INTEGRATION,
+    )
+    if disabled_readbacks:
+        _LOGGER.info(
+            "Disabled redundant External Meter readback entities: %s",
+            ", ".join(disabled_readbacks),
+        )
+
+    migrated_data = dict(entry.data)
+    migrated_data.pop(PENDING_EXTERNAL_METER_READBACK_MIGRATION, None)
     hass.config_entries.async_update_entry(entry, data=migrated_data)
 
 
@@ -188,6 +206,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        _complete_external_meter_readback_migration(hass, entry)
         _migrate_external_meter_device(hass, entry)
     except Exception:
         startup_check_task.cancel()

@@ -293,9 +293,21 @@ class EntityMigrationTest(unittest.TestCase):
 
     def test_config_entry_version_retries_the_registry_migration(self):
         const_source = (COMPONENT_PATH / "const.py").read_text(encoding="utf-8")
-        self.assertIn("CONFIG_ENTRY_VERSION = 9", const_source)
+        self.assertIn("CONFIG_ENTRY_VERSION = 10", const_source)
         source = INIT_PATH.read_text(encoding="utf-8")
         self.assertIn("disable_redundant_external_meter_readbacks(", source)
+        self.assertIn(
+            "migrated_data[PENDING_EXTERNAL_METER_READBACK_MIGRATION] = True",
+            source,
+        )
+        platform_setup = source.index(
+            "await hass.config_entries.async_forward_entry_setups"
+        )
+        completion = source.index(
+            "_complete_external_meter_readback_migration(hass, entry)",
+            platform_setup,
+        )
+        self.assertGreater(completion, platform_setup)
 
 
 if __name__ == "__main__":
