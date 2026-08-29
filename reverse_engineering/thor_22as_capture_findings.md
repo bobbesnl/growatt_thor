@@ -197,7 +197,7 @@ id=346&connectorId=1&chargemode=3&plugtime=2025-08-24 11:47:21&unplugtime=2025-0
 | `costenergy` | Energy in Wh; integration divides by 1000 for kWh | Last Session Energy and CSV | 2.2.16 | observed, inferred, implemented |
 | `costmoney` | Currency minor unit; integration divides by 100 | Last Session Cost and CSV | 2.2.16 | observed, inferred, implemented |
 | `transactionId` | OCPP transaction ID assigned by the central system | Last Session Transaction ID and CSV | 2.2.16 | observed, implemented |
-| `workmode` | Growatt work mode code | Last Session Work Mode | 2.2.16 | observed, implemented |
+| `workmode` | Growatt work mode code; values `3` and `7` captured. Value `7` occurred together with `G_WorkingMode=Power Distribution`, but equivalence is not confirmed. | Last Session Work Mode; unknown numeric values remain raw | 2.2.16 | observed, implemented |
 
 The current integration uses the same session parser for `currentrecord` and
 `frozenrecord`.
@@ -299,7 +299,7 @@ writable controls require separate before/after captures.
 | `G_WebSocketPingInterval` | `30` | Growatt WebSocket ping interval in seconds | Preserved in diagnostics | 2.2.16 | observed, implemented |
 | `G_WifiPassword` | `<redacted>` | Wi-Fi password | Intentionally not requested; sensitive | 2.2.16 | observed |
 | `G_WifiSSID` | `<redacted>` | Wi-Fi network name | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
-| `G_WorkingMode` | `Fast`, `Off Peak`, `PVlink`, `PVlink ManualBoost` | Charger working mode; boost suffixes do not change the base PV Linkage mode | Read-only Working Mode sensor; last session also exposes a work-mode code | 2.2.16 | observed, implemented |
+| `G_WorkingMode` | `Fast`, `Off Peak`, `PVlink`, `PVlink ManualBoost`, `Power Distribution` | Charger working mode; boost suffixes do not change the base PV Linkage mode. `Power Distribution` is retained as a distinct reported state because its relationship to the app's Fast mode is not confirmed. | Read-only Working Mode sensor; last session also exposes a separate work-mode code | 2.2.16 | observed, implemented |
 
 ### Write-confirmed or implemented without GetConfiguration readback
 

@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Temperature without samples**: Report the temperature sensor as unavailable until the charger sends an actual OCPP MeterValues temperature sample instead of displaying an artificial 0 °C. (PR #42)
 - **Stale connections shown as available**: The Status sensor now becomes unavailable when the OCPP connection has timed out, while diagnostics retain the last charger-reported status for troubleshooting. (PR #44)
 - **Compound mode values**: Parse PV Linkage mode and boost variants, off-peak enable values, boost-suffixed working modes, and chained off-peak time windows into stable Home Assistant states without discarding their raw Growatt representation.
+- **Power Distribution working mode**: Recognize the observed `G_WorkingMode=Power Distribution` value as a translated read-only state instead of making the Working Mode sensor unavailable.
 
 ### Scope notes
 - **No new ChangeConfiguration calls or writable controls were introduced by PR #41, #42, #44, or #45.**
