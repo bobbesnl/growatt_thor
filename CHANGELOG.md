@@ -25,6 +25,7 @@ _Target version: 1.7.0_
 
 ### Fixed
 - **PV Linkage mode semantics**: Label PV Linkage as allowing the configured regular grid import and PV Linkage+ as solar-surplus-only. The grid-import allowance control is unavailable in PV Linkage+, while Manual and Smart Boost may still use grid power.
+- **Charging-strategy write delay**: Keep the latest selected strategy visible while the firmware-protection queue applies it, allow newer queued strategy changes to replace older ones, and ignore delayed readbacks belonging to a superseded selection.
 
 ---
 

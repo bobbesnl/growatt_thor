@@ -270,8 +270,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         async with self._write_lock:
             try:
                 while self._write_queue:
-                    write_item = self._write_queue.popleft()
-
                     now_mono = self.hass.loop.time()
 
                     if self._last_write_monotonic is not None:
@@ -285,6 +283,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
                                 len(self._write_queue),
                             )
                             await asyncio.sleep(wait_time)
+
+                    # Keep the item in the queue while rate limiting so a newer
+                    # write with the same dedupe key can still replace it.
+                    write_item = self._write_queue.popleft()
 
                     try:
                         _LOGGER.info(

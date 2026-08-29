@@ -53,6 +53,8 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
     def __init__(self, coordinator, entry):
         super().__init__(coordinator)
         self.hass = coordinator.hass
+        self._pending_option: str | None = None
+        self._readback_task: asyncio.Task | None = None
         self._attr_unique_id = f"{entry.entry_id}_working_mode_control"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
@@ -63,6 +65,8 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def current_option(self):
+        if self._pending_option is not None:
+            return self._pending_option
         return selected_working_mode(self.coordinator.configuration_values)
 
     @property
@@ -95,6 +99,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
 
         return {
             "information": "details",
+            "pending_option": self._pending_option,
             "reported_working_mode": reported("G_WorkingMode"),
             "reported_solar_mode": reported("G_SolarMode"),
             "reported_off_peak_enabled": reported("G_OffPeakEnable"),
@@ -113,6 +118,10 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
             _LOGGER.warning("Cannot change working mode: charger not connected")
             return
         key, raw_value = encode_working_mode(option)
+        self._pending_option = option
+        if self._readback_task is not None and not self._readback_task.done():
+            self._readback_task.cancel()
+        self.async_write_ha_state()
         await self.coordinator.queue_write(
             self._apply_working_mode,
             charge_point,
@@ -132,10 +141,15 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         block_reason = self._write_block_reason
         if block_reason is not None:
             _LOGGER.warning("Skipping queued working mode change: %s", block_reason)
+            self._clear_pending_option(option)
             return
 
         self.coordinator.begin_configuration_write(key, raw_value)
-        result = await charge_point.change_configuration(key, raw_value)
+        try:
+            result = await charge_point.change_configuration(key, raw_value)
+        except Exception:
+            self._clear_pending_option(option)
+            raise
         accepted = result in {
             ConfigurationStatus.accepted,
             ConfigurationStatus.reboot_required,
@@ -147,6 +161,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         )
         if not accepted:
             _LOGGER.error("Working mode change rejected by charger: %s", result)
+            self._clear_pending_option(option)
             return
 
         self.coordinator.update_configuration_value(key, raw_value)
@@ -168,13 +183,34 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
                 "1&Disable",
             )
 
-        self.hass.async_create_task(self._refresh_configuration(charge_point))
+        if self._pending_option == option:
+            self._readback_task = self.hass.async_create_task(
+                self._refresh_configuration(charge_point, option)
+            )
 
-    async def _refresh_configuration(self, charge_point) -> None:
+    def _clear_pending_option(self, option: str) -> None:
+        """Clear only the pending selection owned by this write."""
+        if self._pending_option == option:
+            self._pending_option = None
+            self.async_write_ha_state()
+
+    async def _refresh_configuration(self, charge_point, option: str) -> None:
         """Confirm the effective mode after the charger has applied the write."""
-        await asyncio.sleep(20)
-        if self.hass.data.get(DOMAIN, {}).get("charge_point") is charge_point:
-            await charge_point.trigger_get_configuration()
+        try:
+            await asyncio.sleep(20)
+            if self.hass.data.get(DOMAIN, {}).get("charge_point") is charge_point:
+                await charge_point.trigger_get_configuration()
+        except asyncio.CancelledError:
+            return
+        finally:
+            self._clear_pending_option(option)
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Cancel a delayed mode readback when the entity is removed."""
+        self._pending_option = None
+        if self._readback_task is not None and not self._readback_task.done():
+            self._readback_task.cancel()
+        await super().async_will_remove_from_hass()
 
 
 class ExternalSamplingMethodSelect(
