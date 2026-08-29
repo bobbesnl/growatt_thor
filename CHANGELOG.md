@@ -28,6 +28,7 @@ _Target version: 1.7.0_
 - **Session duration display**: Mark session durations as Home Assistant duration sensors and expose their entity state in hours with two decimal places. A one-time config-entry migration replaces the legacy minute display override; internal session data and CSV exports remain in minutes, and Home Assistant can convert existing duration history between compatible time units.
 - **Quieter control history**: Keep volatile pending-write, raw-readback, and acknowledgement details in diagnostics instead of state attributes. The activity log now follows effective control-state changes instead of recording internal write lifecycle updates with the same visible value.
 - **Load-balancing guidance**: Explain on the load-balancing switch and limit that Growatt exposes these settings only in Fast and Off-Peak modes, not in PV Linkage modes.
+- **External meter entity migration**: Disable the three redundant reported sampling-method, meter-type, and meter-address sensors once their writable controls are available. The readback entities remain in the registry and can be enabled manually when separate history is required.
 
 ### Fixed
 - **PV Linkage mode semantics**: Label PV Linkage as allowing the configured regular grid import and PV Linkage+ as solar-surplus-only. The grid-import allowance control is unavailable in PV Linkage+, while Manual and Smart Boost may still use grid power.
