@@ -13,6 +13,7 @@ MODULE_PATH = (
     / "growatt_thor"
     / "connection.py"
 )
+OCPP_SERVER_PATH = MODULE_PATH.with_name("ocpp_server.py")
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_connection_test_target",
     MODULE_PATH,
@@ -48,6 +49,17 @@ class OcppConnectionActivityTest(unittest.TestCase):
         activity = connection.OcppConnectionActivity(100.0)
 
         self.assertEqual(activity.idle_seconds(99.0), 0.0)
+
+    def test_watchdog_does_not_block_home_assistant_startup(self):
+        source = OCPP_SERVER_PATH.read_text(encoding="utf-8")
+        self.assertIn(
+            "watchdog_task = hass.async_create_background_task(",
+            source,
+        )
+        self.assertNotIn(
+            "watchdog_task = hass.async_create_task(",
+            source,
+        )
 
 
 if __name__ == "__main__":

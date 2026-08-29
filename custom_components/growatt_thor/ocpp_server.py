@@ -593,7 +593,10 @@ async def _on_connect(websocket, path, coordinator, hass):
         cp_id = path.rstrip("/").split("/")[-1]
         _LOGGER.info("THOR connected: %s", cp_id)
         cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
-        watchdog_task = hass.async_create_task(cp.async_watch_connection())
+        watchdog_task = hass.async_create_background_task(
+            cp.async_watch_connection(),
+            name=f"growatt_thor_connection_watchdog_{cp_id}",
+        )
         try:
             await cp.start()
         except (websockets.exceptions.ConnectionClosedError, websockets.exceptions.ConnectionClosedOK):
