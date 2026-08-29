@@ -593,13 +593,21 @@ class EntityTranslationTest(unittest.TestCase):
             "SensorDeviceClass.DURATION",
         )
         self.assertEqual(
-            ast.unparse(assignments["_attr_suggested_unit_of_measurement"]),
+            ast.unparse(assignments["_attr_native_unit_of_measurement"]),
             "UnitOfTime.HOURS",
         )
         self.assertEqual(
             ast.literal_eval(assignments["_attr_suggested_display_precision"]),
             2,
         )
+
+        native_value = next(
+            node
+            for node in duration_class.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "native_value"
+        )
+        self.assertIn("minutes / 60", ast.unparse(native_value))
 
     def test_control_entities_are_translated(self):
         expected = {

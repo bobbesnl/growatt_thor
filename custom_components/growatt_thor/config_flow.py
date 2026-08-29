@@ -5,6 +5,7 @@ import voluptuous as vol
 import logging
 
 from .const import (
+    CONFIG_ENTRY_VERSION,
     DOMAIN,
     DEFAULT_PORT,
     CONF_PORT,
@@ -26,7 +27,7 @@ CHARGER_MODE_OPTIONS = {
 class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for Growatt THOR EV Charger."""
 
-    VERSION = 1
+    VERSION = CONFIG_ENTRY_VERSION
 
     async def async_step_user(self, user_input=None):
         """Handle initial setup."""

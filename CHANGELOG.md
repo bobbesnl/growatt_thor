@@ -23,12 +23,13 @@ _Target version: 1.7.0_
 - **Configuration entity surface**: Keep directly writable settings as the single default entity and disable their reported shadow sensors by default. Charging strategy retains the reported working, solar, and off-peak states as attributes; raw configuration remains available in diagnostics. Existing shadow entities can still be enabled when separate history or automations are required.
 - **Entity semantics and translations**: Treat measurements and effective operating states as sensors, writable settings as configuration controls, retained vendor settings as diagnostics, and start/stop as operational buttons. Existing controls and the new charging controls now use English, German, and Dutch translation keys.
 - **Shared charging periods**: Describe `G_OffPeakTime` as the charger-reported shared period list because captures show the same underlying `G_PeriodTime` is used for both Off-Peak charging and PV Linkage Manual Boost.
-- **Session duration display**: Mark the existing minute-based last-session duration as a Home Assistant duration sensor and suggest hours with two decimal places for display without changing its native unit or historical statistics.
+- **Session duration display**: Mark session durations as Home Assistant duration sensors and expose their entity state in hours with two decimal places. A one-time config-entry migration replaces the legacy minute display override; internal session data and CSV exports remain in minutes, and Home Assistant can convert existing duration history between compatible time units.
 - **Quieter control history**: Keep volatile pending-write, raw-readback, and acknowledgement details in diagnostics instead of state attributes. The activity log now follows effective control-state changes instead of recording internal write lifecycle updates with the same visible value.
 
 ### Fixed
 - **PV Linkage mode semantics**: Label PV Linkage as allowing the configured regular grid import and PV Linkage+ as solar-surplus-only. The grid-import allowance control is unavailable in PV Linkage+, while Manual and Smart Boost may still use grid power.
 - **Charging-strategy write delay**: Keep the latest selected strategy visible while the firmware-protection queue applies it, allow newer queued strategy changes to replace older ones, and ignore delayed readbacks belonging to a superseded selection.
+- **Session-duration unit migration**: Update both Home Assistant's public and private duration-unit preferences before entities are loaded, recover installations left with the earlier migration marker, and close the OCPP server cleanly if a later setup step fails.
 
 ---
 

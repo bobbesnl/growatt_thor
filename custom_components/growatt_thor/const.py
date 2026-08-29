@@ -1,4 +1,5 @@
 DOMAIN = "growatt_thor"
+CONFIG_ENTRY_VERSION = 8
 
 DEFAULT_PORT = 9000
 DEFAULT_PATH = "/ocpp/ws"

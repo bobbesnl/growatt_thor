@@ -1,7 +1,7 @@
 [!["Buy Us A Coffee"](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/bobbesnl)
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
-![Version](https://img.shields.io/badge/version-1.7.0--dev.3-blue)
+![Version](https://img.shields.io/badge/version-1.7.0--dev.12-blue)
 
 
 ⚠️ **Please read this document first before installing this integration!**
@@ -409,8 +409,8 @@ After successful connection, the integration creates the entities below. The lis
 | Electricity Price | `sensor.growatt_thor_ev_charger_electricity_price` | Configured electricity price using the Home Assistant system currency per kWh |
 | Last Session Energy | `sensor.growatt_thor_ev_charger_last_session_energy` | Energy from the most recently completed session |
 | Last Session Cost | `sensor.growatt_thor_ev_charger_last_session_cost` | Cost from the most recently completed session using the Home Assistant system currency |
-| Last Session Duration | `sensor.growatt_thor_ev_charger_last_session_duration` | Duration of the most recently completed session; stored in minutes with hours suggested for display |
-| Last Session Effective Charging Time | `sensor.growatt_thor_ev_charger_last_session_effective_charging_duration` | MeterValues-based time with actual energy transfer; historical sessions remain unavailable |
+| Last Session Duration | `sensor.growatt_thor_ev_charger_last_session_duration` | Full session duration displayed in hours; internal records and CSV exports retain minutes |
+| Last Session Effective Charging Time | `sensor.growatt_thor_ev_charger_last_session_effective_charging_duration` | MeterValues-based time with actual energy transfer, displayed in hours; historical sessions remain unavailable |
 | Last Session Start | `sensor.growatt_thor_ev_charger_last_session_start` | Charging start timestamp |
 | Last Session End | `sensor.growatt_thor_ev_charger_last_session_end` | Charging end timestamp |
 | Last Session Plug Time | `sensor.growatt_thor_ev_charger_last_session_plug_time` | Cable connection timestamp |

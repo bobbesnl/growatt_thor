@@ -1,6 +1,7 @@
 """Growatt THOR OCPP Integration for Home Assistant."""
 import logging
 import asyncio
+from contextlib import suppress
 import csv
 import os
 from datetime import datetime
@@ -10,11 +11,22 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.const import Platform
 from homeassistant.components.persistent_notification import async_create as pn_create
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 
-from .const import DOMAIN, CONF_POLL_INTERVAL, CONF_LOCATION, DEFAULT_POLL_INTERVAL
+from .const import (
+    CONFIG_ENTRY_VERSION,
+    DOMAIN,
+    CONF_POLL_INTERVAL,
+    CONF_LOCATION,
+    DEFAULT_POLL_INTERVAL,
+)
 from .coordinator import GrowattCoordinator
+from .entity_migrations import (
+    LEGACY_SESSION_DURATION_UNIT_MIGRATION,
+    migrate_session_duration_unit,
+)
 from .ocpp_server import start_ocpp_server
 from .session_csv import (
     SESSION_EXPORT_HEADERS,
@@ -34,6 +46,55 @@ PLATFORMS = [
 ]
 
 SESSION_LOG_FILE = "growatt_thor_sessions.csv"
+
+
+async def async_migrate_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> bool:
+    """Migrate legacy entity-registry settings for an existing entry."""
+    if entry.version > CONFIG_ENTRY_VERSION:
+        _LOGGER.error(
+            "Cannot migrate config entry from version %s to %s",
+            entry.version,
+            CONFIG_ENTRY_VERSION,
+        )
+        return False
+
+    has_legacy_marker = bool(
+        entry.data.get(LEGACY_SESSION_DURATION_UNIT_MIGRATION)
+    )
+    if entry.version < CONFIG_ENTRY_VERSION or has_legacy_marker:
+        registry = er.async_get(hass)
+        if migrate_session_duration_unit(registry, entry.entry_id):
+            _LOGGER.info("Migrated last-session duration display from min to h")
+
+        migrated_data = dict(entry.data)
+        migrated_data.pop(LEGACY_SESSION_DURATION_UNIT_MIGRATION, None)
+        hass.config_entries.async_update_entry(
+            entry,
+            data=migrated_data,
+            version=CONFIG_ENTRY_VERSION,
+        )
+
+    return True
+
+
+async def _recover_pending_entity_migrations(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> None:
+    """Recover a duration migration marker written by an earlier dev build."""
+    if not entry.data.get(LEGACY_SESSION_DURATION_UNIT_MIGRATION):
+        return
+
+    registry = er.async_get(hass)
+    if migrate_session_duration_unit(registry, entry.entry_id):
+        _LOGGER.info("Recovered last-session duration display migration")
+
+    migrated_data = dict(entry.data)
+    migrated_data.pop(LEGACY_SESSION_DURATION_UNIT_MIGRATION, None)
+    hass.config_entries.async_update_entry(entry, data=migrated_data)
 
 
 def _migrate_external_meter_device(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -87,6 +148,8 @@ async def _append_session_to_csv(hass, session: dict):
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Growatt THOR from config entry."""
 
+    await _recover_pending_entity_migrations(hass, entry)
+
     coordinator = GrowattCoordinator(hass, source_instance_id=entry.entry_id)
     await coordinator.async_load_storage()
     hass.data.setdefault(DOMAIN, {})
@@ -107,10 +170,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     _LOGGER.info("OCPP server started on %s:%s", "0.0.0.0", port)
 
-    hass.async_create_task(_check_existing_connection(hass, coordinator))
+    startup_check_task = hass.async_create_background_task(
+        _check_existing_connection(hass, coordinator),
+        name="growatt_thor_startup_connection_check",
+    )
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _migrate_external_meter_device(hass, entry)
+    try:
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        _migrate_external_meter_device(hass, entry)
+    except Exception:
+        startup_check_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await startup_check_task
+        server.close()
+        await server.wait_closed()
+        hass.data[DOMAIN].pop("server", None)
+        raise
 
     async def periodic_external_meter_poll():
         """Poll the external meter while a charge point is connected."""

@@ -616,7 +616,7 @@ class LastSessionDurationSensor(BaseSensor):
     _attr_translation_key = "last_session_duration"
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_suggested_unit_of_measurement = UnitOfTime.HOURS
+    _attr_native_unit_of_measurement = UnitOfTime.HOURS
     _attr_suggested_display_precision = 2
     _attr_icon = "mdi:timer-outline"
 
@@ -624,12 +624,9 @@ class LastSessionDurationSensor(BaseSensor):
         super().__init__(coordinator, entry, "last_session_duration")
 
     @property
-    def native_unit_of_measurement(self):
-        return UnitOfTime.MINUTES
-
-    @property
     def native_value(self):
-        return self.coordinator.last_session_duration_minutes
+        minutes = self.coordinator.last_session_duration_minutes
+        return round(minutes / 60, 2) if minutes is not None else None
 
 
 class LastSessionEffectiveChargingDurationSensor(BaseSensor):
@@ -638,7 +635,7 @@ class LastSessionEffectiveChargingDurationSensor(BaseSensor):
     _attr_translation_key = "last_session_effective_charging_duration"
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_suggested_unit_of_measurement = UnitOfTime.HOURS
+    _attr_native_unit_of_measurement = UnitOfTime.HOURS
     _attr_suggested_display_precision = 2
     _attr_icon = "mdi:ev-plug-type2"
 
@@ -650,12 +647,9 @@ class LastSessionEffectiveChargingDurationSensor(BaseSensor):
         )
 
     @property
-    def native_unit_of_measurement(self):
-        return UnitOfTime.MINUTES
-
-    @property
     def native_value(self):
-        return self.coordinator.last_session_effective_charging_minutes
+        minutes = self.coordinator.last_session_effective_charging_minutes
+        return round(minutes / 60, 2) if minutes is not None else None
 
     @property
     def extra_state_attributes(self):
