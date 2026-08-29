@@ -331,6 +331,23 @@ class ConfigurationEntityStateTest(unittest.TestCase):
                     expected,
                 )
 
+    def test_network_mode_values(self):
+        for raw_value, expected in (
+            ("0", "static"),
+            ("STATIC", "static"),
+            ("Static", "static"),
+            ("1", "dhcp"),
+            ("DHCP", "dhcp"),
+        ):
+            with self.subTest(raw_value=raw_value):
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        "G_NetworkMode",
+                        self._value("G_NetworkMode", raw_value),
+                    ),
+                    expected,
+                )
+
     def test_off_peak_schedule_extracts_time_windows(self):
         for raw_value, expected in (
             ("00:00-05:00=0&1", "00:00-05:00"),
@@ -442,6 +459,13 @@ class EntityTranslationTest(unittest.TestCase):
             "reported_external_sampling_method",
             "warm_up_after_full_charge",
             "delayed_charging_time",
+            "network_mode",
+            "network_ip_address",
+            "network_subnet_mask",
+            "network_gateway",
+            "network_dns_server",
+            "network_mac_address",
+            "network_wifi_ssid",
         }
         enum_entities = {
             "working_mode": "G_WorkingMode",
@@ -452,6 +476,7 @@ class EntityTranslationTest(unittest.TestCase):
             "off_peak_enable_setting": "G_OffPeakEnable",
             "reported_external_sampling_method": "G_ExternalSamplingCurWring",
             "warm_up_after_full_charge": "G_FullContinueChargeEnable",
+            "network_mode": "G_NetworkMode",
         }
         session_enum_entities = {
             "last_session_charge_mode": (

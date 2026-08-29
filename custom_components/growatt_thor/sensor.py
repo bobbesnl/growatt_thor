@@ -279,6 +279,71 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         configuration_key="G_RandDelayChargeTime",
         has_information=True,
     ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_mode",
+            translation_key="network_mode",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            device_class=SensorDeviceClass.ENUM,
+            options=list(CONFIGURATION_ENTITY_OPTIONS["G_NetworkMode"]),
+            icon="mdi:network",
+        ),
+        configuration_key="G_NetworkMode",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_ip_address",
+            translation_key="network_ip_address",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:ip-network",
+        ),
+        configuration_key="G_ChargerNetIP",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_subnet_mask",
+            translation_key="network_subnet_mask",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:ip-network-outline",
+        ),
+        configuration_key="G_ChargerNetMask",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_gateway",
+            translation_key="network_gateway",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:router-network",
+        ),
+        configuration_key="G_ChargerNetGateway",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_dns_server",
+            translation_key="network_dns_server",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:dns",
+        ),
+        configuration_key="G_ChargerNetDNS",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_mac_address",
+            translation_key="network_mac_address",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:network-outline",
+        ),
+        configuration_key="G_ChargerNetMac",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_wifi_ssid",
+            translation_key="network_wifi_ssid",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:wifi",
+        ),
+        configuration_key="G_WifiSSID",
+    ),
 )
 
 async def async_setup_entry(hass, entry, async_add_entities):

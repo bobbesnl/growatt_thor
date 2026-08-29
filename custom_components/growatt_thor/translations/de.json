@@ -87,6 +87,19 @@
       "charger_model": { "name": "Wallbox-Modell" },
       "firmware_version": { "name": "Firmware-Version" },
       "charger_serial_number": { "name": "Seriennummer der Wallbox" },
+      "network_mode": {
+        "name": "Netzwerkmodus",
+        "state": {
+          "dhcp": "DHCP",
+          "static": "Statisch"
+        }
+      },
+      "network_ip_address": { "name": "IP-Adresse" },
+      "network_subnet_mask": { "name": "Subnetzmaske" },
+      "network_gateway": { "name": "Standardgateway" },
+      "network_dns_server": { "name": "DNS-Server" },
+      "network_mac_address": { "name": "MAC-Adresse" },
+      "network_wifi_ssid": { "name": "WLAN-SSID" },
       "charging_power": { "name": "Ladeleistung" },
       "energy_charged": { "name": "Geladene Energie" },
       "total_energy_charged": { "name": "Gesamte Ladeenergie" },

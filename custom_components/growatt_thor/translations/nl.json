@@ -87,6 +87,19 @@
       "charger_model": { "name": "Model laadstation" },
       "firmware_version": { "name": "Firmwareversie" },
       "charger_serial_number": { "name": "Serienummer laadstation" },
+      "network_mode": {
+        "name": "Netwerkmodus",
+        "state": {
+          "dhcp": "DHCP",
+          "static": "Statisch"
+        }
+      },
+      "network_ip_address": { "name": "IP-adres" },
+      "network_subnet_mask": { "name": "Subnetmasker" },
+      "network_gateway": { "name": "Standaardgateway" },
+      "network_dns_server": { "name": "DNS-server" },
+      "network_mac_address": { "name": "MAC-adres" },
+      "network_wifi_ssid": { "name": "Wifi-SSID" },
       "charging_power": { "name": "Laadvermogen" },
       "energy_charged": { "name": "Geladen energie" },
       "total_energy_charged": { "name": "Totaal geladen energie" },

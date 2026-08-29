@@ -87,6 +87,19 @@
       "charger_model": { "name": "Charger model" },
       "firmware_version": { "name": "Firmware version" },
       "charger_serial_number": { "name": "Charger serial number" },
+      "network_mode": {
+        "name": "Network mode",
+        "state": {
+          "dhcp": "DHCP",
+          "static": "Static"
+        }
+      },
+      "network_ip_address": { "name": "IP address" },
+      "network_subnet_mask": { "name": "Subnet mask" },
+      "network_gateway": { "name": "Default gateway" },
+      "network_dns_server": { "name": "DNS server" },
+      "network_mac_address": { "name": "MAC address" },
+      "network_wifi_ssid": { "name": "Wi-Fi SSID" },
       "charging_power": { "name": "Charging Power" },
       "energy_charged": { "name": "Energy Charged" },
       "total_energy_charged": { "name": "Total Energy Charged" },

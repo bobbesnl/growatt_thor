@@ -260,6 +260,12 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         ),
         "G_NetworkMode": _definition(
             "Charger network mode",
+            enum_values=(
+                ("0", "Static"),
+                ("1", "DHCP"),
+                ("STATIC", "Static"),
+                ("DHCP", "DHCP"),
+            ),
             request_group=_INFORMATIONAL,
         ),
         "G_WifiSSID": _definition(
@@ -499,6 +505,10 @@ CONFIGURATION_ENTITY_OPTIONS: Final[Mapping[str, tuple[str, ...]]] = MappingProx
             "disabled",
             "enabled",
         ),
+        "G_NetworkMode": (
+            "dhcp",
+            "static",
+        ),
     }
 )
 
@@ -587,6 +597,14 @@ _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
                     "1": "enabled",
                     "enable": "enabled",
                     "enabled": "enabled",
+                }
+            ),
+            "G_NetworkMode": MappingProxyType(
+                {
+                    "0": "static",
+                    "static": "static",
+                    "1": "dhcp",
+                    "dhcp": "dhcp",
                 }
             ),
         }
