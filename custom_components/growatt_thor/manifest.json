@@ -9,5 +9,5 @@
   "issue_tracker": "https://github.com/bobbesnl/growatt_thor/issues",
   "loggers": ["custom_components.growatt_thor"],
   "requirements": ["ocpp>=2.0.0"],
-  "version": "1.7.0-dev.20"
+  "version": "1.7.0-dev.21"
 }
