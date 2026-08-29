@@ -157,14 +157,14 @@
         "name": "Gemeldeter Solarmodus",
         "state": {
           "disabled": "Deaktiviert",
-          "pv_linkage": "PV-Kopplung",
-          "pv_linkage_plus": "PV-Kopplung+"
+          "pv_linkage": "PV-Kopplung (Netzbezug erlaubt)",
+          "pv_linkage_plus": "PV-Kopplung+ (nur PV-Überschuss)"
         },
         "state_attributes": {
           "information": {
             "name": "Über diese Einstellung",
             "state": {
-              "details": "Zeigt den in der Wallbox aktiven Solarlademodus. PV-Kopplung und PV-Kopplung+ verwenden die Messwerte des konfigurierten externen Zählers."
+              "details": "PV-Kopplung darf die Solarleistung um den konfigurierten Netzbezug ergänzen. PV-Kopplung+ verwendet nur PV-Überschuss. Manueller und Smart Boost dürfen weiterhin Netzstrom beziehen."
             }
           }
         }
@@ -175,7 +175,7 @@
           "information": {
             "name": "Über diese Einstellung",
             "state": {
-              "details": "Maximale Netzleistung, welche die Wallbox bei PV-Kopplung ergänzen darf. Zum Start benötigt sie ungefähr 1,4 kW einphasig oder 4,1 kW dreiphasig."
+              "details": "Maximale Netzleistung, welche die Wallbox bei PV-Kopplung ergänzen darf. Bei PV-Kopplung+ ist der erhaltene Wert kein aktiver regulärer Netzbezug. Zum Start benötigt die Wallbox ungefähr 1,4 kW einphasig oder 4,1 kW dreiphasig."
             }
           }
         }
@@ -341,7 +341,7 @@
           "information": {
             "name": "Über diese Einstellung",
             "state": {
-              "details": "Nur bei aktiver PV-Kopplung und aktiviertem Solarladen verfügbar. Dezimalwerte werden mit Punktnotation an die Wallbox gesendet."
+              "details": "Nur bei PV-Kopplung verfügbar, da dort regulärer Netzbezug erlaubt ist. Bei PV-Kopplung+ ist die Einstellung deaktiviert, weil ausschließlich PV-Überschuss verwendet wird. Dezimalwerte werden mit Punktnotation gesendet."
             }
           }
         }
@@ -363,15 +363,15 @@
         "name": "Ladestrategie",
         "state": {
           "fast": "Schnellladen",
-          "pv_linkage": "PV-Kopplung",
-          "pv_linkage_plus": "PV-Kopplung+",
+          "pv_linkage": "PV-Kopplung (Netzbezug erlaubt)",
+          "pv_linkage_plus": "PV-Kopplung+ (nur PV-Überschuss)",
           "off_peak": "Niedertarif"
         },
         "state_attributes": {
           "information": {
             "name": "Über diese Einstellung",
             "state": {
-              "details": "Wählt Schnellladen, PV-Kopplung, PV-Kopplung+ oder Niedertarif über die von Growatt verwendeten indirekten Konfigurationswerte. Vorhandene Boost-Ziele und Zeitfenster bleiben unverändert."
+              "details": "PV-Kopplung erlaubt den konfigurierten regulären Netzbezug; PV-Kopplung+ verwendet ausschließlich PV-Überschuss. Manueller und Smart Boost dürfen weiterhin Netzstrom beziehen. Vorhandene Boost-Ziele und Zeitfenster bleiben unverändert."
             }
           }
         }

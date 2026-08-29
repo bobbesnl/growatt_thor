@@ -77,6 +77,21 @@ class ChargingControlDependencyTest(unittest.TestCase):
                 _values(G_WorkingMode="PVlink", G_SolarMode="1&1"),
             )
         )
+        self.assertFalse(
+            controls.control_is_applicable(
+                control,
+                _values(G_WorkingMode="PVlink", G_SolarMode="1&2"),
+            )
+        )
+        self.assertEqual(
+            controls.control_write_block_reason(
+                control,
+                _values(G_WorkingMode="PVlink", G_SolarMode="1&2"),
+                connected=True,
+                transaction_active=False,
+            ),
+            "control_not_applicable",
+        )
 
     def test_grid_off_peak_requires_plug_and_charge(self):
         control = controls.ChargingControl.GRID_OFF_PEAK_CHARGING

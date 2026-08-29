@@ -157,14 +157,14 @@
         "name": "Reported solar mode",
         "state": {
           "disabled": "Disabled",
-          "pv_linkage": "PV Linkage",
-          "pv_linkage_plus": "PV Linkage+"
+          "pv_linkage": "PV Linkage (grid import allowed)",
+          "pv_linkage_plus": "PV Linkage+ (solar surplus only)"
         },
         "state_attributes": {
           "information": {
             "name": "About this setting",
             "state": {
-              "details": "Shows the charger-side solar charging mode. PV Linkage and PV Linkage+ use measurements from the configured external meter."
+              "details": "PV Linkage may supplement solar power with the configured grid allowance. PV Linkage+ uses only solar surplus. Manual and Smart Boost may still draw grid power."
             }
           }
         }
@@ -175,7 +175,7 @@
           "information": {
             "name": "About this setting",
             "state": {
-              "details": "Maximum grid power the charger may add in PV Linkage mode. The charger requires about 1.4 kW single-phase or 4.1 kW three-phase to start."
+              "details": "Maximum grid power the charger may add in PV Linkage mode. The retained value is not an active regular grid allowance in PV Linkage+. The charger requires about 1.4 kW single-phase or 4.1 kW three-phase to start."
             }
           }
         }
@@ -341,7 +341,7 @@
           "information": {
             "name": "About this setting",
             "state": {
-              "details": "Available only in PV Linkage mode while solar charging is enabled. Decimal values are sent to the charger using dot notation."
+              "details": "Available only in PV Linkage mode, where regular grid import is allowed. It is unavailable in PV Linkage+, which uses solar surplus only. Decimal values are sent using dot notation."
             }
           }
         }
@@ -363,15 +363,15 @@
         "name": "Charging strategy",
         "state": {
           "fast": "Fast",
-          "pv_linkage": "PV Linkage",
-          "pv_linkage_plus": "PV Linkage+",
+          "pv_linkage": "PV Linkage (grid import allowed)",
+          "pv_linkage_plus": "PV Linkage+ (solar surplus only)",
           "off_peak": "Off-Peak"
         },
         "state_attributes": {
           "information": {
             "name": "About this setting",
             "state": {
-              "details": "Selects Fast, PV Linkage, PV Linkage+, or Off-Peak through the indirect configuration writes used by Growatt. Existing Boost targets and time windows are not changed."
+              "details": "PV Linkage allows the configured regular grid import; PV Linkage+ uses solar surplus only. Manual and Smart Boost may still draw grid power. Existing Boost targets and time windows are not changed."
             }
           }
         }

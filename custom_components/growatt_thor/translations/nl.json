@@ -157,14 +157,14 @@
         "name": "Gemelde zonnemodus",
         "state": {
           "disabled": "Uitgeschakeld",
-          "pv_linkage": "PV-koppeling",
-          "pv_linkage_plus": "PV-koppeling+"
+          "pv_linkage": "PV-koppeling (netafname toegestaan)",
+          "pv_linkage_plus": "PV-koppeling+ (alleen PV-overschot)"
         },
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
             "state": {
-              "details": "Toont de zonnelaadmodus van de lader. PV-koppeling en PV-koppeling+ gebruiken de metingen van de geconfigureerde externe meter."
+              "details": "PV-koppeling mag het zonnevermogen aanvullen met de ingestelde netafname. PV-koppeling+ gebruikt alleen PV-overschot. Handmatige en Slimme Boost mogen nog steeds netstroom gebruiken."
             }
           }
         }
@@ -175,7 +175,7 @@
           "information": {
             "name": "Over deze instelling",
             "state": {
-              "details": "Maximaal netvermogen dat de lader in de modus PV-koppeling mag toevoegen. Om te starten is ongeveer 1,4 kW enkelfasig of 4,1 kW driefasig nodig."
+              "details": "Maximaal netvermogen dat de lader in de modus PV-koppeling mag toevoegen. In PV-koppeling+ is de bewaarde waarde geen actieve reguliere netafname. Om te starten is ongeveer 1,4 kW enkelfasig of 4,1 kW driefasig nodig."
             }
           }
         }
@@ -341,7 +341,7 @@
           "information": {
             "name": "Over deze instelling",
             "state": {
-              "details": "Alleen beschikbaar bij PV-koppeling wanneer zonneladen is ingeschakeld. Decimale waarden worden met een punt naar de lader gestuurd."
+              "details": "Alleen beschikbaar bij PV-koppeling, waar reguliere netafname is toegestaan. In PV-koppeling+ is deze instelling uitgeschakeld omdat alleen PV-overschot wordt gebruikt. Decimale waarden worden met een punt verstuurd."
             }
           }
         }
@@ -363,15 +363,15 @@
         "name": "Laadstrategie",
         "state": {
           "fast": "Snel laden",
-          "pv_linkage": "PV-koppeling",
-          "pv_linkage_plus": "PV-koppeling+",
+          "pv_linkage": "PV-koppeling (netafname toegestaan)",
+          "pv_linkage_plus": "PV-koppeling+ (alleen PV-overschot)",
           "off_peak": "Daltarief"
         },
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
             "state": {
-              "details": "Selecteert Snel laden, PV-koppeling, PV-koppeling+ of Daltarief via de indirecte configuratiewaarden van Growatt. Bestaande boostdoelen en tijdvensters blijven ongewijzigd."
+              "details": "PV-koppeling staat de ingestelde reguliere netafname toe; PV-koppeling+ gebruikt alleen PV-overschot. Handmatige en Slimme Boost mogen nog steeds netstroom gebruiken. Bestaande boostdoelen en tijdvensters blijven ongewijzigd."
             }
           }
         }

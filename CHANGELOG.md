@@ -23,6 +23,9 @@ _Target version: 1.7.0_
 - **Entity semantics and translations**: Treat measurements and effective operating states as sensors, writable settings as configuration controls, retained vendor settings as diagnostics, and start/stop as operational buttons. Existing controls and the new charging controls now use English, German, and Dutch translation keys.
 - **Shared charging periods**: Describe `G_OffPeakTime` as the charger-reported shared period list because captures show the same underlying `G_PeriodTime` is used for both Off-Peak charging and PV Linkage Manual Boost.
 
+### Fixed
+- **PV Linkage mode semantics**: Label PV Linkage as allowing the configured regular grid import and PV Linkage+ as solar-surplus-only. The grid-import allowance control is unavailable in PV Linkage+, while Manual and Smart Boost may still use grid power.
+
 ---
 
 ## 🎉 [1.6.0] - 2026-09-03

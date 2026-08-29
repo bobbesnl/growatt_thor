@@ -392,8 +392,8 @@ After successful connection, the integration creates the entities below. The lis
 | Server URL | `sensor.growatt_thor_ev_charger_server_url` | Configured OCPP endpoint |
 | Working mode | `sensor.growatt_thor_ev_charger_working_mode` | Fast, PV Linkage, or Off-Peak operation |
 | Authorization mode | `sensor.growatt_thor_ev_charger_authorization_mode` | Home Assistant/RFID, RFID only, or Plug & Charge authorization |
-| Reported solar mode | `sensor.growatt_thor_ev_charger_solar_mode` | Disabled, PV Linkage, or PV Linkage+ read back from the charger |
-| Reported PV Linkage grid import allowance | `sensor.growatt_thor_ev_charger_pv_linkage_grid_import_allowance` | Charger-normalized grid-import allowance in kW |
+| Reported solar mode | `sensor.growatt_thor_ev_charger_solar_mode` | Disabled, PV Linkage with grid import, or solar-only PV Linkage+ read back from the charger |
+| Reported PV Linkage grid import allowance | `sensor.growatt_thor_ev_charger_pv_linkage_grid_import_allowance` | Charger-normalized grid-import allowance for PV Linkage in kW |
 | PV Linkage boost configuration | `sensor.growatt_thor_ev_charger_pv_linkage_boost_configuration` | Disabled, Manual, or Smart boost mode |
 | Solar threshold current | `sensor.growatt_thor_ev_charger_solar_threshold_current` | Reported PV threshold current in A |
 | Grid off-peak charging | `sensor.growatt_thor_ev_charger_grid_off_peak_charging` | Grid off-peak charging flag |
@@ -443,8 +443,8 @@ numeric delay and does not provide an unverified Random Delay control.
 | Stop charging | Button | `button.growatt_thor_ev_charger_stop_charging` | Stop the active charging session |
 | Auto Charge Start Time | Time | `time.growatt_thor_ev_charger_auto_charge_start_time` | Schedule start time; changes auto-apply through the write queue |
 | Auto Charge Stop Time | Time | `time.growatt_thor_ev_charger_auto_charge_stop_time` | Schedule stop time; changes auto-apply through the write queue |
-| Charging strategy | Select | `select.growatt_thor_ev_charger_charging_strategy` | Select Fast, PV Linkage, PV Linkage+, or Off-Peak mode |
-| PV Linkage grid import allowance | Number | `number.growatt_thor_ev_charger_pv_linkage_grid_import_allowance` | Grid power the charger may add while PV Linkage is active |
+| Charging strategy | Select | `select.growatt_thor_ev_charger_charging_strategy` | Select Fast, PV Linkage with grid import, solar-only PV Linkage+, or Off-Peak mode |
+| PV Linkage grid import allowance | Number | `number.growatt_thor_ev_charger_pv_linkage_grid_import_allowance` | Grid power the charger may add in PV Linkage mode |
 | Warm-up after full charge | Switch | `switch.growatt_thor_ev_charger_warm_up_after_full_charge` | Allow compatible vehicles to continue drawing power for preheating or defrosting |
 
 Charger mode and AP mode are intentionally configured through **Settings → Devices & Services → Growatt THOR → Configure**. They are not select or button entities.
@@ -456,7 +456,7 @@ Control availability follows the effective mode reported by the charger:
 | Charging strategy | Any connected mode |
 | Load balancing and its limit | Fast and Off-Peak |
 | Automatic charging start/stop | Fast |
-| PV Linkage grid import allowance | PV Linkage or PV Linkage+, with solar charging enabled |
+| PV Linkage grid import allowance | PV Linkage only; unavailable in solar-only PV Linkage+ |
 | Warm-up after full charge | Any connected mode |
 
 The charging-strategy select does not write `G_WorkingMode`; that key is a
@@ -465,11 +465,15 @@ Growatt app: `G_SolarMode` selects Fast/PV Linkage variants and
 `G_OffPeakEnable=1&Enable` selects Off-Peak. Home Assistant refreshes the
 configuration after the charger has applied a change.
 
-Boost and period controls are intentionally not writable yet. Manual Boost
-requires `G_SolarBoost` together with `G_PeriodTime`; Smart Boost additionally
-requires `DataTransfer/solar_target_data`. The period readback is shared with
-Off-Peak mode, so changing only one of these values would create an incomplete
-charger configuration.
+Growatt's naming is counterintuitive: PV Linkage allows the configured regular
+grid import, while PV Linkage+ uses only solar surplus. Manual and Smart Boost
+may still draw grid power in either PV variant.
+
+Boost settings are staged locally and sent only after Apply is pressed. Manual
+Boost requires its complete time window; Smart Boost requires both finish time
+and target energy. The period readback is shared with Off-Peak mode, so the
+integration always writes the complete applicable configuration instead of an
+isolated partial value.
 
 ### Entity semantics
 

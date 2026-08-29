@@ -644,6 +644,38 @@ class EntityTranslationTest(unittest.TestCase):
 
         self.assertEqual(hardcoded_names, [])
 
+    def test_pv_mode_translations_explain_grid_import(self):
+        expected = {
+            "en": (
+                "PV Linkage (grid import allowed)",
+                "PV Linkage+ (solar surplus only)",
+            ),
+            "de": (
+                "PV-Kopplung (Netzbezug erlaubt)",
+                "PV-Kopplung+ (nur PV-Überschuss)",
+            ),
+            "nl": (
+                "PV-koppeling (netafname toegestaan)",
+                "PV-koppeling+ (alleen PV-overschot)",
+            ),
+        }
+
+        for language, labels in expected.items():
+            with self.subTest(language=language):
+                translation = json.loads(
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                entities = translation["entity"]
+                for platform, key in (
+                    ("sensor", "solar_mode"),
+                    ("select", "working_mode"),
+                ):
+                    states = entities[platform][key]["state"]
+                    self.assertEqual(states["pv_linkage"], labels[0])
+                    self.assertEqual(states["pv_linkage_plus"], labels[1])
+
     def test_direct_control_shadow_sensors_are_disabled_by_default(self):
         tree = ast.parse(SENSOR_PATH.read_text(encoding="utf-8"))
         defaults = {}

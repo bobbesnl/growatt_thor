@@ -89,7 +89,7 @@ CONTROL_DEFINITIONS: Final[Mapping[ChargingControl, ControlDefinition]] = (
                 ControlCapability.WRITABLE,
                 "G_SolarLimitPower",
                 working_modes=frozenset({"pv_linkage"}),
-                solar_modes=frozenset({"pv_linkage", "pv_linkage_plus"}),
+                solar_modes=frozenset({"pv_linkage"}),
             ),
             ChargingControl.SOLAR_BOOST: ControlDefinition(
                 ControlCapability.COMPOUND,
