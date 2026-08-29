@@ -408,7 +408,7 @@ After successful connection, the integration creates the entities below. The lis
 | Electricity Price | `sensor.growatt_thor_ev_charger_electricity_price` | Configured electricity price using the Home Assistant system currency per kWh |
 | Last Session Energy | `sensor.growatt_thor_ev_charger_last_session_energy` | Energy from the most recently completed session |
 | Last Session Cost | `sensor.growatt_thor_ev_charger_last_session_cost` | Cost from the most recently completed session using the Home Assistant system currency |
-| Last Session Duration | `sensor.growatt_thor_ev_charger_last_session_duration` | Duration of the most recently completed session |
+| Last Session Duration | `sensor.growatt_thor_ev_charger_last_session_duration` | Duration of the most recently completed session; stored in minutes with hours suggested for display |
 | Last Session Start | `sensor.growatt_thor_ev_charger_last_session_start` | Charging start timestamp |
 | Last Session End | `sensor.growatt_thor_ev_charger_last_session_end` | Charging end timestamp |
 | Last Session Plug Time | `sensor.growatt_thor_ev_charger_last_session_plug_time` | Cable connection timestamp |

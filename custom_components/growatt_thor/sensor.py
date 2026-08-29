@@ -613,7 +613,10 @@ class LastSessionCostSensor(BaseSensor):
 
 class LastSessionDurationSensor(BaseSensor):
     _attr_translation_key = "last_session_duration"
+    _attr_device_class = SensorDeviceClass.DURATION
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_unit_of_measurement = UnitOfTime.HOURS
+    _attr_suggested_display_precision = 2
     _attr_icon = "mdi:timer-outline"
 
     def __init__(self, coordinator, entry):

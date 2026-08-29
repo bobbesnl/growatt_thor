@@ -570,6 +570,34 @@ class EntityTranslationTest(unittest.TestCase):
             }.issubset(translation_keys)
         )
 
+    def test_last_session_duration_declares_ha_duration_semantics(self):
+        tree = ast.parse(SENSOR_PATH.read_text(encoding="utf-8"))
+        duration_class = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef)
+            and node.name == "LastSessionDurationSensor"
+        )
+        assignments = {
+            target.id: node.value
+            for node in duration_class.body
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        self.assertEqual(
+            ast.unparse(assignments["_attr_device_class"]),
+            "SensorDeviceClass.DURATION",
+        )
+        self.assertEqual(
+            ast.unparse(assignments["_attr_suggested_unit_of_measurement"]),
+            "UnitOfTime.HOURS",
+        )
+        self.assertEqual(
+            ast.literal_eval(assignments["_attr_suggested_display_precision"]),
+            2,
+        )
+
     def test_control_entities_are_translated(self):
         expected = {
             "button": {
