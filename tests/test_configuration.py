@@ -429,6 +429,7 @@ class EntityTranslationTest(unittest.TestCase):
         expected_entities = {
             "server_url",
             "status",
+            "last_charger_fault",
             "charge_point_id",
             "charger_vendor",
             "charger_model",
@@ -454,6 +455,7 @@ class EntityTranslationTest(unittest.TestCase):
             "phase_power",
             "temperature",
             "external_meter_health",
+            "last_charger_fault",
             "grid_power",
             "grid_voltage",
             "grid_current",
@@ -574,6 +576,10 @@ class EntityTranslationTest(unittest.TestCase):
                 self.assertEqual(
                     tuple(sensors["external_meter_health"]["state"]),
                     ("healthy", "faulted", "stale", "not_reported"),
+                )
+                self.assertEqual(
+                    tuple(sensors["last_charger_fault"]["state"]),
+                    ("emergency_stop", "power_meter_failure", "other_fault"),
                 )
 
         self.assertIn(

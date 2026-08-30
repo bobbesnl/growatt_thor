@@ -10,6 +10,11 @@ from homeassistant.helpers.storage import Store
 from .charging_duration import EffectiveChargingTracker
 from .charging_sessions import CORRELATION_MATCHED, build_unified_session
 from .charging_controls import transaction_state_is_active
+from .charger_faults import (
+    ChargerFault,
+    fault_from_data_transfer,
+    fault_from_status_notification,
+)
 from .configuration import (
     ConfigurationValue,
     configuration_entity_state,
@@ -32,6 +37,7 @@ from .external_meter import (
 )
 from .meter_samples import parse_meter_values
 from .ocpp_diagnostics import create_ocpp_snapshot
+from .ocpp_status import normalize_ocpp_status
 from .pv_linkage import (
     PvBoostMode,
     PvLinkageDraft,
@@ -72,6 +78,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         # Latest normalized OCPP requests retained for HA diagnostics.
         self.boot_notification = None
         self.last_status_notification = None
+        self.last_charger_fault: ChargerFault | None = None
         self.last_meter_values = None
         self.active_transaction = None
         self.last_completed_transaction = None
@@ -181,6 +188,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self._restore_last_session_state(
                 LastSessionState.from_dict(data.get("last_session"))
             )
+            self.last_charger_fault = ChargerFault.from_dict(
+                data.get("last_charger_fault")
+            )
             self.effective_charging = EffectiveChargingTracker.from_dict(
                 data.get("active_effective_charging")
             )
@@ -219,6 +229,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
             "total_energy_charged": self.total_energy_charged,
             "next_transaction_id": self._transaction_id_allocator.next_transaction_id,
             "last_session": self._last_session_state().as_dict(),
+            "last_charger_fault": (
+                self.last_charger_fault.as_dict()
+                if self.last_charger_fault is not None
+                else None
+            ),
             "active_effective_charging": self.effective_charging.as_dict(),
             "pending_effective_charging_minutes": dict(
                 self._pending_effective_charging_minutes
@@ -569,6 +584,14 @@ class GrowattCoordinator(DataUpdateCoordinator):
             **payload,
         }
         self.last_status_notification = create_ocpp_snapshot(self.now(), request)
+        if normalize_ocpp_status(status) == "faulted":
+            self.last_charger_fault = fault_from_status_notification(
+                self.now(),
+                connector_id,
+                error_code,
+                payload,
+            )
+            self._schedule_fault_storage_save()
         info = payload.get("info")
         if status_reports_external_meter_fault(error_code, info):
             self.external_meter_faulted = True
@@ -587,6 +610,30 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.external_meter_fault_error_code = None
             self.external_meter_fault_info = None
         self.set_status(status)
+
+    def process_fault_message(
+        self,
+        vendor_id: object,
+        data: str,
+    ) -> None:
+        """Retain and merge a Growatt DataTransfer/faultmessage event."""
+        self.last_charger_fault = fault_from_data_transfer(
+            self.now(),
+            vendor_id,
+            data,
+            self.last_charger_fault,
+        )
+        self._schedule_fault_storage_save()
+        self.async_set_updated_data(True)
+
+    @property
+    def charger_is_faulted(self) -> bool:
+        """Return whether the current OCPP charger status is Faulted."""
+        return normalize_ocpp_status(self.status) == "faulted"
+
+    def _schedule_fault_storage_save(self) -> None:
+        """Coalesce paired StatusNotification/faultmessage storage writes."""
+        self._store.async_delay_save(self._storage_data, 1)
 
     def start_transaction(
         self,

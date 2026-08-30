@@ -82,6 +82,22 @@
           "idle": "Inactief"
         }
       },
+      "last_charger_fault": {
+        "name": "Laatste laderfout",
+        "state": {
+          "emergency_stop": "Noodstop",
+          "power_meter_failure": "Fout externe meter",
+          "other_fault": "Andere laderfout"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze gebeurtenis",
+            "state": {
+              "details": "Bewaart de laatste echte Faulted-gebeurtenis nadat de lader is hersteld. Bijbehorende details uit OCPP StatusNotification en Growatt faultmessage worden samengevoegd."
+            }
+          }
+        }
+      },
       "charge_point_id": { "name": "Laadpunt-ID" },
       "charger_vendor": { "name": "Fabrikant laadstation" },
       "charger_model": { "name": "Model laadstation" },

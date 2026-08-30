@@ -40,6 +40,7 @@ async def async_get_config_entry_diagnostics(
             "configuration_writes": {},
             "unknown_configuration_keys": [],
             "growatt": {
+                "last_charger_fault": None,
                 "external_meter": {
                     "health": "not_reported",
                     "last_updated_at": None,
@@ -107,6 +108,11 @@ async def async_get_config_entry_diagnostics(
             }
         ),
         "growatt": {
+            "last_charger_fault": (
+                coordinator.last_charger_fault.as_dict()
+                if coordinator.last_charger_fault is not None
+                else None
+            ),
             "external_meter": {
                 "health": coordinator.external_meter_health,
                 "last_updated_at": coordinator.external_meter_last_updated_at,

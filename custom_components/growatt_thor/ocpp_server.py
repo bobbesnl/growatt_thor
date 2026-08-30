@@ -325,6 +325,8 @@ class GrowattChargePoint(OcppChargePoint):
                     record.transaction_id,
                 )
                 self.coordinator.process_session_record(record)
+            elif isinstance(data, str) and message_id == "faultmessage":
+                self.coordinator.process_fault_message(vendor_id, data)
         except Exception as exc:
             _LOGGER.error("Error in DataTransfer handler (vendor=%s, messageId=%s): %s", vendor_id, message_id, exc, exc_info=True)
         return call_result.DataTransfer(status=DataTransferStatus.accepted)

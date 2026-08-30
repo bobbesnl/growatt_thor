@@ -82,6 +82,22 @@
           "idle": "Idle"
         }
       },
+      "last_charger_fault": {
+        "name": "Last charger fault",
+        "state": {
+          "emergency_stop": "Emergency stop",
+          "power_meter_failure": "External meter failure",
+          "other_fault": "Other charger fault"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this event",
+            "state": {
+              "details": "Retains the most recent actual Faulted event after the charger recovers. OCPP StatusNotification and Growatt faultmessage details belonging to the same event are combined."
+            }
+          }
+        }
+      },
       "charge_point_id": { "name": "Charge Point ID" },
       "charger_vendor": { "name": "Charger manufacturer" },
       "charger_model": { "name": "Charger model" },

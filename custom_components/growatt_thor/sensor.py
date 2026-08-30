@@ -23,6 +23,7 @@ from .configuration import (
     CONFIGURATION_ENTITY_OPTIONS,
     configuration_entity_state,
 )
+from .charger_faults import CHARGER_FAULT_OPTIONS
 from .const import DOMAIN
 from .currency import configured_currency, electricity_price_unit
 from .external_meter import EXTERNAL_METER_HEALTH_OPTIONS
@@ -366,6 +367,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         [
             # ── Status / live ─────────────────────────
             StatusSensor(coordinator, entry),
+            LastChargerFaultSensor(coordinator, entry),
             ChargePointIdSensor(coordinator, entry),
             *boot_sensors,
             ChargingPowerSensor(coordinator, entry),
@@ -437,6 +439,38 @@ class BaseSensor(CoordinatorEntity, SensorEntity):
             "name": "Growatt THOR EV Charger",
             "manufacturer": "Growatt",
             "model": "THOR",
+        }
+
+
+class LastChargerFaultSensor(BaseSensor):
+    """Expose the most recently retained charger fault."""
+
+    _attr_translation_key = "last_charger_fault"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = list(CHARGER_FAULT_OPTIONS)
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:alert-octagon-outline"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_charger_fault")
+
+    @property
+    def native_value(self):
+        fault = self.coordinator.last_charger_fault
+        return fault.category if fault is not None else None
+
+    @property
+    def available(self):
+        return super().available and self.coordinator.last_charger_fault is not None
+
+    @property
+    def extra_state_attributes(self):
+        fault = self.coordinator.last_charger_fault
+        if fault is None:
+            return {"information": "details"}
+        return {
+            "information": "details",
+            **fault.as_dict(),
         }
 
 

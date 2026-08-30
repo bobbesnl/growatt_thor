@@ -82,6 +82,22 @@
           "idle": "Leerlauf"
         }
       },
+      "last_charger_fault": {
+        "name": "Letzter Wallbox-Fehler",
+        "state": {
+          "emergency_stop": "Not-Aus",
+          "power_meter_failure": "Externer Zählerfehler",
+          "other_fault": "Anderer Wallbox-Fehler"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über dieses Ereignis",
+            "state": {
+              "details": "Bewahrt das letzte echte Faulted-Ereignis auch nach der Erholung der Wallbox auf. Zusammengehörige Details aus OCPP StatusNotification und Growatt faultmessage werden kombiniert."
+            }
+          }
+        }
+      },
       "charge_point_id": { "name": "Ladepunkt-ID" },
       "charger_vendor": { "name": "Hersteller der Wallbox" },
       "charger_model": { "name": "Wallbox-Modell" },
