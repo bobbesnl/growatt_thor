@@ -1,7 +1,7 @@
 [!["Buy Us A Coffee"](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/bobbesnl)
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
-![Version](https://img.shields.io/badge/version-1.7.0--dev.22-blue)
+![Version](https://img.shields.io/badge/version-1.7.0--dev.23-blue)
 
 
 ⚠️ **Please read this document first before installing this integration!**
@@ -380,6 +380,7 @@ After successful connection, the integration creates the entities below. The lis
 | Entity name | Default entity ID | Purpose |
 |---|---|---|
 | Status | `sensor.growatt_thor_ev_charger_status` | Charger status |
+| Last charger fault | `sensor.growatt_thor_ev_charger_last_charger_fault` | Most recent actual Faulted event, retained after recovery and enriched with matching Growatt faultmessage details |
 | Charge Point ID | `sensor.growatt_thor_ev_charger_charge_point_id` | Connected OCPP charge point ID |
 | Charging Power | `sensor.growatt_thor_ev_charger_charging_power` | Total charging power (W) |
 | Energy Charged | `sensor.growatt_thor_ev_charger_energy_charged` | Energy charged in the current session (kWh) |
@@ -475,6 +476,12 @@ Control availability follows the effective mode reported by the charger:
 | Automatic charging start/stop | Fast |
 | PV Linkage grid import allowance | PV Linkage only; unavailable in solar-only PV Linkage+ |
 | Warm-up after full charge | Any connected mode |
+
+Configuration controls and Start Charging are unavailable while the current
+OCPP status is `Faulted`. The same guard runs again before queued writes are
+executed. Stop Charging remains available so an active transaction can still be
+ended as a safety action. The controls recover automatically with the next
+non-fault status.
 
 The charging-strategy select does not write `G_WorkingMode`; that key is a
 readback of the effective mode. It uses the indirect writes captured from the

@@ -56,7 +56,7 @@ Home Assistant.
 |---|---|---|---|---|---|
 | `BootNotification` | CP -> CS | `chargePointVendor=Growatt`, `chargePointModel=THOR_22AS`, serial and firmware | Latest complete request in redacted HA diagnostics; connection creates the Charge Point ID sensor | 2.2.16 | observed, implemented |
 | `Heartbeat` | CP -> CS | Periodic clock synchronization; Central System requests a 60-second interval in `BootNotification.conf` | Returns current UTC time and refreshes connection liveness; any inbound OCPP message also counts as activity | 2.2.16 | observed, implemented |
-| `StatusNotification` | CP -> CS | `Preparing`, `Charging`, `Finishing`; `errorCode=NoError` and an empty `info` field | Status sensor plus latest complete request in HA diagnostics | 2.2.16 | observed, implemented |
+| `StatusNotification` | CP -> CS | Operational states plus faults such as `PowerMeterFailure` and emergency-stop `OtherError` | Status sensor, latest complete request, and persistent Last Charger Fault diagnostics | 2.2.16 | observed, implemented |
 | `StartTransaction` | CP -> CS | Starts an OCPP transaction | Resets live session values, returns a CS-generated transaction ID, and starts the retained transaction diagnostics | 2.2.16 | implemented |
 | `MeterValues` | CP -> CS | Charging energy, current, voltage, power, and temperature | Known values feed live sensors; the complete latest sample set is retained in HA diagnostics | 2.2.16 | observed, implemented |
 | `StopTransaction` | CP -> CS | Ends a transaction with meter stop and reason | Clears active state and retains the complete start/stop transaction pair in HA diagnostics | 2.2.16 | observed, implemented |
@@ -66,6 +66,7 @@ Home Assistant.
 | `DataTransfer/get_external_meterval` | CS -> CP | Requests the external power meter snapshot | Grid power, voltage, and current sensors | 2.2.16 | observed, implemented |
 | `DataTransfer/currentrecord` | CP -> CS | Current or latest Growatt session record | Structured diagnostics, last-session sensors, and CSV logging | 2.2.16 | observed, implemented |
 | `DataTransfer/frozenrecord` | CP -> CS | Completed Growatt session record | Structured diagnostics, last-session sensors, and CSV logging | 2.2.16 | implemented |
+| `DataTransfer/faultmessage` | CP -> CS | Growatt fault code, connector, event time, and message | Merged into persistent Last Charger Fault diagnostics | 2.2.16 | observed, implemented |
 | `DataTransfer/appconfigmode` | CS -> CP | Enables charger AP mode | Options flow with confirmation | 2.2.16 | implemented |
 | `DataTransfer/solar_target_data` | CS -> CP | PV Linkage Smart Boost target time and energy | Documented; no Home Assistant control | 2.2.16 | observed |
 | `DataTransfer/G_SetTime` | CS -> CP | One-shot fast-charge duration in minutes | Documented; no Home Assistant control | 2.2.16 | observed |
@@ -184,6 +185,38 @@ validated measurands in the table above are mapped to Home Assistant entities.
 
 Growatt encodes these payloads as query-string-like data. The raw value should
 be preserved because unknown fields may be added by other firmware versions.
+
+### `faultmessage`
+
+Activating the charger emergency stop produces two related requests:
+
+```text
+StatusNotification(
+  connectorId=1,
+  status=Faulted,
+  errorCode=OtherError,
+  info="Emergency stop press,or emergency stop is broken",
+  vendorId=Growatt,
+  vendorErrorCode="Emergency stop press,or emergency stop is broken"
+)
+
+DataTransfer(
+  vendorId=Growatt,
+  messageId=faultmessage,
+  data="connectorId=1&time=2026-08-30T10:00:51+02:00&errcode=100&info=Emergency stop press,or emergency stop is broken"
+)
+```
+
+Releasing the emergency stop produces
+`StatusNotification(status=Available, errorCode=NoError)`. The tested sequence
+returned to Available about 4.4 seconds after the Faulted notification. Growatt
+error code `100` therefore identifies the emergency-stop event, while the
+current status remains the authoritative recovery signal.
+
+The integration combines both fault requests by connector, category, and a
+30-second event window. The resulting Last Charger Fault record is retained
+after recovery and across Home Assistant restarts. Routine non-Faulted states
+such as `SuspendedEV` with `ChargeWait` are not recorded as charger faults.
 
 ### `get_external_meterval`
 
