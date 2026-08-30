@@ -12,6 +12,7 @@ from ocpp.v16.enums import ConfigurationStatus
 from .const import DOMAIN
 from .charging_controls import (
     ChargingControl,
+    charger_write_block_reason,
     control_write_block_reason,
     encode_control_value,
 )
@@ -73,6 +74,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             self.coordinator.configuration_values,
             connected=self.coordinator.connected,
             transaction_active=self.coordinator.transaction_is_active,
+            charger_faulted=self.coordinator.charger_is_faulted,
         )
 
     @property
@@ -191,6 +193,17 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
             return None
         return self.coordinator.lcd_close_enable == "Disable"
 
+    @property
+    def _write_block_reason(self) -> str | None:
+        return charger_write_block_reason(
+            connected=self.coordinator.connected,
+            charger_faulted=self.coordinator.charger_is_faulted,
+        )
+
+    @property
+    def available(self):
+        return super().available and self._write_block_reason is None
+
     async def async_turn_on(self, **kwargs):
         """Zet LCD AAN (G_LCDCloseEnable = Disable)."""
         await self._set_value("Disable")
@@ -201,6 +214,9 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
 
     async def _apply_lcd_close_enable(self, charge_point, value: str):
         """Actually write LCD setting to the charger (runs inside write-queue)."""
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning("Skipping queued LCD display change: %s", block_reason)
+            return
         _LOGGER.info("Setting G_LCDCloseEnable to %s", value)
 
         result = await charge_point.change_configuration(
@@ -227,6 +243,9 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
 
     async def _set_value(self, value: str):
         """Queue the configuration update (prevents rapid-fire FW crashes)."""
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning("Cannot change LCD display: %s", block_reason)
+            return
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
 
         if not charge_point:

@@ -12,6 +12,7 @@ from ocpp.v16.enums import ConfigurationStatus, DataTransferStatus
 
 from .charging_controls import (
     ChargingControl,
+    charger_write_block_reason,
     control_write_block_reason,
 )
 from .configuration_control import async_confirm_configuration
@@ -61,8 +62,22 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
         }
         self.hass = coordinator.hass
 
+    @property
+    def _write_block_reason(self) -> str | None:
+        return charger_write_block_reason(
+            connected=self.coordinator.connected,
+            charger_faulted=self.coordinator.charger_is_faulted,
+        )
+
+    @property
+    def available(self):
+        return super().available and self._write_block_reason is None
+
     async def async_press(self) -> None:
         """Start a charging session via queue."""
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning("Cannot start charging: %s", block_reason)
+            return
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot start charging: charger not connected")
@@ -80,6 +95,9 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 
     async def _start_charging(self, charge_point):
         """Start charging command (runs inside write-queue)."""
+        if (block_reason := self._write_block_reason) is not None:
+            _LOGGER.warning("Skipping queued start charging: %s", block_reason)
+            return
         try:
             result = await charge_point.remote_start_transaction(
                 connector_id=1,
@@ -211,6 +229,7 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
             self.coordinator.configuration_values,
             connected=self.coordinator.connected,
             transaction_active=self.coordinator.transaction_is_active,
+            charger_faulted=self.coordinator.charger_is_faulted,
         )
 
     @property

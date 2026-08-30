@@ -199,14 +199,18 @@ def control_write_block_reason(
     *,
     connected: bool,
     transaction_active: bool,
+    charger_faulted: bool = False,
 ) -> str | None:
     """Return why a control cannot currently write, or ``None``."""
     definition = CONTROL_DEFINITIONS[control]
 
     if definition.capability == ControlCapability.READ_ONLY:
         return "read_only_control"
-    if not connected:
-        return "charger_disconnected"
+    if block_reason := charger_write_block_reason(
+        connected=connected,
+        charger_faulted=charger_faulted,
+    ):
+        return block_reason
     if (
         definition.write_policy == ControlWritePolicy.IDLE_ONLY
         and transaction_active
@@ -223,6 +227,19 @@ def control_write_block_reason(
     ):
         return "configuration_read_only"
 
+    return None
+
+
+def charger_write_block_reason(
+    *,
+    connected: bool,
+    charger_faulted: bool,
+) -> str | None:
+    """Return a connection/status blocker shared by legacy controls."""
+    if not connected:
+        return "charger_disconnected"
+    if charger_faulted:
+        return "charger_faulted"
     return None
 
 

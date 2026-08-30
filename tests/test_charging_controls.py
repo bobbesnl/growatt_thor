@@ -116,6 +116,25 @@ class ChargingControlDependencyTest(unittest.TestCase):
             "control_not_applicable",
         )
 
+    def test_faulted_charger_blocks_configuration_writes(self):
+        self.assertEqual(
+            controls.control_write_block_reason(
+                controls.ChargingControl.WORKING_MODE,
+                _values(G_WorkingMode="Fast"),
+                connected=True,
+                transaction_active=False,
+                charger_faulted=True,
+            ),
+            "charger_faulted",
+        )
+        self.assertEqual(
+            controls.charger_write_block_reason(
+                connected=True,
+                charger_faulted=True,
+            ),
+            "charger_faulted",
+        )
+
     def test_grid_off_peak_requires_plug_and_charge(self):
         control = controls.ChargingControl.GRID_OFF_PEAK_CHARGING
         self.assertFalse(

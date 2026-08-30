@@ -12,6 +12,7 @@ from ocpp.v16.enums import ConfigurationStatus
 from .const import DOMAIN
 from .charging_controls import (
     ChargingControl,
+    charger_write_block_reason,
     control_write_block_reason,
     encode_control_value,
 )
@@ -57,6 +58,17 @@ class BaseConfigNumber(CoordinatorEntity, NumberEntity):
     def _format_value(self, value: float) -> str:
         return str(int(round(value)))
 
+    @property
+    def _charger_write_block_reason(self) -> str | None:
+        return charger_write_block_reason(
+            connected=self.coordinator.connected,
+            charger_faulted=self.coordinator.charger_is_faulted,
+        )
+
+    @property
+    def available(self):
+        return super().available and self._charger_write_block_reason is None
+
 
 # ─────────────────────────────
 # Max Current
@@ -87,6 +99,9 @@ class MaxCurrentNumber(BaseConfigNumber):
         return int(value) if value is not None else None
 
     async def async_set_native_value(self, value: float) -> None:
+        if (block_reason := self._charger_write_block_reason) is not None:
+            _LOGGER.warning("Cannot change Max Current: %s", block_reason)
+            return
         value = int(round(value))
 
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
@@ -113,6 +128,9 @@ class MaxCurrentNumber(BaseConfigNumber):
         )
 
     async def _write_to_thor(self, charge_point, value: int, previous: int | None):
+        if (block_reason := self._charger_write_block_reason) is not None:
+            _LOGGER.warning("Skipping queued Max Current change: %s", block_reason)
+            return
         try:
             result = await charge_point.change_configuration(
                 self._config_key,
@@ -183,6 +201,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             self.coordinator.configuration_values,
             connected=self.coordinator.connected,
             transaction_active=self.coordinator.transaction_is_active,
+            charger_faulted=self.coordinator.charger_is_faulted,
         )
 
     @property
@@ -316,6 +335,9 @@ class ElectricityPriceNumber(BaseConfigNumber):
         }
 
     async def async_set_native_value(self, value: float) -> None:
+        if (block_reason := self._charger_write_block_reason) is not None:
+            _LOGGER.warning("Cannot change Electricity Price: %s", block_reason)
+            return
         value = round(value, 2)
 
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
@@ -342,6 +364,12 @@ class ElectricityPriceNumber(BaseConfigNumber):
         )
 
     async def _write_to_thor(self, charge_point, value: float, previous: float | None):
+        if (block_reason := self._charger_write_block_reason) is not None:
+            _LOGGER.warning(
+                "Skipping queued Electricity Price change: %s",
+                block_reason,
+            )
+            return
         price_str = f"time1=00:00-23:59&price1={value:.2f}"  # ← gecorrigeerd: formaat conform THOR response
         try:
             result = await charge_point.change_configuration(
@@ -505,6 +533,7 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
             self.coordinator.configuration_values,
             connected=self.coordinator.connected,
             transaction_active=self.coordinator.transaction_is_active,
+            charger_faulted=self.coordinator.charger_is_faulted,
         )
 
     @property

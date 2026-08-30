@@ -91,6 +91,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
             self.coordinator.configuration_values,
             connected=self.coordinator.connected,
             transaction_active=self.coordinator.transaction_is_active,
+            charger_faulted=self.coordinator.charger_is_faulted,
         )
 
     @property
@@ -348,6 +349,7 @@ class PvBoostDraftSelect(CoordinatorEntity, SelectEntity):
             self.coordinator.configuration_values,
             connected=self.coordinator.connected,
             transaction_active=self.coordinator.transaction_is_active,
+            charger_faulted=self.coordinator.charger_is_faulted,
         )
 
     @property
