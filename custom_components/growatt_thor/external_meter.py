@@ -16,6 +16,14 @@ _CURRENT_FIELDS = {
     "w-current": "L3",
 }
 
+EXTERNAL_METER_HEALTH_OPTIONS = (
+    "healthy",
+    "faulted",
+    "stale",
+    "not_reported",
+)
+EXTERNAL_METER_STALE_AFTER_TIMEOUTS = 3
+
 
 @dataclass(frozen=True)
 class ExternalMeterSnapshot:
@@ -26,6 +34,49 @@ class ExternalMeterSnapshot:
     power: float | None
     voltages: dict[str, float]
     currents: dict[str, float]
+
+
+def _normalized_token(value: object) -> str:
+    """Normalize OCPP enum and string values for fault matching."""
+    if hasattr(value, "value"):
+        value = value.value
+    return "".join(
+        character
+        for character in str(value or "").casefold()
+        if character.isalnum()
+    )
+
+
+def status_reports_external_meter_fault(
+    error_code: object,
+    info: object = None,
+) -> bool:
+    """Return whether a StatusNotification reports the observed Modbus fault."""
+    return (
+        _normalized_token(error_code) == "powermeterfailure"
+        or _normalized_token(info) == "485fault"
+    )
+
+
+def status_clears_external_meter_fault(error_code: object) -> bool:
+    """Return whether a StatusNotification explicitly clears its error state."""
+    return _normalized_token(error_code) == "noerror"
+
+
+def external_meter_health(
+    *,
+    explicit_fault: bool,
+    consecutive_timeouts: int,
+    has_snapshot: bool,
+) -> str:
+    """Derive external-meter health without treating zero readings as faults."""
+    if explicit_fault:
+        return "faulted"
+    if consecutive_timeouts >= EXTERNAL_METER_STALE_AFTER_TIMEOUTS:
+        return "stale"
+    if has_snapshot:
+        return "healthy"
+    return "not_reported"
 
 
 def _optional_int(values: dict[str, str], key: str) -> int | None:

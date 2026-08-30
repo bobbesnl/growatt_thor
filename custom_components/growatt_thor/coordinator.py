@@ -24,7 +24,12 @@ from .configuration_writes import (
     confirm_configuration_writes,
 )
 from .const import DOMAIN
-from .external_meter import parse_external_meter_data
+from .external_meter import (
+    external_meter_health,
+    parse_external_meter_data,
+    status_clears_external_meter_fault,
+    status_reports_external_meter_fault,
+)
 from .meter_samples import parse_meter_values
 from .ocpp_diagnostics import create_ocpp_snapshot
 from .pv_linkage import (
@@ -145,6 +150,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.external_meter_used = None
         self.external_meter_wring = None
         self.external_meter_last_updated_at = None
+        self.external_meter_faulted = False
+        self.external_meter_fault_connector_id = None
+        self.external_meter_fault_error_code = None
+        self.external_meter_fault_info = None
+        self.meterval_consecutive_timeouts = 0
 
         # WRITE QUEUE SYSTEEM
         self._write_queue = deque()
@@ -559,6 +569,23 @@ class GrowattCoordinator(DataUpdateCoordinator):
             **payload,
         }
         self.last_status_notification = create_ocpp_snapshot(self.now(), request)
+        info = payload.get("info")
+        if status_reports_external_meter_fault(error_code, info):
+            self.external_meter_faulted = True
+            self.external_meter_fault_connector_id = connector_id
+            self.external_meter_fault_error_code = (
+                error_code.value if hasattr(error_code, "value") else error_code
+            )
+            self.external_meter_fault_info = info
+        elif (
+            self.external_meter_faulted
+            and status_clears_external_meter_fault(error_code)
+            and connector_id == self.external_meter_fault_connector_id
+        ):
+            self.external_meter_faulted = False
+            self.external_meter_fault_connector_id = None
+            self.external_meter_fault_error_code = None
+            self.external_meter_fault_info = None
         self.set_status(status)
 
     def start_transaction(
@@ -1045,10 +1072,35 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # Growatt external meter values
     # ─────────────────────────────
 
-    def process_external_meter(self, data_str: str):
+    @property
+    def external_meter_health(self) -> str:
+        """Return the effective external-meter communication state."""
+        return external_meter_health(
+            explicit_fault=self.external_meter_faulted,
+            consecutive_timeouts=self.meterval_consecutive_timeouts,
+            has_snapshot=self.external_meter_last_updated_at is not None,
+        )
+
+    @property
+    def external_meter_ready_for_pv(self) -> bool:
+        """Return whether entering a PV Linkage mode is currently safe."""
+        return self.external_meter_health == "healthy"
+
+    def record_external_meter_poll_timeout(self) -> None:
+        """Record one missed external-meter response and refresh HA state."""
+        self.meterval_consecutive_timeouts += 1
+        self.async_set_updated_data(True)
+
+    def reset_external_meter_poll_timeouts(self) -> None:
+        """Clear communication timeouts after a valid meter response."""
+        if self.meterval_consecutive_timeouts:
+            self.meterval_consecutive_timeouts = 0
+
+    def process_external_meter(self, data_str: str) -> bool:
         """Process external meter values from get_external_meterval DataTransfer."""
         try:
             snapshot = parse_external_meter_data(data_str)
+            self.reset_external_meter_poll_timeouts()
 
             if self.external_meter_used != snapshot.used:
                 self.external_meter_used = snapshot.used
@@ -1075,6 +1127,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 snapshot.currents,
             )
             self.async_set_updated_data(True)
+            return True
 
         except (ValueError, TypeError, KeyError) as exc:
             _LOGGER.warning("Failed to process external meter data '%s': %s", data_str, exc)
+            return False

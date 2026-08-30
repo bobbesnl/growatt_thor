@@ -200,8 +200,6 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             await asyncio.sleep(1)
 
-            self.coordinator.meterval_consecutive_timeouts = 0
-
             _LOGGER.info("🔄 Auto GetConfiguration after connect")
             await self.trigger_get_configuration()
 
@@ -379,12 +377,13 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             result = await asyncio.wait_for(asyncio.shield(task), timeout=15.0)
 
-            self.coordinator.meterval_consecutive_timeouts = 0
             if hasattr(result, 'data') and isinstance(result.data, str):
                 _LOGGER.info("Received external meter values: %s", result.data)
-                self.coordinator.process_external_meter(result.data)
+                if not self.coordinator.process_external_meter(result.data):
+                    self.coordinator.record_external_meter_poll_timeout()
             else:
-                _LOGGER.debug("External meterval result: %s", result)
+                self.coordinator.record_external_meter_poll_timeout()
+                _LOGGER.warning("External meterval returned no usable data: %s", result)
 
         except asyncio.TimeoutError:
             task.cancel()
@@ -393,8 +392,8 @@ class GrowattChargePoint(OcppChargePoint):
             except (asyncio.CancelledError, Exception):
                 pass
 
-            count = getattr(self.coordinator, 'meterval_consecutive_timeouts', 0) + 1
-            self.coordinator.meterval_consecutive_timeouts = count
+            self.coordinator.record_external_meter_poll_timeout()
+            count = self.coordinator.meterval_consecutive_timeouts
 
             if count >= 2:
                 pause = min(60 * (count - 1), 300)
