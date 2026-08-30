@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 _Target version: 1.7.0_
 
 ### Added
+- **External meter communication health**: Add a translated diagnostic entity that distinguishes healthy communication, explicit Modbus faults, sustained polling failures, and a not-yet-reported state. The raw OCPP error, connector, vendor info, timeout count, and latest meter timestamp remain available as attributes and in downloaded diagnostics.
 - **Mode-aware charging controls**: Add a charging-strategy select, PV Linkage grid-import number, and Warm-up switch using only captured Growatt writes. Existing load-balancing and automatic-time controls become unavailable outside the working modes in which the Growatt app exposes them.
 - **Control dependency model**: Classify charger settings as directly writable, compound, or read-only. Smart/Manual Boost, shared charging periods, off-peak current, grid off-peak charging, and delayed charging remain diagnostic until their complete write workflows are verified.
 - **Verified control readback**: Block mode and installation changes while a charging transaction is active, re-check queued writes immediately before execution, and track accepted configuration writes until a matching `GetConfiguration` readback confirms the effective charger state.
@@ -31,6 +32,7 @@ _Target version: 1.7.0_
 - **External meter entity migration**: Disable the three redundant reported sampling-method, meter-type, and meter-address sensors once their writable controls are available. The readback entities remain in the registry and can be enabled manually when separate history is required.
 
 ### Fixed
+- **PV Linkage with a faulty external meter**: Remove PV Linkage choices while the charger reports `PowerMeterFailure`/`485 Fault` or after three consecutive external-meter requests receive no usable response. One or two temporary timeouts do not block the mode, and an already active PV mode is never changed automatically.
 - **PV Linkage mode semantics**: Label PV Linkage as allowing the configured regular grid import and PV Linkage+ as solar-surplus-only. The grid-import allowance control is unavailable in PV Linkage+, while Manual and Smart Boost may still use grid power.
 - **Charging-strategy write delay**: Keep the latest selected strategy visible while the firmware-protection queue applies it, allow newer queued strategy changes to replace older ones, and ignore delayed readbacks belonging to a superseded selection.
 - **Session-duration unit migration**: Update both Home Assistant's public and private duration-unit preferences before entities are loaded, recover installations left with the earlier migration marker, and close the OCPP server cleanly if a later setup step fails.

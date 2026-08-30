@@ -1,7 +1,7 @@
 [!["Buy Us A Coffee"](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/bobbesnl)
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
-![Version](https://img.shields.io/badge/version-1.7.0--dev.12-blue)
+![Version](https://img.shields.io/badge/version-1.7.0--dev.22-blue)
 
 
 ⚠️ **Please read this document first before installing this integration!**
@@ -71,6 +71,7 @@ Your feedback helps identify patterns and improve integration stability! 🙏
 
 ### 🔌 Grid & Load Balancing
 - **External meter monitoring**: Real-time grid power, voltage, and current per phase
+- **External meter health**: Show explicit Modbus faults and sustained communication failures; prevent selecting PV Linkage until valid meter communication is restored
 - **Dynamic load balancing**: Set maximum grid import limit (kW) to prevent overload
 - **Smart polling**: Configurable polling interval (minimum 5 seconds; recommended setting 30 seconds)
   - ⚠️ **Note**: Polling interval only affects the frequency of grid data **display updates** in Home Assistant. Load balancing functionality itself operates independently and responds in real-time regardless of the polling setting.
@@ -205,7 +206,7 @@ XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-22 07:05:11,2026-03-2
 - **Anti-crash protection**: 20-second polling pause after each configuration change to prevent Thor firmware crashes
 - **Sequential write operations**: Multiple rapid changes are automatically queued and executed safely
 - **TIER 2 error recovery**: Robust error handling for connection issues
-- **Smart polling**: Only polls external meter when load balancing is enabled
+- **Smart polling**: Polls the external meter in every working mode because the same measurements are required by load balancing and PV Linkage
 - **Queue visibility**: Real-time logging of queued operations and wait times
 
 ---
@@ -387,6 +388,7 @@ After successful connection, the integration creates the entities below. The lis
 | Voltage L1/L2/L3 | `sensor.growatt_thor_ev_charger_voltage_l1`<br>`sensor.growatt_thor_ev_charger_voltage_l2`<br>`sensor.growatt_thor_ev_charger_voltage_l3` | Charger voltage per phase (V) |
 | Power L1/L2/L3 | `sensor.growatt_thor_ev_charger_power_l1`<br>`sensor.growatt_thor_ev_charger_power_l2`<br>`sensor.growatt_thor_ev_charger_power_l3` | Charging power per phase (W) |
 | Temperature | `sensor.growatt_thor_ev_charger_temperature` | Internal charger temperature (°C) |
+| Communication status | `sensor.growatt_thor_external_meter_communication_status` | Healthy, Modbus fault, interrupted communication, or not-yet-reported state; includes the retained OCPP fault details |
 | Grid power | `sensor.growatt_thor_external_meter_grid_power` | External meter power (W) |
 | Grid voltage L1/L2/L3 | `sensor.growatt_thor_external_meter_grid_voltage_l1`<br>`sensor.growatt_thor_external_meter_grid_voltage_l2`<br>`sensor.growatt_thor_external_meter_grid_voltage_l3` | External meter voltage per phase (V) |
 | Grid current L1/L2/L3 | `sensor.growatt_thor_external_meter_grid_current_l1`<br>`sensor.growatt_thor_external_meter_grid_current_l2`<br>`sensor.growatt_thor_external_meter_grid_current_l3` | External meter current per phase (A) |
@@ -426,6 +428,10 @@ After successful connection, the integration creates the entities below. The lis
 External-meter measurements are polled in every charger working mode because
 the same meter is used by load balancing and PV Linkage. A measurement remains
 unavailable until the charger returns its field in `get_external_meterval`.
+PV Linkage options are withheld while the charger reports an external-meter
+Modbus fault or after three consecutive requests return no usable response.
+One or two temporary timeouts do not block the mode. If PV Linkage is already
+active, the current selection remains visible and is not changed automatically.
 
 Warm-up support depends on the connected vehicle. The setting only allows a
 compatible vehicle to continue drawing power after reaching full charge; it
@@ -462,7 +468,7 @@ Control availability follows the effective mode reported by the charger:
 
 | Control | Available in |
 |---|---|
-| Charging strategy | Any connected mode |
+| Charging strategy | Any connected mode; PV Linkage choices require healthy external-meter communication |
 | Load balancing and its limit | Fast and Off-Peak |
 | External sampling method | Any connected mode while no transaction is active |
 | Power meter type and address | Any connected mode with Power Meter sampling while no transaction is active |
@@ -616,7 +622,7 @@ This integration now includes enhanced anti-crash protection:
 - **Write queue system**: All writes are queued with 20-second minimum interval
 - **20-second polling pause** after each configuration change (increased from 10s)
 - **Sequential execution**: Multiple rapid changes are buffered and executed safely
-- **Smart polling**: Only when load balancing is active
+- **Smart polling**: External-meter requests continue in every working mode; accepted configuration writes still pause polling for 20 seconds
 
 If crashes still occur:
 - Check logs for queued operations: `grep "Write queued" home-assistant.log`

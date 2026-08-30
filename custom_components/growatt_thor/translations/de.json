@@ -146,7 +146,7 @@
       "phase_power": { "name": "Leistung {phase}" },
       "temperature": { "name": "Temperatur" },
       "external_meter_health": {
-        "name": "Externe Zählerkommunikation",
+        "name": "Kommunikationsstatus",
         "state": {
           "healthy": "OK",
           "faulted": "Modbus-Fehler",

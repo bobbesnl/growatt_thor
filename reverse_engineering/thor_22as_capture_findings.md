@@ -220,6 +220,28 @@ integration sends `vendorId=Growatt` and the tested charger accepts it.
 
 Do not treat the sign of `power` as a proven import/export convention yet.
 
+#### External meter Modbus failure
+
+Changing `G_PowerMeterAddr` from the working address `2` to the unused Modbus
+address `247` makes the charger send this status for connector 1:
+
+```text
+StatusNotification(status=Faulted, errorCode=PowerMeterFailure, info="485 Fault")
+```
+
+The charger continues to answer `get_external_meterval` every 30 seconds while
+the fault is active. Those responses contain current timestamps and zero-valued
+measurements, so neither payload freshness nor zero power is a valid health
+signal. `PowerMeterFailure` is the primary fault indicator; `485 Fault` is kept
+as a vendor fallback. Restoring address `2` produces
+`StatusNotification(status=Available, errorCode=NoError)` and non-zero meter
+data resumes on the next poll.
+
+The integration therefore reports communication as stale only after three
+consecutive requests have no usable response. One or two missed responses are
+treated as a temporary interruption. An explicit Modbus fault always takes
+priority over fresh meter payloads.
+
 ### `currentrecord` and `frozenrecord`
 
 Observed `currentrecord` example:

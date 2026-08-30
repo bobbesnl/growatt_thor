@@ -146,7 +146,7 @@
       "phase_power": { "name": "Vermogen {phase}" },
       "temperature": { "name": "Temperatuur" },
       "external_meter_health": {
-        "name": "Communicatie externe meter",
+        "name": "Communicatiestatus",
         "state": {
           "healthy": "In orde",
           "faulted": "Modbus-fout",
