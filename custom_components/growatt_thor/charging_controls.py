@@ -9,6 +9,10 @@ from typing import Final, Mapping
 from .configuration import ConfigurationValue, configuration_entity_state
 
 
+WORKING_MODE_OPTIONS = ("fast", "pv_linkage", "pv_linkage_plus", "off_peak")
+PV_LINKAGE_WORKING_MODES = frozenset({"pv_linkage", "pv_linkage_plus"})
+
+
 class ControlCapability(str, Enum):
     """Describe how safely one setting can be exposed in Home Assistant."""
 
@@ -324,3 +328,18 @@ def selected_working_mode(
     if solar_mode == "pv_linkage_plus":
         return "pv_linkage_plus"
     return "pv_linkage"
+
+
+def available_working_mode_options(
+    current_option: str | None,
+    *,
+    external_meter_ready: bool,
+) -> list[str]:
+    """Return modes that remain safe to select for the current meter health."""
+    if external_meter_ready:
+        return list(WORKING_MODE_OPTIONS)
+    return [
+        option
+        for option in WORKING_MODE_OPTIONS
+        if option not in PV_LINKAGE_WORKING_MODES or option == current_option
+    ]

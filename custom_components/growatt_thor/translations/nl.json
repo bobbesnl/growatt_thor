@@ -145,6 +145,23 @@
       "voltage": { "name": "Spanning {phase}" },
       "phase_power": { "name": "Vermogen {phase}" },
       "temperature": { "name": "Temperatuur" },
+      "external_meter_health": {
+        "name": "Communicatie externe meter",
+        "state": {
+          "healthy": "In orde",
+          "faulted": "Modbus-fout",
+          "stale": "Communicatie onderbroken",
+          "not_reported": "Nog niet gemeld"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze status",
+            "state": {
+              "details": "PV-koppeling kan niet worden geselecteerd zolang de lader PowerMeterFailure/485 Fault meldt of drie opeenvolgende aanvragen voor de externe meter geen bruikbaar antwoord opleveren. Een of twee tijdelijke time-outs blokkeren de modus niet."
+            }
+          }
+        }
+      },
       "grid_power": { "name": "Netvermogen" },
       "grid_voltage": { "name": "Netspanning {phase}" },
       "grid_current": { "name": "Netstroom {phase}" },

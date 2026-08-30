@@ -10,7 +10,9 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ocpp.v16.enums import ConfigurationStatus
 
 from .charging_controls import (
+    PV_LINKAGE_WORKING_MODES,
     ChargingControl,
+    available_working_mode_options,
     control_write_block_reason,
     encode_control_value,
     encode_working_mode,
@@ -26,7 +28,6 @@ from .pv_linkage import PvBoostMode
 
 
 _LOGGER = logging.getLogger(__name__)
-WORKING_MODE_OPTIONS = ["fast", "pv_linkage", "pv_linkage_plus", "off_peak"]
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -49,8 +50,6 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
     _attr_translation_key = "working_mode"
     _attr_icon = "mdi:ev-station"
     _attr_entity_category = EntityCategory.CONFIG
-    _attr_options = WORKING_MODE_OPTIONS
-
     def __init__(self, coordinator, entry):
         super().__init__(coordinator)
         self.hass = coordinator.hass
@@ -69,6 +68,13 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         if self._pending_option is not None:
             return self._pending_option
         return selected_working_mode(self.coordinator.configuration_values)
+
+    @property
+    def options(self):
+        return available_working_mode_options(
+            self.current_option,
+            external_meter_ready=self.coordinator.external_meter_ready_for_pv,
+        )
 
     @property
     def available(self):
@@ -92,6 +98,14 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         return {"information": "details"}
 
     async def async_select_option(self, option: str) -> None:
+        if option == self.current_option:
+            return
+        if option not in self.options:
+            _LOGGER.warning(
+                "Cannot select PV Linkage while external meter health is %s",
+                self.coordinator.external_meter_health,
+            )
+            return
         block_reason = self._write_block_reason
         if block_reason is not None:
             _LOGGER.warning("Cannot change working mode: %s", block_reason)
@@ -121,6 +135,16 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         raw_value: str,
         option: str,
     ) -> None:
+        if (
+            option in PV_LINKAGE_WORKING_MODES
+            and not self.coordinator.external_meter_ready_for_pv
+        ):
+            _LOGGER.warning(
+                "Skipping queued PV Linkage change: external meter health is %s",
+                self.coordinator.external_meter_health,
+            )
+            self._clear_pending_option(option)
+            return
         block_reason = self._write_block_reason
         if block_reason is not None:
             _LOGGER.warning("Skipping queued working mode change: %s", block_reason)

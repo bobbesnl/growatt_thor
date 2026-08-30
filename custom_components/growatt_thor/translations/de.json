@@ -145,6 +145,23 @@
       "voltage": { "name": "Spannung {phase}" },
       "phase_power": { "name": "Leistung {phase}" },
       "temperature": { "name": "Temperatur" },
+      "external_meter_health": {
+        "name": "Externe Zählerkommunikation",
+        "state": {
+          "healthy": "OK",
+          "faulted": "Modbus-Fehler",
+          "stale": "Kommunikation unterbrochen",
+          "not_reported": "Noch nicht gemeldet"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diesen Status",
+            "state": {
+              "details": "PV-Kopplung kann nicht ausgewählt werden, solange die Wallbox PowerMeterFailure/485 Fault meldet oder drei aufeinanderfolgende Abfragen des externen Zählers keine verwertbare Antwort liefern. Ein oder zwei vorübergehende Timeouts sperren den Modus nicht."
+            }
+          }
+        }
+      },
       "grid_power": { "name": "Netzleistung" },
       "grid_voltage": { "name": "Netzspannung {phase}" },
       "grid_current": { "name": "Netzstrom {phase}" },

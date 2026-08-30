@@ -25,6 +25,7 @@ from .configuration import (
 )
 from .const import DOMAIN
 from .currency import configured_currency, electricity_price_unit
+from .external_meter import EXTERNAL_METER_HEALTH_OPTIONS
 from .ocpp_diagnostics import boot_notification_field
 from .ocpp_status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
 from .session_records import (
@@ -403,6 +404,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             TemperatureSensor(coordinator, entry),
 
             # ── Load Balancing Grid sensors ───────────
+            ExternalMeterHealthSensor(coordinator, entry),
             GridPowerSensor(coordinator, entry),
             GridVoltageSensor(coordinator, entry, "L1"),
             GridVoltageSensor(coordinator, entry, "L2"),
@@ -1050,6 +1052,37 @@ class TemperatureSensor(BaseSensor):
 # ─────────────────────────────
 # Grid / external meter
 # ─────────────────────────────
+
+class ExternalMeterHealthSensor(BaseExternalMeterSensor):
+    """Show whether external Modbus measurements are trustworthy."""
+
+    _attr_translation_key = "external_meter_health"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = list(EXTERNAL_METER_HEALTH_OPTIONS)
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:meter-electric-outline"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "health")
+
+    @property
+    def native_value(self):
+        return self.coordinator.external_meter_health
+
+    @property
+    def available(self):
+        return super().available and self.coordinator.connected
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            **super().extra_state_attributes,
+            "information": "details",
+            "connector_id": self.coordinator.external_meter_fault_connector_id,
+            "error_code": self.coordinator.external_meter_fault_error_code,
+            "info": self.coordinator.external_meter_fault_info,
+            "consecutive_timeouts": self.coordinator.meterval_consecutive_timeouts,
+        }
 
 class GridPowerSensor(BaseExternalMeterSensor):
     _attr_translation_key = "grid_power"

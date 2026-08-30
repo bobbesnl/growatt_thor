@@ -57,6 +57,29 @@ class ChargingControlDependencyTest(unittest.TestCase):
             )
         )
 
+    def test_unhealthy_external_meter_hides_pv_modes_but_keeps_current_mode(self):
+        self.assertEqual(
+            controls.available_working_mode_options(
+                "fast",
+                external_meter_ready=False,
+            ),
+            ["fast", "off_peak"],
+        )
+        self.assertEqual(
+            controls.available_working_mode_options(
+                "pv_linkage_plus",
+                external_meter_ready=False,
+            ),
+            ["fast", "pv_linkage_plus", "off_peak"],
+        )
+        self.assertEqual(
+            controls.available_working_mode_options(
+                "fast",
+                external_meter_ready=True,
+            ),
+            list(controls.WORKING_MODE_OPTIONS),
+        )
+
     def test_solar_limit_requires_pv_mode_and_enabled_solar_mode(self):
         control = controls.ChargingControl.SOLAR_GRID_IMPORT_LIMIT
         self.assertFalse(

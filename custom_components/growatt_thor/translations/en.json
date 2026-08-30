@@ -145,6 +145,23 @@
       "voltage": { "name": "Voltage {phase}" },
       "phase_power": { "name": "Power {phase}" },
       "temperature": { "name": "Temperature" },
+      "external_meter_health": {
+        "name": "External meter communication",
+        "state": {
+          "healthy": "Healthy",
+          "faulted": "Modbus fault",
+          "stale": "Communication interrupted",
+          "not_reported": "Not yet reported"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this status",
+            "state": {
+              "details": "PV Linkage cannot be selected while the charger reports PowerMeterFailure/485 Fault or after three consecutive external-meter requests receive no usable response. One or two temporary timeouts do not block the mode."
+            }
+          }
+        }
+      },
       "grid_power": { "name": "Grid power" },
       "grid_voltage": { "name": "Grid voltage {phase}" },
       "grid_current": { "name": "Grid current {phase}" },

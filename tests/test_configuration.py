@@ -453,6 +453,7 @@ class EntityTranslationTest(unittest.TestCase):
             "voltage",
             "phase_power",
             "temperature",
+            "external_meter_health",
             "grid_power",
             "grid_voltage",
             "grid_current",
@@ -520,6 +521,7 @@ class EntityTranslationTest(unittest.TestCase):
             "reported_external_sampling_method",
             "warm_up_after_full_charge",
             "delayed_charging_time",
+            "external_meter_health",
         }
 
         for language in ("en", "de", "nl"):
@@ -568,6 +570,11 @@ class EntityTranslationTest(unittest.TestCase):
                     self.assertTrue(information["name"])
                     self.assertEqual(tuple(information["state"]), ("details",))
                     self.assertTrue(information["state"]["details"])
+
+                self.assertEqual(
+                    tuple(sensors["external_meter_health"]["state"]),
+                    ("healthy", "faulted", "stale", "not_reported"),
+                )
 
         self.assertIn(
             'attributes["information"] = "details"',
