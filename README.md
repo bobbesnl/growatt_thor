@@ -13,7 +13,13 @@
 This integration allows you to connect a Growatt THOR EV charger **directly to Home Assistant** using **OCPP 1.6 over WebSocket**, providing local control without relying on the Growatt cloud.
 
 Tested on:
-- THOR 22AS with FW version 2.2.16-20240902 (but it should be working on all THOR 11/22AS-S/P/SE/PE versions.)
+- THOR 22AS with firmware `THOR_22AS-V2.2.16-20240902`
+
+The THOR family has multiple hardware generations and firmware branches.
+Compatibility with another model or firmware must not be inferred from the
+version number alone. See the
+[hardware and firmware variants](reverse_engineering/hardware_firmware_variants.md)
+for known community reports and compatibility guidance.
 
 Do you have another Growatt EV charger? Please test it with the integration and let me know if it is working. If you open up an issue and provide logs, I will try to add your charger to be supported (Growatt only!).
 
@@ -41,6 +47,7 @@ The Growatt Thor charger has **known firmware bugs** that can cause crashes and 
 **📢 Help Us Improve!**
 Experiencing crashes or random reboots? Please [open an issue](https://github.com/bobbesnl/growatt_thor/issues) with:
 - Thor model and firmware version, if known
+- Enclosure layout, exterior controls, or PCB marking, if safely accessible
 - Home Assistant logs (around crash time)
 - Actions that triggered the reboot
 - Relevant entity states before and after the reboot
@@ -286,8 +293,14 @@ Home Assistant is now ready and waiting for the charger to connect.
 
 #### Method 1: Via AP Mode (Most Reliable)
 
+Access methods and credentials vary between THOR hardware and firmware
+variants. `12345678` is a documented default for the Wi-Fi access point on
+older devices, but it is not guaranteed for every device or for the port 8080
+web interface. See the
+[hardware and firmware variants](reverse_engineering/hardware_firmware_variants.md).
+
 1. **Enable AP Mode** on the Growatt THOR charger (via Shinephone app)
-2. Connect your phone to the THOR's Wi-Fi (Standard Wi-Fi password is `12345678`)
+2. Connect your phone to the THOR's Wi-Fi using its configured credential (`12345678` is the documented default on older devices)
 3. Open the **ShinePhone** or **Growatt** app
 4. Navigate to **Network Settings** or **Server Settings**
 5. Change the **Server URL** to:

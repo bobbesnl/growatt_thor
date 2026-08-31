@@ -9,9 +9,13 @@ current integration behavior.
 
 The observations below were validated with redacted traces from:
 
-| Device | Firmware | Protocol |
-|---|---|---|
-| Growatt THOR 22AS | `THOR_22AS-V2.2.16-20240902` | OCPP 1.6J over WebSocket |
+| Device | Hardware | Firmware | Protocol |
+|---|---|---|---|
+| Growatt THOR 22AS | May 2022 manual layout | `THOR_22AS-V2.2.16-20240902` | OCPP 1.6J over WebSocket |
+
+See the [hardware and firmware variants](hardware_firmware_variants.md) for
+other reported THOR combinations. Findings in this file are not assumed to
+apply unchanged to those devices.
 
 The original cloud connection used:
 

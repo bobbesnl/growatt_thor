@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 _Target version: 1.6.0_
 
 ### Added
+- **Hardware and firmware compatibility matrix**: Document known THOR hardware layouts and V2, V4, V5, and V6 firmware reports, including firmware-specific OCPP behavior, access differences, three-phase supply constraints, and safe compatibility-reporting guidance.
 - **Structured charger configuration registry**: Preserve every returned OCPP and Growatt configuration value with its raw and parsed value, charger-provided read-only flag, type metadata, and enum label. Unknown keys are retained instead of being discarded after logging. (PR #42)
 - **Redacted configuration diagnostics**: Include the retained configuration snapshot, unknown keys, and requested key groups in Home Assistant diagnostics while redacting sensitive and unclassified values. (PR #42)
 - **Read-only configuration entities**: Add five diagnostic sensors — Working Mode, Authorization Mode, Power Meter Type, Power Meter Address, and External Sampling Method — sourced from the retained configuration registry. Enum states are translated in English, German, and Dutch. (PR #42)
