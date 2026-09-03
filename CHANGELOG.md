@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## 🎉 [1.6.0] - 2026-09-03
 
-_Target version: 1.6.0_
+🛡️ **Major diagnostics and session-tracking release, built end-to-end by @felixhix . Huge thanks to him for driving this release from start to finish.
 
 ### Added
 - **Hardware and firmware compatibility matrix**: Document known THOR hardware layouts and V2, V4, V5, and V6 firmware reports, including firmware-specific OCPP behavior, access differences, three-phase supply constraints, and safe compatibility-reporting guidance.
