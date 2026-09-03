@@ -33,6 +33,7 @@ _Target version: 1.7.0_
 - **External meter entity migration**: Disable the three redundant reported sampling-method, meter-type, and meter-address sensors once their writable controls are available. The readback entities remain in the registry and can be enabled manually when separate history is required.
 
 ### Fixed
+- **Home Assistant device-registry compatibility**: Scope the legacy External Meter device lookup to its owning config entry, removing the `async_get_device()` deprecation warning introduced by Home Assistant 2026.8 while preserving the existing device during upgrades.
 - **Writes while the charger is faulted**: Make configuration controls and Start Charging unavailable while the current OCPP status is `Faulted`, and re-check queued operations immediately before execution. Stop Charging remains available as a safety action; controls recover automatically with the next non-fault status.
 - **PV Linkage with a faulty external meter**: Remove PV Linkage choices while the charger reports `PowerMeterFailure`/`485 Fault` or after three consecutive external-meter requests receive no usable response. One or two temporary timeouts do not block the mode, and an already active PV mode is never changed automatically.
 - **PV Linkage mode semantics**: Label PV Linkage as allowing the configured regular grid import and PV Linkage+ as solar-surplus-only. The grid-import allowance control is unavailable in PV Linkage+, while Manual and Smart Boost may still use grid power.

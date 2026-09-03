@@ -129,8 +129,10 @@ def _complete_external_meter_readback_migration(
 def _migrate_external_meter_device(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update legacy default metadata for the external meter device."""
     registry = dr.async_get(hass)
-    device = registry.async_get_device(
-        identifiers={(DOMAIN, entry.entry_id, "grid_connection")}
+    device = registry.async_get_device_by_identifier(
+        # Keep the legacy identifier so the existing device is updated in place.
+        (DOMAIN, entry.entry_id, "grid_connection"),
+        entry.entry_id,
     )
     if device is None:
         return

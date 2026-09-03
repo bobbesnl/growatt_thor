@@ -309,6 +309,16 @@ class EntityMigrationTest(unittest.TestCase):
         )
         self.assertGreater(completion, platform_setup)
 
+    def test_external_meter_device_lookup_is_scoped_to_config_entry(self):
+        source = INIT_PATH.read_text(encoding="utf-8")
+        self.assertIn("registry.async_get_device_by_identifier(", source)
+        self.assertIn(
+            '(DOMAIN, entry.entry_id, "grid_connection"),\n'
+            "        entry.entry_id,",
+            source,
+        )
+        self.assertNotIn("registry.async_get_device(", source)
+
 
 if __name__ == "__main__":
     unittest.main()
