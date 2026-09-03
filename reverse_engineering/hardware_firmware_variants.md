@@ -120,6 +120,12 @@ No matching OCPP configuration key is currently known. This local setting is
 therefore separate from the `chargePointModel` string reported through
 `BootNotification` and is not exposed as a Home Assistant entity.
 
+The generic web interface accepts a **Max Output Current** value from 6 to
+63 A. The usable upper limit depends on the charger model: 16 A for 11 kW,
+32 A for 7/22 kW, and 63 A for 44 kW models. The integration derives this
+limit from the OCPP model or firmware string and keeps a conservative 32 A
+limit when the model is unknown.
+
 ## Firmware update safety
 
 - Install only firmware offered for the exact device by Growatt or ShinePhone.

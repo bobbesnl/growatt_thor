@@ -77,7 +77,9 @@ Your feedback helps identify patterns and improve integration stability! 🙏
   - ⚠️ **Note**: Polling interval only affects the frequency of grid data **display updates** in Home Assistant. Load balancing functionality itself operates independently and responds in real-time regardless of the polling setting.
 
 ### ⚙️ Configuration & Control
-- **Max current control**: Set maximum charging current (6-32A)
+- **Max current control**: Set maximum charging current within the charger's
+  model-specific range (up to 16 A for 11 kW, 32 A for 7/22 kW, or 63 A for
+  44 kW models)
 - **Charging schedule**: Configure automatic start/stop times
 - **Charger modes**: Switch between Plug & Charge, RFID only, HomeAssistant(HA)/RFID mode
 - **Configuration diagnostics**: Preserve all returned OCPP and Growatt configuration values, including unknown keys and charger-provided read-only flags
@@ -447,7 +449,7 @@ numeric delay and does not provide an unverified Random Delay control.
 
 | Entity name | Type | Default entity ID | Purpose |
 |---|---|---|---|
-| Max Current | Number | `number.growatt_thor_ev_charger_max_current` | Maximum charging current (6-32 A) |
+| Max Current | Number | `number.growatt_thor_ev_charger_max_current` | Maximum charging current (6 A up to the reported model's 16/32/63 A limit) |
 | Loadbalancing limit | Number | `number.growatt_thor_external_meter_loadbalancing_limit` | Grid import limit (kW) |
 | Electricity Price | Number | `number.growatt_thor_ev_charger_electricity_price` | Electricity tariff using the Home Assistant system currency per kWh |
 | Loadbalancing | Switch | `switch.growatt_thor_external_meter_loadbalancing` | Enable or disable dynamic load balancing |

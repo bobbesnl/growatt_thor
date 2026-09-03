@@ -25,6 +25,9 @@ _Target version: 1.7.0_
 - **Network information**: Network mode, IP address, subnet mask, gateway, DNS server, MAC address, and Wi-Fi SSID are available as read-only diagnostic sensors. Sensitive data remains hidden in downloaded diagnostics.
 
 ### Changed
+- **Current range matches the charger**: The maximum-current control now stops
+  at 16 A for 11 kW, 32 A for 7/22 kW, or 63 A for 44 kW models. Unknown
+  models keep the conservative 32 A limit.
 - **Clearer entity roles**: Measurements remain sensors, settings that can be changed appear as controls, technical values appear under diagnostics, and Start/Stop remain buttons.
 - **Less duplicate information**: Read-only copies of writable settings are disabled by default. They can still be enabled manually when separate history or automations are needed.
 - **Shared charging periods**: The same charger time windows may be used for Off-Peak charging or PV Linkage Manual Boost, depending on the selected mode. Their name and description now reflect this.

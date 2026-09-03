@@ -16,12 +16,17 @@ from .charging_controls import (
     control_write_block_reason,
     encode_control_value,
 )
+from .charging_limits import (
+    MIN_CHARGING_CURRENT_A,
+    maximum_charging_current,
+)
 from .configuration import configuration_entity_state
 from .configuration_control import (
     GrowattConfigurationControlMixin,
     async_confirm_configuration,
 )
 from .currency import electricity_price_unit
+from .ocpp_diagnostics import boot_notification_field
 from .pv_linkage import PvBoostMode
 
 _LOGGER = logging.getLogger(__name__)
@@ -78,8 +83,7 @@ class MaxCurrentNumber(BaseConfigNumber):
 
     _attr_translation_key = "max_current"
     _attr_icon = "mdi:current-ac"
-    _attr_native_min_value = 6
-    _attr_native_max_value = 32
+    _attr_native_min_value = MIN_CHARGING_CURRENT_A
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "A"
     _config_key = "G_MaxCurrent"
@@ -98,11 +102,37 @@ class MaxCurrentNumber(BaseConfigNumber):
         value = self.coordinator.max_current
         return int(value) if value is not None else None
 
+    @property
+    def native_max_value(self):
+        """Return the maximum current supported by the reported model."""
+        boot_notification = self.coordinator.boot_notification
+        return maximum_charging_current(
+            boot_notification_field(boot_notification, "charge_point_model"),
+            boot_notification_field(boot_notification, "firmware_version"),
+        )
+
+    def _value_is_valid(self, value: int) -> bool:
+        return self.native_min_value <= value <= self.native_max_value
+
+    def _restore_previous_value(self, previous: int | None) -> None:
+        if previous is not None:
+            self.coordinator.max_current = previous
+            self.coordinator.async_set_updated_data(True)
+
     async def async_set_native_value(self, value: float) -> None:
         if (block_reason := self._charger_write_block_reason) is not None:
             _LOGGER.warning("Cannot change Max Current: %s", block_reason)
             return
         value = int(round(value))
+        if not self._value_is_valid(value):
+            _LOGGER.warning(
+                "Cannot change Max Current: %d A is outside the supported "
+                "range %d-%d A for the reported charger model",
+                value,
+                self.native_min_value,
+                self.native_max_value,
+            )
+            return
 
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if not charge_point:
@@ -131,6 +161,15 @@ class MaxCurrentNumber(BaseConfigNumber):
         if (block_reason := self._charger_write_block_reason) is not None:
             _LOGGER.warning("Skipping queued Max Current change: %s", block_reason)
             return
+        if not self._value_is_valid(value):
+            _LOGGER.warning(
+                "Skipping queued Max Current change: %d A exceeds the current "
+                "model limit of %d A",
+                value,
+                self.native_max_value,
+            )
+            self._restore_previous_value(previous)
+            return
         try:
             result = await charge_point.change_configuration(
                 self._config_key,
@@ -147,15 +186,11 @@ class MaxCurrentNumber(BaseConfigNumber):
                 _LOGGER.warning("⚠️ Max Current write accepted (reboot required): %d A", value)
             else:
                 _LOGGER.error("❌ Max Current rejected by Thor: %s — rolling back UI to %s A", result, previous)
-                if previous is not None:
-                    self.coordinator.max_current = previous
-                    self.coordinator.async_set_updated_data(True)
+                self._restore_previous_value(previous)
 
         except Exception as exc:
             _LOGGER.error("❌ Failed to set Max Current: %s", exc, exc_info=True)
-            if previous is not None:
-                self.coordinator.max_current = previous
-                self.coordinator.async_set_updated_data(True)
+            self._restore_previous_value(previous)
 
 
 # ─────────────────────────────
