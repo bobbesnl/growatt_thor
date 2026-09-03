@@ -5,6 +5,7 @@ import ast
 import importlib.util
 import json
 from pathlib import Path
+import re
 import sys
 import unittest
 
@@ -16,6 +17,8 @@ MODULE_PATH = (
     / "configuration.py"
 )
 TRANSLATIONS_PATH = MODULE_PATH.parent / "translations"
+TRANSLATION_LANGUAGES = ("en", "de", "nl", "it", "hu", "sl", "fr", "es")
+TRANSLATION_PLACEHOLDER_PATTERN = re.compile(r"\{[^{}]+\}")
 SENSOR_PATH = MODULE_PATH.parent / "sensor.py"
 CONFIGURATION_CONTROL_PATH = MODULE_PATH.parent / "configuration_control.py"
 SELECT_PATH = MODULE_PATH.parent / "select.py"
@@ -425,6 +428,40 @@ class ConfigurationEntityStateTest(unittest.TestCase):
 class EntityTranslationTest(unittest.TestCase):
     """Keep translated enum states aligned with the entity contract."""
 
+    def test_translation_files_match_english_structure_and_placeholders(self):
+        def flatten(value, path=()):
+            flattened = {}
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    flattened.update(flatten(child, (*path, key)))
+                return flattened
+            flattened[path] = value
+            return flattened
+
+        reference = flatten(
+            json.loads(
+                (TRANSLATIONS_PATH / "en.json").read_text(encoding="utf-8")
+            )
+        )
+        for language in TRANSLATION_LANGUAGES:
+            with self.subTest(language=language):
+                translated = flatten(
+                    json.loads(
+                        (TRANSLATIONS_PATH / f"{language}.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                )
+                self.assertEqual(translated.keys(), reference.keys())
+                for path, source_value in reference.items():
+                    self.assertIsInstance(translated[path], str)
+                    self.assertTrue(translated[path].strip())
+                    self.assertEqual(
+                        TRANSLATION_PLACEHOLDER_PATTERN.findall(translated[path]),
+                        TRANSLATION_PLACEHOLDER_PATTERN.findall(source_value),
+                        ".".join(path),
+                    )
+
     def test_configuration_entities_are_translated(self):
         expected_entities = {
             "server_url",
@@ -526,7 +563,7 @@ class EntityTranslationTest(unittest.TestCase):
             "external_meter_health",
         }
 
-        for language in ("en", "de", "nl"):
+        for language in TRANSLATION_LANGUAGES:
             with self.subTest(language=language):
                 translation = json.loads(
                     (TRANSLATIONS_PATH / f"{language}.json").read_text(
@@ -699,7 +736,7 @@ class EntityTranslationTest(unittest.TestCase):
             },
         }
 
-        for language in ("en", "de", "nl"):
+        for language in TRANSLATION_LANGUAGES:
             with self.subTest(language=language):
                 translation = json.loads(
                     (TRANSLATIONS_PATH / f"{language}.json").read_text(

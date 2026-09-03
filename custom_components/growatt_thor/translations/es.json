@@ -1,0 +1,668 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configuración de Growatt THOR",
+        "description": "Configura la conexión OCPP del cargador Growatt THOR",
+        "data": {
+          "port": "Puerto",
+          "location": "Ubicación de instalación",
+          "poll_interval": "Intervalo de consulta de la red (segundos, mín. {min_interval})"
+        }
+      }
+    },
+    "error": {
+      "poll_interval_too_low": "El intervalo de consulta debe ser de al menos {min_interval} segundos"
+    },
+    "abort": {
+      "ap_mode_activated": "✅ Modo AP activado. THOR está transmitiendo una red Wi-Fi. Busca el SSID que contiene el número de serie THOR.",
+      "ap_mode_failed": "❌ No se pudo activar el modo AP. Consulta los registros para obtener más información."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones de Growatt THOR",
+        "description": "Configura el intervalo de actualización y las opciones avanzadas",
+        "data": {
+          "poll_interval": "Intervalo de consulta de la red (segundos, actualmente: {current_interval})",
+          "location": "Ubicación de instalación",
+          "charger_mode": "⚠️ Modo del cargador",
+          "enable_ap_mode": "⚠️ Activar modo AP"
+        }
+      },
+      "confirm_charger_mode": {
+        "title": "⚠️ Confirmar cambio del modo del cargador",
+        "description": "ADVERTENCIA: cambiar el modo reiniciará el THOR.\n\nDespués del reinicio puede ser necesario volver a conectar el vehículo para garantizar su correcto funcionamiento.\n\n¿Quieres continuar?",
+        "data": {
+          "confirm": "Sí, cambiar el modo del cargador"
+        }
+      },
+      "confirm_ap_mode": {
+        "title": "⚠️ Confirmar activación del modo AP",
+        "description": "ADVERTENCIA: el THOR quedará sin conexión y transmitirá una red Wi-Fi para la configuración directa. La conexión con Home Assistant se interrumpirá.",
+        "data": {
+          "confirm": "Sí, activar el modo AP"
+        }
+      }
+    },
+    "error": {
+      "poll_interval_too_low": "El intervalo de consulta debe ser de al menos {min_interval} segundos"
+    },
+    "abort": {
+      "ap_mode_activated": "✅ Modo AP activado. THOR está transmitiendo una red Wi-Fi. Busca el SSID que contiene el número de serie THOR.",
+      "ap_mode_failed": "❌ No se pudo activar el modo AP. Consulta los registros para obtener más información.",
+      "charger_mode_changed": "✅ Modo cambiado. El THOR se reiniciará. Vuelve a conectar el vehículo si es necesario."
+    }
+  },
+  "selector": {
+    "charger_mode": {
+      "options": {
+        "1": "Home Assistant / RFID",
+        "2": "Solo RFID",
+        "3": "Conectar y cargar"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "server_url": {
+        "name": "URL del servidor"
+      },
+      "status": {
+        "name": "Estado",
+        "state": {
+          "available": "Disponible",
+          "preparing": "Preparando",
+          "charging": "Cargando",
+          "suspended_evse": "Suspendida por el cargador",
+          "suspended_ev": "Suspendida por el vehículo",
+          "finishing": "Finalizando",
+          "reserved": "Reservado",
+          "unavailable": "No disponible",
+          "faulted": "Avería",
+          "idle": "Inactivo"
+        }
+      },
+      "last_charger_fault": {
+        "name": "Última avería del cargador",
+        "state": {
+          "emergency_stop": "Parada de emergencia",
+          "power_meter_failure": "Fallo del contador externo",
+          "other_fault": "Otra avería del cargador"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este evento",
+            "state": {
+              "details": "Retains the most recent actual Faulted event after the charger recovers. OCPP StatusNotification and Growatt faultmessage details belonging to the same event are combined."
+            }
+          }
+        }
+      },
+      "charge_point_id": {
+        "name": "ID del punto de carga"
+      },
+      "charger_vendor": {
+        "name": "Fabricante del cargador"
+      },
+      "charger_model": {
+        "name": "Modelo del cargador"
+      },
+      "firmware_version": {
+        "name": "Versión del firmware"
+      },
+      "charger_serial_number": {
+        "name": "Número de serie del cargador"
+      },
+      "network_mode": {
+        "name": "Modo de red",
+        "state": {
+          "dhcp": "DHCP",
+          "static": "Estático"
+        }
+      },
+      "network_ip_address": {
+        "name": "Dirección IP"
+      },
+      "network_subnet_mask": {
+        "name": "Máscara de subred"
+      },
+      "network_gateway": {
+        "name": "Puerta de enlace predeterminada"
+      },
+      "network_dns_server": {
+        "name": "Servidor DNS"
+      },
+      "network_mac_address": {
+        "name": "Dirección MAC"
+      },
+      "network_wifi_ssid": {
+        "name": "SSID Wi-Fi"
+      },
+      "charging_power": {
+        "name": "Potencia de carga"
+      },
+      "energy_charged": {
+        "name": "Energía cargada"
+      },
+      "total_energy_charged": {
+        "name": "Energía total cargada"
+      },
+      "electricity_price": {
+        "name": "Precio de la electricidad"
+      },
+      "last_session_energy": {
+        "name": "Energía de la última sesión"
+      },
+      "last_session_cost": {
+        "name": "Coste de la última sesión"
+      },
+      "last_session_duration": {
+        "name": "Duración de la última sesión"
+      },
+      "last_session_effective_charging_duration": {
+        "name": "Tiempo de carga efectivo de la última sesión",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este valor",
+            "state": {
+              "details": "Approximate time with actual energy transfer, accumulated from transaction MeterValues above 100 W. Energy-counter increases are used when power is unavailable; long reporting gaps are excluded. Historical sessions recorded before this feature remain unavailable."
+            }
+          }
+        }
+      },
+      "last_session_start": {
+        "name": "Inicio de la última sesión"
+      },
+      "last_session_end": {
+        "name": "Fin de la última sesión"
+      },
+      "last_session_plug_time": {
+        "name": "Hora de conexión de la última sesión"
+      },
+      "last_session_unplug_time": {
+        "name": "Hora de desconexión de la última sesión"
+      },
+      "last_session_transaction_id": {
+        "name": "ID de transacción de la última sesión"
+      },
+      "last_session_charge_mode": {
+        "name": "Modo de autorización de la última sesión",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Solo RFID",
+          "plug_and_charge": "Conectar y cargar",
+          "unknown_mode": "Desconocido"
+        }
+      },
+      "last_session_work_mode": {
+        "name": "Modo de funcionamiento de la última sesión",
+        "state": {
+          "fast": "Carga rápida",
+          "pv_linkage": "PV Linkage",
+          "off_peak": "Horas valle",
+          "unknown_mode": "Desconocido"
+        }
+      },
+      "current": {
+        "name": "Corriente {phase}"
+      },
+      "voltage": {
+        "name": "Tensión {phase}"
+      },
+      "phase_power": {
+        "name": "Potencia {phase}"
+      },
+      "temperature": {
+        "name": "Temperatura"
+      },
+      "external_meter_health": {
+        "name": "Estado de comunicación",
+        "state": {
+          "healthy": "Correcto",
+          "faulted": "Error Modbus",
+          "stale": "Comunicación interrumpida",
+          "not_reported": "Aún no informado"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este estado",
+            "state": {
+              "details": "PV Linkage cannot be selected while the charger reports PowerMeterFailure/485 Fault or after three consecutive external-meter requests receive no usable response. One or two temporary timeouts do not block the mode."
+            }
+          }
+        }
+      },
+      "grid_power": {
+        "name": "Potencia de red"
+      },
+      "grid_voltage": {
+        "name": "Tensión de red {phase}"
+      },
+      "grid_current": {
+        "name": "Corriente de red {phase}"
+      },
+      "working_mode": {
+        "name": "Modo de funcionamiento",
+        "state": {
+          "fast": "Carga rápida",
+          "pv_linkage": "PV Linkage",
+          "off_peak": "Horas valle",
+          "power_distribution": "Distribución de potencia"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "The operating mode controls which settings apply. Load balancing is available in Fast and Off-Peak mode, but not in PV Linkage mode."
+            }
+          }
+        }
+      },
+      "charger_mode": {
+        "name": "Modo de autorización",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Solo RFID",
+          "plug_and_charge": "Conectar y cargar"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Shows how charging sessions are authorized: Home Assistant/RFID, RFID only, or Plug & charge."
+            }
+          }
+        }
+      },
+      "solar_mode": {
+        "name": "Modo solar informado",
+        "state": {
+          "disabled": "Desactivado",
+          "pv_linkage": "PV Linkage (consumo de red permitido)",
+          "pv_linkage_plus": "PV Linkage+ (solo excedente solar)"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "PV Linkage may supplement solar power with the configured grid allowance. PV Linkage+ uses only solar surplus. Manual and Smart Boost may still draw grid power."
+            }
+          }
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "Consumo de red informado para PV Linkage",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Maximum grid power the charger may add in PV Linkage mode. The retained value is not an active regular grid allowance in PV Linkage+. The charger requires about 1.4 kW single-phase or 4.1 kW three-phase to start."
+            }
+          }
+        }
+      },
+      "solar_boost": {
+        "name": "Configuración Boost para PV Linkage",
+        "state": {
+          "disabled": "Desactivado",
+          "manual": "Manual",
+          "smart": "Inteligente"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Manual boost uses configured time windows; Smart boost uses target energy and finish time. The charger returns to PV Linkage after the boost."
+            }
+          }
+        }
+      },
+      "solar_threshold_current": {
+        "name": "Corriente umbral solar"
+      },
+      "grid_off_peak_charging": {
+        "name": "Carga desde la red en horas valle",
+        "state": {
+          "disabled": "Desactivado",
+          "enabled": "Activado"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Allows grid charging in the configured off-peak windows when Plug & charge authorization is active."
+            }
+          }
+        }
+      },
+      "off_peak_enable_setting": {
+        "name": "Activación de horas valle",
+        "state": {
+          "disabled": "Desactivado",
+          "enabled": "Activado"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Enables charging during the configured off-peak windows in Off-Peak mode."
+            }
+          }
+        }
+      },
+      "off_peak_schedule": {
+        "name": "Periodos de carga configurados",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Lists the shared charger-side time windows. Depending on the working mode, Growatt uses them for Off-Peak charging or PV Linkage Manual Boost."
+            }
+          }
+        }
+      },
+      "off_peak_current": {
+        "name": "Corriente de carga en horas valle",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Charging current used during the configured off-peak windows."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Tipo de contador",
+        "state": {
+          "none": "Sin contador",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (trifásico)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (trifásico)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (trifásico)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (trifásico)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (trifásico)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "External Modbus meter model used for grid measurements."
+            }
+          }
+        }
+      },
+      "power_meter_address": {
+        "name": "Dirección del contador",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Modbus address of the external meter used for grid measurements."
+            }
+          }
+        }
+      },
+      "reported_external_sampling_method": {
+        "name": "Método de medición externo informado",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Contador",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Power meter uses direct Modbus measurements; CT modes use current transformers. Growatt calls the OCPP field 'wring', likely a vendor typo."
+            }
+          }
+        }
+      },
+      "warm_up_after_full_charge": {
+        "name": "Precalentamiento informado tras la carga completa",
+        "state": {
+          "disabled": "Desactivado",
+          "enabled": "Activado"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "After full charge, the charger may continue supplying a compatible EV for cabin or battery preheating and defrosting. Behavior depends on vehicle support."
+            }
+          }
+        }
+      },
+      "delayed_charging_time": {
+        "name": "Retraso de carga",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Vendor charging delay in seconds. 0 means no delay. Random Delay behavior may vary by charger firmware."
+            }
+          }
+        }
+      }
+    },
+    "button": {
+      "start_charging": {
+        "name": "Iniciar carga"
+      },
+      "stop_charging": {
+        "name": "Detener carga"
+      },
+      "apply_pv_linkage": {
+        "name": "Aplicar ajustes de PV Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de esta acción",
+            "state": {
+              "details": "Applies the complete changed PV Boost draft to the charger. Manual Boost sends its time window; Smart Boost sends finish time and target energy. The action is available only when the draft is complete, differs from the reported settings, and the charger is idle in PV Linkage mode."
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "max_current": {
+        "name": "Corriente máxima"
+      },
+      "load_balancing_limit": {
+        "name": "Límite de equilibrio de carga",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Sets the grid-load limit used by load balancing. Available only with the Fast and Off-Peak charging strategies; unavailable in PV Linkage modes."
+            }
+          }
+        }
+      },
+      "electricity_price": {
+        "name": "Precio de la electricidad"
+      },
+      "power_meter_address": {
+        "name": "Dirección del contador",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Modbus address of the external meter. Available only when Power meter is selected as the external sampling method and no charging transaction is active."
+            }
+          }
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "Consumo de red para PV Linkage",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Available only in PV Linkage mode, where regular grid import is allowed. It is unavailable in PV Linkage+, which uses solar surplus only. Decimal values are sent using dot notation."
+            }
+          }
+        }
+      },
+      "pv_smart_boost_target_energy": {
+        "name": "Energía objetivo de Smart Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Target energy for Smart Boost. This edits the local draft and is sent together with the finish time only after Apply is pressed."
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "working_mode": {
+        "name": "Estrategia de carga",
+        "state": {
+          "fast": "Carga rápida",
+          "pv_linkage": "PV Linkage (consumo de red permitido)",
+          "pv_linkage_plus": "PV Linkage+ (solo excedente solar)",
+          "off_peak": "Horas valle"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "PV Linkage allows the configured regular grid import; PV Linkage+ uses solar surplus only. Manual and Smart Boost may still draw grid power. Existing Boost targets and time windows are not changed."
+            }
+          }
+        }
+      },
+      "external_sampling_method": {
+        "name": "Método de medición externo",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Contador",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Selects direct Modbus meter measurements or a CT 2000:1/3000:1 current transformer. Available only while no charging transaction is active. Growatt calls the OCPP key 'G_ExternalSamplingCurWring', likely a vendor typo."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Tipo de contador",
+        "state": {
+          "none": "Sin contador",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (trifásico)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (trifásico)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (trifásico)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (trifásico)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (trifásico)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Selects the external Modbus meter model. Available only when Power meter is selected as the external sampling method and no charging transaction is active."
+            }
+          }
+        }
+      },
+      "pv_boost_mode": {
+        "name": "Modo PV Boost",
+        "state": {
+          "disabled": "Desactivado",
+          "manual": "Manual",
+          "smart": "Inteligente"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Selects which Boost workflow to stage locally. Manual exposes a time window; Smart exposes finish time and target energy. No charger write occurs until Apply is pressed."
+            }
+          }
+        }
+      }
+    },
+    "switch": {
+      "load_balancing": {
+        "name": "Equilibrio de carga (solo Carga rápida/Horas valle)",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Prevents the configured grid-load limit from being exceeded. Available only with the Fast and Off-Peak charging strategies; unavailable in PV Linkage modes."
+            }
+          }
+        }
+      },
+      "lcd_display": {
+        "name": "Pantalla LCD"
+      },
+      "warm_up": {
+        "name": "Precalentamiento tras la carga completa",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Allows a compatible vehicle to continue drawing power for preheating or defrosting after reaching full charge. Vehicle support is required."
+            }
+          }
+        }
+      }
+    },
+    "time": {
+      "auto_charge_start_time": {
+        "name": "Inicio automático de carga"
+      },
+      "auto_charge_stop_time": {
+        "name": "Fin automático de carga"
+      },
+      "pv_manual_boost_start": {
+        "name": "Inicio de Manual Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Start of the staged Manual Boost window. Press Apply to send the complete window."
+            }
+          }
+        }
+      },
+      "pv_manual_boost_end": {
+        "name": "Fin de Manual Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "End of the staged Manual Boost window. Press Apply to send the complete window."
+            }
+          }
+        }
+      },
+      "pv_smart_boost_finish": {
+        "name": "Hora de finalización de Smart Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Acerca de este ajuste",
+            "state": {
+              "details": "Requested Smart Boost finish time. A time already passed today is scheduled for tomorrow when Apply is pressed."
+            }
+          }
+        }
+      }
+    }
+  }
+}

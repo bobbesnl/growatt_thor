@@ -1,0 +1,668 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Growatt THOR beállítás",
+        "description": "Growatt THOR EV töltő OCPP kapcsolat beállítása",
+        "data": {
+          "port": "Port",
+          "location": "Telepítés helye",
+          "poll_interval": "Hálózati lekérdezési időköz (másodperc, min. {min_interval})"
+        }
+      }
+    },
+    "error": {
+      "poll_interval_too_low": "A lekérdezési időköz legalább {min_interval} másodperc legyen"
+    },
+    "abort": {
+      "ap_mode_activated": "✅ Az AP mód aktiválva. A THOR Wi-Fi-hálózatot sugároz. Keresse azt az SSID-t, amely tartalmazza a THOR sorozatszámát.",
+      "ap_mode_failed": "❌ Az AP mód aktiválása sikertelen. További részletekért ellenőrizze a naplókat."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Growatt THOR beállítások",
+        "description": "A lekérdezés és a speciális beállítások konfigurálása",
+        "data": {
+          "poll_interval": "Hálózati lekérdezési időköz (másodperc, jelenleg: {current_interval})",
+          "location": "Telepítés helye",
+          "charger_mode": "A töltőmód",
+          "enable_ap_mode": "Az AP mód engedélyezése"
+        }
+      },
+      "confirm_charger_mode": {
+        "title": "A töltő módjának módosítása",
+        "description": "FIGYELEM: a töltő üzemmódjának módosítása újraindítja a THOR készüléket!\n\nAz újraindítás után a megfelelő működéshez szükség lehet a jármű újbóli csatlakoztatására.\n\nBiztosan folytatja?",
+        "data": {
+          "confirm": "Igen, cseréld ki a töltőt"
+        }
+      },
+      "confirm_ap_mode": {
+        "title": "Az AP mód aktiválásának megerősítése",
+        "description": "FIGYELEM: a THOR kapcsolat nélküli állapotba kerül, és Wi-Fi-hálózatot sugároz a közvetlen konfiguráláshoz. Ez megszakítja a Home Assistant kapcsolatát.",
+        "data": {
+          "confirm": "Igen, az AP mód engedélyezése"
+        }
+      }
+    },
+    "error": {
+      "poll_interval_too_low": "A lekérdezési időköz legalább {min_interval} másodperc legyen"
+    },
+    "abort": {
+      "ap_mode_activated": "✅ Az AP mód aktiválva. A THOR Wi-Fi-hálózatot sugároz. Keresse azt az SSID-t, amely tartalmazza a THOR sorozatszámát.",
+      "ap_mode_failed": "❌ Az AP mód aktiválása sikertelen. További részletekért ellenőrizze a naplókat.",
+      "charger_mode_changed": "✅ A töltő üzemmódja megváltozott. A THOR újraindul. Szükség esetén csatlakoztassa újra a járművet."
+    }
+  },
+  "selector": {
+    "charger_mode": {
+      "options": {
+        "1": "Home Assistant / RFID",
+        "2": "Csak RFID",
+        "3": "Csatlakoztatás és töltés"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "server_url": {
+        "name": "Kiszolgáló URL-címe"
+      },
+      "status": {
+        "name": "Állapot",
+        "state": {
+          "available": "Elérhető",
+          "preparing": "Előkészítés",
+          "charging": "Töltés",
+          "suspended_evse": "A töltő felfüggesztette",
+          "suspended_ev": "A jármű felfüggesztette",
+          "finishing": "Befejezés",
+          "reserved": "Lefoglalva",
+          "unavailable": "Nem elérhető",
+          "faulted": "Hibás",
+          "idle": "Tétlen"
+        }
+      },
+      "last_charger_fault": {
+        "name": "Utolsó töltőhiba",
+        "state": {
+          "emergency_stop": "Vészleállítás",
+          "power_meter_failure": "Külső mérő meghibásodása",
+          "other_fault": "Egyéb töltőhiba"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Az eseményről",
+            "state": {
+              "details": "Retains the most recent actual Faulted event after the charger recovers. OCPP StatusNotification and Growatt faultmessage details belonging to the same event are combined."
+            }
+          }
+        }
+      },
+      "charge_point_id": {
+        "name": "A töltési pont azonosítója"
+      },
+      "charger_vendor": {
+        "name": "A töltő gyártója"
+      },
+      "charger_model": {
+        "name": "Töltőmodell"
+      },
+      "firmware_version": {
+        "name": "Firmware verzió"
+      },
+      "charger_serial_number": {
+        "name": "A töltő sorozatszáma"
+      },
+      "network_mode": {
+        "name": "Hálózati mód",
+        "state": {
+          "dhcp": "DHCP",
+          "static": "Statikus"
+        }
+      },
+      "network_ip_address": {
+        "name": "IP-cím"
+      },
+      "network_subnet_mask": {
+        "name": "Alhálózati maszk"
+      },
+      "network_gateway": {
+        "name": "Alapértelmezett átjáró"
+      },
+      "network_dns_server": {
+        "name": "DNS kiszolgáló"
+      },
+      "network_mac_address": {
+        "name": "MAC-cím"
+      },
+      "network_wifi_ssid": {
+        "name": "Wi-Fi SSID"
+      },
+      "charging_power": {
+        "name": "Töltési teljesítmény"
+      },
+      "energy_charged": {
+        "name": "Betöltött energia"
+      },
+      "total_energy_charged": {
+        "name": "Összes betöltött energia"
+      },
+      "electricity_price": {
+        "name": "Villamosenergia-ár"
+      },
+      "last_session_energy": {
+        "name": "Az utolsó töltés energiája"
+      },
+      "last_session_cost": {
+        "name": "Az utolsó töltés költsége"
+      },
+      "last_session_duration": {
+        "name": "Az utolsó töltés időtartama"
+      },
+      "last_session_effective_charging_duration": {
+        "name": "Az utolsó töltés tényleges töltési ideje",
+        "state_attributes": {
+          "information": {
+            "name": "Az értékről",
+            "state": {
+              "details": "Approximate time with actual energy transfer, accumulated from transaction MeterValues above 100 W. Energy-counter increases are used when power is unavailable; long reporting gaps are excluded. Historical sessions recorded before this feature remain unavailable."
+            }
+          }
+        }
+      },
+      "last_session_start": {
+        "name": "Az utolsó töltés kezdete"
+      },
+      "last_session_end": {
+        "name": "Az utolsó töltés vége"
+      },
+      "last_session_plug_time": {
+        "name": "Az utolsó töltés csatlakoztatási ideje"
+      },
+      "last_session_unplug_time": {
+        "name": "Az utolsó töltés leválasztási ideje"
+      },
+      "last_session_transaction_id": {
+        "name": "Az utolsó töltés tranzakcióazonosítója"
+      },
+      "last_session_charge_mode": {
+        "name": "Az utolsó töltés engedélyezési módja",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Csak RFID",
+          "plug_and_charge": "Csatlakoztatás és töltés",
+          "unknown_mode": "Ismeretlen"
+        }
+      },
+      "last_session_work_mode": {
+        "name": "Az utolsó töltés üzemmódja",
+        "state": {
+          "fast": "Gyors töltés",
+          "pv_linkage": "PV Linkage",
+          "off_peak": "Csúcsidőn kívül",
+          "unknown_mode": "Ismeretlen"
+        }
+      },
+      "current": {
+        "name": "Áramerősség {phase}"
+      },
+      "voltage": {
+        "name": "Feszültség {phase}"
+      },
+      "phase_power": {
+        "name": "Teljesítmény {phase}"
+      },
+      "temperature": {
+        "name": "Hőmérséklet"
+      },
+      "external_meter_health": {
+        "name": "Kommunikációs státus",
+        "state": {
+          "healthy": "Rendben",
+          "faulted": "Modbus hiba",
+          "stale": "Kommunikáció megszakadt",
+          "not_reported": "Még nem jelentett"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Az állapotról",
+            "state": {
+              "details": "PV Linkage cannot be selected while the charger reports PowerMeterFailure/485 Fault or after three consecutive external-meter requests receive no usable response. One or two temporary timeouts do not block the mode."
+            }
+          }
+        }
+      },
+      "grid_power": {
+        "name": "Hálózati teljesítmény"
+      },
+      "grid_voltage": {
+        "name": "Hálózati feszültség {phase}"
+      },
+      "grid_current": {
+        "name": "Hálózati áramerősség {phase}"
+      },
+      "working_mode": {
+        "name": "Üzemmód",
+        "state": {
+          "fast": "Gyors töltés",
+          "pv_linkage": "PV Linkage",
+          "off_peak": "Csúcsidőn kívül",
+          "power_distribution": "Teljesítményelosztás"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "The operating mode controls which settings apply. Load balancing is available in Fast and Off-Peak mode, but not in PV Linkage mode."
+            }
+          }
+        }
+      },
+      "charger_mode": {
+        "name": "Engedélyezési mód",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Csak RFID",
+          "plug_and_charge": "Csatlakoztatás és töltés"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Shows how charging sessions are authorized: Home Assistant/RFID, RFID only, or Plug & charge."
+            }
+          }
+        }
+      },
+      "solar_mode": {
+        "name": "Jelentett napenergia-üzemmód",
+        "state": {
+          "disabled": "Letiltva",
+          "pv_linkage": "PV Linkage (hálózati vételezés engedélyezett)",
+          "pv_linkage_plus": "PV Linkage+ (csak napenergia-többlet)"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "PV Linkage may supplement solar power with the configured grid allowance. PV Linkage+ uses only solar surplus. Manual and Smart Boost may still draw grid power."
+            }
+          }
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "Jelentett hálózati vételezés PV Linkage módban",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Maximum grid power the charger may add in PV Linkage mode. The retained value is not an active regular grid allowance in PV Linkage+. The charger requires about 1.4 kW single-phase or 4.1 kW three-phase to start."
+            }
+          }
+        }
+      },
+      "solar_boost": {
+        "name": "PV Linkage Boost-konfiguráció",
+        "state": {
+          "disabled": "Letiltva",
+          "manual": "Kézi",
+          "smart": "Intelligens"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Manual boost uses configured time windows; Smart boost uses target energy and finish time. The charger returns to PV Linkage after the boost."
+            }
+          }
+        }
+      },
+      "solar_threshold_current": {
+        "name": "Napenergia-küszöbáram"
+      },
+      "grid_off_peak_charging": {
+        "name": "Hálózati töltés csúcsidőn kívül",
+        "state": {
+          "disabled": "Letiltva",
+          "enabled": "Engedélyezve"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Allows grid charging in the configured off-peak windows when Plug & charge authorization is active."
+            }
+          }
+        }
+      },
+      "off_peak_enable_setting": {
+        "name": "Csúcsidőn kívüli töltés engedélyezése",
+        "state": {
+          "disabled": "Letiltva",
+          "enabled": "Engedélyezve"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Enables charging during the configured off-peak windows in Off-Peak mode."
+            }
+          }
+        }
+      },
+      "off_peak_schedule": {
+        "name": "Beállított töltési időszakok",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Lists the shared charger-side time windows. Depending on the working mode, Growatt uses them for Off-Peak charging or PV Linkage Manual Boost."
+            }
+          }
+        }
+      },
+      "off_peak_current": {
+        "name": "Csúcsidőn kívüli töltőáram",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Charging current used during the configured off-peak windows."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Fogyasztásmérő típusa",
+        "state": {
+          "none": "Nincs mérő",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (háromfázisú)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (háromfázisú)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (háromfázisú)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (háromfázisú)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (háromfázisú)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "External Modbus meter model used for grid measurements."
+            }
+          }
+        }
+      },
+      "power_meter_address": {
+        "name": "Fogyasztásmérő címe",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Modbus address of the external meter used for grid measurements."
+            }
+          }
+        }
+      },
+      "reported_external_sampling_method": {
+        "name": "Jelentett külső mérési mód",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Fogyasztásmérő",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Power meter uses direct Modbus measurements; CT modes use current transformers. Growatt calls the OCPP field 'wring', likely a vendor typo."
+            }
+          }
+        }
+      },
+      "warm_up_after_full_charge": {
+        "name": "Jelentett előmelegítés teljes feltöltés után",
+        "state": {
+          "disabled": "Letiltva",
+          "enabled": "Engedélyezve"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "After full charge, the charger may continue supplying a compatible EV for cabin or battery preheating and defrosting. Behavior depends on vehicle support."
+            }
+          }
+        }
+      },
+      "delayed_charging_time": {
+        "name": "Késleltetett töltési idő",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Vendor charging delay in seconds. 0 means no delay. Random Delay behavior may vary by charger firmware."
+            }
+          }
+        }
+      }
+    },
+    "button": {
+      "start_charging": {
+        "name": "Töltés indítása"
+      },
+      "stop_charging": {
+        "name": "Töltés leállítása"
+      },
+      "apply_pv_linkage": {
+        "name": "PV Boost-beállítások alkalmazása",
+        "state_attributes": {
+          "information": {
+            "name": "A műveletről",
+            "state": {
+              "details": "Applies the complete changed PV Boost draft to the charger. Manual Boost sends its time window; Smart Boost sends finish time and target energy. The action is available only when the draft is complete, differs from the reported settings, and the charger is idle in PV Linkage mode."
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "max_current": {
+        "name": "Maximális áram"
+      },
+      "load_balancing_limit": {
+        "name": "Terheléskiegyenlítési határérték",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Sets the grid-load limit used by load balancing. Available only with the Fast and Off-Peak charging strategies; unavailable in PV Linkage modes."
+            }
+          }
+        }
+      },
+      "electricity_price": {
+        "name": "Villamosenergia-ár"
+      },
+      "power_meter_address": {
+        "name": "Fogyasztásmérő címe",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Modbus address of the external meter. Available only when Power meter is selected as the external sampling method and no charging transaction is active."
+            }
+          }
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "Hálózati vételezés PV Linkage módban",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Available only in PV Linkage mode, where regular grid import is allowed. It is unavailable in PV Linkage+, which uses solar surplus only. Decimal values are sent using dot notation."
+            }
+          }
+        }
+      },
+      "pv_smart_boost_target_energy": {
+        "name": "Smart Boost célenergia",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Target energy for Smart Boost. This edits the local draft and is sent together with the finish time only after Apply is pressed."
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "working_mode": {
+        "name": "Töltési stratégia",
+        "state": {
+          "fast": "Gyors töltés",
+          "pv_linkage": "PV Linkage (hálózati vételezés engedélyezett)",
+          "pv_linkage_plus": "PV Linkage+ (csak napenergia-többlet)",
+          "off_peak": "Csúcsidőn kívül"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "PV Linkage allows the configured regular grid import; PV Linkage+ uses solar surplus only. Manual and Smart Boost may still draw grid power. Existing Boost targets and time windows are not changed."
+            }
+          }
+        }
+      },
+      "external_sampling_method": {
+        "name": "Külső mérési mód",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Fogyasztásmérő",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Selects direct Modbus meter measurements or a CT 2000:1/3000:1 current transformer. Available only while no charging transaction is active. Growatt calls the OCPP key 'G_ExternalSamplingCurWring', likely a vendor typo."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Fogyasztásmérő típusa",
+        "state": {
+          "none": "Nincs mérő",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (háromfázisú)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (háromfázisú)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (háromfázisú)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (háromfázisú)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (háromfázisú)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Selects the external Modbus meter model. Available only when Power meter is selected as the external sampling method and no charging transaction is active."
+            }
+          }
+        }
+      },
+      "pv_boost_mode": {
+        "name": "PV Boost mód",
+        "state": {
+          "disabled": "Letiltva",
+          "manual": "Kézi",
+          "smart": "Intelligens"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Selects which Boost workflow to stage locally. Manual exposes a time window; Smart exposes finish time and target energy. No charger write occurs until Apply is pressed."
+            }
+          }
+        }
+      }
+    },
+    "switch": {
+      "load_balancing": {
+        "name": "Terheléselosztás (csak Gyors töltés/Csúcsidőn kívül)",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Prevents the configured grid-load limit from being exceeded. Available only with the Fast and Off-Peak charging strategies; unavailable in PV Linkage modes."
+            }
+          }
+        }
+      },
+      "lcd_display": {
+        "name": "LCD kijelző"
+      },
+      "warm_up": {
+        "name": "Előmelegítés teljes feltöltés után",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Allows a compatible vehicle to continue drawing power for preheating or defrosting after reaching full charge. Vehicle support is required."
+            }
+          }
+        }
+      }
+    },
+    "time": {
+      "auto_charge_start_time": {
+        "name": "Automatikus töltés indítása"
+      },
+      "auto_charge_stop_time": {
+        "name": "Automatikus töltés leállítása"
+      },
+      "pv_manual_boost_start": {
+        "name": "Manual Boost indítása",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Start of the staged Manual Boost window. Press Apply to send the complete window."
+            }
+          }
+        }
+      },
+      "pv_manual_boost_end": {
+        "name": "Manual Boost vége",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "End of the staged Manual Boost window. Press Apply to send the complete window."
+            }
+          }
+        }
+      },
+      "pv_smart_boost_finish": {
+        "name": "Smart Boost befejezési idő",
+        "state_attributes": {
+          "information": {
+            "name": "A beállításról",
+            "state": {
+              "details": "Requested Smart Boost finish time. A time already passed today is scheduled for tomorrow when Apply is pressed."
+            }
+          }
+        }
+      }
+    }
+  }
+}

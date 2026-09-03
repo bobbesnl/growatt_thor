@@ -1,0 +1,668 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Nastavitve Growatt THOR",
+        "description": "Nastavite svojo povezavo Growatt THOR EV Charger OCPP",
+        "data": {
+          "port": "Vrata",
+          "location": "Lokacija namestitve",
+          "poll_interval": "Interval preverjanja omrežja (sekunde, najmanj {min_interval})"
+        }
+      }
+    },
+    "error": {
+      "poll_interval_too_low": "Interval preverjanja mora biti vsaj {min_interval} sekund"
+    },
+    "abort": {
+      "ap_mode_activated": "✅ Način AP je omogočen. THOR oddaja omrežje Wi-Fi. Poiščite SSID, ki vsebuje serijsko številko THOR.",
+      "ap_mode_failed": "❌ Načina AP ni bilo mogoče omogočiti. Za podrobnosti preverite dnevnike."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Možnosti Growatt THOR",
+        "description": "Nastavite interval preverjanja in napredne možnosti",
+        "data": {
+          "poll_interval": "Interval preverjanja omrežja (sekunde, trenutno: {current_interval})",
+          "location": "Lokacija namestitve",
+          "charger_mode": "⚠️ Način polnilnice",
+          "enable_ap_mode": "⚠️ Omogoči način AP"
+        }
+      },
+      "confirm_charger_mode": {
+        "title": "⚠️ Potrdi spremembo načina polnilnice",
+        "description": "OPOZORILO: sprememba načina polnilnice bo ponovno zagnala THOR.\n\nPo ponovnem zagonu bo za pravilno delovanje morda treba vozilo znova priključiti.\n\nAli želite nadaljevati?",
+        "data": {
+          "confirm": "Da, spremeni način polnilnika"
+        }
+      },
+      "confirm_ap_mode": {
+        "title": "⚠️ Potrdi vklop načina AP",
+        "description": "OPOZORILO: THOR bo izgubil povezavo in oddajal omrežje Wi-Fi za neposredno konfiguracijo. Povezava s Home Assistant bo prekinjena.",
+        "data": {
+          "confirm": "Da, omogoči način AP"
+        }
+      }
+    },
+    "error": {
+      "poll_interval_too_low": "Interval preverjanja mora biti vsaj {min_interval} sekund"
+    },
+    "abort": {
+      "ap_mode_activated": "✅ Način AP je omogočen. THOR oddaja omrežje Wi-Fi. Poiščite SSID, ki vsebuje serijsko številko THOR.",
+      "ap_mode_failed": "❌ Načina AP ni bilo mogoče omogočiti. Za podrobnosti preverite dnevnike.",
+      "charger_mode_changed": "✅ Način polnilnice je spremenjen. THOR se bo znova zagnal. Po potrebi znova priključite vozilo."
+    }
+  },
+  "selector": {
+    "charger_mode": {
+      "options": {
+        "1": "Home Assistant / RFID",
+        "2": "Samo RFID",
+        "3": "Priklopi in polni"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "server_url": {
+        "name": "URL strežnika"
+      },
+      "status": {
+        "name": "Stanje",
+        "state": {
+          "available": "Na voljo",
+          "preparing": "Priprava",
+          "charging": "Polnjenje",
+          "suspended_evse": "Polnilnica je prekinila polnjenje",
+          "suspended_ev": "Vozilo je prekinilo polnjenje",
+          "finishing": "Zaključevanje",
+          "reserved": "Rezervirano",
+          "unavailable": "Ni na voljo",
+          "faulted": "Napaka",
+          "idle": "Mirovanje"
+        }
+      },
+      "last_charger_fault": {
+        "name": "Zadnja napaka polnilnika",
+        "state": {
+          "emergency_stop": "Zaustavitev v sili",
+          "power_meter_failure": "Okvara zunanjega merilnika",
+          "other_fault": "Druga napaka polnilnice"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tem dogodku",
+            "state": {
+              "details": "Retains the most recent actual Faulted event after the charger recovers. OCPP StatusNotification and Growatt faultmessage details belonging to the same event are combined."
+            }
+          }
+        }
+      },
+      "charge_point_id": {
+        "name": "ID polnilne točke"
+      },
+      "charger_vendor": {
+        "name": "Proizvajalec polnilnika"
+      },
+      "charger_model": {
+        "name": "Model polnilnika"
+      },
+      "firmware_version": {
+        "name": "Različica vdelane programske opreme"
+      },
+      "charger_serial_number": {
+        "name": "Serijska številka polnilnice"
+      },
+      "network_mode": {
+        "name": "Način omrežja",
+        "state": {
+          "dhcp": "DHCP",
+          "static": "Statično"
+        }
+      },
+      "network_ip_address": {
+        "name": "Naslov IP"
+      },
+      "network_subnet_mask": {
+        "name": "Subnet maska"
+      },
+      "network_gateway": {
+        "name": "Privzet prehod"
+      },
+      "network_dns_server": {
+        "name": "Strežnik DNS"
+      },
+      "network_mac_address": {
+        "name": "MAC naslov"
+      },
+      "network_wifi_ssid": {
+        "name": "Wi-Fi SSID"
+      },
+      "charging_power": {
+        "name": "Polnilna moč"
+      },
+      "energy_charged": {
+        "name": "Napolnjena energija"
+      },
+      "total_energy_charged": {
+        "name": "Skupna napolnjena energija"
+      },
+      "electricity_price": {
+        "name": "Cena električne energije"
+      },
+      "last_session_energy": {
+        "name": "Energija zadnjega polnjenja"
+      },
+      "last_session_cost": {
+        "name": "Strošek zadnjega polnjenja"
+      },
+      "last_session_duration": {
+        "name": "Trajanje zadnjega polnjenja"
+      },
+      "last_session_effective_charging_duration": {
+        "name": "Dejanski čas zadnjega polnjenja",
+        "state_attributes": {
+          "information": {
+            "name": "O tej vrednosti",
+            "state": {
+              "details": "Approximate time with actual energy transfer, accumulated from transaction MeterValues above 100 W. Energy-counter increases are used when power is unavailable; long reporting gaps are excluded. Historical sessions recorded before this feature remain unavailable."
+            }
+          }
+        }
+      },
+      "last_session_start": {
+        "name": "Začetek zadnjega polnjenja"
+      },
+      "last_session_end": {
+        "name": "Konec zadnjega polnjenja"
+      },
+      "last_session_plug_time": {
+        "name": "Čas priklopa pri zadnjem polnjenju"
+      },
+      "last_session_unplug_time": {
+        "name": "Čas odklopa pri zadnjem polnjenju"
+      },
+      "last_session_transaction_id": {
+        "name": "ID transakcije zadnjega polnjenja"
+      },
+      "last_session_charge_mode": {
+        "name": "Način odobritve zadnjega polnjenja",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Samo RFID",
+          "plug_and_charge": "Priklopi in polni",
+          "unknown_mode": "Neznano"
+        }
+      },
+      "last_session_work_mode": {
+        "name": "Način delovanja zadnjega polnjenja",
+        "state": {
+          "fast": "Hitro polnjenje",
+          "pv_linkage": "PV Linkage",
+          "off_peak": "Nizka tarifa",
+          "unknown_mode": "Neznano"
+        }
+      },
+      "current": {
+        "name": "Tok {phase}"
+      },
+      "voltage": {
+        "name": "Napetost {phase}"
+      },
+      "phase_power": {
+        "name": "Moč {phase}"
+      },
+      "temperature": {
+        "name": "Temperatura"
+      },
+      "external_meter_health": {
+        "name": "Stanje komunikacije",
+        "state": {
+          "healthy": "V redu",
+          "faulted": "Napaka Modbus",
+          "stale": "Komunikacija prekinjena",
+          "not_reported": "Še ni sporočeno"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tem stanju",
+            "state": {
+              "details": "PV Linkage cannot be selected while the charger reports PowerMeterFailure/485 Fault or after three consecutive external-meter requests receive no usable response. One or two temporary timeouts do not block the mode."
+            }
+          }
+        }
+      },
+      "grid_power": {
+        "name": "Moč omrežja"
+      },
+      "grid_voltage": {
+        "name": "Omrežna napetost {phase}"
+      },
+      "grid_current": {
+        "name": "Omrežni tok {phase}"
+      },
+      "working_mode": {
+        "name": "Način delovanja",
+        "state": {
+          "fast": "Hitro polnjenje",
+          "pv_linkage": "PV Linkage",
+          "off_peak": "Nizka tarifa",
+          "power_distribution": "Porazdelitev moči"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "The operating mode controls which settings apply. Load balancing is available in Fast and Off-Peak mode, but not in PV Linkage mode."
+            }
+          }
+        }
+      },
+      "charger_mode": {
+        "name": "Način odobritve",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Samo RFID",
+          "plug_and_charge": "Priklopi in polni"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Shows how charging sessions are authorized: Home Assistant/RFID, RFID only, or Plug & charge."
+            }
+          }
+        }
+      },
+      "solar_mode": {
+        "name": "Sporočeni solarni način",
+        "state": {
+          "disabled": "Onemogočeno",
+          "pv_linkage": "PV Linkage (dovoljen odjem iz omrežja)",
+          "pv_linkage_plus": "PV Linkage+ (samo sončni presežek)"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "PV Linkage may supplement solar power with the configured grid allowance. PV Linkage+ uses only solar surplus. Manual and Smart Boost may still draw grid power."
+            }
+          }
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "Sporočeni odjem iz omrežja za PV Linkage",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Maximum grid power the charger may add in PV Linkage mode. The retained value is not an active regular grid allowance in PV Linkage+. The charger requires about 1.4 kW single-phase or 4.1 kW three-phase to start."
+            }
+          }
+        }
+      },
+      "solar_boost": {
+        "name": "Konfiguracija Boost za PV Linkage",
+        "state": {
+          "disabled": "Onemogočeno",
+          "manual": "Ročno",
+          "smart": "Pametno"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Manual boost uses configured time windows; Smart boost uses target energy and finish time. The charger returns to PV Linkage after the boost."
+            }
+          }
+        }
+      },
+      "solar_threshold_current": {
+        "name": "Sončni prag"
+      },
+      "grid_off_peak_charging": {
+        "name": "Polnjenje iz omrežja po nizki tarifi",
+        "state": {
+          "disabled": "Onemogočeno",
+          "enabled": "Omogočeno"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Allows grid charging in the configured off-peak windows when Plug & charge authorization is active."
+            }
+          }
+        }
+      },
+      "off_peak_enable_setting": {
+        "name": "Omogočanje nizke tarife",
+        "state": {
+          "disabled": "Onemogočeno",
+          "enabled": "Omogočeno"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Enables charging during the configured off-peak windows in Off-Peak mode."
+            }
+          }
+        }
+      },
+      "off_peak_schedule": {
+        "name": "Nastavljena obdobja polnjenja",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Lists the shared charger-side time windows. Depending on the working mode, Growatt uses them for Off-Peak charging or PV Linkage Manual Boost."
+            }
+          }
+        }
+      },
+      "off_peak_current": {
+        "name": "Polnilni tok po nizki tarifi",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Charging current used during the configured off-peak windows."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Vrsta števca",
+        "state": {
+          "none": "Brez števca",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (trifazni)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (trifazni)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (trifazni)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (trifazni)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (trifazni)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "External Modbus meter model used for grid measurements."
+            }
+          }
+        }
+      },
+      "power_meter_address": {
+        "name": "Naslov števca",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Modbus address of the external meter used for grid measurements."
+            }
+          }
+        }
+      },
+      "reported_external_sampling_method": {
+        "name": "Sporočeni zunanji način merjenja",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Števec",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Power meter uses direct Modbus measurements; CT modes use current transformers. Growatt calls the OCPP field 'wring', likely a vendor typo."
+            }
+          }
+        }
+      },
+      "warm_up_after_full_charge": {
+        "name": "Sporočeno predgretje po končanem polnjenju",
+        "state": {
+          "disabled": "Onemogočeno",
+          "enabled": "Omogočeno"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "After full charge, the charger may continue supplying a compatible EV for cabin or battery preheating and defrosting. Behavior depends on vehicle support."
+            }
+          }
+        }
+      },
+      "delayed_charging_time": {
+        "name": "Zakasnjen čas polnjenja",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Vendor charging delay in seconds. 0 means no delay. Random Delay behavior may vary by charger firmware."
+            }
+          }
+        }
+      }
+    },
+    "button": {
+      "start_charging": {
+        "name": "Začni polnjenje"
+      },
+      "stop_charging": {
+        "name": "Ustavi polnjenje"
+      },
+      "apply_pv_linkage": {
+        "name": "Uporabi nastavitve PV Boost",
+        "state_attributes": {
+          "information": {
+            "name": "O tem dejanju",
+            "state": {
+              "details": "Applies the complete changed PV Boost draft to the charger. Manual Boost sends its time window; Smart Boost sends finish time and target energy. The action is available only when the draft is complete, differs from the reported settings, and the charger is idle in PV Linkage mode."
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "max_current": {
+        "name": "Največji tok"
+      },
+      "load_balancing_limit": {
+        "name": "Meja izravnave obremenitve",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Sets the grid-load limit used by load balancing. Available only with the Fast and Off-Peak charging strategies; unavailable in PV Linkage modes."
+            }
+          }
+        }
+      },
+      "electricity_price": {
+        "name": "Cena električne energije"
+      },
+      "power_meter_address": {
+        "name": "Naslov števca",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Modbus address of the external meter. Available only when Power meter is selected as the external sampling method and no charging transaction is active."
+            }
+          }
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "Odjem iz omrežja za PV Linkage",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Available only in PV Linkage mode, where regular grid import is allowed. It is unavailable in PV Linkage+, which uses solar surplus only. Decimal values are sent using dot notation."
+            }
+          }
+        }
+      },
+      "pv_smart_boost_target_energy": {
+        "name": "Ciljna energija Smart Boost",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Target energy for Smart Boost. This edits the local draft and is sent together with the finish time only after Apply is pressed."
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "working_mode": {
+        "name": "Strategija polnjenja",
+        "state": {
+          "fast": "Hitro polnjenje",
+          "pv_linkage": "PV Linkage (dovoljen odjem iz omrežja)",
+          "pv_linkage_plus": "PV Linkage+ (samo sončni presežek)",
+          "off_peak": "Nizka tarifa"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "PV Linkage allows the configured regular grid import; PV Linkage+ uses solar surplus only. Manual and Smart Boost may still draw grid power. Existing Boost targets and time windows are not changed."
+            }
+          }
+        }
+      },
+      "external_sampling_method": {
+        "name": "Zunanji način merjenja",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Števec",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Selects direct Modbus meter measurements or a CT 2000:1/3000:1 current transformer. Available only while no charging transaction is active. Growatt calls the OCPP key 'G_ExternalSamplingCurWring', likely a vendor typo."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Vrsta števca",
+        "state": {
+          "none": "Brez števca",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (trifazni)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (trifazni)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (trifazni)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (trifazni)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (trifazni)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Selects the external Modbus meter model. Available only when Power meter is selected as the external sampling method and no charging transaction is active."
+            }
+          }
+        }
+      },
+      "pv_boost_mode": {
+        "name": "Način PV Boost",
+        "state": {
+          "disabled": "Onemogočeno",
+          "manual": "Ročno",
+          "smart": "Pametno"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Selects which Boost workflow to stage locally. Manual exposes a time window; Smart exposes finish time and target energy. No charger write occurs until Apply is pressed."
+            }
+          }
+        }
+      }
+    },
+    "switch": {
+      "load_balancing": {
+        "name": "Uravnoteženje obremenitve (samo Hitro polnjenje/Nizka tarifa)",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Prevents the configured grid-load limit from being exceeded. Available only with the Fast and Off-Peak charging strategies; unavailable in PV Linkage modes."
+            }
+          }
+        }
+      },
+      "lcd_display": {
+        "name": "LCD zaslon"
+      },
+      "warm_up": {
+        "name": "Predgretje po končanem polnjenju",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Allows a compatible vehicle to continue drawing power for preheating or defrosting after reaching full charge. Vehicle support is required."
+            }
+          }
+        }
+      }
+    },
+    "time": {
+      "auto_charge_start_time": {
+        "name": "Zagon samodejnega polnjenja"
+      },
+      "auto_charge_stop_time": {
+        "name": "Samodejna ustavitev polnjenja"
+      },
+      "pv_manual_boost_start": {
+        "name": "Začetek Manual Boost",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Start of the staged Manual Boost window. Press Apply to send the complete window."
+            }
+          }
+        }
+      },
+      "pv_manual_boost_end": {
+        "name": "Manual Boost konec",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "End of the staged Manual Boost window. Press Apply to send the complete window."
+            }
+          }
+        }
+      },
+      "pv_smart_boost_finish": {
+        "name": "Čas konca Smart Boost",
+        "state_attributes": {
+          "information": {
+            "name": "O tej nastavitvi",
+            "state": {
+              "details": "Requested Smart Boost finish time. A time already passed today is scheduled for tomorrow when Apply is pressed."
+            }
+          }
+        }
+      }
+    }
+  }
+}
