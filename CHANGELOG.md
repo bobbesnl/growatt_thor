@@ -12,82 +12,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 _Target version: 1.7.0_
 
 ### Added
-- **Additional interface languages**: Add Italian, Hungarian, Slovenian, French, and Spanish translations for setup/options flows, entity names, enum states, and controls. Technical explanation texts retain the authoritative English wording until reviewed by native speakers.
-- **Persistent charger fault diagnostics**: Retain the latest actual `Faulted` event across charger recovery and Home Assistant restarts. Merge OCPP `StatusNotification` details with the matching Growatt `DataTransfer/faultmessage`, expose a translated Last Charger Fault diagnostic entity, and include the complete structured event in downloaded diagnostics.
-- **External meter communication health**: Add a translated diagnostic entity that distinguishes healthy communication, explicit Modbus faults, sustained polling failures, and a not-yet-reported state. The raw OCPP error, connector, vendor info, timeout count, and latest meter timestamp remain available as attributes and in downloaded diagnostics.
-- **Mode-aware charging controls**: Add a charging-strategy select, PV Linkage grid-import number, and Warm-up switch using only captured Growatt writes. Existing load-balancing and automatic-time controls become unavailable outside the working modes in which the Growatt app exposes them.
-- **Control dependency model**: Classify charger settings as directly writable, compound, or read-only. Smart/Manual Boost, shared charging periods, off-peak current, grid off-peak charging, and delayed charging remain diagnostic until their complete write workflows are verified.
-- **Verified control readback**: Block mode and installation changes while a charging transaction is active, re-check queued writes immediately before execution, and track accepted configuration writes until a matching `GetConfiguration` readback confirms the effective charger state.
-- **External meter controls**: Select Power Meter, CT 2000:1, or CT 3000:1, choose the supported Modbus meter model, and configure its address on the External Meter device. Meter model and address are available only with Power Meter sampling; all installation changes are blocked during an active transaction. Optional reported shadow sensors retain the charger readback.
-- **PV Linkage Boost controls**: Stage Disabled, Manual, or Smart Boost settings as a local draft and apply the complete captured Growatt write sequence explicitly. Manual Boost sends its time window through `G_PeriodTime`; Smart Boost sends finish time and target energy through `solar_target_data`. Mode-dependent fields and Apply remain unavailable outside PV Linkage or during an active transaction.
-- **Effective charging time**: Accumulate time with actual transaction energy transfer from OCPP MeterValues above 100 W, with energy-counter fallback and bounded sample gaps. Persist the active accumulator across restarts and expose the completed value as a duration sensor, in diagnostics, and in migrated CSV exports. Historical sessions remain empty instead of receiving an inferred value.
-- **Charger identity diagnostics**: Expose the manufacturer, model, firmware version, and serial number reported by OCPP BootNotification as read-only diagnostic sensors.
-- **Network diagnostics**: Expose the charger-reported network mode, IP address, subnet mask, default gateway, DNS server, MAC address, and Wi-Fi SSID as read-only diagnostic sensors. Sensitive values remain redacted from downloaded Home Assistant diagnostics.
+- **More interface languages**: Setup, entity names, states, and controls are now also available in Italian, Hungarian, Slovenian, French, and Spanish. Detailed technical help remains in English until it has been reviewed by native speakers.
+- **Last charger fault**: A new diagnostic sensor keeps the most recent real charger fault, even after the charger recovers or Home Assistant restarts. Downloaded diagnostics include the available details for troubleshooting.
+- **External meter status**: A new diagnostic sensor shows whether the external meter is working, has a Modbus fault, has stopped responding, or has not reported any data yet.
+- **Mode-aware controls**: You can select the charging strategy, configure permitted grid power for PV Linkage, and enable warm-up after a full charge. Controls are disabled automatically when they do not apply to the selected mode.
+- **Safer settings**: Settings that can be changed safely are available as controls. More complex or not yet fully verified Growatt settings remain read-only for now.
+- **Confirmed setting changes**: Mode and installation settings cannot be changed during an active charging session. After a change, the integration reads the setting back from the charger to confirm that it was applied.
+- **External meter controls**: Choose between a power meter, CT 2000:1, and CT 3000:1. When using a power meter, you can also select its model and Modbus address.
+- **PV Linkage Boost controls**: Configure Disabled, Manual, or Smart Boost. Manual Boost uses a time window; Smart Boost uses a target energy and finish time. Changes are sent together when you press Apply.
+- **Effective charging time**: A new sensor shows how long energy was actually transferred, excluding time when the vehicle remained plugged in without charging. The value is also included in diagnostics and CSV exports.
+- **Charger information**: Manufacturer, model, firmware version, and serial number are available as read-only diagnostic sensors when reported by the charger.
+- **Network information**: Network mode, IP address, subnet mask, gateway, DNS server, MAC address, and Wi-Fi SSID are available as read-only diagnostic sensors. Sensitive data remains hidden in downloaded diagnostics.
 
 ### Changed
-- **Configuration entity surface**: Keep directly writable settings as the single default entity and disable their reported shadow sensors by default. Charging strategy retains the reported working, solar, and off-peak states as attributes; raw configuration remains available in diagnostics. Existing shadow entities can still be enabled when separate history or automations are required.
-- **Entity semantics and translations**: Treat measurements and effective operating states as sensors, writable settings as configuration controls, retained vendor settings as diagnostics, and start/stop as operational buttons. Existing controls and the new charging controls now use translation keys available in English, German, Dutch, Italian, Hungarian, Slovenian, French, and Spanish.
-- **Shared charging periods**: Describe `G_OffPeakTime` as the charger-reported shared period list because captures show the same underlying `G_PeriodTime` is used for both Off-Peak charging and PV Linkage Manual Boost.
-- **Session duration display**: Mark session durations as Home Assistant duration sensors and expose their entity state in hours with two decimal places. A one-time config-entry migration replaces the legacy minute display override; internal session data and CSV exports remain in minutes, and Home Assistant can convert existing duration history between compatible time units.
-- **Quieter control history**: Keep volatile pending-write, raw-readback, and acknowledgement details in diagnostics instead of state attributes. The activity log now follows effective control-state changes instead of recording internal write lifecycle updates with the same visible value.
-- **Load-balancing guidance**: Explain on the load-balancing switch and limit that Growatt exposes these settings only in Fast and Off-Peak modes, not in PV Linkage modes.
-- **External meter entity migration**: Disable the three redundant reported sampling-method, meter-type, and meter-address sensors once their writable controls are available. The readback entities remain in the registry and can be enabled manually when separate history is required.
+- **Clearer entity roles**: Measurements remain sensors, settings that can be changed appear as controls, technical values appear under diagnostics, and Start/Stop remain buttons.
+- **Less duplicate information**: Read-only copies of writable settings are disabled by default. They can still be enabled manually when separate history or automations are needed.
+- **Shared charging periods**: The same charger time windows may be used for Off-Peak charging or PV Linkage Manual Boost, depending on the selected mode. Their name and description now reflect this.
+- **Session duration display**: Session durations are shown in hours and can use Home Assistant's normal unit conversion. CSV exports continue to store minutes.
+- **Quieter activity history**: The activity log records confirmed setting changes instead of every internal step while a change is being sent to the charger.
+- **Load-balancing guidance**: The load-balancing controls now explain that they are available only in Fast and Off-Peak modes, not in PV Linkage modes.
 
 ### Fixed
-- **Home Assistant device-registry compatibility**: Scope the legacy External Meter device lookup to its owning config entry, removing the `async_get_device()` deprecation warning introduced by Home Assistant 2026.8 while preserving the existing device during upgrades.
-- **Writes while the charger is faulted**: Make configuration controls and Start Charging unavailable while the current OCPP status is `Faulted`, and re-check queued operations immediately before execution. Stop Charging remains available as a safety action; controls recover automatically with the next non-fault status.
-- **PV Linkage with a faulty external meter**: Remove PV Linkage choices while the charger reports `PowerMeterFailure`/`485 Fault` or after three consecutive external-meter requests receive no usable response. One or two temporary timeouts do not block the mode, and an already active PV mode is never changed automatically.
-- **PV Linkage mode semantics**: Label PV Linkage as allowing the configured regular grid import and PV Linkage+ as solar-surplus-only. The grid-import allowance control is unavailable in PV Linkage+, while Manual and Smart Boost may still use grid power.
-- **Charging-strategy write delay**: Keep the latest selected strategy visible while the firmware-protection queue applies it, allow newer queued strategy changes to replace older ones, and ignore delayed readbacks belonging to a superseded selection.
-- **Session-duration unit migration**: Update both Home Assistant's public and private duration-unit preferences before entities are loaded, recover installations left with the earlier migration marker, and close the OCPP server cleanly if a later setup step fails.
+- **Home Assistant 2026.8 compatibility**: Removes a warning when upgrading an existing External Meter device while keeping the existing device and entities intact.
+- **Controls while the charger has a fault**: Settings and Start Charging are unavailable while the charger reports a fault. Stop Charging remains available, and the other controls return automatically after recovery.
+- **PV Linkage with a meter fault**: PV Linkage cannot be newly selected while the external meter reports a fault or repeatedly stops responding. One or two temporary timeouts do not block the mode, and an active mode is never changed automatically.
+- **Clearer PV mode names**: PV Linkage allows the configured amount of grid power, while PV Linkage+ uses solar surplus only. Manual and Smart Boost may still use grid power.
+- **Delayed charging-strategy changes**: The selected strategy now remains visible while the charger processes it. A newer selection replaces an older queued change correctly.
+- **Session-duration upgrades**: Existing installations are migrated to the new duration display more reliably, including systems affected by an earlier incomplete migration.
 
 ---
 
 ## 🎉 [1.6.0] - 2026-09-03
 
-🛡️ **Major diagnostics and session-tracking release, built end-to-end by @felixhix . Huge thanks to him for driving this release from start to finish.
+**Major diagnostics and session-tracking release, built end-to-end by @felixhix. Huge thanks to him for driving this release from start to finish.**
 
 ### Added
-- **Hardware and firmware compatibility matrix**: Document known THOR hardware layouts and V2, V4, V5, and V6 firmware reports, including firmware-specific OCPP behavior, access differences, three-phase supply constraints, and safe compatibility-reporting guidance.
-- **Structured charger configuration registry**: Preserve every returned OCPP and Growatt configuration value with its raw and parsed value, charger-provided read-only flag, type metadata, and enum label. Unknown keys are retained instead of being discarded after logging. (PR #42)
-- **Redacted configuration diagnostics**: Include the retained configuration snapshot, unknown keys, and requested key groups in Home Assistant diagnostics while redacting sensitive and unclassified values. (PR #42)
-- **Read-only configuration entities**: Add five diagnostic sensors — Working Mode, Authorization Mode, Power Meter Type, Power Meter Address, and External Sampling Method — sourced from the retained configuration registry. Enum states are translated in English, German, and Dutch. (PR #42)
-- **Connection health on the status sensor**: The Status sensor now exposes connected, connection_started_at, last_message_at, last_message_action, and last_heartbeat_at as attributes, and uses a translated enum state (Available, Preparing, Charging, Suspended by charger/vehicle, Finishing, Reserved, Unavailable, Faulted, Idle) in English, German, and Dutch. (PR #42, extended in #44)
-- **OCPP connection liveness tracking**: Track inbound OCPP activity independently from the last reported charger status, and close the local WebSocket after 180 seconds without any OCPP message (Heartbeat or otherwise). Connection and heartbeat timestamps are included in diagnostics. (PR #44)
-- **External meter diagnostic attributes**: Retain Growatt's raw used and wring fields from get_external_meterval and expose them as vendor_used/vendor_wring attributes on the Grid Power sensor, alongside a last_updated_at timestamp. (PR #44)
-- **OCPP boot, status, and transaction diagnostics**: Retain the latest complete BootNotification and StatusNotification requests, plus active and last-completed Start/StopTransaction metadata, in a normalized and redacted form included in Home Assistant diagnostics. Preserves firmware, model, and serial metadata, connector IDs, meter start/stop values, stop reasons, error codes, vendor error codes, and vendor-specific fields (e.g. ChargeWait) without changing existing operational entities. (PR #45)
-- **Automatic BootNotification recovery**: Request a BootNotification via TriggerMessage once when a reconnecting charger does not send one on its own, ensuring diagnostics always have boot metadata available. (PR #45)
-- **Lossless MeterValues diagnostics**: Normalize every OCPP meter sample with its measurand, value, unit, phase, context, location, timestamp, and original fields. Known samples continue to update Home Assistant entities while unknown measurands remain available in diagnostics.
-- **Structured Growatt session records**: Preserve `currentrecord` and `frozenrecord` separately, including blank, duplicate, and previously unknown fields. Known session values continue to feed the existing last-session sensors, CSV export, and persistent energy total.
-- **Correlated session diagnostics**: Combine matching OCPP transaction metadata, the latest transaction-scoped meter energy, and Growatt `currentrecord`/`frozenrecord` values into one source-aware diagnostic view. Sessions are marked as `matched`, `ocpp_only`, or `growatt_only`; different transaction IDs and older records from a reused ID are never merged.
-- **Source-aware session identity**: Add a stable compact session ID alongside the original OCPP transaction ID. IDs use separate `ha-`, `ext-`, and `legacy-` namespaces for locally correlated, external/unknown, and historical CSV sessions.
-- **Session export provenance**: Add `session_id` and `session_source` to session logs and date-range exports. Existing CSV files are migrated atomically on the next append; historical rows receive deterministic `legacy_unknown` identities without discarding existing or custom columns.
-- **Mode-specific configuration sensors**: Expose reported PV Linkage, boost, and off-peak settings as read-only entities. Confirmed compound values are normalized into translated states while their original values remain available as raw attributes.
-- **Warm-up and delayed-charging diagnostics**: Expose reported `G_FullContinueChargeEnable` and `G_RandDelayChargeTime` values as read-only diagnostic sensors. No Random Delay control is created because the tested ShinePhone app writes the same value for both switch directions.
-- **Localized entity explanations**: Add concise English, German, and Dutch information attributes to the read-only mode, PV, off-peak, external-meter, warm-up, and delayed-charging entities.
+- **Hardware and firmware overview**: Documents the known THOR hardware versions and reported V2, V4, V5, and V6 firmware families, including important compatibility differences.
+- **More complete diagnostics**: Charger settings are retained for troubleshooting, including settings the integration does not yet understand. Passwords and other sensitive values are hidden. (PR #42)
+- **New diagnostic sensors**: Adds read-only sensors for Working Mode, Authorization Mode, Power Meter Type, Power Meter Address, and External Sampling Method. Names and states are available in English, German, and Dutch. (PR #42)
+- **Connection details**: The Status sensor now shows whether the charger is connected and when Home Assistant last received a message or heartbeat. (PR #42, extended in #44)
+- **Automatic connection timeout**: A charger that sends no messages for three minutes is disconnected so that Home Assistant no longer shows an old status as current. Connection details remain available in diagnostics. (PR #44)
+- **External meter details**: The Grid Power sensor includes the latest update time and the original Growatt meter flags for troubleshooting. (PR #44)
+- **Charger and session diagnostics**: Downloaded diagnostics now include the latest startup information, charger status, active transaction, and last completed transaction. This includes model, firmware, serial number, connector, energy readings, stop reason, and available fault details. (PR #45)
+- **Missing startup information recovery**: Home Assistant asks the charger for its startup information after reconnecting if the charger does not send it automatically. (PR #45)
+- **Complete meter samples**: All values sent by the charger are retained in diagnostics, including measurements that do not yet have their own Home Assistant entity.
+- **More reliable session records**: Growatt's current and completed session records are stored separately and used by the existing session sensors, energy total, and CSV export.
+- **Combined session view**: Matching OCPP and Growatt data is combined into one diagnostic session without mixing unrelated charging sessions.
+- **Stable session IDs**: Every charging session receives a stable ID that also shows whether it came from Home Assistant, another system, or an older CSV entry.
+- **Improved CSV exports**: Session source and ID are included in new exports. Existing CSV files are upgraded automatically without removing existing or custom columns.
+- **PV and Off-Peak diagnostics**: Reported PV Linkage, Boost, and Off-Peak settings are available as translated read-only entities.
+- **Warm-up and delayed-charging diagnostics**: Reported warm-up and charging-delay settings are available as read-only sensors. Random Delay remains read-only because the app's behavior could not be verified reliably.
+- **Helpful entity descriptions**: Read-only mode, PV, Off-Peak, external-meter, warm-up, and delayed-charging entities include short explanations in English, German, and Dutch.
 
 ### Changed
-- **External meter device naming**: Rename the logical Growatt THOR Load balancing device to Growatt THOR External Meter because the measurements are shared by load balancing and PV Linkage. Existing default device metadata is migrated in place; user-assigned names, device identifiers, and entity IDs remain unchanged. (PR #42)
-- **Localized entity names and status values**: Replace hard-coded English names on existing charger and external-meter sensors with Home Assistant translation keys, and translate OCPP status values. Available in English, German, and Dutch without changing unique IDs or existing entity IDs. (PR #41, #42)
-- **External meter polling scope**: Request get_external_meterval in every charger working mode, both on connect and periodically, instead of only while load balancing is enabled — PV Linkage now receives the same grid measurements. (PR #44)
-- **Translated last-session modes**: Show known Growatt `chargemode` and `workmode` values as localized enum states in entity history and the activity log. The original numeric vendor code remains available as a `raw_value` attribute, and unverified work-mode codes are shown as unknown instead of being guessed.
-- **Currency-aware cost entities**: Use the Home Assistant system currency for electricity-price and last-session-cost units because the charger reports numeric prices without a currency. EUR remains the fallback when Home Assistant has no configured currency.
+- **External Meter device name**: Renames the separate Load Balancing device to External Meter because its measurements are also used by PV Linkage. Existing entity IDs and custom device names are kept. (PR #42)
+- **Translated entity names and states**: Existing charger and external-meter sensors now use English, German, or Dutch based on the Home Assistant language. Existing entity IDs do not change. (PR #41, #42)
+- **External meter updates in every mode**: Grid measurements are requested in every charging mode, including PV Linkage, instead of only while load balancing is enabled. (PR #44)
+- **Readable last-session modes**: The activity log and history show translated charging and operating mode names instead of Growatt's numeric codes. Unknown codes are shown as unknown rather than guessed.
+- **System currency**: Electricity price and session cost use the currency configured in Home Assistant. EUR is used only when no system currency is available.
 
 ### Fixed
-- **Home Assistant startup delay**: Run the permanent OCPP connection watchdog as a background task so Home Assistant does not wait for it until the five-minute setup timeout during every restart.
-- **External sampling method mapping**: Use the OCPP value mapping 0=CT 2000:1, 1=PowerMeter, and 2=CT 3000:1. The charger web page uses a separate, shifted dropdown because it includes an additional NULL option. (PR #42)
-- **External meter availability**: Keep grid power, voltage, and current unavailable until the charger returns the corresponding field and the connection is active, instead of displaying synthetic zero values. (PR #44)
-- **Temperature without samples**: Report the temperature sensor as unavailable until the charger sends an actual OCPP MeterValues temperature sample instead of displaying an artificial 0 °C. (PR #42)
-- **Stale connections shown as available**: The Status sensor now becomes unavailable when the OCPP connection has timed out, while diagnostics retain the last charger-reported status for troubleshooting. (PR #44)
-- **Compound mode values**: Parse PV Linkage mode and boost variants, off-peak enable values, boost-suffixed working modes, and chained off-peak time windows into stable Home Assistant states without discarding their raw Growatt representation.
-- **Power Distribution working mode**: Recognize the observed `G_WorkingMode=Power Distribution` value as a translated read-only state instead of making the Working Mode sensor unavailable.
-- **Transaction IDs across reconnects**: Allocate Home Assistant OCPP transaction IDs from persistent storage instead of restarting at `1` for every WebSocket connection. The next ID is saved before `StartTransaction.conf` is returned.
-- **Last-session state after restart**: Persist the normalized last-session entity values and their deduplication key. Home Assistant restarts no longer clear these sensors or allow a repeated vendor record to increment the total and CSV log again.
+- **Slow Home Assistant startup**: The connection monitor now starts in the background instead of delaying integration setup for up to five minutes.
+- **External measurement selection**: Corrects the mapping for Power Meter, CT 2000:1, and CT 3000:1. (PR #42)
+- **False zero meter values**: Grid power, voltage, and current remain unavailable until the charger sends real values instead of showing artificial zeroes. (PR #44)
+- **False zero temperature**: Temperature remains unavailable until the charger sends an actual temperature value. (PR #42)
+- **Disconnected charger shown as available**: The Status sensor becomes unavailable when the OCPP connection times out, while the previous status remains in diagnostics. (PR #44)
+- **PV, Boost, and Off-Peak values**: Combined Growatt values are now displayed as stable, readable Home Assistant states.
+- **Power Distribution mode**: This working mode is now recognized and translated instead of making the Working Mode sensor unavailable.
+- **Transaction IDs after reconnecting**: Home Assistant no longer starts transaction numbering at `1` after every reconnect, preventing reused IDs.
+- **Last-session values after a restart**: Last-session sensors survive Home Assistant restarts, and repeated Growatt records no longer increase the energy total or create duplicate CSV rows.
 
 ### Scope notes
-- **No new ChangeConfiguration calls or writable controls are introduced in the planned 1.6.0 scope; the existing controls remain unchanged.**
-- **The existing 14-key operational and 30-key informational GetConfiguration request groups remain unchanged, including the THOR firmware limit of 30 keys per request.**
-- **Diagnostics retain only the latest relevant snapshot per message type, not a full message history.**
+- Version 1.6.0 adds diagnostics and read-only information. It does not add new writable charger settings.
+- Diagnostics keep the latest relevant information, not a full history of every OCPP message.
 
 ---
 
