@@ -26,7 +26,7 @@ _Target version: 1.7.0_
 
 ### Changed
 - **Current range matches the charger**: The maximum-current control now stops
-  at 16 A for 11 kW, 32 A for 7/22 kW, or 63 A for 44 kW models. Unknown
+  at 16 A for 3/11 kW, 32 A for 7/22 kW, or 63 A for 44 kW models. Unknown
   models keep the conservative 32 A limit.
 - **Clearer entity roles**: Measurements remain sensors, settings that can be changed appear as controls, technical values appear under diagnostics, and Start/Stop remain buttons.
 - **Less duplicate information**: Read-only copies of writable settings are disabled by default. They can still be enabled manually when separate history or automations are needed.

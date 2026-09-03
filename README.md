@@ -78,7 +78,7 @@ Your feedback helps identify patterns and improve integration stability! 🙏
 
 ### ⚙️ Configuration & Control
 - **Max current control**: Set maximum charging current within the charger's
-  model-specific range (up to 16 A for 11 kW, 32 A for 7/22 kW, or 63 A for
+  model-specific range (up to 16 A for 3/11 kW, 32 A for 7/22 kW, or 63 A for
   44 kW models)
 - **Charging schedule**: Configure automatic start/stop times
 - **Charger modes**: Switch between Plug & Charge, RFID only, HomeAssistant(HA)/RFID mode

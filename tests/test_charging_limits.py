@@ -26,6 +26,7 @@ class ChargingLimitsTest(unittest.TestCase):
 
     def test_thor_models_use_their_electrical_limit(self):
         expectations = {
+            "THOR_03AS-S": 16,
             "THOR_11AS": 16,
             "THOR_07AS-S": 32,
             "THOR_22AS": 32,
