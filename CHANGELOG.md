@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## 🎉 [1.6.0] - 2026-09-03
+
+🛡️ **Major diagnostics and session-tracking release, built end-to-end by @felixhix . Huge thanks to him for driving this release from start to finish.
+
+### Added
+- **Hardware and firmware compatibility matrix**: Document known THOR hardware layouts and V2, V4, V5, and V6 firmware reports, including firmware-specific OCPP behavior, access differences, three-phase supply constraints, and safe compatibility-reporting guidance.
+- **Structured charger configuration registry**: Preserve every returned OCPP and Growatt configuration value with its raw and parsed value, charger-provided read-only flag, type metadata, and enum label. Unknown keys are retained instead of being discarded after logging. (PR #42)
+- **Redacted configuration diagnostics**: Include the retained configuration snapshot, unknown keys, and requested key groups in Home Assistant diagnostics while redacting sensitive and unclassified values. (PR #42)
+- **Read-only configuration entities**: Add five diagnostic sensors — Working Mode, Authorization Mode, Power Meter Type, Power Meter Address, and External Sampling Method — sourced from the retained configuration registry. Enum states are translated in English, German, and Dutch. (PR #42)
+- **Connection health on the status sensor**: The Status sensor now exposes connected, connection_started_at, last_message_at, last_message_action, and last_heartbeat_at as attributes, and uses a translated enum state (Available, Preparing, Charging, Suspended by charger/vehicle, Finishing, Reserved, Unavailable, Faulted, Idle) in English, German, and Dutch. (PR #42, extended in #44)
+- **OCPP connection liveness tracking**: Track inbound OCPP activity independently from the last reported charger status, and close the local WebSocket after 180 seconds without any OCPP message (Heartbeat or otherwise). Connection and heartbeat timestamps are included in diagnostics. (PR #44)
+- **External meter diagnostic attributes**: Retain Growatt's raw used and wring fields from get_external_meterval and expose them as vendor_used/vendor_wring attributes on the Grid Power sensor, alongside a last_updated_at timestamp. (PR #44)
+- **OCPP boot, status, and transaction diagnostics**: Retain the latest complete BootNotification and StatusNotification requests, plus active and last-completed Start/StopTransaction metadata, in a normalized and redacted form included in Home Assistant diagnostics. Preserves firmware, model, and serial metadata, connector IDs, meter start/stop values, stop reasons, error codes, vendor error codes, and vendor-specific fields (e.g. ChargeWait) without changing existing operational entities. (PR #45)
+- **Automatic BootNotification recovery**: Request a BootNotification via TriggerMessage once when a reconnecting charger does not send one on its own, ensuring diagnostics always have boot metadata available. (PR #45)
+- **Lossless MeterValues diagnostics**: Normalize every OCPP meter sample with its measurand, value, unit, phase, context, location, timestamp, and original fields. Known samples continue to update Home Assistant entities while unknown measurands remain available in diagnostics.
+- **Structured Growatt session records**: Preserve `currentrecord` and `frozenrecord` separately, including blank, duplicate, and previously unknown fields. Known session values continue to feed the existing last-session sensors, CSV export, and persistent energy total.
+- **Correlated session diagnostics**: Combine matching OCPP transaction metadata, the latest transaction-scoped meter energy, and Growatt `currentrecord`/`frozenrecord` values into one source-aware diagnostic view. Sessions are marked as `matched`, `ocpp_only`, or `growatt_only`; different transaction IDs and older records from a reused ID are never merged.
+- **Source-aware session identity**: Add a stable compact session ID alongside the original OCPP transaction ID. IDs use separate `ha-`, `ext-`, and `legacy-` namespaces for locally correlated, external/unknown, and historical CSV sessions.
+- **Session export provenance**: Add `session_id` and `session_source` to session logs and date-range exports. Existing CSV files are migrated atomically on the next append; historical rows receive deterministic `legacy_unknown` identities without discarding existing or custom columns.
+- **Mode-specific configuration sensors**: Expose reported PV Linkage, boost, and off-peak settings as read-only entities. Confirmed compound values are normalized into translated states while their original values remain available as raw attributes.
+- **Warm-up and delayed-charging diagnostics**: Expose reported `G_FullContinueChargeEnable` and `G_RandDelayChargeTime` values as read-only diagnostic sensors. No Random Delay control is created because the tested ShinePhone app writes the same value for both switch directions.
+- **Localized entity explanations**: Add concise English, German, and Dutch information attributes to the read-only mode, PV, off-peak, external-meter, warm-up, and delayed-charging entities.
+
+### Changed
+- **External meter device naming**: Rename the logical Growatt THOR Load balancing device to Growatt THOR External Meter because the measurements are shared by load balancing and PV Linkage. Existing default device metadata is migrated in place; user-assigned names, device identifiers, and entity IDs remain unchanged. (PR #42)
+- **Localized entity names and status values**: Replace hard-coded English names on existing charger and external-meter sensors with Home Assistant translation keys, and translate OCPP status values. Available in English, German, and Dutch without changing unique IDs or existing entity IDs. (PR #41, #42)
+- **External meter polling scope**: Request get_external_meterval in every charger working mode, both on connect and periodically, instead of only while load balancing is enabled — PV Linkage now receives the same grid measurements. (PR #44)
+- **Translated last-session modes**: Show known Growatt `chargemode` and `workmode` values as localized enum states in entity history and the activity log. The original numeric vendor code remains available as a `raw_value` attribute, and unverified work-mode codes are shown as unknown instead of being guessed.
+- **Currency-aware cost entities**: Use the Home Assistant system currency for electricity-price and last-session-cost units because the charger reports numeric prices without a currency. EUR remains the fallback when Home Assistant has no configured currency.
+
+### Fixed
+- **Home Assistant startup delay**: Run the permanent OCPP connection watchdog as a background task so Home Assistant does not wait for it until the five-minute setup timeout during every restart.
+- **External sampling method mapping**: Use the OCPP value mapping 0=CT 2000:1, 1=PowerMeter, and 2=CT 3000:1. The charger web page uses a separate, shifted dropdown because it includes an additional NULL option. (PR #42)
+- **External meter availability**: Keep grid power, voltage, and current unavailable until the charger returns the corresponding field and the connection is active, instead of displaying synthetic zero values. (PR #44)
+- **Temperature without samples**: Report the temperature sensor as unavailable until the charger sends an actual OCPP MeterValues temperature sample instead of displaying an artificial 0 °C. (PR #42)
+- **Stale connections shown as available**: The Status sensor now becomes unavailable when the OCPP connection has timed out, while diagnostics retain the last charger-reported status for troubleshooting. (PR #44)
+- **Compound mode values**: Parse PV Linkage mode and boost variants, off-peak enable values, boost-suffixed working modes, and chained off-peak time windows into stable Home Assistant states without discarding their raw Growatt representation.
+- **Power Distribution working mode**: Recognize the observed `G_WorkingMode=Power Distribution` value as a translated read-only state instead of making the Working Mode sensor unavailable.
+- **Transaction IDs across reconnects**: Allocate Home Assistant OCPP transaction IDs from persistent storage instead of restarting at `1` for every WebSocket connection. The next ID is saved before `StartTransaction.conf` is returned.
+- **Last-session state after restart**: Persist the normalized last-session entity values and their deduplication key. Home Assistant restarts no longer clear these sensors or allow a repeated vendor record to increment the total and CSV log again.
+
+### Scope notes
+- **No new ChangeConfiguration calls or writable controls are introduced in the planned 1.6.0 scope; the existing controls remain unchanged.**
+- **The existing 14-key operational and 30-key informational GetConfiguration request groups remain unchanged, including the THOR firmware limit of 30 keys per request.**
+- **Diagnostics retain only the latest relevant snapshot per message type, not a full message history.**
+
+---
+
 ## [1.5.4] - 2026-06-12
 
 ### Fixed
@@ -295,9 +343,3 @@ See README.md for full documentation including a Lovelace UI export panel exampl
 - [Issue Tracker](https://github.com/bobbesnl/growatt_thor/issues)
 
 ---
-
-**Legend:**
-- 🎉 Major milestone
-- ⚠️ Important notice
-- ❗ Breaking change
-

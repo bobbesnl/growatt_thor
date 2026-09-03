@@ -1,7 +1,7 @@
-[!["Buy Me A Coffee"](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/bobbesnl)
+[!["Buy Us A Coffee"](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/bobbesnl)
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
-![Version](https://img.shields.io/badge/version-1.5.4-blue)
+![Version](https://img.shields.io/badge/version-1.6.0-blue)
 
 
 ⚠️ **Please read this document first before installing this integration!**
@@ -13,7 +13,13 @@
 This integration allows you to connect a Growatt THOR EV charger **directly to Home Assistant** using **OCPP 1.6 over WebSocket**, providing local control without relying on the Growatt cloud.
 
 Tested on:
-- THOR 22AS with FW version 2.2.16-20240902 (but it should be working on all THOR 11/22AS-S/P/SE/PE versions.)
+- THOR 22AS with firmware `THOR_22AS-V2.2.16-20240902`
+
+The THOR family has multiple hardware generations and firmware branches.
+Compatibility with another model or firmware must not be inferred from the
+version number alone. See the
+[hardware and firmware variants](reverse_engineering/hardware_firmware_variants.md)
+for known community reports and compatibility guidance.
 
 Do you have another Growatt EV charger? Please test it with the integration and let me know if it is working. If you open up an issue and provide logs, I will try to add your charger to be supported (Growatt only!).
 
@@ -41,6 +47,7 @@ The Growatt Thor charger has **known firmware bugs** that can cause crashes and 
 **📢 Help Us Improve!**
 Experiencing crashes or random reboots? Please [open an issue](https://github.com/bobbesnl/growatt_thor/issues) with:
 - Thor model and firmware version, if known
+- Enclosure layout, exterior controls, or PCB marking, if safely accessible
 - Home Assistant logs (around crash time)
 - Actions that triggered the reboot
 - Relevant entity states before and after the reboot
@@ -53,6 +60,7 @@ Your feedback helps identify patterns and improve integration stability! 🙏
 
 ### 📊 Real-time Monitoring
 - **Charger status**: Idle, Preparing, Charging, Finishing, Faulted, Unavailable
+- **Connection health**: Last OCPP message and heartbeat timestamps; inactive WebSockets are disconnected after 180 seconds without inbound activity
 - **Power monitoring**: Total power and per-phase (L1, L2, L3) in Watts
 - **Current monitoring**: Current draw per phase in Amperes
 - **Voltage monitoring**: Voltage per phase
@@ -71,6 +79,11 @@ Your feedback helps identify patterns and improve integration stability! 🙏
 - **Max current control**: Set maximum charging current (6-32A)
 - **Charging schedule**: Configure automatic start/stop times
 - **Charger modes**: Switch between Plug & Charge, RFID only, HomeAssistant(HA)/RFID mode
+- **Configuration diagnostics**: Preserve all returned OCPP and Growatt configuration values, including unknown keys and charger-provided read-only flags
+- **OCPP message diagnostics**: Retain the latest boot and status payloads plus active and last-completed transaction metadata; sensitive identifiers are redacted from downloaded diagnostics
+- **Meter sample diagnostics**: Preserve the latest complete `MeterValues` payload, including unknown measurands and vendor fields that do not have Home Assistant entities
+- **Growatt session diagnostics**: Preserve `currentrecord` and `frozenrecord` as separate structured records while keeping the existing last-session sensors and CSV export
+- **Read-only configuration sensors**: Show working mode, authorization mode, PV Linkage, boost, off-peak, and external meter settings without exposing unverified write controls
 - **Manual charging control**: Start and stop charging sessions via buttons
 - **Load balancing toggle**: Enable/disable dynamic load balancing
 - **Auto update THOR time**: Auto sync time with server time at every heartbeat and with reboot (ocpp protocol)
@@ -101,6 +114,14 @@ After each completed charging session, the following data is automatically appen
 | `cost` | Session cost as reported by charger |
 | `duration_minutes` | Session duration in minutes |
 | `transaction_id` | OCPP transaction ID |
+| `session_id` | Stable internal ID with an `ha-`, `ext-`, or `legacy-` prefix |
+| `session_source` | `home_assistant`, `external_or_unknown`, or `legacy_unknown` |
+
+The OCPP `transaction_id` remains unchanged for protocol-level analysis. The
+additional `session_id` prevents equal numeric IDs assigned by different
+central systems from colliding in exports. Existing CSV files are extended on
+the next completed session. Since their original source cannot be reconstructed
+reliably, historical rows are marked `legacy_unknown`.
 
 ### Initial Setup
 
@@ -172,10 +193,10 @@ cards:
 
 Example Export Output:
 
-```yaml
-charger_id,location,start_time,end_time,energy_kwh,cost,duration_minutes,transaction_id
-XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-21 08:19:03,2026-03-21 09:42:02,3.170,0.63,83.0,1
-XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-22 07:05:11,2026-03-22 08:31:44,8.450,1.69,86.5,2
+```csv
+charger_id,location,start_time,end_time,energy_kwh,cost,duration_minutes,transaction_id,session_id,session_source
+XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-21 08:19:03,2026-03-21 09:42:02,3.170,0.63,83.0,1,ha-0123456789abcdef,home_assistant
+XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-22 07:05:11,2026-03-22 08:31:44,8.450,1.69,86.5,2,ext-fedcba9876543210,external_or_unknown
 ```
 
 ## 🛡️ Stability Features
@@ -272,8 +293,14 @@ Home Assistant is now ready and waiting for the charger to connect.
 
 #### Method 1: Via AP Mode (Most Reliable)
 
+Access methods and credentials vary between THOR hardware and firmware
+variants. `12345678` is a documented default for the Wi-Fi access point on
+older devices, but it is not guaranteed for every device or for the port 8080
+web interface. See the
+[hardware and firmware variants](reverse_engineering/hardware_firmware_variants.md).
+
 1. **Enable AP Mode** on the Growatt THOR charger (via Shinephone app)
-2. Connect your phone to the THOR's Wi-Fi (Standard Wi-Fi password is `12345678`)
+2. Connect your phone to the THOR's Wi-Fi using its configured credential (`12345678` is the documented default on older devices)
 3. Open the **ShinePhone** or **Growatt** app
 4. Navigate to **Network Settings** or **Server Settings**
 5. Change the **Server URL** to:
@@ -359,30 +386,58 @@ After successful connection, the integration creates the entities below. The lis
 | Voltage L1/L2/L3 | `sensor.growatt_thor_ev_charger_voltage_l1`<br>`sensor.growatt_thor_ev_charger_voltage_l2`<br>`sensor.growatt_thor_ev_charger_voltage_l3` | Charger voltage per phase (V) |
 | Power L1/L2/L3 | `sensor.growatt_thor_ev_charger_power_l1`<br>`sensor.growatt_thor_ev_charger_power_l2`<br>`sensor.growatt_thor_ev_charger_power_l3` | Charging power per phase (W) |
 | Temperature | `sensor.growatt_thor_ev_charger_temperature` | Internal charger temperature (°C) |
-| Grid power | `sensor.growatt_thor_load_balancing_grid_power` | External meter power (W) |
-| Grid voltage L1/L2/L3 | `sensor.growatt_thor_load_balancing_grid_voltage_l1`<br>`sensor.growatt_thor_load_balancing_grid_voltage_l2`<br>`sensor.growatt_thor_load_balancing_grid_voltage_l3` | External meter voltage per phase (V) |
-| Grid current L1/L2/L3 | `sensor.growatt_thor_load_balancing_grid_current_l1`<br>`sensor.growatt_thor_load_balancing_grid_current_l2`<br>`sensor.growatt_thor_load_balancing_grid_current_l3` | External meter current per phase (A) |
+| Grid power | `sensor.growatt_thor_external_meter_grid_power` | External meter power (W) |
+| Grid voltage L1/L2/L3 | `sensor.growatt_thor_external_meter_grid_voltage_l1`<br>`sensor.growatt_thor_external_meter_grid_voltage_l2`<br>`sensor.growatt_thor_external_meter_grid_voltage_l3` | External meter voltage per phase (V) |
+| Grid current L1/L2/L3 | `sensor.growatt_thor_external_meter_grid_current_l1`<br>`sensor.growatt_thor_external_meter_grid_current_l2`<br>`sensor.growatt_thor_external_meter_grid_current_l3` | External meter current per phase (A) |
 | Server URL | `sensor.growatt_thor_ev_charger_server_url` | Configured OCPP endpoint |
-| Electricity Price | `sensor.growatt_thor_ev_charger_electricity_price` | Configured electricity price (EUR/kWh) |
+| Working mode | `sensor.growatt_thor_ev_charger_working_mode` | Fast, PV Linkage, or Off-Peak operation |
+| Authorization mode | `sensor.growatt_thor_ev_charger_authorization_mode` | Home Assistant/RFID, RFID only, or Plug & Charge authorization |
+| Solar mode | `sensor.growatt_thor_ev_charger_solar_mode` | Disabled, PV Linkage, or PV Linkage+ |
+| PV Linkage grid import allowance | `sensor.growatt_thor_ev_charger_pv_linkage_grid_import_allowance` | Reported grid-import allowance in kW |
+| PV Linkage boost configuration | `sensor.growatt_thor_ev_charger_pv_linkage_boost_configuration` | Disabled, Manual, or Smart boost mode |
+| Solar threshold current | `sensor.growatt_thor_ev_charger_solar_threshold_current` | Reported PV threshold current in A |
+| Grid off-peak charging | `sensor.growatt_thor_ev_charger_grid_off_peak_charging` | Grid off-peak charging flag |
+| Off-peak enable setting | `sensor.growatt_thor_ev_charger_off_peak_enable_setting` | Normalized off-peak mode state |
+| Off-peak schedule | `sensor.growatt_thor_ev_charger_off_peak_schedule` | Reported off-peak time windows |
+| Off-peak current | `sensor.growatt_thor_ev_charger_off_peak_current` | Reported off-peak charging current in A |
+| Warm-up after full charge | `sensor.growatt_thor_ev_charger_warm_up_after_full_charge` | Whether compatible vehicles may continue drawing power after reaching full charge |
+| Delayed charging time | `sensor.growatt_thor_ev_charger_delayed_charging_time` | Reported charger-side delay duration in seconds |
+| Power meter type | `sensor.growatt_thor_external_meter_power_meter_type` | Configured external meter model |
+| Power meter address | `sensor.growatt_thor_external_meter_power_meter_address` | Configured external Modbus address |
+| External sampling method | `sensor.growatt_thor_external_meter_external_sampling_method` | External meter or current-transformer wiring method |
+| Electricity Price | `sensor.growatt_thor_ev_charger_electricity_price` | Configured electricity price using the Home Assistant system currency per kWh |
 | Last Session Energy | `sensor.growatt_thor_ev_charger_last_session_energy` | Energy from the most recently completed session |
-| Last Session Cost | `sensor.growatt_thor_ev_charger_last_session_cost` | Cost from the most recently completed session |
+| Last Session Cost | `sensor.growatt_thor_ev_charger_last_session_cost` | Cost from the most recently completed session using the Home Assistant system currency |
 | Last Session Duration | `sensor.growatt_thor_ev_charger_last_session_duration` | Duration of the most recently completed session |
 | Last Session Start | `sensor.growatt_thor_ev_charger_last_session_start` | Charging start timestamp |
 | Last Session End | `sensor.growatt_thor_ev_charger_last_session_end` | Charging end timestamp |
 | Last Session Plug Time | `sensor.growatt_thor_ev_charger_last_session_plug_time` | Cable connection timestamp |
 | Last Session Unplug Time | `sensor.growatt_thor_ev_charger_last_session_unplug_time` | Cable disconnection timestamp |
 | Last Session Transaction ID | `sensor.growatt_thor_ev_charger_last_session_transaction_id` | OCPP transaction ID for the last session |
-| Last Session Charge Mode | `sensor.growatt_thor_ev_charger_last_session_charge_mode` | Growatt charging mode for the last session |
-| Last Session Work Mode | `sensor.growatt_thor_ev_charger_last_session_work_mode` | Growatt work mode for the last session |
+| Last Session Charge Mode | `sensor.growatt_thor_ev_charger_last_session_charge_mode` | Translated Growatt authorization/charging mode for the last session; raw vendor code retained as an attribute |
+| Last Session Work Mode | `sensor.growatt_thor_ev_charger_last_session_work_mode` | Translated Growatt operating mode when its vendor code is confirmed; raw code retained as an attribute |
+
+External-meter measurements are polled in every charger working mode because
+the same meter is used by load balancing and PV Linkage. A measurement remains
+unavailable until the charger returns its field in `get_external_meterval`.
+
+Warm-up support depends on the connected vehicle. The setting only allows a
+compatible vehicle to continue drawing power after reaching full charge; it
+does not directly control cabin or battery preconditioning.
+
+The ShinePhone delayed-charging screen is inconsistent on the tested firmware:
+both directions of its Random Delay switch wrote
+`G_RandDelayChargeTime=0`. The integration therefore exposes only the reported
+numeric delay and does not provide an unverified Random Delay control.
 
 #### Controls
 
 | Entity name | Type | Default entity ID | Purpose |
 |---|---|---|---|
 | Max Current | Number | `number.growatt_thor_ev_charger_max_current` | Maximum charging current (6-32 A) |
-| Loadbalancing limit | Number | `number.growatt_thor_load_balancing_loadbalancing_limit` | Grid import limit (kW) |
-| Electricity Price | Number | `number.growatt_thor_ev_charger_electricity_price` | Electricity tariff (EUR/kWh) |
-| Loadbalancing | Switch | `switch.growatt_thor_load_balancing_loadbalancing` | Enable or disable dynamic load balancing |
+| Loadbalancing limit | Number | `number.growatt_thor_external_meter_loadbalancing_limit` | Grid import limit (kW) |
+| Electricity Price | Number | `number.growatt_thor_ev_charger_electricity_price` | Electricity tariff using the Home Assistant system currency per kWh |
+| Loadbalancing | Switch | `switch.growatt_thor_external_meter_loadbalancing` | Enable or disable dynamic load balancing |
 | LCD Display | Switch | `switch.growatt_thor_ev_charger_lcd_display` | Enable or disable the charger display |
 | Start charging | Button | `button.growatt_thor_ev_charger_start_charging` | Manually request a charging session |
 | Stop charging | Button | `button.growatt_thor_ev_charger_stop_charging` | Stop the active charging session |
@@ -416,6 +471,10 @@ For detailed per-session data (energy, cost, timestamps), check:
 - the individual **Last Session** sensors on the Growatt THOR device
 - `/config/growatt_thor_sessions.csv` for the complete session log
 - the `growatt_thor.export_sessions` action for a date-filtered CSV export
+
+The normalized values backing the **Last Session** sensors are stored in Home
+Assistant and restored after a restart. Their record key is restored as well,
+so a repeated `currentrecord` or `frozenrecord` is not counted twice.
 
 
 ### Example Automations
@@ -541,6 +600,19 @@ If configuration changes don't seem to work:
 - `G_AutoChargeTime` - Scheduled charging times
 - `get_external_meterval` - Grid meter data request
 - `frozenrecord` / `currentrecord` - Session history
+
+The integration keeps the last-known raw and normalized values returned by
+`GetConfiguration`. These values are included in the Home Assistant diagnostics
+download. Network identifiers, credentials, and unregistered keys are redacted
+in that export; sensitive credentials are also excluded from active requests.
+The same diagnostics include the latest complete `MeterValues` payload and the
+latest Growatt `currentrecord` and `frozenrecord`. Unknown meter measurands and
+vendor fields are retained without automatically creating entities for them.
+Raw Growatt session query strings and values of unknown session fields are
+redacted in the downloaded diagnostics. A separate `sessions` section combines
+matching OCPP and Growatt data without replacing either raw source. Its
+correlation status distinguishes sessions reported by both sources from
+OCPP-only and Growatt-only records, and energy differences remain visible.
 
 ---
 

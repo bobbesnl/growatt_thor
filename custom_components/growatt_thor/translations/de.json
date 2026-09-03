@@ -63,5 +63,258 @@
         "3": "Einstecken und laden"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "server_url": { "name": "Server-URL" },
+      "status": {
+        "name": "Status",
+        "state": {
+          "available": "Verfügbar",
+          "preparing": "Vorbereitung",
+          "charging": "Lädt",
+          "suspended_evse": "Durch Ladestation pausiert",
+          "suspended_ev": "Durch Fahrzeug pausiert",
+          "finishing": "Abschluss",
+          "reserved": "Reserviert",
+          "unavailable": "Nicht verfügbar",
+          "faulted": "Störung",
+          "idle": "Leerlauf"
+        }
+      },
+      "charge_point_id": { "name": "Ladepunkt-ID" },
+      "charging_power": { "name": "Ladeleistung" },
+      "energy_charged": { "name": "Geladene Energie" },
+      "total_energy_charged": { "name": "Gesamte Ladeenergie" },
+      "electricity_price": { "name": "Strompreis" },
+      "last_session_energy": { "name": "Energie der letzten Sitzung" },
+      "last_session_cost": { "name": "Kosten der letzten Sitzung" },
+      "last_session_duration": { "name": "Dauer der letzten Sitzung" },
+      "last_session_start": { "name": "Start der letzten Sitzung" },
+      "last_session_end": { "name": "Ende der letzten Sitzung" },
+      "last_session_plug_time": { "name": "Einsteckzeit der letzten Sitzung" },
+      "last_session_unplug_time": { "name": "Aussteckzeit der letzten Sitzung" },
+      "last_session_transaction_id": { "name": "Transaktions-ID der letzten Sitzung" },
+      "last_session_charge_mode": {
+        "name": "Lademodus der letzten Sitzung",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Nur RFID",
+          "plug_and_charge": "Einstecken und laden",
+          "unknown_mode": "Unbekannt"
+        }
+      },
+      "last_session_work_mode": {
+        "name": "Betriebsmodus der letzten Sitzung",
+        "state": {
+          "fast": "Schnellladen",
+          "pv_linkage": "PV-Kopplung",
+          "off_peak": "Niedertarif",
+          "unknown_mode": "Unbekannt"
+        }
+      },
+      "current": { "name": "Strom {phase}" },
+      "voltage": { "name": "Spannung {phase}" },
+      "phase_power": { "name": "Leistung {phase}" },
+      "temperature": { "name": "Temperatur" },
+      "grid_power": { "name": "Netzleistung" },
+      "grid_voltage": { "name": "Netzspannung {phase}" },
+      "grid_current": { "name": "Netzstrom {phase}" },
+      "working_mode": {
+        "name": "Betriebsmodus",
+        "state": {
+          "fast": "Schnellladen",
+          "pv_linkage": "PV-Kopplung",
+          "off_peak": "Niedertarif",
+          "power_distribution": "Leistungsverteilung"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Der Betriebsmodus bestimmt, welche Einstellungen gelten. Lastausgleich steht beim Schnellladen und im Niedertarifmodus zur Verfügung, nicht jedoch bei PV-Kopplung."
+            }
+          }
+        }
+      },
+      "charger_mode": {
+        "name": "Autorisierungsmodus",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Nur RFID",
+          "plug_and_charge": "Einstecken und laden"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Zeigt, wie Ladevorgänge autorisiert werden: über Home Assistant/RFID, ausschließlich per RFID oder durch Einstecken und Laden."
+            }
+          }
+        }
+      },
+      "solar_mode": {
+        "name": "Solarmodus",
+        "state": {
+          "disabled": "Deaktiviert",
+          "pv_linkage": "PV-Kopplung",
+          "pv_linkage_plus": "PV-Kopplung+"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Zeigt den in der Wallbox aktiven Solarlademodus. PV-Kopplung und PV-Kopplung+ verwenden die Messwerte des konfigurierten externen Zählers."
+            }
+          }
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "Erlaubter Netzbezug bei PV-Kopplung",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Maximale Netzleistung, welche die Wallbox bei PV-Kopplung ergänzen darf. Zum Start benötigt sie ungefähr 1,4 kW einphasig oder 4,1 kW dreiphasig."
+            }
+          }
+        }
+      },
+      "solar_boost": {
+        "name": "Boost-Konfiguration bei PV-Kopplung",
+        "state": {
+          "disabled": "Deaktiviert",
+          "manual": "Manuell",
+          "smart": "Smart"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Manueller Boost verwendet konfigurierte Zeitfenster; Smart Boost verwendet Zielenergie und Endzeit. Anschließend wechselt die Wallbox zurück zur PV-Kopplung."
+            }
+          }
+        }
+      },
+      "solar_threshold_current": {
+        "name": "Solarstrom-Schwelle"
+      },
+      "grid_off_peak_charging": {
+        "name": "Netzladen zum Niedertarif",
+        "state": {
+          "disabled": "Deaktiviert",
+          "enabled": "Aktiviert"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Erlaubt Netzladen in den konfigurierten Niedertarif-Zeitfenstern, wenn die Autorisierung „Einstecken und laden“ aktiv ist."
+            }
+          }
+        }
+      },
+      "off_peak_enable_setting": {
+        "name": "Niedertarif-Aktivierung",
+        "state": {
+          "disabled": "Deaktiviert",
+          "enabled": "Aktiviert"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Aktiviert das Laden in den konfigurierten Niedertarif-Zeitfenstern des Niedertarifmodus."
+            }
+          }
+        }
+      },
+      "off_peak_schedule": {
+        "name": "Niedertarif-Zeitplan",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Listet die aktiven Niedertarif-Zeitfenster der Wallbox auf. Der ursprüngliche Growatt-Payload bleibt als Rohwert-Attribut erhalten."
+            }
+          }
+        }
+      },
+      "off_peak_current": {
+        "name": "Niedertarif-Ladestrom",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Ladestrom, den die Wallbox innerhalb der konfigurierten Niedertarif-Zeitfenster verwendet."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Zählertyp",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Modell des externen Modbus-Zählers, der für die Netzmessung verwendet wird."
+            }
+          }
+        }
+      },
+      "power_meter_address": {
+        "name": "Zähleradresse",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Modbus-Adresse des externen Zählers, der für die Netzmessung verwendet wird."
+            }
+          }
+        }
+      },
+      "external_sampling_wiring": {
+        "name": "Externe Messmethode",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Stromzähler",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Stromzähler verwendet direkte Modbus-Messwerte; CT-Modi verwenden Stromwandler. Growatt bezeichnet das OCPP-Feld als „wring“, vermutlich ein herstellerspezifischer Tippfehler."
+            }
+          }
+        }
+      },
+      "warm_up_after_full_charge": {
+        "name": "Aufwärmen nach Volladung",
+        "state": {
+          "disabled": "Deaktiviert",
+          "enabled": "Aktiviert"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Nach der Volladung kann die Wallbox ein kompatibles Fahrzeug weiter versorgen, damit Innenraum oder Batterie vorgewärmt beziehungsweise enteist werden. Das Verhalten hängt vom Fahrzeug ab."
+            }
+          }
+        }
+      },
+      "delayed_charging_time": {
+        "name": "Verzögerte Ladezeit",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Herstellerseitige Ladeverzögerung in Sekunden. 0 bedeutet keine Verzögerung. Das Verhalten der Zufallsverzögerung kann je nach Wallbox-Firmware abweichen."
+            }
+          }
+        }
+      }
+    }
   }
 }

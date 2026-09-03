@@ -340,3 +340,13 @@ Additional capture evidence from another THOR 22AS setup is documented in
 [`thor_22as_capture_findings.md`](thor_22as_capture_findings.md). The addendum
 uses exact wire key names and distinguishes observations from inferred
 semantics and behavior already implemented by the integration.
+
+------------------------------------------------------------------------
+
+## Hardware and firmware variants
+
+Known hardware generations, firmware branches, access differences, and
+compatibility-reporting guidance are documented in
+[`hardware_firmware_variants.md`](hardware_firmware_variants.md). Model,
+hardware layout, and firmware are kept separate because none of them can be
+reliably inferred from another.

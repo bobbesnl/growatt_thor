@@ -7,7 +7,19 @@ import asyncio
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.storage import Store
 
+from .charging_sessions import CORRELATION_MATCHED, build_unified_session
+from .configuration import (
+    ConfigurationValue,
+    merge_configuration_values,
+    normalize_unknown_configuration_keys,
+)
 from .const import DOMAIN
+from .external_meter import parse_external_meter_data
+from .meter_samples import parse_meter_values
+from .ocpp_diagnostics import create_ocpp_snapshot
+from .session_records import GrowattSessionRecord
+from .session_state import LastSessionState
+from .transaction_ids import TransactionIdAllocator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,15 +30,32 @@ STORAGE_VERSION = 1
 class GrowattCoordinator(DataUpdateCoordinator):
     """Coordinator for Growatt THOR OCPP data."""
 
-    def __init__(self, hass):
+    def __init__(self, hass, source_instance_id=None):
         super().__init__(hass, _LOGGER, name="Growatt THOR Coordinator")
 
         self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+        self.source_instance_id = source_instance_id
+        self._transaction_id_allocator = TransactionIdAllocator()
+        self._transaction_id_lock = asyncio.Lock()
 
         self.charge_point_id = None
         self.status = None
+        self.connected = False
+        self.connection_started_at = None
+        self.last_message_at = None
+        self.last_message_action = None
+        self.last_heartbeat_at = None
         self.transaction_id = None
         self.id_tag = None
+
+        # Latest normalized OCPP requests retained for HA diagnostics.
+        self.boot_notification = None
+        self.last_status_notification = None
+        self.last_meter_values = None
+        self.active_transaction = None
+        self.last_completed_transaction = None
+        self.last_current_record = None
+        self.last_frozen_record = None
 
         # ── Totaal ─────────────────────────
         self.power = None        # W
@@ -57,7 +86,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.auto_charge_stop_time_pending = None
 
         # ── Electricity price ──────────────
-        self.electricity_price = None  # EUR/kWh (parsed from GTimeSharingPrice)
+        self.electricity_price = None  # Currency per kWh, parsed from G_TimeSharingPrice
+
+        # Last-known raw and normalized GetConfiguration values.
+        self.configuration_values: dict[str, ConfigurationValue] = {}
+        self.unknown_configuration_keys: tuple[str, ...] = ()
 
         # ── Last session ─────────────────
         self.last_session_energy = None           # kWh
@@ -67,10 +100,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_session_plug_time = None        # str
         self.last_session_unplug_time = None      # str
         self.last_session_duration_minutes = None # float
+        self.last_session_id = None               # str
+        self.last_session_source = None           # str
         self.last_session_transaction_id = None   # str
         self.last_session_charge_mode = None      # str
         self.last_session_work_mode = None        # str
-        self._last_frozen_record_key = None
+        self._last_session_record_key = None
 
         # ── Cumulatief totaal (persistent) ─
         self.total_energy_charged = 0.0           # kWh
@@ -79,7 +114,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.grid_power = None
         self.grid_voltages = {}
         self.grid_currents = {}
-        self.wiring_type = None
+        self.external_meter_used = None
+        self.external_meter_wring = None
+        self.external_meter_last_updated_at = None
 
         # WRITE QUEUE SYSTEEM
         self._write_queue = deque()
@@ -100,14 +137,84 @@ class GrowattCoordinator(DataUpdateCoordinator):
         data = await self._store.async_load()
         if data:
             self.total_energy_charged = float(data.get("total_energy_charged", 0.0))
-            _LOGGER.info("📦 Loaded from storage: total_energy_charged=%.3f kWh", self.total_energy_charged)
+            self._transaction_id_allocator.restore(
+                data.get("next_transaction_id", 1)
+            )
+            self._restore_last_session_state(
+                LastSessionState.from_dict(data.get("last_session"))
+            )
+            _LOGGER.info(
+                "📦 Loaded from storage: total_energy_charged=%.3f kWh, "
+                "next_transaction_id=%d, last_session_transaction_id=%s",
+                self.total_energy_charged,
+                self._transaction_id_allocator.next_transaction_id,
+                self.last_session_transaction_id,
+            )
         else:
             _LOGGER.info("📦 No persistent storage found, starting fresh")
 
     async def async_save_storage(self):
         """Save persistent statistics to HA storage."""
-        await self._store.async_save({"total_energy_charged": self.total_energy_charged})
-        _LOGGER.debug("💾 Saved to storage: total_energy_charged=%.3f kWh", self.total_energy_charged)
+        await self._store.async_save(
+            {
+                "total_energy_charged": self.total_energy_charged,
+                "next_transaction_id": (
+                    self._transaction_id_allocator.next_transaction_id
+                ),
+                "last_session": self._last_session_state().as_dict(),
+            }
+        )
+        _LOGGER.debug(
+            "💾 Saved to storage: total_energy_charged=%.3f kWh, "
+            "next_transaction_id=%d",
+            self.total_energy_charged,
+            self._transaction_id_allocator.next_transaction_id,
+        )
+
+    async def async_allocate_transaction_id(self) -> int:
+        """Allocate and persist the next local OCPP transaction ID."""
+        async with self._transaction_id_lock:
+            transaction_id = self._transaction_id_allocator.allocate()
+            await self.async_save_storage()
+            _LOGGER.debug(
+                "Allocated local OCPP transaction ID: %d",
+                transaction_id,
+            )
+            return transaction_id
+
+    def _last_session_state(self) -> LastSessionState:
+        """Build the normalized persistent last-session summary."""
+        return LastSessionState(
+            energy_kwh=self.last_session_energy,
+            cost=self.last_session_cost,
+            start_time=self.last_session_start,
+            end_time=self.last_session_end,
+            plug_time=self.last_session_plug_time,
+            unplug_time=self.last_session_unplug_time,
+            duration_minutes=self.last_session_duration_minutes,
+            session_id=self.last_session_id,
+            session_source=self.last_session_source,
+            transaction_id=self.last_session_transaction_id,
+            charge_mode=self.last_session_charge_mode,
+            work_mode=self.last_session_work_mode,
+            record_key=self._last_session_record_key,
+        )
+
+    def _restore_last_session_state(self, state: LastSessionState) -> None:
+        """Restore existing entity backing values from persistent storage."""
+        self.last_session_energy = state.energy_kwh
+        self.last_session_cost = state.cost
+        self.last_session_start = state.start_time
+        self.last_session_end = state.end_time
+        self.last_session_plug_time = state.plug_time
+        self.last_session_unplug_time = state.unplug_time
+        self.last_session_duration_minutes = state.duration_minutes
+        self.last_session_id = state.session_id
+        self.last_session_source = state.session_source
+        self.last_session_transaction_id = state.transaction_id
+        self.last_session_charge_mode = state.charge_mode
+        self.last_session_work_mode = state.work_mode
+        self._last_session_record_key = state.record_key
 
     # ─────────────────────────────
     # WRITE QUEUE METHODS
@@ -203,9 +310,31 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def set_charge_point(self, cp_id):
         """Set charge point ID and notify sensors."""
-        if self.charge_point_id != cp_id:
-            self.charge_point_id = cp_id
-            _LOGGER.info("Charge point connected: %s", cp_id)
+        self.charge_point_id = cp_id
+        self.connected = True
+        self.connection_started_at = self.now()
+        self.last_message_at = self.connection_started_at
+        self.last_message_action = "WebSocketConnect"
+        self.last_heartbeat_at = None
+        _LOGGER.info("Charge point connected: %s", cp_id)
+        self.async_set_updated_data(True)
+
+    def mark_connection_activity(self, action):
+        """Record the latest inbound OCPP message."""
+        timestamp = self.now()
+        self.connected = True
+        self.last_message_at = timestamp
+        self.last_message_action = action
+        if action == "Heartbeat":
+            self.last_heartbeat_at = timestamp
+        self.async_set_updated_data(True)
+
+    def set_disconnected(self):
+        """Mark the active OCPP transport connection as disconnected."""
+        was_connected = self.connected
+        self.connected = False
+        if was_connected:
+            _LOGGER.info("Charge point disconnected: %s", self.charge_point_id)
         self.async_set_updated_data(True)
 
     def set_status(self, status):
@@ -218,21 +347,86 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         self.async_set_updated_data(True)
 
-    def start_transaction(self, transaction_id, id_tag=None):
+    def record_boot_notification(self, payload):
+        """Retain the latest BootNotification request."""
+        self.boot_notification = create_ocpp_snapshot(self.now(), payload)
+        self.async_set_updated_data(True)
+
+    def record_status_notification(
+        self,
+        connector_id,
+        status,
+        error_code=None,
+        **payload,
+    ):
+        """Retain the latest StatusNotification request and update its state."""
+        request = {
+            "connector_id": connector_id,
+            "status": status,
+            "error_code": error_code,
+            **payload,
+        }
+        self.last_status_notification = create_ocpp_snapshot(self.now(), request)
+        self.set_status(status)
+
+    def start_transaction(
+        self,
+        transaction_id,
+        id_tag=None,
+        *,
+        connector_id=None,
+        meter_start=None,
+        **payload,
+    ):
         """Start charging transaction."""
         self.transaction_id = transaction_id
         self.id_tag = id_tag
         self.status = "Charging"
 
+        request = {
+            "connector_id": connector_id,
+            "id_tag": id_tag,
+            "meter_start": meter_start,
+            **payload,
+        }
+        start_snapshot = create_ocpp_snapshot(self.now(), request)
+        start_snapshot["response"] = {"transaction_id": transaction_id}
+        self.active_transaction = {"start": start_snapshot}
+
         _LOGGER.info("🔋 New transaction started → Resetting energy counter")
         self.energy = 0
 
-        _LOGGER.info("Transaction started: %s (idTag=%s)", transaction_id, id_tag)
+        _LOGGER.info("Transaction started: %s", transaction_id)
         self.async_set_updated_data(True)
 
-    def stop_transaction(self, reason=None):
+    def stop_transaction(
+        self,
+        reason=None,
+        *,
+        transaction_id=None,
+        meter_stop=None,
+        **payload,
+    ):
         """Stop charging transaction."""
-        _LOGGER.info("Transaction stopped: %s (reason=%s)", self.transaction_id, reason)
+        stopped_transaction_id = (
+            self.transaction_id if transaction_id is None else transaction_id
+        )
+        _LOGGER.info(
+            "Transaction stopped: %s (reason=%s)",
+            stopped_transaction_id,
+            reason,
+        )
+
+        request = {
+            "transaction_id": stopped_transaction_id,
+            "meter_stop": meter_stop,
+            "reason": reason,
+            **payload,
+        }
+        completed = dict(self.active_transaction or {})
+        completed["stop"] = create_ocpp_snapshot(self.now(), request)
+        self.last_completed_transaction = completed
+        self.active_transaction = None
 
         _LOGGER.info("🛑 Transaction stopped → Resetting charge values")
         self.power = 0
@@ -248,133 +442,99 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # MeterValues
     # ─────────────────────────────
 
-    def process_meter_values(self, meter_values):
-        """Process meter values with TIER 1 error handling."""
-        _LOGGER.info("🔵 process_meter_values called with %d entries", len(meter_values))
+    def process_meter_values(
+        self,
+        meter_values,
+        *,
+        connector_id=None,
+        transaction_id=None,
+    ):
+        """Retain all MeterValues samples and update known live sensors."""
+        parsed_values = parse_meter_values(meter_values)
+        self.last_meter_values = {
+            "received_at": self.now(),
+            "connector_id": connector_id,
+            "transaction_id": transaction_id,
+            "meter_values": [entry.as_dict() for entry in parsed_values],
+        }
         updated = False
 
-        try:
-            for idx, entry in enumerate(meter_values):
-                _LOGGER.debug("  Entry %d type: %s", idx, type(entry))
-
-                sampled_values = None
-                if hasattr(entry, "sampled_value"):
-                    sampled_values = entry.sampled_value
-                    _LOGGER.debug("  → Using entry.sampled_value (attribute)")
-                elif isinstance(entry, dict) and "sampled_value" in entry:
-                    sampled_values = entry["sampled_value"]
-                    _LOGGER.debug("  → Using entry['sampled_value'] (dict, underscore)")
-                elif isinstance(entry, dict) and "sampledValue" in entry:
-                    sampled_values = entry["sampledValue"]
-                    _LOGGER.debug("  → Using entry['sampledValue'] (dict, camelCase)")
-                else:
+        for entry in parsed_values:
+            for sample in entry.samples:
+                value = sample.numeric_value
+                if value is None:
                     _LOGGER.warning(
-                        "  ⚠️ Cannot find sampledValue in entry keys: %s",
-                        list(entry.keys()) if isinstance(entry, dict) else "not a dict",
+                        "Failed to parse MeterValues sample value %r for %s",
+                        sample.raw_value,
+                        sample.measurand,
                     )
                     continue
 
-                if not sampled_values:
-                    _LOGGER.warning("  ⚠️ sampled_values is empty")
-                    continue
-
-                _LOGGER.info("  → Processing %d samples", len(sampled_values))
-
-                for sample in sampled_values:
-                    try:
-                        value_str = None
-                        measurand = None
-                        phase = None
-
-                        if hasattr(sample, "value"):
-                            value_str = sample.value
-                            measurand = sample.measurand
-                            phase = getattr(sample, "phase", None)
-                        elif isinstance(sample, dict):
-                            value_str = sample.get("value")
-                            measurand = sample.get("measurand")
-                            phase = sample.get("phase")
-                        else:
-                            _LOGGER.warning("    ⚠️ Unknown sample type: %s", type(sample))
-                            continue
-
-                        if not value_str:
-                            continue
-
-                        value = float(value_str)
-
-                    except (TypeError, ValueError, AttributeError) as e:
-                        _LOGGER.warning("    Failed to parse sample: %s", e)
-                        continue
-
-                    if measurand == "Energy.Active.Import.Register":
-                        context = (
-                            sample.get("context")
-                            if isinstance(sample, dict)
-                            else getattr(sample, "context", None)
+                if sample.measurand == "Energy.Active.Import.Register":
+                    if sample.context == "Transaction.Begin":
+                        _LOGGER.debug(
+                            "Skipping transaction-begin energy sample: %.3f Wh",
+                            value,
                         )
-                        if context == "Transaction.Begin":
-                            _LOGGER.debug(
-                                "    ⏭️ Skipping Energy sample (Transaction.Begin): %.3f Wh", value
-                            )
-                        else:
-                            if self.energy != value:
-                                self.energy = value
-                                _LOGGER.info("    ✅ Energy: %.3f Wh", value)
-                                updated = True
+                    elif self.energy != value:
+                        self.energy = value
+                        updated = True
 
-                    elif measurand == "Power.Active.Import":
-                        effective_phase = phase or "L1"
-                        if self.phase_power.get(effective_phase) != value:
-                            self.phase_power[effective_phase] = value
-                            _LOGGER.info("    ✅ Power %s: %.1f W", effective_phase, value)
-                            updated = True
+                elif sample.measurand == "Power.Active.Import":
+                    effective_phase = sample.phase or "L1"
+                    if self.phase_power.get(effective_phase) != value:
+                        self.phase_power[effective_phase] = value
+                        updated = True
 
-                    elif measurand == "Current.Import":
-                        effective_phase = phase or "L1"
-                        if self.currents.get(effective_phase) != value:
-                            self.currents[effective_phase] = value
-                            _LOGGER.info("    ✅ Current %s: %.2f A", effective_phase, value)
-                            updated = True
+                elif sample.measurand == "Current.Import":
+                    effective_phase = sample.phase or "L1"
+                    if self.currents.get(effective_phase) != value:
+                        self.currents[effective_phase] = value
+                        updated = True
 
-                    elif measurand == "Voltage":
-                        effective_phase = phase or "L1"
-                        if self.voltages.get(effective_phase) != value:
-                            self.voltages[effective_phase] = value
-                            _LOGGER.info("    ✅ Voltage %s: %.1f V", effective_phase, value)
-                            updated = True
+                elif sample.measurand == "Voltage":
+                    effective_phase = sample.phase or "L1"
+                    if self.voltages.get(effective_phase) != value:
+                        self.voltages[effective_phase] = value
+                        updated = True
 
-                    elif measurand == "Temperature":
-                        if self.temperature != value:
-                            self.temperature = value
-                            _LOGGER.info("    ✅ Temperature: %.1f °C", value)
-                            updated = True
+                elif sample.measurand == "Temperature":
+                    if self.temperature != value:
+                        self.temperature = value
+                        updated = True
 
-            if self.phase_power:
-                total = sum(self.phase_power.values())
-                if self.power != total:
-                    self.power = total
-                    _LOGGER.info("  ✅ Total power: %.1f W", total)
-                    updated = True
+        if self.phase_power:
+            total = sum(self.phase_power.values())
+            if self.power != total:
+                self.power = total
+                updated = True
 
-            if updated:
-                _LOGGER.info("🔄 Notifying sensors...")
-                self.async_set_updated_data(True)
-            else:
-                _LOGGER.warning("⚠️ No updates from MeterValues")
-
-        except Exception as exc:
-            _LOGGER.error("💥 CRASH in process_meter_values: %s", exc, exc_info=True)
+        _LOGGER.debug(
+            "Retained %d MeterValues entries%s",
+            len(parsed_values),
+            " and updated live sensors" if updated else "",
+        )
+        self.async_set_updated_data(True)
 
     # ─────────────────────────────
     # GetConfiguration verwerking
     # ─────────────────────────────
 
-    def process_configuration(self, configuration: list):
+    def process_configuration(self, configuration: list, unknown_keys=()):
         """Process GetConfiguration response with TIER 1 error handling."""
-        updated = False
+        self.configuration_values, updated = merge_configuration_values(
+            self.configuration_values,
+            (item for item in configuration if isinstance(item, dict)),
+        )
+
+        normalized_unknown_keys = normalize_unknown_configuration_keys(unknown_keys)
+        if self.unknown_configuration_keys != normalized_unknown_keys:
+            self.unknown_configuration_keys = normalized_unknown_keys
+            updated = True
 
         for item in configuration:
+            if not isinstance(item, dict):
+                continue
             key = item.get("key")
             raw = item.get("value")
 
@@ -446,7 +606,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         value = round(float(match.group(1)), 2)
                         if self.electricity_price != value:
                             self.electricity_price = value
-                            _LOGGER.debug("Config: G_TimeSharingPrice = %.2f EUR/kWh", value)
+                            _LOGGER.debug("Config: G_TimeSharingPrice = %.2f per kWh", value)
                             updated = True
                     else:
                         _LOGGER.warning("Could not parse G_TimeSharingPrice from raw value: %s", raw)
@@ -462,50 +622,88 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.async_set_updated_data(True)
 
     # ─────────────────────────────
-    # Growatt frozenrecord
+    # Growatt session records
     # ─────────────────────────────
 
-    def process_frozen_record(self, data: dict):
-        """Process Growatt frozen record and update session sensors + persistent total."""
-        try:
-            # Deduplication: skip if same transaction_id and end_time as last processed
-            transaction_id = data.get("transactionId", "")
-            end_str = data.get("endtime", "")
-            dedup_key = f"{transaction_id}_{end_str}"
+    def process_session_record(self, record: GrowattSessionRecord):
+        """Retain a Growatt session record and update session statistics."""
+        snapshot = {"received_at": self.now(), "record": record}
+        if record.message_id == "currentrecord":
+            self.last_current_record = snapshot
+        else:
+            self.last_frozen_record = snapshot
 
-            if self._last_frozen_record_key == dedup_key:
-                _LOGGER.debug("⏭️ Duplicate frozen record skipped (transaction=%s)", transaction_id)
+        try:
+            if record.parse_errors:
+                _LOGGER.warning(
+                    "Growatt %s contains invalid values: %s",
+                    record.message_id,
+                    "; ".join(record.parse_errors),
+                )
+
+            # The charger can send the same completed session as both message types.
+            dedup_key = record.dedup_key
+            if dedup_key is not None and self._last_session_record_key == dedup_key:
+                _LOGGER.debug(
+                    "Duplicate Growatt session record skipped (transaction=%s)",
+                    record.transaction_id,
+                )
+                self.async_set_updated_data(True)
                 return
 
-            self._last_frozen_record_key = dedup_key
+            energy_kwh = record.energy_kwh
+            cost = record.cost
+            if energy_kwh is None or cost is None:
+                _LOGGER.warning(
+                    "Growatt %s retained but not applied because energy or cost is invalid",
+                    record.message_id,
+                )
+                self.async_set_updated_data(True)
+                return
 
-            energy_kwh = float(data.get("costenergy", 0)) / 1000
-            cost = float(data.get("costmoney", 0)) / 100
-            start_str = data.get("starttime", "")
+            if dedup_key is not None:
+                self._last_session_record_key = dedup_key
 
-            duration_minutes = None
-            try:
-                start_dt = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
-                end_dt = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
-                duration_minutes = round((end_dt - start_dt).total_seconds() / 60, 1)
-            except (ValueError, TypeError):
-                pass
+            start_str = record.start_time
+            end_str = record.end_time
+            duration_minutes = record.duration_minutes
+            session = build_unified_session(
+                self.last_completed_transaction,
+                meter_values=self.last_meter_values,
+                session_records=(snapshot,),
+                charge_point_id=self.charge_point_id,
+                source_instance_id=self.source_instance_id,
+            )
+            if (
+                session is None
+                or session["correlation"]["status"] != CORRELATION_MATCHED
+            ):
+                session = build_unified_session(
+                    None,
+                    session_records=(snapshot,),
+                    charge_point_id=self.charge_point_id,
+                    source_instance_id=self.source_instance_id,
+                )
+            identity = session["identity"]
 
             self.last_session_energy = energy_kwh
             self.last_session_cost = cost
             self.last_session_start = start_str
             self.last_session_end = end_str
-            self.last_session_plug_time = data.get("plugtime", "")
-            self.last_session_unplug_time = data.get("unplugtime", "")
+            self.last_session_plug_time = record.plug_time
+            self.last_session_unplug_time = record.unplug_time
             self.last_session_duration_minutes = duration_minutes
-            self.last_session_transaction_id = transaction_id
-            self.last_session_charge_mode = data.get("chargemode", "")
-            self.last_session_work_mode = data.get("workmode", "")
+            self.last_session_id = identity["session_id"]
+            self.last_session_source = identity["session_source"]
+            self.last_session_transaction_id = record.transaction_id
+            self.last_session_charge_mode = record.charge_mode
+            self.last_session_work_mode = record.work_mode
 
             self.total_energy_charged += energy_kwh
 
             _LOGGER.info(
-                "Frozen record: energy=%.3f kWh, cost=%.2f, duration=%s min, total=%.3f kWh",
+                "%s: energy=%.3f kWh, cost=%.2f, duration=%s min, total=%.3f kWh",
+                record.message_id,
                 energy_kwh,
                 cost,
                 f"{duration_minutes:.1f}" if duration_minutes is not None else "unknown",
@@ -524,7 +722,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     "energy_kwh": round(energy_kwh, 3),
                     "cost": round(cost, 2),
                     "duration_minutes": duration_minutes if duration_minutes is not None else "",
-                    "transaction_id": data.get("transactionId", ""),
+                    "transaction_id": record.transaction_id,
+                    "session_id": self.last_session_id,
+                    "session_source": self.last_session_source,
                 }
                 self.hass.async_create_task(append_fn(session_row))
 
@@ -532,7 +732,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.async_set_updated_data(True)
 
         except (ValueError, TypeError, KeyError) as exc:
-            _LOGGER.warning("Failed to process frozen record %s: %s", data, exc)
+            _LOGGER.warning(
+                "Failed to process Growatt %s: %s",
+                record.message_id,
+                exc,
+            )
 
     # ─────────────────────────────
     # Growatt external meter values
@@ -541,60 +745,33 @@ class GrowattCoordinator(DataUpdateCoordinator):
     def process_external_meter(self, data_str: str):
         """Process external meter values from get_external_meterval DataTransfer."""
         try:
-            pairs = data_str.split("&")
-            values = {}
-            for pair in pairs:
-                if "=" in pair:
-                    key, val = pair.split("=", 1)
-                    values[key] = val
+            snapshot = parse_external_meter_data(data_str)
 
-            updated = False
+            if self.external_meter_used != snapshot.used:
+                self.external_meter_used = snapshot.used
 
-            if "wring" in values:
-                try:
-                    wiring = int(values["wring"])
-                    if self.wiring_type != wiring:
-                        self.wiring_type = wiring
-                        updated = True
-                        _LOGGER.debug("Wiring type: %s", "3-phase" if wiring == 1 else "1-phase")
-                except ValueError:
-                    pass
+            if self.external_meter_wring != snapshot.wring:
+                self.external_meter_wring = snapshot.wring
 
-            for phase_key, phase_name in [("u-voltage", "L1"), ("v-voltage", "L2"), ("w-voltage", "L3")]:
-                if phase_key in values:
-                    try:
-                        voltage = float(values[phase_key])
-                        if self.grid_voltages.get(phase_name) != voltage:
-                            self.grid_voltages[phase_name] = voltage
-                            updated = True
-                            _LOGGER.debug("Grid voltage %s: %.1f V", phase_name, voltage)
-                    except ValueError:
-                        pass
+            if self.grid_voltages != snapshot.voltages:
+                self.grid_voltages = snapshot.voltages
 
-            for phase_key, phase_name in [("u-current", "L1"), ("v-current", "L2"), ("w-current", "L3")]:
-                if phase_key in values:
-                    try:
-                        current = float(values[phase_key])
-                        if self.grid_currents.get(phase_name) != current:
-                            self.grid_currents[phase_name] = current
-                            updated = True
-                            _LOGGER.debug("Grid current %s: %.1f A", phase_name, current)
-                    except ValueError:
-                        pass
+            if self.grid_currents != snapshot.currents:
+                self.grid_currents = snapshot.currents
 
-            if "power" in values:
-                try:
-                    power = float(values["power"])
-                    if self.grid_power != power:
-                        self.grid_power = power
-                        updated = True
-                        _LOGGER.debug("Grid power: %.1f W", power)
-                except ValueError:
-                    pass
+            if self.grid_power != snapshot.power:
+                self.grid_power = snapshot.power
 
-            if updated:
-                _LOGGER.info("External meter values processed successfully")
-                self.async_set_updated_data(True)
+            self.external_meter_last_updated_at = self.now()
+            _LOGGER.debug(
+                "External meter snapshot: used=%s wring=%s power=%s voltages=%s currents=%s",
+                snapshot.used,
+                snapshot.wring,
+                snapshot.power,
+                snapshot.voltages,
+                snapshot.currents,
+            )
+            self.async_set_updated_data(True)
 
         except (ValueError, TypeError, KeyError) as exc:
             _LOGGER.warning("Failed to process external meter data '%s': %s", data_str, exc)

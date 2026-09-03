@@ -63,5 +63,258 @@
         "3": "Aansluiten en laden"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "server_url": { "name": "Server-URL" },
+      "status": {
+        "name": "Status",
+        "state": {
+          "available": "Beschikbaar",
+          "preparing": "Voorbereiden",
+          "charging": "Laden",
+          "suspended_evse": "Gepauzeerd door laadstation",
+          "suspended_ev": "Gepauzeerd door voertuig",
+          "finishing": "Afronden",
+          "reserved": "Gereserveerd",
+          "unavailable": "Niet beschikbaar",
+          "faulted": "Storing",
+          "idle": "Inactief"
+        }
+      },
+      "charge_point_id": { "name": "Laadpunt-ID" },
+      "charging_power": { "name": "Laadvermogen" },
+      "energy_charged": { "name": "Geladen energie" },
+      "total_energy_charged": { "name": "Totaal geladen energie" },
+      "electricity_price": { "name": "Elektriciteitsprijs" },
+      "last_session_energy": { "name": "Energie laatste sessie" },
+      "last_session_cost": { "name": "Kosten laatste sessie" },
+      "last_session_duration": { "name": "Duur laatste sessie" },
+      "last_session_start": { "name": "Start laatste sessie" },
+      "last_session_end": { "name": "Einde laatste sessie" },
+      "last_session_plug_time": { "name": "Inplugtijd laatste sessie" },
+      "last_session_unplug_time": { "name": "Uitplugtijd laatste sessie" },
+      "last_session_transaction_id": { "name": "Transactie-ID laatste sessie" },
+      "last_session_charge_mode": {
+        "name": "Laadmodus laatste sessie",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Alleen RFID",
+          "plug_and_charge": "Aansluiten en laden",
+          "unknown_mode": "Onbekend"
+        }
+      },
+      "last_session_work_mode": {
+        "name": "Werkmodus laatste sessie",
+        "state": {
+          "fast": "Snel laden",
+          "pv_linkage": "PV-koppeling",
+          "off_peak": "Daltarief",
+          "unknown_mode": "Onbekend"
+        }
+      },
+      "current": { "name": "Stroom {phase}" },
+      "voltage": { "name": "Spanning {phase}" },
+      "phase_power": { "name": "Vermogen {phase}" },
+      "temperature": { "name": "Temperatuur" },
+      "grid_power": { "name": "Netvermogen" },
+      "grid_voltage": { "name": "Netspanning {phase}" },
+      "grid_current": { "name": "Netstroom {phase}" },
+      "working_mode": {
+        "name": "Bedrijfsmodus",
+        "state": {
+          "fast": "Snel laden",
+          "pv_linkage": "PV-koppeling",
+          "off_peak": "Daltarief",
+          "power_distribution": "Vermogensverdeling"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "De bedrijfsmodus bepaalt welke instellingen gelden. Load balancing is beschikbaar in de modi Snel laden en Daltarief, maar niet in de modus PV-koppeling."
+            }
+          }
+        }
+      },
+      "charger_mode": {
+        "name": "Autorisatiemodus",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Alleen RFID",
+          "plug_and_charge": "Aansluiten en laden"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Toont hoe laadsessies worden geautoriseerd: via Home Assistant/RFID, uitsluitend RFID of Aansluiten en laden."
+            }
+          }
+        }
+      },
+      "solar_mode": {
+        "name": "Zonnemodus",
+        "state": {
+          "disabled": "Uitgeschakeld",
+          "pv_linkage": "PV-koppeling",
+          "pv_linkage_plus": "PV-koppeling+"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Toont de zonnelaadmodus van de lader. PV-koppeling en PV-koppeling+ gebruiken de metingen van de geconfigureerde externe meter."
+            }
+          }
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "Toegestane netafname bij PV-koppeling",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Maximaal netvermogen dat de lader in de modus PV-koppeling mag toevoegen. Om te starten is ongeveer 1,4 kW enkelfasig of 4,1 kW driefasig nodig."
+            }
+          }
+        }
+      },
+      "solar_boost": {
+        "name": "Boostconfiguratie bij PV-koppeling",
+        "state": {
+          "disabled": "Uitgeschakeld",
+          "manual": "Handmatig",
+          "smart": "Slim"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Handmatige boost gebruikt ingestelde tijdvensters; Slimme boost gebruikt doelenergie en eindtijd. Daarna keert de lader terug naar PV-koppeling."
+            }
+          }
+        }
+      },
+      "solar_threshold_current": {
+        "name": "Drempelstroom voor zonne-energie"
+      },
+      "grid_off_peak_charging": {
+        "name": "Laden tijdens daltarief",
+        "state": {
+          "disabled": "Uitgeschakeld",
+          "enabled": "Ingeschakeld"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Staat laden via het net toe binnen de ingestelde daltariefvensters wanneer Aansluiten en laden als autorisatie actief is."
+            }
+          }
+        }
+      },
+      "off_peak_enable_setting": {
+        "name": "Daltariefinschakeling",
+        "state": {
+          "disabled": "Uitgeschakeld",
+          "enabled": "Ingeschakeld"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Activeert laden binnen de ingestelde daltariefvensters van de daltariefmodus."
+            }
+          }
+        }
+      },
+      "off_peak_schedule": {
+        "name": "Daltariefschema",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Toont de actieve daltariefvensters van de lader. De oorspronkelijke Growatt-payload blijft beschikbaar als attribuut met de ruwe waarde."
+            }
+          }
+        }
+      },
+      "off_peak_current": {
+        "name": "Laadstroom tijdens daltarief",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Laadstroom die de lader binnen de ingestelde daltariefvensters gebruikt."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Energiemetertype",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Model van de externe Modbus-meter die voor netmetingen wordt gebruikt."
+            }
+          }
+        }
+      },
+      "power_meter_address": {
+        "name": "Energiemeteradres",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Modbus-adres van de externe meter die voor netmetingen wordt gebruikt."
+            }
+          }
+        }
+      },
+      "external_sampling_wiring": {
+        "name": "Externe meetmethode",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Energiemeter",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Energiemeter gebruikt directe Modbus-metingen; CT-modi gebruiken stroomtransformatoren. Growatt noemt het OCPP-veld 'wring', waarschijnlijk een typefout van de fabrikant."
+            }
+          }
+        }
+      },
+      "warm_up_after_full_charge": {
+        "name": "Opwarmen na volledig laden",
+        "state": {
+          "disabled": "Uitgeschakeld",
+          "enabled": "Ingeschakeld"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Na volledig laden kan de lader een compatibele auto blijven voeden om interieur of accu voor te verwarmen of te ontdooien. Het gedrag is afhankelijk van de auto."
+            }
+          }
+        }
+      },
+      "delayed_charging_time": {
+        "name": "Uitgestelde laadtijd",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Laadvertraging van de fabrikant in seconden. 0 betekent geen vertraging. Het gedrag van willekeurige vertraging kan per laderfirmware verschillen."
+            }
+          }
+        }
+      }
+    }
   }
 }

@@ -63,5 +63,258 @@
         "3": "Plug & charge"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "server_url": { "name": "Server URL" },
+      "status": {
+        "name": "Status",
+        "state": {
+          "available": "Available",
+          "preparing": "Preparing",
+          "charging": "Charging",
+          "suspended_evse": "Suspended by charger",
+          "suspended_ev": "Suspended by vehicle",
+          "finishing": "Finishing",
+          "reserved": "Reserved",
+          "unavailable": "Unavailable",
+          "faulted": "Faulted",
+          "idle": "Idle"
+        }
+      },
+      "charge_point_id": { "name": "Charge Point ID" },
+      "charging_power": { "name": "Charging Power" },
+      "energy_charged": { "name": "Energy Charged" },
+      "total_energy_charged": { "name": "Total Energy Charged" },
+      "electricity_price": { "name": "Electricity Price" },
+      "last_session_energy": { "name": "Last Session Energy" },
+      "last_session_cost": { "name": "Last Session Cost" },
+      "last_session_duration": { "name": "Last Session Duration" },
+      "last_session_start": { "name": "Last Session Start" },
+      "last_session_end": { "name": "Last Session End" },
+      "last_session_plug_time": { "name": "Last Session Plug Time" },
+      "last_session_unplug_time": { "name": "Last Session Unplug Time" },
+      "last_session_transaction_id": { "name": "Last Session Transaction ID" },
+      "last_session_charge_mode": {
+        "name": "Last Session Charge Mode",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "RFID only",
+          "plug_and_charge": "Plug & charge",
+          "unknown_mode": "Unknown"
+        }
+      },
+      "last_session_work_mode": {
+        "name": "Last Session Work Mode",
+        "state": {
+          "fast": "Fast",
+          "pv_linkage": "PV Linkage",
+          "off_peak": "Off-Peak",
+          "unknown_mode": "Unknown"
+        }
+      },
+      "current": { "name": "Current {phase}" },
+      "voltage": { "name": "Voltage {phase}" },
+      "phase_power": { "name": "Power {phase}" },
+      "temperature": { "name": "Temperature" },
+      "grid_power": { "name": "Grid power" },
+      "grid_voltage": { "name": "Grid voltage {phase}" },
+      "grid_current": { "name": "Grid current {phase}" },
+      "working_mode": {
+        "name": "Working mode",
+        "state": {
+          "fast": "Fast",
+          "pv_linkage": "PV Linkage",
+          "off_peak": "Off-Peak",
+          "power_distribution": "Power distribution"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "The operating mode controls which settings apply. Load balancing is available in Fast and Off-Peak mode, but not in PV Linkage mode."
+            }
+          }
+        }
+      },
+      "charger_mode": {
+        "name": "Authorization mode",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "RFID only",
+          "plug_and_charge": "Plug & charge"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Shows how charging sessions are authorized: Home Assistant/RFID, RFID only, or Plug & charge."
+            }
+          }
+        }
+      },
+      "solar_mode": {
+        "name": "Solar mode",
+        "state": {
+          "disabled": "Disabled",
+          "pv_linkage": "PV Linkage",
+          "pv_linkage_plus": "PV Linkage+"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Shows the charger-side solar charging mode. PV Linkage and PV Linkage+ use measurements from the configured external meter."
+            }
+          }
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "PV Linkage grid import allowance",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Maximum grid power the charger may add in PV Linkage mode. The charger requires about 1.4 kW single-phase or 4.1 kW three-phase to start."
+            }
+          }
+        }
+      },
+      "solar_boost": {
+        "name": "PV Linkage boost configuration",
+        "state": {
+          "disabled": "Disabled",
+          "manual": "Manual",
+          "smart": "Smart"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Manual boost uses configured time windows; Smart boost uses target energy and finish time. The charger returns to PV Linkage after the boost."
+            }
+          }
+        }
+      },
+      "solar_threshold_current": {
+        "name": "Solar threshold current"
+      },
+      "grid_off_peak_charging": {
+        "name": "Grid off-peak charging",
+        "state": {
+          "disabled": "Disabled",
+          "enabled": "Enabled"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Allows grid charging in the configured off-peak windows when Plug & charge authorization is active."
+            }
+          }
+        }
+      },
+      "off_peak_enable_setting": {
+        "name": "Off-peak enable setting",
+        "state": {
+          "disabled": "Disabled",
+          "enabled": "Enabled"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Enables charging during the configured off-peak windows in Off-Peak mode."
+            }
+          }
+        }
+      },
+      "off_peak_schedule": {
+        "name": "Off-peak schedule",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Lists the active charger-side off-peak windows. The original Growatt payload remains available as the raw value attribute."
+            }
+          }
+        }
+      },
+      "off_peak_current": {
+        "name": "Off-peak current",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Charging current used during the configured off-peak windows."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Power meter type",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "External Modbus meter model used for grid measurements."
+            }
+          }
+        }
+      },
+      "power_meter_address": {
+        "name": "Power meter address",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Modbus address of the external meter used for grid measurements."
+            }
+          }
+        }
+      },
+      "external_sampling_wiring": {
+        "name": "External sampling method",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Power meter",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Power meter uses direct Modbus measurements; CT modes use current transformers. Growatt calls the OCPP field 'wring', likely a vendor typo."
+            }
+          }
+        }
+      },
+      "warm_up_after_full_charge": {
+        "name": "Warm-up after full charge",
+        "state": {
+          "disabled": "Disabled",
+          "enabled": "Enabled"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "After full charge, the charger may continue supplying a compatible EV for cabin or battery preheating and defrosting. Behavior depends on vehicle support."
+            }
+          }
+        }
+      },
+      "delayed_charging_time": {
+        "name": "Delayed charging time",
+        "state_attributes": {
+          "information": {
+            "name": "About this setting",
+            "state": {
+              "details": "Vendor charging delay in seconds. 0 means no delay. Random Delay behavior may vary by charger firmware."
+            }
+          }
+        }
+      }
+    }
   }
 }

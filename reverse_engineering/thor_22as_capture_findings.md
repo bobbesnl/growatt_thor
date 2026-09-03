@@ -9,9 +9,13 @@ current integration behavior.
 
 The observations below were validated with redacted traces from:
 
-| Device | Firmware | Protocol |
-|---|---|---|
-| Growatt THOR 22AS | `THOR_22AS-V2.2.16-20240902` | OCPP 1.6J over WebSocket |
+| Device | Hardware | Firmware | Protocol |
+|---|---|---|---|
+| Growatt THOR 22AS | May 2022 manual layout | `THOR_22AS-V2.2.16-20240902` | OCPP 1.6J over WebSocket |
+
+See the [hardware and firmware variants](hardware_firmware_variants.md) for
+other reported THOR combinations. Findings in this file are not assumed to
+apply unchanged to those devices.
 
 The original cloud connection used:
 
@@ -50,21 +54,27 @@ Home Assistant.
 
 | OCPP message / vendor message | Direction | Observed example or purpose | Current Home Assistant mapping | Firmware | Status |
 |---|---|---|---|---|---|
-| `BootNotification` | CP -> CS | `chargePointVendor=Growatt`, `chargePointModel=THOR_22AS`, serial and firmware | Payload is logged; connection creates the Charge Point ID sensor | 2.2.16 | observed, implemented |
-| `Heartbeat` | CP -> CS | Periodic clock synchronization | Returns current UTC time | 2.2.16 | observed, implemented |
-| `StatusNotification` | CP -> CS | `Preparing`, `Charging`, `Finishing`; `errorCode=NoError` and an empty `info` field | Status sensor; other diagnostic fields are not retained yet | 2.2.16 | observed, implemented |
-| `StartTransaction` | CP -> CS | Starts an OCPP transaction | Resets live session values and returns a CS-generated transaction ID | 2.2.16 | implemented |
-| `MeterValues` | CP -> CS | Charging energy, current, voltage, power, and temperature | Live charging and per-phase sensors | 2.2.16 | observed, implemented |
-| `StopTransaction` | CP -> CS | Ends a transaction with meter stop and reason | Clears active transaction state | 2.2.16 | observed, implemented |
-| `TriggerMessage` | CS -> CP | Captured requests for `BootNotification` and `StatusNotification` | Integration requests status during manual refresh | 2.2.16 | observed, implemented |
-| `GetConfiguration` | CS -> CP | Reads standard OCPP and Growatt `G_*` keys | Known operational values are mapped; informational values are currently logged | 2.2.16 | observed, implemented |
+| `BootNotification` | CP -> CS | `chargePointVendor=Growatt`, `chargePointModel=THOR_22AS`, serial and firmware | Latest complete request in redacted HA diagnostics; connection creates the Charge Point ID sensor | 2.2.16 | observed, implemented |
+| `Heartbeat` | CP -> CS | Periodic clock synchronization; Central System requests a 60-second interval in `BootNotification.conf` | Returns current UTC time and refreshes connection liveness; any inbound OCPP message also counts as activity | 2.2.16 | observed, implemented |
+| `StatusNotification` | CP -> CS | `Preparing`, `Charging`, `Finishing`; `errorCode=NoError` and an empty `info` field | Status sensor plus latest complete request in HA diagnostics | 2.2.16 | observed, implemented |
+| `StartTransaction` | CP -> CS | Starts an OCPP transaction | Resets live session values, returns a CS-generated transaction ID, and starts the retained transaction diagnostics | 2.2.16 | implemented |
+| `MeterValues` | CP -> CS | Charging energy, current, voltage, power, and temperature | Known values feed live sensors; the complete latest sample set is retained in HA diagnostics | 2.2.16 | observed, implemented |
+| `StopTransaction` | CP -> CS | Ends a transaction with meter stop and reason | Clears active state and retains the complete start/stop transaction pair in HA diagnostics | 2.2.16 | observed, implemented |
+| `TriggerMessage` | CS -> CP | Captured requests for `BootNotification` and `StatusNotification` | Integration requests status during manual refresh and requests boot data once when reconnecting firmware omits it | 2.2.16 | observed, implemented |
+| `GetConfiguration` | CS -> CP | Reads standard OCPP and Growatt `G_*` keys | Returned values are retained in structured diagnostics; selected values also have entities | 2.2.16 | observed, implemented |
 | `ChangeConfiguration` | CS -> CP | Writes one configuration value | Used by numbers, switches, time entities, and charger mode | 2.2.16 | observed, implemented |
 | `DataTransfer/get_external_meterval` | CS -> CP | Requests the external power meter snapshot | Grid power, voltage, and current sensors | 2.2.16 | observed, implemented |
-| `DataTransfer/currentrecord` | CP -> CS | Current or latest Growatt session record | Last-session sensors and CSV logging | 2.2.16 | observed, implemented |
-| `DataTransfer/frozenrecord` | CP -> CS | Completed Growatt session record | Last-session sensors and CSV logging | 2.2.16 | implemented |
+| `DataTransfer/currentrecord` | CP -> CS | Current or latest Growatt session record | Structured diagnostics, last-session sensors, and CSV logging | 2.2.16 | observed, implemented |
+| `DataTransfer/frozenrecord` | CP -> CS | Completed Growatt session record | Structured diagnostics, last-session sensors, and CSV logging | 2.2.16 | implemented |
 | `DataTransfer/appconfigmode` | CS -> CP | Enables charger AP mode | Options flow with confirmation | 2.2.16 | implemented |
+| `DataTransfer/solar_target_data` | CS -> CP | PV Linkage Smart Boost target time and energy | Documented; no Home Assistant control | 2.2.16 | observed |
+| `DataTransfer/G_SetTime` | CS -> CP | One-shot fast-charge duration in minutes | Documented; no Home Assistant control | 2.2.16 | observed |
+| `DataTransfer/G_SetEnergy` | CS -> CP | One-shot fast-charge energy target in kWh | Documented; no Home Assistant control | 2.2.16 | observed |
+| `DataTransfer/G_SetAmount` | CS -> CP | One-shot fast-charge cost target | Documented; no Home Assistant control | 2.2.16 | observed |
 | `RemoteStartTransaction` | CS -> CP | Requests a new charging session | Start charging button | 2.2.16 | implemented |
 | `RemoteStopTransaction` | CS -> CP | Requests the active transaction to stop | Stop charging button | 2.2.16 | observed, implemented |
+| `ReserveNow` | CS -> CP | Creates a future one-time charging reservation | Documented; no Home Assistant control | 2.2.16 | observed |
+| `CancelReservation` | CS -> CP | Attempts to cancel a reservation by ID | Documented; no Home Assistant control | 2.2.16 | observed |
 
 Typical connection flow:
 
@@ -87,6 +97,70 @@ The central system assigns the OCPP `transactionId` in
 `StopTransaction`, and Growatt session records. It is not assigned by the
 charger.
 
+### Transaction identity across central systems
+
+An OCPP `transactionId` is scoped to the central system that assigned it. A
+charger that switches between the Growatt Cloud and Home Assistant can
+therefore legitimately receive the same numeric ID from both systems. The raw
+`transactionId` is therefore not treated as a globally unique key in session
+exports or the combined session model.
+
+Home Assistant uses a persistent monotonic allocator so WebSocket reconnects
+and restarts do not reuse its own IDs. The allocator saves its next value before
+returning `StartTransaction.conf`.
+
+Each session receives a deterministic compact internal ID while retaining the
+original numeric OCPP transaction ID. Locally correlated sessions use an `ha-`
+namespace that includes the Home Assistant config-entry instance, charge point,
+transaction ID, and OCPP start time. Growatt records without a matching locally
+retained `StartTransaction` use `ext-` and keep their source as
+`external_or_unknown`. Their session start time disambiguates reused numeric
+transaction IDs; end time and record ID are fallbacks for incomplete records
+because no assigning central-system instance is available.
+
+Existing CSV rows cannot be assigned to Growatt Cloud or Home Assistant
+reliably. The schema migration gives them deterministic `legacy-` IDs and the
+source `legacy_unknown`. The readable prefix and source column carry
+provenance; the following 16 hexadecimal characters are a truncated SHA-256 of
+the source-specific identity fields.
+
+### Connector IDs
+
+The captured THOR 07/11/22 AC product family has one charging connector and
+uses `connectorId=1` in transactions, status messages, reservations, and
+Growatt target payloads. Higher connector IDs likely support other Growatt
+charger products with multiple cables or charging guns, but that behavior has
+not been captured.
+
+The integration must therefore retain the connector ID instead of hard-coding
+or discarding it, even though current THOR entities represent connector 1.
+
+### Retained OCPP diagnostics
+
+The coordinator keeps the latest complete `BootNotification` and
+`StatusNotification` requests, the active transaction, and the most recently
+completed start/stop transaction pair. Optional and additional fields routed by
+the OCPP library are kept as JSON-safe values, so firmware-specific diagnostic
+fields are not discarded. Retention is intentionally bounded and does not form
+a message history.
+
+Downloaded Home Assistant diagnostics redact authorization tags, SIM
+identifiers, meter serial numbers, and charge-point serial numbers. Firmware,
+model, connector, status and vendor error details, timestamps, meter start/stop,
+stop reason, transaction ID, and transaction data remain available for
+troubleshooting.
+
+The downloaded diagnostics also contain a source-aware session view. OCPP
+start/stop data, the latest transaction-scoped meter energy, and Growatt
+`currentrecord`/`frozenrecord` values are combined only when their transaction
+IDs match and the vendor record was received after that OCPP transaction began.
+This time guard prevents a reconnected central system from attaching an older
+record when a transaction ID is reused. Each session is labelled `matched`,
+`ocpp_only`, or `growatt_only`.
+Meter start/stop delta, the latest periodic energy value, Growatt session energy,
+and any difference between them remain separate so firmware behavior is not
+hidden by a single preferred value.
+
 ## MeterValues
 
 Although an observed configuration contained
@@ -102,8 +176,9 @@ additional measurands during an active session.
 | `Temperature` | `Celsius` | none | periodic samples | Temperature | 2.2.16 | observed, implemented |
 
 One capture represented a two-phase session: L1 and L2 carried current while
-L3 remained at zero. Unknown measurands are currently not retained by the
-coordinator.
+L3 remained at zero. The coordinator retains all samples from the latest
+`MeterValues` request, including unknown measurands and vendor fields. Only the
+validated measurands in the table above are mapped to Home Assistant entities.
 
 ## Growatt DataTransfer payloads
 
@@ -118,6 +193,10 @@ The integration sends:
 DataTransfer(vendorId="Growatt", messageId="get_external_meterval")
 ```
 
+The request is sent after connecting and periodically in every working mode.
+The external meter supplies both load-balancing and PV-Linkage measurements;
+`G_ExternalLimitPowerEnable=0` therefore does not disable this polling.
+
 An observed response payload was:
 
 ```text
@@ -129,8 +208,8 @@ integration sends `vendorId=Growatt` and the tested charger accepts it.
 
 | Field | Interpretation | Current Home Assistant mapping | Firmware | Status |
 |---|---|---|---|---|
-| `used` | Usage/availability flag; exact semantics not confirmed | Ignored | 2.2.16 | observed, inferred |
-| `wring` | Vendor spelling; code treats `1` as three-phase and other values as one-phase | Stored internally, no entity | 2.2.16 | observed, inferred, implemented |
+| `used` | Usage/availability flag; exact semantics not confirmed | `vendor_used` sensor attribute | 2.2.16 | observed, inferred, implemented |
+| `wring` | Vendor spelling; exact semantics and relationship to `G_ExternalSamplingCurWring` are not confirmed | `vendor_wring` sensor attribute | 2.2.16 | observed, implemented |
 | `u-voltage` | L1 voltage in V | Grid voltage L1 | 2.2.16 | observed, implemented |
 | `v-voltage` | L2 voltage in V | Grid voltage L2 | 2.2.16 | observed, implemented |
 | `w-voltage` | L3 voltage in V | Grid voltage L3 | 2.2.16 | observed, implemented |
@@ -151,20 +230,67 @@ id=346&connectorId=1&chargemode=3&plugtime=2025-08-24 11:47:21&unplugtime=2025-0
 
 | Field | Interpretation | Current Home Assistant mapping | Firmware | Status |
 |---|---|---|---|---|
-| `id` | Growatt record identifier | Not exposed | 2.2.16 | observed |
-| `connectorId` | OCPP connector number | Parsed but not retained | 2.2.16 | observed |
-| `chargemode` | Growatt charging mode code | Last Session Charge Mode | 2.2.16 | observed, implemented |
+| `id` | Growatt record identifier | Structured session diagnostics | 2.2.16 | observed, implemented |
+| `connectorId` | OCPP connector number | Structured session diagnostics | 2.2.16 | observed, implemented |
+| `chargemode` | Growatt charging/authorization mode: `1=APP/HA-RFID`, `2=RFID`, `3=Plug & Charge` | Translated Last Session Charge Mode; raw code retained | 2.2.16 | observed, implemented |
 | `plugtime` | Cable connected time | Last Session Plug Time | 2.2.16 | observed, implemented |
 | `unplugtime` | Cable disconnected time | Last Session Unplug Time | 2.2.16 | observed, implemented |
 | `starttime` | Charging start time | Last Session Start | 2.2.16 | observed, implemented |
-| `endtime` | Charging end time | Last Session End | 2.2.16 | observed, implemented |
+| `endtime` | Session end time; on a naturally completed charge this matched `unplugtime`, not the earlier zero-power transition | Last Session End | 2.2.16 | observed, implemented |
 | `costenergy` | Energy in Wh; integration divides by 1000 for kWh | Last Session Energy and CSV | 2.2.16 | observed, inferred, implemented |
 | `costmoney` | Currency minor unit; integration divides by 100 | Last Session Cost and CSV | 2.2.16 | observed, inferred, implemented |
 | `transactionId` | OCPP transaction ID assigned by the central system | Last Session Transaction ID and CSV | 2.2.16 | observed, implemented |
-| `workmode` | Growatt work mode code | Last Session Work Mode | 2.2.16 | observed, implemented |
+| `workmode` | Growatt work mode code; `0=Fast` is confirmed, while values `3` and `7` were captured but remain unmapped. Value `7` occurred together with `G_WorkingMode=Power Distribution`, but equivalence is not confirmed. | Translated Last Session Work Mode; raw code retained | 2.2.16 | observed, implemented |
 
-The current integration uses the same session parser for `currentrecord` and
-`frozenrecord`.
+The integration parses both message types with the same lossless field model
+but retains the latest `currentrecord` and `frozenrecord` separately. Blank and
+duplicate query parameters are preserved. The raw payload remains available
+internally; downloaded diagnostics redact the raw query string and values of
+unknown fields. A session received through both message types is counted only
+once when `transactionId` and `endtime` match. The normalized last-session
+values and this deduplication key persist across Home Assistant restarts.
+
+On THOR_22AS firmware 2.2.16, unlocking the vehicle while charging temporarily
+changed the connector from `Charging` to `SuspendedEV` with
+`errorCode=EVCommunicationError` and `info=ChargeWait`. The OCPP transaction
+remained active and charging resumed under the same transaction ID. Unplugging
+the vehicle then produced this final sequence:
+
+```text
+SuspendedEV -> Finishing -> StopTransaction(reason=EVDisconnected)
+-> Available -> DataTransfer/currentrecord
+```
+
+For that session, `StopTransaction.meterStop`, `currentrecord.costenergy`, and
+the periodic `MeterValues` energy used the same session counter. The last
+periodic sample was `411 Wh`; the completed example used `meterStop=412` and
+`costenergy=412` with transaction ID `1`, producing `0.412 kWh` in the Home
+Assistant last-session sensor. The charger sent `currentrecord` immediately
+after returning to `Available`; it did not send a `frozenrecord` for this
+completion.
+
+A full charge that ended while the cable remained connected produced a distinct
+intermediate state. Periodic meter values stopped increasing at `8203 Wh` and
+continued with zero current and power before the charger reported
+`SuspendedEV`, `errorCode=EVCommunicationError`, and `info=ChargeWait`. The
+transaction remained open and neither `StopTransaction` nor a Growatt session
+record was sent while the cable stayed connected.
+
+Unplugging completed that same transaction:
+
+```text
+SuspendedEV -> Finishing -> StopTransaction(reason=EVDisconnected)
+-> Preparing -> DataTransfer/currentrecord -> Available
+```
+
+`StopTransaction.meterStop` and `currentrecord.costenergy` both contained
+`8203`, and the transaction ID remained `1`. The Growatt record used the unplug
+timestamp for both `endtime` and `unplugtime`, about three minutes after the
+charger first entered `SuspendedEV`. Consumers must therefore not interpret
+`currentrecord.endtime` as the exact point at which charging power reached zero.
+The completed session was correlated with the local OCPP transaction, assigned
+the `home_assistant` source and a stable `ha-` session ID, exported after the
+legacy CSV migration, and restored unchanged after a Home Assistant restart.
 
 ### Negative result: `getChargerConfigInfo`
 
@@ -172,6 +298,31 @@ The current integration uses the same session parser for `currentrecord` and
 `Growatt`, `GROWATT`, and `ATESS` all returned `UnknownMessageId` on the tested
 firmware. This API/app concept is therefore not a confirmed charger
 `DataTransfer` message.
+
+The charger reports numeric tariff and cost values without a currency. Changing
+the ShinePhone currency from EUR to USD produced no OCPP write and left
+`G_ChargerRate` unchanged. Home Assistant entities therefore use the Home
+Assistant system currency instead of inferring one from the charger value.
+
+## ShinePhone operation captures
+
+The ShinePhone UI combines persistent charger configuration, one-shot vendor
+commands, and cloud-only schedules. Similar-looking controls do not
+necessarily use the same persistence layer.
+
+| App operation | OCPP operations | Result |
+|---|---|---|
+| PV Linkage with grid import and Smart Boost | `G_SolarMode=1&1`, `G_SolarLimitPower=4.2`, `G_SolarBoost=1&SmartBoost`, then `solar_target_data` with `connectorid=1`, target time, and energy | Charger configuration plus one-shot target data |
+| PV Linkage Manual Boost | `G_SolarBoost=1&ManualBoost`, `G_PeriodTime=1&time1=00:00-23:59` | Persistent mode plus time window |
+| Disable PV Linkage Boost | `G_SolarBoost=1&Disable` | Accepted |
+| Enable Off-Peak with two windows | `G_OffPeakEnable=1&Enable`, `G_PeriodTime=1&time1=12:00-13:00&time2=00:00-05:00` | Readback includes both windows in `G_OffPeakTime` |
+| Fast charge by duration, immediate | `DataTransfer/G_SetTime` with `data=60`, then `RemoteStartTransaction` | One-shot command; no persistent appointment |
+| Fast charge by energy, immediate | `DataTransfer/G_SetEnergy` with `data=4`, then `RemoteStartTransaction` | One-shot command; no persistent appointment |
+| Fast charge by cost, future time | `DataTransfer/G_SetAmount` with `data=49,99`, then `ReserveNow` | One-time charger reservation; comma decimal was accepted for this field |
+| Recurring scheduled charge | No schedule-related OCPP message during Save | Stored or handled by the app/cloud in the captured flow |
+| Warm-up function | `G_FullContinueChargeEnable=Enable` or `Disable` | Both writes accepted; GetConfiguration readback depends on charger firmware |
+| Default delayed charging, 600 seconds | `G_RandDelayChargeTime=600` | Accepted persistent charger value |
+| Random Delay switch, both directions | `G_RandDelayChargeTime=0` for both on and off | ShinePhone UI state is not reliably represented on the wire |
 
 ## Configuration reference
 
@@ -188,13 +339,13 @@ writable controls require separate before/after captures.
 | `AuthorizationCacheEnabled` | `false` | OCPP authorization cache | Not requested | 2.2.16 | observed |
 | `AuthorizeRemoteTxRequests` | `false` | Require authorization for remote starts | Not requested | 2.2.16 | observed |
 | `ConnectionTimeOut` | `90` | Connector timeout in seconds | Not requested | 2.2.16 | observed |
-| `HeartbeatInterval` | `60` | Heartbeat interval in seconds | Queried/logged | 2.2.16 | observed, implemented |
+| `HeartbeatInterval` | `60` | Heartbeat interval in seconds | Preserved in diagnostics | 2.2.16 | observed, implemented |
 | `LocalAuthListEnabled` | `false` | Local authorization list | Not requested | 2.2.16 | observed |
 | `LocalAuthorizeOffline` | `false` | Local authorization while offline | Not requested | 2.2.16 | observed |
 | `LocalPreAuthorize` | `false` | Local preauthorization | Not requested | 2.2.16 | observed |
-| `MeterValueSampleInterval` | `5` | Periodic meter sample interval in seconds | Queried/logged | 2.2.16 | observed, implemented |
-| `MeterValuesSampledData` | `Energy.Active.Import.Register` | Requested periodic measurands | Queried/logged | 2.2.16 | observed, implemented |
-| `UnlockConnectorOnEVSideDisconnect` | `true` | Unlock when the EV disconnects | Queried/logged | 2.2.16 | observed, implemented |
+| `MeterValueSampleInterval` | `5` | Periodic meter sample interval in seconds | Preserved in diagnostics | 2.2.16 | observed, implemented |
+| `MeterValuesSampledData` | `Energy.Active.Import.Register` | Requested periodic measurands | Preserved in diagnostics | 2.2.16 | observed, implemented |
+| `UnlockConnectorOnEVSideDisconnect` | `true` | Unlock when the EV disconnects | Preserved in diagnostics | 2.2.16 | observed, implemented |
 | `WebSocketPingInterval` | `30` | WebSocket ping interval in seconds | Not requested; Growatt-prefixed variant is queried | 2.2.16 | observed |
 
 ### Growatt keys
@@ -207,53 +358,53 @@ writable controls require separate before/after captures.
 | `G_Authentication` | `<redacted>` | Growatt local authentication value; exact role not confirmed | Not requested; sensitive | 2.2.16 | observed, inferred |
 | `G_AutoChargeTime` | `00:00-00:00` | Automatic charging time window | Auto Charge Start/Stop Time entities | 2.2.16 | observed, implemented |
 | `G_CardPin` | `<redacted>` | Local card/PIN value | Not requested; sensitive | 2.2.16 | observed, inferred |
-| `G_ChargerID` | `<redacted>` | Charger identifier | Queried/logged; Charge Point ID comes from the OCPP connection | 2.2.16 | observed, implemented |
-| `G_ChargerLanguage` | `English` | Charger display language | Queried/logged | 2.2.16 | observed, implemented |
-| `G_ChargerMode` | `3` | `1=HA/RFID`, `2=RFID Only`, `3=Plug & Charge` | Charger mode in options flow | 2.2.16 | observed, implemented |
-| `G_ChargerNetDNS` | `<redacted>` | Charger DNS server | Queried/logged; privacy-sensitive | 2.2.16 | observed, implemented |
-| `G_ChargerNetGateway` | `<redacted>` | Charger network gateway | Queried/logged; privacy-sensitive | 2.2.16 | observed, implemented |
-| `G_ChargerNetIP` | `<redacted>` | Charger network address | Queried/logged; privacy-sensitive | 2.2.16 | observed, implemented |
-| `G_ChargerNetMac` | `<redacted>` | Charger MAC address | Queried/logged; privacy-sensitive | 2.2.16 | observed, implemented |
-| `G_ChargerNetMask` | `<redacted>` | Charger network mask | Queried/logged; privacy-sensitive | 2.2.16 | observed, implemented |
-| `G_ChargerRate` | `0.23` | Charger tariff/rate; relationship to time-sharing price needs confirmation | Queried/logged | 2.2.16 | observed, inferred, implemented |
-| `G_DaylightSavingTime` | `00-00&00-00` | Daylight-saving configuration; value format not confirmed | Queried/logged | 2.2.16 | observed, inferred, implemented |
+| `G_ChargerID` | `<redacted>` | Charger identifier | Preserved in diagnostics; Charge Point ID comes from the OCPP connection | 2.2.16 | observed, implemented |
+| `G_ChargerLanguage` | `English` | Charger display language | Preserved in diagnostics | 2.2.16 | observed, implemented |
+| `G_ChargerMode` | `3` | `1=HA/RFID` (`APP` in the charger web page), `2=RFID Only`, `3=Plug & Charge` | Charger mode in options flow and read-only authorization-mode sensor | 2.2.16 | observed, implemented |
+| `G_ChargerNetDNS` | `<redacted>` | Charger DNS server | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
+| `G_ChargerNetGateway` | `<redacted>` | Charger network gateway | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
+| `G_ChargerNetIP` | `<redacted>` | Charger network address | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
+| `G_ChargerNetMac` | `<redacted>` | Charger MAC address | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
+| `G_ChargerNetMask` | `<redacted>` | Charger network mask | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
+| `G_ChargerRate` | `0.23` | Numeric charger tariff/rate; no currency is included and changing ShinePhone currency produced no OCPP write | Preserved in diagnostics | 2.2.16 | observed, implemented |
+| `G_DaylightSavingTime` | `00-00&00-00` | Daylight-saving configuration; value format not confirmed | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_ExternalLimitPower` | `45` | External grid power limit in kW in the tested setup | Loadbalancing limit number | 2.2.16 | observed, implemented |
 | `G_ExternalLimitPowerEnable` | `0` | Enable external power limiting | Loadbalancing switch | 2.2.16 | observed, implemented |
-| `G_ExternalSamplingCurWring` | `1` | External meter wiring/sampling mode; exact enum needs confirmation | Queried/logged | 2.2.16 | observed, inferred, implemented |
-| `G_LowPowerReserveEnable` | `Disable` | Low-power reserve setting | Queried/logged | 2.2.16 | observed, inferred, implemented |
+| `G_ExternalSamplingCurWring` | `1` | External current sampling: `0=CT 2000:1`, `1=PowerMeter`, `2=CT 3000:1`; these OCPP values differ from the shifted charger web-page dropdown values | Read-only External Sampling Method sensor | 2.2.16 | observed, implemented |
+| `G_LowPowerReserveEnable` | `Disable` | Low-power reserve setting | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_MaxCurrent` | `32.00` | Maximum charging current per phase in A | Max Current number | 2.2.16 | observed, implemented |
-| `G_MaxTemperature` | `80` | Maximum temperature threshold in Celsius | Queried/logged | 2.2.16 | observed, inferred, implemented |
-| `G_MeterValueInterval` | `5` | Growatt meter-value interval in seconds | Queried/logged | 2.2.16 | observed, inferred, implemented |
-| `G_NetworkMode` | `DHCP` | Charger network mode | Queried/logged | 2.2.16 | observed, implemented |
-| `G_OffPeakCurr` | empty | Off-peak current setting | Queried/logged | 2.2.16 | observed, inferred, implemented |
-| `G_OffPeakEnable` | `1&Disable` | Vendor-encoded off-peak enable setting | Queried/logged | 2.2.16 | observed, inferred, implemented |
-| `G_OffPeakTime` | `00:00-05:00=0&1` | Vendor-encoded off-peak time window | Queried/logged | 2.2.16 | observed, inferred, implemented |
-| `G_PeakValleyEnable` | `0` | Peak/valley tariff enable setting | Queried/logged | 2.2.16 | observed, inferred, implemented |
+| `G_MaxTemperature` | `80` | Maximum temperature threshold in Celsius | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
+| `G_MeterValueInterval` | `5` | Growatt meter-value interval in seconds | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
+| `G_NetworkMode` | `DHCP` | Charger network mode | Preserved in diagnostics | 2.2.16 | observed, implemented |
+| `G_OffPeakCurr` | empty | Off-peak current setting in A | Read-only Off-Peak Current sensor when a non-empty value is reported | 2.2.16 | observed, inferred, implemented |
+| `G_OffPeakEnable` | `1&Enable`, `1&Disable` | Vendor-encoded off-peak enable setting | Read-only translated Off-Peak Enable Setting sensor; raw value retained as an attribute | 2.2.16 | observed, implemented |
+| `G_OffPeakTime` | `12:00-13:00=0&00:00-05:00=0&1` | Vendor-encoded off-peak time windows | Read-only Off-Peak Schedule sensor displays the extracted windows; raw value retained as an attribute | 2.2.16 | observed, implemented |
+| `G_PeakValleyEnable` | `0` | Peak/valley tariff enable setting | Read-only Grid Off-Peak Charging sensor | 2.2.16 | observed, inferred, implemented |
 | `G_PeriodTime` | `1&time1=00:00-05:00` | Vendor-encoded period definition | Not requested | 2.2.16 | observed, inferred |
-| `G_PowerMeterAddr` | `2` | External Modbus meter address | Queried/logged | 2.2.16 | observed, implemented |
-| `G_PowerMeterType` | `Eastron SDM630` | External meter model/type | Queried/logged | 2.2.16 | observed, implemented |
-| `G_RCDProtection` | `6` | RCD protection mode; enum not confirmed | Queried/logged | 2.2.16 | observed, inferred, implemented |
-| `G_RandDelayChargeTime` | `0` | Randomized charging delay | Queried/logged | 2.2.16 | observed, inferred, implemented |
+| `G_PowerMeterAddr` | `2` | External Modbus meter address | Read-only Power Meter Address sensor | 2.2.16 | observed, implemented |
+| `G_PowerMeterType` | `Eastron SDM630` | External meter model/type | Read-only Power Meter Type sensor | 2.2.16 | observed, implemented |
+| `G_RCDProtection` | `6` | RCD protection mode; enum not confirmed | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
+| `G_RandDelayChargeTime` | `600`, `0` | Charger-side delayed charging duration in seconds; ShinePhone writes `0` for both Random Delay switch directions | Read-only Delayed Charging Time diagnostic sensor; no Boolean control | 2.2.16 | observed, implemented |
 | `G_ServerURL` | `ws://<ha-host>:9000` | OCPP central-system endpoint | Server URL diagnostic sensor | 2.2.16 | observed, implemented |
-| `G_SolarBoost` | `1&Disable` | Vendor-encoded solar boost setting | Queried/logged | 2.2.16 | observed, inferred, implemented |
-| `G_SolarLimitPower` | `1.98` | Solar power threshold/limit; exact behavior needs confirmation | Queried/logged | 2.2.16 | observed, inferred, implemented |
-| `G_SolarMode` | `1&1`, `1&2` | Vendor-encoded solar mode | Queried/logged | 2.2.16 | observed, inferred, implemented |
-| `G_SolarThresholdCurr` | `0` | Solar current threshold | Queried/logged | 2.2.16 | observed, inferred, implemented |
-| `G_TimeZone` | `UTC+2` | Charger time zone | Queried/logged | 2.2.16 | observed, implemented |
-| `G_WebSocketPingInterval` | `30` | Growatt WebSocket ping interval in seconds | Queried/logged | 2.2.16 | observed, implemented |
+| `G_SolarBoost` | `1&Disable`, `1&ManualBoost`, `1&SmartBoost` | Vendor-encoded PV Linkage boost setting | Read-only translated PV Linkage Boost Configuration sensor; raw value retained as an attribute | 2.2.16 | observed, implemented |
+| `G_SolarLimitPower` | write `4.2`, readback `3.96` | PV Linkage grid-import allowance in kW; charger-adjusted readback depends on phase configuration | Read-only PV Linkage Grid Import Allowance sensor | 2.2.16 | observed, inferred, implemented |
+| `G_SolarMode` | `1&0`, `1&1`, `1&2` | Vendor-encoded solar mode; suffix values are `0=Disable`, `1=PVLink`, `2=PVLink+` | Read-only translated Solar Mode sensor | 2.2.16 | observed, implemented |
+| `G_SolarThresholdCurr` | `0` | Solar current threshold in A | Read-only Solar Threshold Current sensor | 2.2.16 | observed, inferred, implemented |
+| `G_TimeZone` | `UTC+2` | Charger time zone | Preserved in diagnostics | 2.2.16 | observed, implemented |
+| `G_WebSocketPingInterval` | `30` | Growatt WebSocket ping interval in seconds | Preserved in diagnostics | 2.2.16 | observed, implemented |
 | `G_WifiPassword` | `<redacted>` | Wi-Fi password | Intentionally not requested; sensitive | 2.2.16 | observed |
-| `G_WifiSSID` | `<redacted>` | Wi-Fi network name | Queried/logged; privacy-sensitive | 2.2.16 | observed, implemented |
-| `G_WorkingMode` | `PVlink` | Charger working mode | Queried/logged; last session also exposes a work-mode code | 2.2.16 | observed, inferred, implemented |
+| `G_WifiSSID` | `<redacted>` | Wi-Fi network name | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
+| `G_WorkingMode` | `Fast`, `Off Peak`, `PVlink`, `PVlink ManualBoost`, `Power Distribution` | Charger working mode; boost suffixes do not change the base PV Linkage mode. `Power Distribution` is retained as a distinct reported state because its relationship to the app's Fast mode is not confirmed. | Read-only Working Mode sensor; last session also exposes a separate work-mode code | 2.2.16 | observed, implemented |
 
-### Queried or implemented without matching local capture evidence
+### Write-confirmed or implemented without GetConfiguration readback
 
 These keys occur in the current integration but were not present in the local
 capture set used for the tables above:
 
 | Key | Current use | Status |
 |---|---|---|
-| `ElectricityMeterOnline` | Queried/logged | implemented |
-| `G_FullContinueChargeEnable` | Queried/logged | implemented |
+| `ElectricityMeterOnline` | Preserved in diagnostics | implemented |
+| `G_FullContinueChargeEnable` | `Enable` and `Disable` writes were accepted. Exposed as a read-only diagnostic sensor when the charger reports it; compatible vehicle support is required. | observed, implemented |
 | `G_LCDCloseEnable` | LCD Display switch | implemented |
 | `G_TimeSharingPrice` | Electricity price number and sensor | implemented |
 
@@ -271,10 +422,11 @@ rejected as unknown, while `G_PeriodTime` returned a value.
 
 ## Current implementation boundary
 
-The integration currently exposes only a validated subset of configuration as
-Home Assistant controls. Other requested values are logged but not retained in
-a generic configuration registry. Unknown meter measurands and unrecognized
-DataTransfer fields are also not retained.
+The integration retains every returned configuration value in a generic
+registry and exposes only a validated subset as Home Assistant controls or
+read-only sensors. It also retains all samples from the latest OCPP
+`MeterValues` request and structured Growatt `currentrecord` and `frozenrecord`
+payloads. Other, unrecognized `DataTransfer` message types are not retained yet.
 
 This is intentional for controls: a key name is not enough evidence to make a
 setting writable. Future controls should be added one use case at a time after

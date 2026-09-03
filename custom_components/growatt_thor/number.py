@@ -10,6 +10,7 @@ from homeassistant.helpers.entity import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
 from .const import DOMAIN
+from .currency import electricity_price_unit
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -144,9 +145,9 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
         super().__init__(coordinator, entry, "load_balancing_limit")
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
-            "name": "Growatt THOR Load balancing",
+            "name": "Growatt THOR External Meter",
             "manufacturer": "Growatt",
-            "model": "THOR Load balancing",
+            "model": "THOR External Meter",
         }
 
     @property
@@ -215,16 +216,18 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
 class ElectricityPriceNumber(BaseConfigNumber):
 
     _attr_name = "Electricity Price"
-    _attr_icon = "mdi:currency-eur"
+    _attr_icon = "mdi:cash"
     _attr_native_min_value = -2.0
     _attr_native_max_value = 2.0
     _attr_native_step = 0.01
-    _attr_native_unit_of_measurement = "EUR/kWh"
     _attr_suggested_display_precision = 2
     _config_key = "G_TimeSharingPrice"
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "electricity_price")
+        self._attr_native_unit_of_measurement = electricity_price_unit(
+            coordinator.hass
+        )
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": "Growatt THOR EV Charger",
@@ -246,13 +249,13 @@ class ElectricityPriceNumber(BaseConfigNumber):
 
         current = self.coordinator.electricity_price
         if current is not None and round(current, 2) == value:
-            _LOGGER.debug("Elektricteitstarief unchanged (%.2f EUR/kWh) - skipping write", value)
+            _LOGGER.debug("Electricity price unchanged (%.2f per kWh) - skipping write", value)
             return
 
         previous = round(current, 2) if current is not None else None
         self.coordinator.electricity_price = value
         self.coordinator.async_set_updated_data(True)
-        _LOGGER.info("📝 Elektricteitstarief UI updated to %.2f EUR/kWh (queued for write)", value)
+        _LOGGER.info("📝 Electricity price updated to %.2f per kWh (queued for write)", value)
 
         await self.coordinator.queue_write(
             self._write_to_thor,

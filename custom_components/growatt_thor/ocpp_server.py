@@ -1,11 +1,11 @@
 import logging
 import asyncio
 import websockets.exceptions
-from urllib.parse import parse_qs
 from websockets.server import serve
 
 from ocpp.v16 import ChargePoint as OcppChargePoint
 from ocpp.v16 import call_result, call
+from ocpp.messages import unpack
 from ocpp.v16.enums import (
     RegistrationStatus,
     AuthorizationStatus,
@@ -16,6 +16,18 @@ from ocpp.v16.enums import (
 
 from ocpp.routing import on
 
+from .configuration import (
+    INFORMATIONAL_CONFIGURATION_KEYS,
+    OPERATIONAL_CONFIGURATION_KEYS,
+    normalize_unknown_configuration_keys,
+    redact_configuration_value,
+)
+from .connection import (
+    CONNECTION_WATCHDOG_INTERVAL_SECONDS,
+    OCPP_HEARTBEAT_INTERVAL_SECONDS,
+    OcppConnectionActivity,
+)
+from .session_records import parse_growatt_session_record
 from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -58,13 +70,89 @@ class GrowattChargePoint(OcppChargePoint):
 
         self.coordinator = coordinator
         self.hass = hass
-        self._transaction_id = 1
+        self._cp_id = cp_id
+        self._websocket = websocket
+        self._activity = OcppConnectionActivity(hass.loop.time())
+        self._boot_notification_requested = False
 
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN]["charge_point"] = self
 
         self.coordinator.set_charge_point(cp_id)
         _LOGGER.info("GrowattChargePoint initialised for %s", cp_id)
+
+    def _is_current_connection(self):
+        """Return whether this charge point owns the active connection slot."""
+        return self.hass.data.get(DOMAIN, {}).get("charge_point") is self
+
+    def _mark_activity(self, action):
+        """Record an inbound message for the connection watchdog."""
+        self._activity.mark(self.hass.loop.time())
+        if self._is_current_connection():
+            self.coordinator.mark_connection_activity(action)
+
+    async def route_message(self, raw_msg):
+        """Track every inbound OCPP frame before routing it."""
+        action = "OCPPMessage"
+        try:
+            message = unpack(raw_msg)
+            message_action = getattr(message, "action", None)
+            if message_action is None:
+                action = type(message).__name__
+            elif hasattr(message_action, "value"):
+                action = str(message_action.value)
+            else:
+                action = str(message_action)
+        except Exception:
+            action = "InvalidOCPPMessage"
+
+        self._mark_activity(action)
+        await super().route_message(raw_msg)
+
+    async def async_watch_connection(self):
+        """Close and invalidate a connection with no inbound OCPP activity."""
+        while True:
+            await asyncio.sleep(CONNECTION_WATCHDOG_INTERVAL_SECONDS)
+
+            if not self._is_current_connection():
+                return
+
+            now_monotonic = self.hass.loop.time()
+            if not self._activity.is_stale(now_monotonic):
+                continue
+
+            idle_seconds = self._activity.idle_seconds(now_monotonic)
+            _LOGGER.warning(
+                "No OCPP activity from %s for %.0f seconds; marking disconnected",
+                self._cp_id,
+                idle_seconds,
+            )
+            self.coordinator.set_disconnected()
+
+            try:
+                await asyncio.wait_for(
+                    self._websocket.close(
+                        code=1001,
+                        reason="OCPP activity timeout",
+                    ),
+                    timeout=5.0,
+                )
+            except asyncio.TimeoutError:
+                _LOGGER.warning("Timed out closing stale OCPP connection: %s", self._cp_id)
+                transport = getattr(self._websocket, "transport", None)
+                if transport is not None:
+                    transport.close()
+            except Exception as exc:
+                _LOGGER.debug(
+                    "Failed to close stale OCPP connection %s: %s",
+                    self._cp_id,
+                    exc,
+                )
+            finally:
+                domain_data = self.hass.data.get(DOMAIN, {})
+                if domain_data.get("charge_point") is self:
+                    domain_data.pop("charge_point", None)
+            return
 
     # ─────────────────────────────
     # Boot / keepalive
@@ -74,17 +162,19 @@ class GrowattChargePoint(OcppChargePoint):
     async def on_boot_notification(self, **payload):
         try:
             _LOGGER.info("BootNotification payload: %s", payload)
-            self.hass.async_create_task(self._post_connect_init())
+            self.coordinator.record_boot_notification(payload)
+            if not self._boot_notification_requested:
+                self.hass.async_create_task(self._post_connect_init())
             return call_result.BootNotification(
                 current_time=self.coordinator.now(),
-                interval=60,
+                interval=OCPP_HEARTBEAT_INTERVAL_SECONDS,
                 status=RegistrationStatus.accepted,
             )
         except Exception as exc:
             _LOGGER.error("Error in BootNotification handler: %s", exc, exc_info=True)
             return call_result.BootNotification(
                 current_time=self.coordinator.now(),
-                interval=60,
+                interval=OCPP_HEARTBEAT_INTERVAL_SECONDS,
                 status=RegistrationStatus.accepted,
             )
 
@@ -115,11 +205,15 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.info("🔄 Auto GetConfiguration after connect")
             await self.trigger_get_configuration()
 
-            if self.coordinator.external_limit_power_enable:
-                _LOGGER.info("🔄 Auto external meterval (load balancing ON)")
-                await self.trigger_external_meterval()
-            else:
-                _LOGGER.debug("⏸️ Skip external meterval (load balancing OFF)")
+            _LOGGER.info("Fetching external meter snapshot after connect")
+            await self.trigger_external_meterval()
+
+            if (
+                self.coordinator.boot_notification is None
+                and not self._boot_notification_requested
+            ):
+                self._boot_notification_requested = True
+                await self.trigger_boot_notification()
 
         except Exception as exc:
             _LOGGER.warning("Post-connect init failed: %s", exc)
@@ -143,9 +237,14 @@ class GrowattChargePoint(OcppChargePoint):
     @on("StartTransaction")
     async def on_start_transaction(self, connector_id, id_tag, meter_start, **kwargs):
         try:
-            transaction_id = self._transaction_id
-            self._transaction_id += 1
-            self.coordinator.start_transaction(transaction_id, id_tag)
+            transaction_id = await self.coordinator.async_allocate_transaction_id()
+            self.coordinator.start_transaction(
+                transaction_id,
+                id_tag,
+                connector_id=connector_id,
+                meter_start=meter_start,
+                **kwargs,
+            )
             return call_result.StartTransaction(
                 transaction_id=transaction_id,
                 id_tag_info={"status": AuthorizationStatus.accepted},
@@ -160,7 +259,12 @@ class GrowattChargePoint(OcppChargePoint):
     @on("StopTransaction")
     async def on_stop_transaction(self, transaction_id, meter_stop, reason=None, **kwargs):
         try:
-            self.coordinator.stop_transaction(reason)
+            self.coordinator.stop_transaction(
+                reason,
+                transaction_id=transaction_id,
+                meter_stop=meter_stop,
+                **kwargs,
+            )
             return call_result.StopTransaction(
                 id_tag_info={"status": AuthorizationStatus.accepted}
             )
@@ -177,7 +281,12 @@ class GrowattChargePoint(OcppChargePoint):
     @on("StatusNotification")
     async def on_status_notification(self, connector_id, status, error_code=None, **kwargs):
         try:
-            self.coordinator.set_status(status)
+            self.coordinator.record_status_notification(
+                connector_id,
+                status,
+                error_code,
+                **kwargs,
+            )
             return call_result.StatusNotification()
         except Exception as exc:
             _LOGGER.error("Error in StatusNotification handler (status=%s): %s", status, exc, exc_info=True)
@@ -192,7 +301,11 @@ class GrowattChargePoint(OcppChargePoint):
                     self.coordinator.transaction_id = transaction_id
                     _LOGGER.info("✅ Transaction ID captured from MeterValues: %s", transaction_id)
                     self.coordinator.async_set_updated_data(True)
-            self.coordinator.process_meter_values(meter_value)
+            self.coordinator.process_meter_values(
+                meter_value,
+                connector_id=connector_id,
+                transaction_id=transaction_id,
+            )
             return call_result.MeterValues()
         except Exception as exc:
             _LOGGER.error("Error in MeterValues handler: %s", exc, exc_info=True)
@@ -207,9 +320,13 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             _LOGGER.debug("DataTransfer received: vendor=%s messageId=%s data=%s", vendor_id, message_id, data)
             if isinstance(data, str) and message_id in ("frozenrecord", "currentrecord"):
-                parsed = {k: v[0] for k, v in parse_qs(data).items()}
-                _LOGGER.info("Parsed %s: %s", message_id, parsed)
-                self.coordinator.process_frozen_record(parsed)
+                record = parse_growatt_session_record(message_id, data)
+                _LOGGER.info(
+                    "Parsed %s for transaction %s",
+                    message_id,
+                    record.transaction_id,
+                )
+                self.coordinator.process_session_record(record)
         except Exception as exc:
             _LOGGER.error("Error in DataTransfer handler (vendor=%s, messageId=%s): %s", vendor_id, message_id, exc, exc_info=True)
         return call_result.DataTransfer(status=DataTransferStatus.accepted)
@@ -243,6 +360,14 @@ class GrowattChargePoint(OcppChargePoint):
             await self.call(call.TriggerMessage(requested_message="StatusNotification", connector_id=1))
         except Exception as exc:
             _LOGGER.warning("Failed to trigger StatusNotification: %s", exc)
+
+    async def trigger_boot_notification(self):
+        """Request BootNotification when a reconnect did not send one."""
+        try:
+            _LOGGER.info("Triggering BootNotification for diagnostics")
+            await self.call(call.TriggerMessage(requested_message="BootNotification"))
+        except Exception as exc:
+            _LOGGER.warning("Failed to trigger BootNotification: %s", exc)
 
     async def trigger_external_meterval(self):
         _LOGGER.info("Triggering Growatt get_external_meterval")
@@ -308,25 +433,7 @@ class GrowattChargePoint(OcppChargePoint):
             # compatible with all THOR firmware variants (incl. 07AS)
             # ═══════════════════════════════════════════════════════
 
-            operational_keys = [
-                # Processed by coordinator
-                "G_MaxCurrent",
-                "G_ExternalLimitPower",
-                "G_ExternalLimitPowerEnable",
-                "G_ChargerMode",
-                "G_ServerURL",
-                "G_AutoChargeTime",
-                "G_LCDCloseEnable",
-                # Essential OCPP / diagnostics
-                "HeartbeatInterval",
-                "MeterValueSampleInterval",
-                "MeterValuesSampledData",
-                "UnlockConnectorOnEVSideDisconnect",
-                "ElectricityMeterOnline",
-                "G_WebSocketPingInterval",
-                # Price setting
-                "G_TimeSharingPrice",
-            ]
+            operational_keys = list(OPERATIONAL_CONFIGURATION_KEYS)
 
             _LOGGER.info("Triggering GetConfiguration CALL 1 (operational keys: %d)", len(operational_keys))
             result1 = await asyncio.wait_for(
@@ -354,27 +461,7 @@ class GrowattChargePoint(OcppChargePoint):
 
             await asyncio.sleep(0.5)
 
-            informational_keys = [
-                # Device identity
-                "G_ChargerID", "G_ChargerRate", "G_ChargerLanguage",
-                # Network
-                "G_ChargerNetIP", "G_ChargerNetDNS", "G_ChargerNetMask",
-                "G_ChargerNetMac", "G_ChargerNetGateway", "G_NetworkMode", "G_WifiSSID",
-                # Hardware limits
-                "G_MaxTemperature", "G_RCDProtection",
-                # Power meter
-                "G_PowerMeterAddr", "G_PowerMeterType", "G_ExternalSamplingCurWring",
-                # Time / zone
-                "G_TimeZone", "G_DaylightSavingTime",
-                # Solar
-                "G_SolarMode", "G_SolarLimitPower", "G_SolarBoost", "G_SolarThresholdCurr",
-                # Off-peak
-                "G_PeakValleyEnable", "G_OffPeakTime", "G_OffPeakEnable", "G_OffPeakCurr",
-                # Misc
-                "G_MeterValueInterval", "G_WorkingMode",
-                "G_LowPowerReserveEnable", "G_FullContinueChargeEnable",
-                "G_RandDelayChargeTime",
-            ]
+            informational_keys = list(INFORMATIONAL_CONFIGURATION_KEYS)
 
             _LOGGER.info("Triggering GetConfiguration CALL 2 (informational keys: %d)", len(informational_keys))
             result2 = await asyncio.wait_for(
@@ -398,7 +485,9 @@ class GrowattChargePoint(OcppChargePoint):
             # ═══════════════════════════════════════════════════════
 
             all_config_keys = config_keys_1 + config_keys_2
-            all_unknown_keys = list(set(unknown_keys_1 + unknown_keys_2))
+            all_unknown_keys = normalize_unknown_configuration_keys(
+                unknown_keys_1 + unknown_keys_2
+            )
             _LOGGER.info("Total received: %d keys (%d unknown)", len(all_config_keys), len(all_unknown_keys))
 
             for item in all_config_keys:
@@ -409,13 +498,21 @@ class GrowattChargePoint(OcppChargePoint):
                 key = item.get("key")
                 value = item.get("value")
                 readonly = item.get("readonly")
-                _LOGGER.debug("Config key: %s = %s (readonly=%s)", key, value, readonly)
+                _LOGGER.debug(
+                    "Config key: %s = %s (readonly=%s)",
+                    key,
+                    redact_configuration_value(key, value),
+                    readonly,
+                )
 
             if all_unknown_keys:
                 _LOGGER.info("Unknown keys: %s", ", ".join(str(k) for k in all_unknown_keys))
 
-            if all_config_keys:
-                self.coordinator.process_configuration(all_config_keys)
+            if all_config_keys or all_unknown_keys:
+                self.coordinator.process_configuration(
+                    all_config_keys,
+                    all_unknown_keys,
+                )
             else:
                 _LOGGER.warning("GetConfiguration returned no usable configuration keys")
 
@@ -432,13 +529,23 @@ class GrowattChargePoint(OcppChargePoint):
 
     async def change_configuration(self, key: str, value: str):
         try:
-            _LOGGER.info("ChangeConfiguration: %s = %s", key, value)
+            _LOGGER.info(
+                "ChangeConfiguration: %s = %s",
+                key,
+                redact_configuration_value(key, value),
+            )
             result = await self.call(call.ChangeConfiguration(key=key, value=value))
             status = getattr(result, "status", ConfigurationStatus.rejected)
             _LOGGER.info("ChangeConfiguration result: %s", status)
             return status
         except Exception as exc:
-            _LOGGER.error("Failed to change configuration %s=%s: %s", key, value, exc, exc_info=True)
+            _LOGGER.error(
+                "Failed to change configuration %s=%s: %s",
+                key,
+                redact_configuration_value(key, value),
+                exc,
+                exc_info=True,
+            )
             return ConfigurationStatus.rejected
 
     # ─────────────────────────────
@@ -477,6 +584,7 @@ class GrowattChargePoint(OcppChargePoint):
 # ─────────────────────────────
 
 async def _on_connect(websocket, path, coordinator, hass):
+    watchdog_task = None
     try:
         if not path.startswith(DEFAULT_PATH):
             await websocket.close()
@@ -485,6 +593,10 @@ async def _on_connect(websocket, path, coordinator, hass):
         cp_id = path.rstrip("/").split("/")[-1]
         _LOGGER.info("THOR connected: %s", cp_id)
         cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
+        watchdog_task = hass.async_create_background_task(
+            cp.async_watch_connection(),
+            name=f"growatt_thor_connection_watchdog_{cp_id}",
+        )
         try:
             await cp.start()
         except (websockets.exceptions.ConnectionClosedError, websockets.exceptions.ConnectionClosedOK):
@@ -492,8 +604,22 @@ async def _on_connect(websocket, path, coordinator, hass):
         except Exception as exc:
             _LOGGER.error("Error in connection handler: %s", exc, exc_info=True)
         finally:
-            hass.data.get(DOMAIN, {}).pop("charge_point", None)
-            coordinator.set_status("Unavailable")
+            if watchdog_task is not None:
+                watchdog_task.cancel()
+                try:
+                    await watchdog_task
+                except asyncio.CancelledError:
+                    pass
+
+            domain_data = hass.data.get(DOMAIN, {})
+            if domain_data.get("charge_point") is cp:
+                domain_data.pop("charge_point", None)
+                coordinator.set_disconnected()
+            else:
+                _LOGGER.debug(
+                    "Ignoring disconnect cleanup for superseded connection: %s",
+                    cp_id,
+                )
             try:
                 await asyncio.wait_for(websocket.close(), timeout=5.0)
             except (asyncio.TimeoutError, Exception):
@@ -518,6 +644,8 @@ async def start_ocpp_server(host, port, coordinator, hass):
             host,
             port,
             subprotocols=[OCPP_SUBPROTOCOL],
+            # THOR uses OCPP messages for keepalive; the activity watchdog
+            # detects stale sockets without websocket-level ping futures.
             ping_interval=None,
             ping_timeout=None,
         )
