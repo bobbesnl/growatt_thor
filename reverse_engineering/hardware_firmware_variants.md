@@ -103,6 +103,23 @@ evidence.
 The web-interface **Machine Type** field selects a charger model. It is not a
 hardware-generation or PCB-revision identifier.
 
+The field is submitted to the charger's local `/config.cgi` endpoint as
+`mdtype` and uses the following values:
+
+| `mdtype` | Web-interface model |
+|---:|---|
+| `0` | `NULL` |
+| `1` | `EVA-11S` |
+| `2` | `EVA-22S` |
+| `3` | `EVA-44S` |
+| `4` | `EVA-11S-SE` |
+| `5` | `EVA-22S-SE` |
+| `6` | `EVA-44S-SE` |
+
+No matching OCPP configuration key is currently known. This local setting is
+therefore separate from the `chargePointModel` string reported through
+`BootNotification` and is not exposed as a Home Assistant entity.
+
 ## Firmware update safety
 
 - Install only firmware offered for the exact device by Growatt or ShinePhone.
