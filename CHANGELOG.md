@@ -45,6 +45,15 @@ _Target version: 1.7.0_
 
 ---
 
+## [1.6.1] - 2026-09-08
+
+### Fixed
+- **Delayed Start/Stop Charging commands**: Prevent repeated configuration requests from starving `RemoteStartTransaction` and `RemoteStopTransaction` in the charger write queue. Transaction controls now run with priority and are not held behind the 20-second configuration-write interval.
+- **Duplicate switch writes**: Skip already-active LCD and load-balancing settings and coalesce pending writes for the same Growatt configuration key.
+- **Write queue diagnostics**: Include command names and queue age in debug logging to make delayed charger commands easier to identify.
+
+---
+
 ## 🎉 [1.6.0] - 2026-09-03
 
 **Major diagnostics and session-tracking release, built end-to-end by @felixhix. Huge thanks to him for driving this release from start to finish.**
