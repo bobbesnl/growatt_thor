@@ -62,8 +62,15 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             )
             return
 
-        _LOGGER.info("🔘 Queueing start charging command")
-        await self.coordinator.queue_write(self._start_charging, charge_point)
+        _LOGGER.info("🔘 Queueing priority start charging command")
+        await self.coordinator.queue_write(
+            self._start_charging,
+            charge_point,
+            dedupe_key="RemoteStartTransaction",
+            priority=True,
+            rate_limited=False,
+            command_name="RemoteStartTransaction",
+        )
 
     async def _start_charging(self, charge_point):
         """Start charging command (runs inside write-queue)."""
@@ -144,7 +151,15 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
         else:
             _LOGGER.info("🔘 Queueing stop charging command (transaction_id=%s)", tid)
 
-        await self.coordinator.queue_write(self._stop_charging, charge_point, tid)
+        await self.coordinator.queue_write(
+            self._stop_charging,
+            charge_point,
+            tid,
+            dedupe_key="RemoteStopTransaction",
+            priority=True,
+            rate_limited=False,
+            command_name="RemoteStopTransaction",
+        )
 
     async def _stop_charging(self, charge_point, transaction_id: int):
         """Stop charging command (runs inside write-queue)."""
