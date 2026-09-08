@@ -167,6 +167,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._write_queue = deque()
         self._write_lock = asyncio.Lock()
         self._write_task = None
+        self._write_queue_changed = asyncio.Event()
 
         # Rate limiting / polling pause (monotonic time)
         self._last_write_monotonic = None
@@ -299,14 +300,26 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # WRITE QUEUE METHODS
     # ─────────────────────────────
 
-    async def queue_write(self, write_func, *args, dedupe_key=None, **kwargs):
-        """Voeg een schrijfactie toe aan de queue."""
+    async def queue_write(
+        self,
+        write_func,
+        *args,
+        dedupe_key=None,
+        priority=False,
+        rate_limited=True,
+        command_name=None,
+        **kwargs,
+    ):
+        """Queue a charger command with optional deduplication and priority."""
         write_item = {
             "func": write_func,
             "args": args,
             "kwargs": kwargs,
-            "enqueued_at": datetime.now(),
+            "enqueued_at": self.hass.loop.time(),
             "dedupe_key": dedupe_key,
+            "priority": priority,
+            "rate_limited": rate_limited,
+            "command_name": command_name or write_func.__name__,
         }
 
         if dedupe_key is not None:
@@ -314,8 +327,25 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 item for item in self._write_queue if item.get("dedupe_key") != dedupe_key
             )
 
-        self._write_queue.append(write_item)
-        _LOGGER.debug("📥 Write queued. Queue size: %d", len(self._write_queue))
+        if priority:
+            insert_at = next(
+                (
+                    index
+                    for index, item in enumerate(self._write_queue)
+                    if not item.get("priority", False)
+                ),
+                len(self._write_queue),
+            )
+            self._write_queue.insert(insert_at, write_item)
+        else:
+            self._write_queue.append(write_item)
+
+        _LOGGER.debug(
+            "📥 Queued %s. Queue size: %d",
+            write_item["command_name"],
+            len(self._write_queue),
+        )
+        self._write_queue_changed.set()
 
         if self._write_task is None or self._write_task.done():
             self._write_task = self.hass.async_create_task(self._process_write_queue())
@@ -325,38 +355,80 @@ class GrowattCoordinator(DataUpdateCoordinator):
         async with self._write_lock:
             try:
                 while self._write_queue:
-                    now_mono = self.hass.loop.time()
+                    write_item = self._write_queue[0]
 
-                    if self._last_write_monotonic is not None:
-                        time_since_last = now_mono - self._last_write_monotonic
-                        wait_time = max(0.0, self._min_write_interval - time_since_last)
+                    if (
+                        write_item["rate_limited"]
+                        and self._last_write_monotonic is not None
+                    ):
+                        time_since_last = (
+                            self.hass.loop.time() - self._last_write_monotonic
+                        )
+                        wait_time = max(
+                            0.0,
+                            self._min_write_interval - time_since_last,
+                        )
 
                         if wait_time > 0:
                             _LOGGER.info(
-                                "⏳ Waiting %.1fs before next write. Queue: %d remaining",
+                                "⏳ Waiting %.1fs before %s. Queue: %d total",
                                 wait_time,
+                                write_item["command_name"],
                                 len(self._write_queue),
                             )
-                            await asyncio.sleep(wait_time)
+                            self._write_queue_changed.clear()
+                            try:
+                                await asyncio.wait_for(
+                                    self._write_queue_changed.wait(),
+                                    timeout=wait_time,
+                                )
+                            except asyncio.TimeoutError:
+                                pass
+                            else:
+                                # Re-evaluate the head of the queue so a newly
+                                # queued control command can run immediately.
+                                continue
 
                     # Keep the item in the queue while rate limiting so a newer
                     # write with the same dedupe key can still replace it.
                     write_item = self._write_queue.popleft()
 
                     try:
+                        queue_age = (
+                            self.hass.loop.time() - write_item["enqueued_at"]
+                        )
                         _LOGGER.info(
-                            "✍️ Executing write command. Remaining in queue: %d",
+                            "✍️ Executing %s after %.1fs. Remaining in queue: %d",
+                            write_item["command_name"],
+                            queue_age,
                             len(self._write_queue),
                         )
 
-                        until = self.hass.loop.time() + self._poll_pause_after_write
-                        current = self.hass.data[DOMAIN].get("skip_polling_until", 0)
-                        self.hass.data[DOMAIN]["skip_polling_until"] = max(current, until)
-                        _LOGGER.info("🛡️ Polling paused BEFORE write (Thor FW protection)")
+                        if write_item["rate_limited"]:
+                            until = (
+                                self.hass.loop.time()
+                                + self._poll_pause_after_write
+                            )
+                            current = self.hass.data[DOMAIN].get(
+                                "skip_polling_until",
+                                0,
+                            )
+                            self.hass.data[DOMAIN]["skip_polling_until"] = max(
+                                current,
+                                until,
+                            )
+                            _LOGGER.info(
+                                "🛡️ Polling paused BEFORE write "
+                                "(Thor FW protection)"
+                            )
 
-                        result = await write_item["func"](*write_item["args"], **write_item["kwargs"])
+                        result = await write_item["func"](
+                            *write_item["args"],
+                            **write_item["kwargs"],
+                        )
 
-                        self._last_write_monotonic = self.hass.loop.time()
+                        if write_item["rate_limited"]:
+                            self._last_write_monotonic = self.hass.loop.time()
 
                         _LOGGER.info("✅ Write completed successfully. Result: %s", result)
 

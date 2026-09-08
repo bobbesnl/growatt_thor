@@ -154,11 +154,21 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             _LOGGER.warning("Cannot change Loadbalancing: charger not connected")
             return
 
+        new_state = value == "1"
+        if self.coordinator.external_limit_power_enable == new_state:
+            _LOGGER.debug(
+                "Loadbalancing already %s - skipping write",
+                "ON" if new_state else "OFF",
+            )
+            return
+
         try:
             await self.coordinator.queue_write(
                 self._apply_external_limit_power_enable,
                 charge_point,
-                value
+                value,
+                dedupe_key="G_ExternalLimitPowerEnable",
+                command_name="ChangeConfiguration(G_ExternalLimitPowerEnable)",
             )
 
         except Exception as exc:
@@ -252,11 +262,20 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
             _LOGGER.warning("Cannot change LCD display: charger not connected")
             return
 
+        if self.coordinator.lcd_close_enable == value:
+            _LOGGER.debug(
+                "LCD display already %s - skipping write",
+                "ON" if value == "Disable" else "OFF",
+            )
+            return
+
         try:
             await self.coordinator.queue_write(
                 self._apply_lcd_close_enable,
                 charge_point,
-                value
+                value,
+                dedupe_key="G_LCDCloseEnable",
+                command_name="ChangeConfiguration(G_LCDCloseEnable)",
             )
 
         except Exception as exc:
