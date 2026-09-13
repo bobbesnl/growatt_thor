@@ -9,6 +9,12 @@ Assistant--based OCPP server can fully replace the Growatt Cloud.
 The focus is **OCPP 1.6 over WebSocket**, with Growatt-specific vendor
 extensions.
 
+Focused evidence and implementation boundaries are maintained separately:
+
+- [Local OCPP authorization](local_authorization.md)
+- [THOR 22AS capture findings](thor_22as_capture_findings.md)
+- [Hardware and firmware variants](hardware_firmware_variants.md)
+
 ------------------------------------------------------------------------
 
 ## Architecture Summary

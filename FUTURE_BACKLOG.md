@@ -121,10 +121,12 @@ Priority: medium.
 
 ### F08 — Explicit local RFID authorisation and optional session assignment
 
-Priority: deferred pending a working card and controlled captures.
+Priority: local OCPP policy MVP implemented on the feature branch; physical
+card validation and optional assignment remain pending.
 
-- Define the intended authorisation policy; the current OCPP Authorize handler
-  generally accepts incoming requests and is not a managed card allowlist.
+- The feature-branch MVP provides an opt-in local allowlist, checks Authorize
+  and StartTransaction, and preserves open access by default. See the README
+  for configuration and limits; this is not a completed card-provisioning flow.
 - Consider local card permissions and optional named vehicle/user assignment.
 - Keep local authorisation, Growatt cloud binding, and physical card programming
   separate. No RFID write implementation is authorised by this backlog.

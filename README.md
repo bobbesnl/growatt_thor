@@ -133,6 +133,23 @@ When adding the integration, enter the **exact installation address** of the cha
 
 You can update the location at any time via **Settings → Devices & Services → Growatt THOR → Configure**
 
+### Local charging authorization
+
+Under **Configure → Manage local charging authorization**, RFID access can be
+restricted to an exact local allowlist. Existing installations remain open until
+the restriction is enabled; an enabled empty list rejects every card.
+
+Starts from Home Assistant have a separate permission and do not require their
+technical OCPP identifier in the RFID list. Plug & Charge follows the charger
+authorization mode. Policy changes affect later requests and never terminate an
+active session.
+
+The editable RFID list is stored locally in the Home Assistant config entry and
+is included in Home Assistant backups. Identifiers are omitted from normal logs
+and downloaded diagnostics. See the
+[authorization evidence and limits](reverse_engineering/local_authorization.md)
+for the exact behavior and remaining validation scope.
+
 ### Exporting Session Data
 
 Use the built-in action to export sessions for a specific date range:
