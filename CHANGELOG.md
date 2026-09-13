@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 _Target version: 1.7.0_
 
 ### Added
+- **Local RFID authorization**: Optionally restrict physical cards to an exact
+  local allowlist while keeping existing installations open by default. Starts
+  from Home Assistant use a separate permission and identifiers remain absent
+  from normal logs and downloaded diagnostics.
+- **Authorization-mode control**: Change between Home Assistant/RFID, RFID-only,
+  and Plug & Charge through a guarded device select. Changes are blocked while
+  disconnected, faulted, actively charging, or reported read-only.
 - **More interface languages**: Setup, entity names, states, and controls are now also available in Italian, Hungarian, Slovenian, French, and Spanish. Detailed technical help remains in English until it has been reviewed by native speakers.
 - **Last charger fault**: A new diagnostic sensor keeps the most recent real charger fault, even after the charger recovers or Home Assistant restarts. Downloaded diagnostics include the available details for troubleshooting.
 - **External meter status**: A new diagnostic sensor shows whether the external meter is working, has a Modbus fault, has stopped responding, or has not reported any data yet.
