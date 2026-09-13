@@ -1,9 +1,19 @@
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig
+from homeassistant.helpers.selector import (
+    SelectSelector, SelectSelectorConfig, TextSelector, TextSelectorConfig,
+)
 import voluptuous as vol
 import logging
 
+from .authorization import (
+    AuthorizationPolicy,
+    CONF_ALLOW_HA_REMOTE_START,
+    CONF_AUTHORIZATION,
+    CONF_AUTHORIZED_TAGS,
+    CONF_RESTRICT_AUTHORIZATION,
+    policy_from_input,
+)
 from .const import (
     CONFIG_ENTRY_VERSION,
     DOMAIN,
@@ -84,6 +94,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         errors = {}
 
         if user_input is not None:
+            if user_input.get("configure_authorization"):
+                return await self.async_step_authorization()
             if user_input.get("enable_ap_mode"):
                 return await self.async_step_confirm_ap_mode()
 
@@ -146,6 +158,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                         )
                     ),
                     vol.Optional("enable_ap_mode", default=False): bool,
+                    vol.Optional("configure_authorization", default=False): bool,
                 }
             ),
             errors=errors,
@@ -153,6 +166,60 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 "min_interval": str(MIN_POLL_INTERVAL),
                 "current_interval": str(current_poll_interval),
             },
+        )
+
+    async def async_step_authorization(self, user_input=None):
+        """Change only local policy, without sending charger configuration writes."""
+        policy = AuthorizationPolicy.from_config(
+            self.config_entry.data.get(CONF_AUTHORIZATION)
+        )
+        errors = {}
+        if user_input is not None:
+            try:
+                updated = policy_from_input(policy, user_input)
+            except ValueError as exc:
+                errors["base"] = str(exc)
+            else:
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    data={**self.config_entry.data, CONF_AUTHORIZATION: updated.as_config()},
+                )
+                coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
+                if coordinator:
+                    coordinator.authorization.policy = updated
+                return self.async_create_entry(title="", data={})
+
+        visible_tags = "\n".join(sorted(policy.id_tags))
+        if user_input is not None and isinstance(
+            user_input.get(CONF_AUTHORIZED_TAGS), str
+        ):
+            visible_tags = user_input[CONF_AUTHORIZED_TAGS]
+
+        return self.async_show_form(
+            step_id="authorization",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_RESTRICT_AUTHORIZATION,
+                    default=(user_input or {}).get(
+                        CONF_RESTRICT_AUTHORIZATION, policy.restricted
+                    ),
+                ): bool,
+                vol.Required(
+                    CONF_ALLOW_HA_REMOTE_START,
+                    default=(user_input or {}).get(
+                        CONF_ALLOW_HA_REMOTE_START,
+                        policy.allow_ha_remote_start,
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_AUTHORIZED_TAGS,
+                    default=visible_tags,
+                ): TextSelector(
+                    TextSelectorConfig(multiline=True)
+                ),
+            }),
+            errors=errors,
+            description_placeholders={"count": str(len(policy.id_tags))},
         )
 
     async def async_step_confirm_charger_mode(self, user_input=None):

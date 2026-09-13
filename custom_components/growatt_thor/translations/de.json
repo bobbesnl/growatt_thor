@@ -28,7 +28,22 @@
           "poll_interval": "Netzdaten-Abfrageintervall (Sekunden, aktuell: {current_interval})",
           "location": "Installationsort",
           "charger_mode": "⚠️ Lademodus",
+          "configure_authorization": "Lokale Ladefreigabe verwalten",
           "enable_ap_mode": "⚠️ AP-Modus aktivieren"
+        }
+      },
+      "authorization": {
+        "title": "Lokale Ladefreigabe",
+        "description": "Gespeicherte RFID-Kennungen: {count}. Der Zugriff mit physischen Karten und von Home Assistant gestartete Ladevorgänge werden getrennt verwaltet. Dies ändert weder den Autorisierungsmodus der Wallbox noch Karten oder Cloud-Bindungen.",
+        "data": {
+          "restrict_authorization": "RFID-Zugriff auf Freigabeliste beschränken",
+          "allow_ha_remote_start": "Starts durch Home Assistant erlauben",
+          "authorized_id_tags": "RFID-Freigabeliste (eine Kennung pro Zeile)"
+        },
+        "data_description": {
+          "restrict_authorization": "Aktiviert die lokale Prüfung physischer RFID-Kennungen. Eine aktivierte leere Liste lehnt jede Karte ab.",
+          "allow_ha_remote_start": "Erlaubt Starts über HA-Steuerelemente, Dienste und Automationen. Die technische Kennung gehört nicht in die RFID-Liste.",
+          "authorized_id_tags": "Maximal 100 exakte OCPP-Kennungen mit je 1–20 Zeichen. Die Liste wird lokal gespeichert und beim nächsten Öffnen wieder angezeigt. Zum Entfernen die jeweilige Zeile löschen; Kennungen erscheinen nicht in normalen Protokollen oder Diagnosedaten."
         }
       },
       "confirm_charger_mode": {
@@ -47,6 +62,7 @@
       }
     },
     "error": {
+      "invalid_authorization": "Höchstens 100 Kennungen mit je 1–20 druckbaren ASCII-Zeichen ohne Leerzeichen eingeben.",
       "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen"
     },
     "abort": {

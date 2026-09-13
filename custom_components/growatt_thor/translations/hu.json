@@ -28,7 +28,22 @@
           "poll_interval": "Hálózati lekérdezési időköz (másodperc, jelenleg: {current_interval})",
           "location": "Telepítés helye",
           "charger_mode": "A töltőmód",
+          "configure_authorization": "Manage local charging authorisation",
           "enable_ap_mode": "Az AP mód engedélyezése"
+        }
+      },
+      "authorization": {
+        "title": "Local charging authorisation",
+        "description": "Stored RFID identifiers: {count}. Physical card access and starts initiated by Home Assistant are managed independently. This does not change the charger's authorization mode, cards, or cloud bindings.",
+        "data": {
+          "restrict_authorization": "Restrict RFID access to the allowlist",
+          "allow_ha_remote_start": "Allow starts from Home Assistant",
+          "authorized_id_tags": "RFID allowlist (one identifier per line)"
+        },
+        "data_description": {
+          "restrict_authorization": "Enables local checking of physical RFID identifiers. An enabled empty list rejects every card.",
+          "allow_ha_remote_start": "Allows starts through HA controls, services, and automations. No technical identifier needs to be added to the RFID list.",
+          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics."
         }
       },
       "confirm_charger_mode": {
@@ -47,6 +62,7 @@
       }
     },
     "error": {
+      "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
       "poll_interval_too_low": "A lekérdezési időköz legalább {min_interval} másodperc legyen"
     },
     "abort": {
