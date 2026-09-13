@@ -7,6 +7,7 @@ import asyncio
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.storage import Store
 
+from .authorization import LocalAuthorization
 from .charging_duration import EffectiveChargingTracker
 from .charging_sessions import CORRELATION_MATCHED, build_unified_session
 from .charging_controls import transaction_state_is_active
@@ -74,6 +75,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_heartbeat_at = None
         self.transaction_id = None
         self.id_tag = None
+        self.authorization = LocalAuthorization()
 
         # Latest normalized OCPP requests retained for HA diagnostics.
         self.boot_notification = None

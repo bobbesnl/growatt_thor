@@ -28,6 +28,7 @@ from .connection import (
     OcppConnectionActivity,
 )
 from .session_records import parse_growatt_session_record
+from .ocpp_logging import OcppMetadataLogger
 from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -66,7 +67,7 @@ class GrowattChargePoint(OcppChargePoint):
     """
 
     def __init__(self, cp_id, websocket, coordinator, hass):
-        super().__init__(cp_id, websocket)
+        super().__init__(cp_id, websocket, logger=OcppMetadataLogger(_LOGGER, {}))
 
         self.coordinator = coordinator
         self.hass = hass
@@ -223,11 +224,15 @@ class GrowattChargePoint(OcppChargePoint):
     @on("Authorize")
     async def on_authorize(self, id_tag, **kwargs):
         try:
-            return call_result.Authorize(
-                id_tag_info={"status": AuthorizationStatus.accepted}
+            status = self.coordinator.authorization.decide(
+                id_tag, "Authorize", self.coordinator.now()
             )
-        except Exception as exc:
-            _LOGGER.error("Error in Authorize handler for idTag=%s: %s", id_tag, exc, exc_info=True)
+            _LOGGER.info("Local Authorize decision: %s", status)
+            return call_result.Authorize(
+                id_tag_info={"status": status}
+            )
+        except Exception:
+            _LOGGER.error("Local Authorize failed; denying request")
             return call_result.Authorize(
                 id_tag_info={"status": AuthorizationStatus.invalid}
             )
@@ -235,6 +240,18 @@ class GrowattChargePoint(OcppChargePoint):
     @on("StartTransaction")
     async def on_start_transaction(self, connector_id, id_tag, meter_start, **kwargs):
         try:
+            status = self.coordinator.authorization.decide(
+                id_tag,
+                "StartTransaction",
+                self.coordinator.now(),
+                # Plug & Charge is an explicit charger mode, not an RFID identity.
+                card_policy_applies=str(
+                    getattr(self.coordinator, "charger_mode", "")
+                )
+                != "3",
+            )
+            # Even a denied start is a reported transaction. Allocate and retain
+            # its identity so subsequent meter/stop messages remain correlatable.
             transaction_id = await self.coordinator.async_allocate_transaction_id()
             self.coordinator.start_transaction(
                 transaction_id,
@@ -243,12 +260,16 @@ class GrowattChargePoint(OcppChargePoint):
                 meter_start=meter_start,
                 **kwargs,
             )
+            self.coordinator.active_transaction["start"]["response"]["id_tag_info"] = {
+                "status": status
+            }
+            _LOGGER.info("Local StartTransaction decision: %s", status)
             return call_result.StartTransaction(
                 transaction_id=transaction_id,
-                id_tag_info={"status": AuthorizationStatus.accepted},
+                id_tag_info={"status": status},
             )
-        except Exception as exc:
-            _LOGGER.error("Error in StartTransaction handler (connector=%s, idTag=%s): %s", connector_id, id_tag, exc, exc_info=True)
+        except Exception:
+            _LOGGER.error("StartTransaction handling failed; denying request")
             return call_result.StartTransaction(
                 transaction_id=0,
                 id_tag_info={"status": AuthorizationStatus.invalid},
@@ -263,14 +284,12 @@ class GrowattChargePoint(OcppChargePoint):
                 meter_stop=meter_stop,
                 **kwargs,
             )
-            return call_result.StopTransaction(
-                id_tag_info={"status": AuthorizationStatus.accepted}
-            )
-        except Exception as exc:
-            _LOGGER.error("Error in StopTransaction handler (transaction_id=%s): %s", transaction_id, exc, exc_info=True)
-            return call_result.StopTransaction(
-                id_tag_info={"status": AuthorizationStatus.accepted}
-            )
+            # A stop must always be processed. Omit optional idTagInfo so this
+            # acknowledgement does not grant cached access to an unknown tag.
+            return call_result.StopTransaction()
+        except Exception:
+            _LOGGER.error("StopTransaction handling failed")
+            return call_result.StopTransaction()
 
     # ─────────────────────────────
     # Status & Metering
@@ -588,16 +607,24 @@ class GrowattChargePoint(OcppChargePoint):
     # ─────────────────────────────
 
     async def remote_start_transaction(self, connector_id: int, id_tag: str) -> dict:
+        authorization = self.coordinator.authorization
         try:
-            _LOGGER.info("🔵 RemoteStartTransaction: connector_id=%d, id_tag=%s", connector_id, id_tag)
+            if not authorization.begin_ha_remote_start(id_tag):
+                _LOGGER.warning("Remote start denied by local authorisation policy")
+                return {"status": "Rejected"}
+            _LOGGER.info("RemoteStartTransaction: connector_id=%d", connector_id)
             result = await self.call(
                 call.RemoteStartTransaction(connector_id=connector_id, id_tag=id_tag)
             )
             status = getattr(result, "status", RemoteStartStopStatus.rejected)
+            status_value = status.value if hasattr(status, "value") else str(status)
+            if status_value != RemoteStartStopStatus.accepted.value:
+                authorization.cancel_ha_remote_start()
             _LOGGER.info("RemoteStartTransaction result: %s", status)
-            return {"status": status.value if hasattr(status, "value") else str(status)}
-        except Exception as exc:
-            _LOGGER.error("Failed to start transaction: %s", exc, exc_info=True)
+            return {"status": status_value}
+        except Exception:
+            authorization.cancel_ha_remote_start()
+            _LOGGER.error("Failed to send remote start transaction")
             return {"status": "Rejected"}
 
     async def remote_stop_transaction(self, transaction_id: int) -> dict:

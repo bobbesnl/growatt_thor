@@ -181,7 +181,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await _recover_pending_entity_migrations(hass, entry)
 
+    from .authorization import CONF_AUTHORIZATION, LocalAuthorization
+
     coordinator = GrowattCoordinator(hass, source_instance_id=entry.entry_id)
+    coordinator.authorization = LocalAuthorization(entry.data.get(CONF_AUTHORIZATION))
     await coordinator.async_load_storage()
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["coordinator"] = coordinator

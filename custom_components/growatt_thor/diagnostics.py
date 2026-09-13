@@ -88,6 +88,7 @@ async def async_get_config_entry_diagnostics(
         )
 
     return {
+        "local_authorization": coordinator.authorization.diagnostics(),
         "connection": {
             "connected": coordinator.connected,
             "status": coordinator.status,
