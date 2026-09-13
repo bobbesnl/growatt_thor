@@ -23,13 +23,16 @@
     "step": {
       "init": {
         "title": "Opciones de Growatt THOR",
-        "description": "Configura el intervalo de actualización y las opciones avanzadas",
+        "description": "Choose what you want to configure. Charging strategy and authorization mode are dedicated device controls.",
+        "menu_options": {"general": "General settings", "authorization": "Local access control", "confirm_ap_mode": "Maintenance: AP mode"},
+        "menu_option_descriptions": {"general": "Configure polling and location.", "authorization": "Manage RFID access and Home Assistant remote starts separately.", "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant."}
+      },
+      "general": {
+        "title": "General settings",
+        "description": "These settings affect Home Assistant. Charging strategy and authorization mode are dedicated device controls.",
         "data": {
           "poll_interval": "Intervalo de consulta de la red (segundos, actualmente: {current_interval})",
-          "location": "Ubicación de instalación",
-          "charger_mode": "⚠️ Modo del cargador",
-          "configure_authorization": "Manage local charging authorisation",
-          "enable_ap_mode": "⚠️ Activar modo AP"
+          "location": "Ubicación de instalación"
         }
       },
       "authorization": {
@@ -539,6 +542,7 @@
       }
     },
     "select": {
+      "authorization_mode": {"name":"Authorization mode","state":{"home_assistant_rfid":"Home Assistant / RFID","rfid_only":"Solo RFID","plug_and_charge":"Conectar y cargar"}},
       "working_mode": {
         "name": "Estrategia de carga",
         "state": {

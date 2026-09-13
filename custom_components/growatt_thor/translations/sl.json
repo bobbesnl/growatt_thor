@@ -23,13 +23,16 @@
     "step": {
       "init": {
         "title": "Možnosti Growatt THOR",
-        "description": "Nastavite interval preverjanja in napredne možnosti",
+        "description": "Choose what you want to configure. Charging strategy and authorization mode are dedicated device controls.",
+        "menu_options": {"general": "General settings", "authorization": "Local access control", "confirm_ap_mode": "Maintenance: AP mode"},
+        "menu_option_descriptions": {"general": "Configure polling and location.", "authorization": "Manage RFID access and Home Assistant remote starts separately.", "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant."}
+      },
+      "general": {
+        "title": "General settings",
+        "description": "These settings affect Home Assistant. Charging strategy and authorization mode are dedicated device controls.",
         "data": {
           "poll_interval": "Interval preverjanja omrežja (sekunde, trenutno: {current_interval})",
-          "location": "Lokacija namestitve",
-          "charger_mode": "⚠️ Način polnilnice",
-          "configure_authorization": "Manage local charging authorisation",
-          "enable_ap_mode": "⚠️ Omogoči način AP"
+          "location": "Lokacija namestitve"
         }
       },
       "authorization": {
@@ -539,6 +542,7 @@
       }
     },
     "select": {
+      "authorization_mode": {"name":"Authorization mode","state":{"home_assistant_rfid":"Home Assistant / RFID","rfid_only":"Samo RFID","plug_and_charge":"Priklopi in polni"}},
       "working_mode": {
         "name": "Strategija polnjenja",
         "state": {

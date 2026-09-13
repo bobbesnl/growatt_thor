@@ -20,6 +20,9 @@ class FlowBase:
     def async_create_entry(self, **kwargs):
         return kwargs
 
+    def async_show_menu(self, **kwargs):
+        return kwargs
+
 
 class TextSelector:
     def __init__(self, config):
@@ -75,10 +78,16 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
             config_entries=SimpleNamespace(async_update_entry=update),
         )
 
-    async def test_entry_route_does_not_change_charger_mode(self):
-        result = await self.flow.async_step_init({'configure_authorization': True})
-        self.assertEqual(result['step_id'], 'authorization')
-        self.assertEqual(self.updates, [])
+    async def test_entry_menu_separates_local_settings_and_actions(self):
+        result = await self.flow.async_step_init()
+        self.assertEqual(result['step_id'], 'init')
+        self.assertEqual(
+            result['menu_options'],
+            ['general', 'authorization', 'confirm_ap_mode'],
+        )
+        general = await self.flow.async_step_general()
+        field_names = {marker.schema for marker in general['data_schema'].schema}
+        self.assertNotIn('charger_mode', field_names)
 
     async def test_save_preserves_existing_data_and_applies_live(self):
         result = await self.flow.async_step_authorization({

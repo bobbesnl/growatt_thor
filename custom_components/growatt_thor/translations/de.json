@@ -23,13 +23,24 @@
     "step": {
       "init": {
         "title": "Optionen für Growatt THOR",
-        "description": "Abfrageintervall und erweiterte Optionen konfigurieren",
+        "description": "Wähle den zu konfigurierenden Bereich. Ladestrategie und Autorisierungsmodus sind eigene Gerätesteuerungen.",
+        "menu_options": {
+          "general": "Allgemeine Einstellungen",
+          "authorization": "Lokale Zugriffskontrolle",
+          "confirm_ap_mode": "Wartung: AP-Modus"
+        },
+        "menu_option_descriptions": {
+          "general": "Abfrageintervall und Installationsort konfigurieren.",
+          "authorization": "RFID-Zugriff und Starts durch Home Assistant getrennt verwalten.",
+          "confirm_ap_mode": "Einrichtungs-WLAN der Wallbox aktivieren; Home Assistant wird dabei getrennt."
+        }
+      },
+      "general": {
+        "title": "Allgemeine Einstellungen",
+        "description": "Diese Einstellungen betreffen Home Assistant. Ladestrategie und Autorisierungsmodus sind eigene Select-Entitäten am Gerät.",
         "data": {
           "poll_interval": "Netzdaten-Abfrageintervall (Sekunden, aktuell: {current_interval})",
-          "location": "Installationsort",
-          "charger_mode": "⚠️ Lademodus",
-          "configure_authorization": "Lokale Ladefreigabe verwalten",
-          "enable_ap_mode": "⚠️ AP-Modus aktivieren"
+          "location": "Installationsort"
         }
       },
       "authorization": {
@@ -469,6 +480,7 @@
       }
     },
     "select": {
+      "authorization_mode": {"name":"Autorisierungsmodus","state":{"home_assistant_rfid":"Home Assistant / RFID","rfid_only":"Nur RFID","plug_and_charge":"Einstecken und laden"}},
       "working_mode": {
         "name": "Ladestrategie",
         "state": {

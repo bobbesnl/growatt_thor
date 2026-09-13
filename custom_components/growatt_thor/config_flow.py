@@ -1,8 +1,6 @@
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.helpers.selector import (
-    SelectSelector, SelectSelectorConfig, TextSelector, TextSelectorConfig,
-)
+from homeassistant.helpers.selector import TextSelector, TextSelectorConfig
 import voluptuous as vol
 import logging
 
@@ -26,13 +24,6 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-CHARGER_MODE_OPTIONS = {
-    "1": "HA/RFID",
-    "2": "RFID Only",
-    "3": "Plug & Charge",
-}
-
 
 class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for Growatt THOR EV Charger."""
@@ -86,27 +77,18 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class GrowattThorOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Growatt THOR."""
 
-    def __init__(self):
-        self._selected_mode = None
-
     async def async_step_init(self, user_input=None):
-        """Manage the options."""
+        """Show purpose-based options instead of action checkboxes."""
+        return self.async_show_menu(
+            step_id="init",
+            menu_options=["general", "authorization", "confirm_ap_mode"],
+        )
+
+    async def async_step_general(self, user_input=None):
+        """Manage local polling and location settings."""
         errors = {}
 
         if user_input is not None:
-            if user_input.get("configure_authorization"):
-                return await self.async_step_authorization()
-            if user_input.get("enable_ap_mode"):
-                return await self.async_step_confirm_ap_mode()
-
-            selected_mode = user_input.get("charger_mode")
-            coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
-            current_mode_value = str(coordinator.charger_mode) if coordinator and coordinator.charger_mode else None
-
-            if selected_mode and selected_mode != current_mode_value:
-                self._selected_mode = selected_mode
-                return await self.async_step_confirm_charger_mode()
-
             poll_interval = user_input.get(CONF_POLL_INTERVAL)
             if poll_interval < MIN_POLL_INTERVAL:
                 errors[CONF_POLL_INTERVAL] = "poll_interval_too_low"
@@ -131,13 +113,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         )
         current_location = self.config_entry.data.get(CONF_LOCATION, "")
 
-        coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
-        current_mode_value = str(coordinator.charger_mode) if coordinator and coordinator.charger_mode else None
-        if current_mode_value not in CHARGER_MODE_OPTIONS:
-            current_mode_value = "1"
-
         return self.async_show_form(
-            step_id="init",
+            step_id="general",
             data_schema=vol.Schema(
                 {
                     vol.Required(
@@ -148,17 +125,6 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                         CONF_LOCATION,
                         default=current_location,
                     ): str,
-                    vol.Optional(
-                        "charger_mode",
-                        default=current_mode_value,
-                    ): SelectSelector(
-                        SelectSelectorConfig(
-                            options=list(CHARGER_MODE_OPTIONS),
-                            translation_key="charger_mode",
-                        )
-                    ),
-                    vol.Optional("enable_ap_mode", default=False): bool,
-                    vol.Optional("configure_authorization", default=False): bool,
                 }
             ),
             errors=errors,
@@ -222,24 +188,6 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             description_placeholders={"count": str(len(policy.id_tags))},
         )
 
-    async def async_step_confirm_charger_mode(self, user_input=None):
-        """Confirm charger mode change - warns about reboot."""
-        if user_input is not None:
-            if user_input.get("confirm"):
-                await self._apply_charger_mode(self._selected_mode)
-                return self.async_abort(reason="charger_mode_changed")
-            else:
-                return await self.async_step_init()
-
-        return self.async_show_form(
-            step_id="confirm_charger_mode",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("confirm", default=False): bool,
-                }
-            ),
-        )
-
     async def async_step_confirm_ap_mode(self, user_input=None):
         """Confirm AP Mode."""
         if user_input is not None:
@@ -257,35 +205,6 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 }
             ),
         )
-
-    async def _apply_charger_mode(self, value: str):
-        """Write charger mode to the THOR via OCPP."""
-        from ocpp.v16.enums import ConfigurationStatus
-
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
-        coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
-
-        if not charge_point or not coordinator:
-            _LOGGER.error("Cannot change Charger Mode: not connected")
-            return
-
-        if value not in CHARGER_MODE_OPTIONS:
-            _LOGGER.error("Invalid charger mode: %s", value)
-            return
-
-        mode_label = CHARGER_MODE_OPTIONS[value]
-        _LOGGER.info("Setting G_ChargerMode to %s (%s)", value, mode_label)
-
-        async def _do_mode():
-            result = await charge_point.change_configuration("G_ChargerMode", value)
-            if result in (ConfigurationStatus.accepted, ConfigurationStatus.reboot_required):
-                coordinator.charger_mode = int(value)
-                coordinator.async_set_updated_data(True)
-                _LOGGER.info("Charger Mode changed to %s (result: %s)", mode_label, result)
-            else:
-                _LOGGER.error("Charger Mode change rejected: %s", result)
-
-        await coordinator.queue_write(_do_mode)
 
     async def _activate_ap_mode(self):
         """Activate AP Mode via OCPP DataTransfer."""

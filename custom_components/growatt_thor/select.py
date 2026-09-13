@@ -36,11 +36,47 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities(
         [
             WorkingModeSelect(coordinator, entry),
+            AuthorizationModeSelect(coordinator, entry),
             ExternalSamplingMethodSelect(coordinator, entry),
             PowerMeterTypeSelect(coordinator, entry),
             PvBoostDraftSelect(coordinator, entry),
         ]
     )
+
+
+class AuthorizationModeSelect(GrowattConfigurationControlMixin, CoordinatorEntity, SelectEntity):
+    """Explicit, idle-only authorization changes; never issue a reboot or start."""
+
+    _control = ChargingControl.AUTHORIZATION_MODE
+    _attr_has_entity_name = True
+    _attr_translation_key = "authorization_mode"
+    _attr_icon = "mdi:card-account-details-outline"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_options = list(CONFIGURATION_ENTITY_OPTIONS["G_ChargerMode"])
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator)
+        self.hass = coordinator.hass
+        self._attr_unique_id = f"{entry.entry_id}_authorization_mode_control"
+        self._attr_device_info = {"identifiers": {(DOMAIN, entry.entry_id)}}
+
+    @property
+    def current_option(self):
+        return configuration_entity_state(self._configuration_key, self._configuration_value)
+
+    @property
+    def available(self):
+        return super().available and self._control_available and self.current_option is not None
+
+    async def async_select_option(self, option: str) -> None:
+        if option != self.current_option:
+            await self._async_write_configuration(encode_control_value(self._control, option))
+
+    async def _apply_configuration(self, charge_point, raw_value: str) -> None:
+        # A queued write must never reach a previous OCPP connection.
+        if self.hass.data.get(DOMAIN, {}).get("charge_point") is not charge_point:
+            return
+        await super()._apply_configuration(charge_point, raw_value)
 
 
 class WorkingModeSelect(CoordinatorEntity, SelectEntity):

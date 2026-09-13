@@ -35,6 +35,7 @@ class ChargingControl(str, Enum):
     LOAD_BALANCING_LIMIT = "load_balancing_limit"
     AUTO_CHARGE_SCHEDULE = "auto_charge_schedule"
     WORKING_MODE = "working_mode"
+    AUTHORIZATION_MODE = "authorization_mode"
     SOLAR_MODE = "solar_mode"
     SOLAR_GRID_IMPORT_LIMIT = "solar_grid_import_limit"
     SOLAR_BOOST = "solar_boost"
@@ -67,6 +68,9 @@ class ControlDefinition:
 CONTROL_DEFINITIONS: Final[Mapping[ChargingControl, ControlDefinition]] = (
     MappingProxyType(
         {
+            ChargingControl.AUTHORIZATION_MODE: ControlDefinition(
+                ControlCapability.WRITABLE, "G_ChargerMode",
+            ),
             ChargingControl.LOAD_BALANCING: ControlDefinition(
                 ControlCapability.WRITABLE,
                 "G_ExternalLimitPowerEnable",
@@ -264,6 +268,12 @@ def encode_control_value(control: ChargingControl, value: object) -> str:
     """Encode one verified logical control value for ChangeConfiguration."""
     if CONTROL_DEFINITIONS[control].capability != ControlCapability.WRITABLE:
         raise ValueError(f"{control.value} is not a directly writable control")
+
+    if control == ChargingControl.AUTHORIZATION_MODE:
+        modes = {"home_assistant_rfid": "1", "rfid_only": "2", "plug_and_charge": "3"}
+        if value not in modes:
+            raise ValueError("Unsupported authorization mode")
+        return modes[value]
 
     if control == ChargingControl.SOLAR_MODE:
         encoded = {

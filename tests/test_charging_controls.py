@@ -43,6 +43,19 @@ def _values(**raw_values):
 class ChargingControlDependencyTest(unittest.TestCase):
     """Verify mode and authorization dependencies."""
 
+    def test_authorization_mode_encoding_and_idle_guards(self):
+        control = controls.ChargingControl.AUTHORIZATION_MODE
+        for option, wire in {"home_assistant_rfid": "1", "rfid_only": "2", "plug_and_charge": "3"}.items():
+            self.assertEqual(controls.encode_control_value(control, option), wire)
+        with self.assertRaises(ValueError):
+            controls.encode_control_value(control, "invalid")
+        values = _values(G_ChargerMode="2")
+        self.assertIsNone(controls.control_write_block_reason(control, values, connected=True, transaction_active=False))
+        for connected, active, faulted in [(False, False, False), (True, True, False), (True, False, True)]:
+            self.assertIsNotNone(controls.control_write_block_reason(control, values, connected=connected, transaction_active=active, charger_faulted=faulted))
+        values["G_ChargerMode"] = configuration.configuration_value_from_item({"key": "G_ChargerMode", "value": "2", "readonly": True})
+        self.assertEqual(controls.control_write_block_reason(control, values, connected=True, transaction_active=False), "configuration_read_only")
+
     def test_load_balancing_is_not_applicable_in_pv_linkage(self):
         self.assertFalse(
             controls.control_is_applicable(
