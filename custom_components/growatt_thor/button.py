@@ -29,6 +29,9 @@ from .pv_linkage import (
     draft_validation_errors,
 )
 from .write_queue import (
+    CONFIGURATION_WRITE_POLICY,
+    TRANSACTION_CONTROL_WRITE_POLICY,
+    VOLATILE_CONTROL_WRITE_POLICY,
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
@@ -83,6 +86,14 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
     def available(self):
         return super().available and self._write_block_reason is None
 
+    def _start_revalidation_failure(self) -> str | None:
+        """Return why a delayed start no longer represents a valid intent."""
+        if self.coordinator.charger_is_faulted:
+            return "charger_faulted"
+        if self.coordinator.transaction_is_active:
+            return "charging_already_active"
+        return None
+
     async def async_press(self) -> None:
         """Start a charging session via queue."""
         if (block_reason := self._write_block_reason) is not None:
@@ -93,7 +104,7 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             _LOGGER.warning("Cannot start charging: charger not connected")
             raise_charger_disconnected()
 
-        if self.coordinator.status == "Charging":
+        if self.coordinator.transaction_is_active:
             _LOGGER.warning(
                 "⚠️ Cannot start charging: session already active (transaction_id=%s)",
                 self.coordinator.transaction_id
@@ -109,13 +120,15 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             rate_limited=False,
             command_name="RemoteStartTransaction",
             requires_connection=True,
+            policy=VOLATILE_CONTROL_WRITE_POLICY,
+            revalidate=self._start_revalidation_failure,
         )
 
     async def _start_charging(self, charge_point) -> ChargerWriteResult:
         """Start charging command (runs inside write-queue)."""
-        if (block_reason := self._write_block_reason) is not None:
-            _LOGGER.warning("Skipping queued start charging: %s", block_reason)
-            return ChargerWriteResult.skipped(block_reason)
+        if (reason := self._start_revalidation_failure()) is not None:
+            _LOGGER.warning("Skipping queued start charging: %s", reason)
+            return ChargerWriteResult.skipped(reason)
         try:
             result = await charge_point.remote_start_transaction(
                 connector_id=1,
@@ -179,6 +192,22 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
         }
         self.hass = coordinator.hass
 
+    def _stop_revalidation_failure(
+        self,
+        expected_transaction_id: int,
+    ) -> str | None:
+        """Keep a delayed Stop bound to the transaction it was created for."""
+        current_transaction_id = self.coordinator.transaction_id
+        if current_transaction_id != expected_transaction_id:
+            return (
+                "transaction_ended"
+                if current_transaction_id is None
+                else "transaction_changed"
+            )
+        if not self.coordinator.transaction_is_active:
+            return "transaction_ended"
+        return None
+
     async def async_press(self) -> None:
         """Stop a charging session via queue."""
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
@@ -186,36 +215,33 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
             _LOGGER.warning("Cannot stop charging: charger not connected")
             raise_charger_disconnected()
 
-        is_charging = self.coordinator.status == "Charging"
         transaction_id = self.coordinator.transaction_id
 
-        if not is_charging and transaction_id is None:
+        if transaction_id is None or not self.coordinator.transaction_is_active:
             _LOGGER.warning(
                 "⚠️ Cannot stop charging: no active session (status=%s)",
                 self.coordinator.status
             )
             raise_action_validation("no_active_transaction")
 
-        # Gebruik transaction_id 0 als fallback (stop huidige sessie)
-        tid = transaction_id if transaction_id is not None else 0
-
-        if transaction_id is None:
-            _LOGGER.info(
-                "🔘 Queueing stop charging (using fallback transaction_id=0, status=%s)",
-                self.coordinator.status
-            )
-        else:
-            _LOGGER.info("🔘 Queueing stop charging command (transaction_id=%s)", tid)
+        _LOGGER.info(
+            "🔘 Queueing stop charging command (transaction_id=%s)",
+            transaction_id,
+        )
 
         await self.coordinator.queue_write(
             self._stop_charging,
             charge_point,
-            tid,
+            transaction_id,
             dedupe_key="RemoteStopTransaction",
             priority=True,
             rate_limited=False,
             command_name="RemoteStopTransaction",
             requires_connection=True,
+            policy=TRANSACTION_CONTROL_WRITE_POLICY,
+            revalidate=lambda: self._stop_revalidation_failure(
+                transaction_id
+            ),
         )
 
     async def _stop_charging(
@@ -224,6 +250,11 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
         transaction_id: int,
     ) -> ChargerWriteResult:
         """Stop charging command (runs inside write-queue)."""
+        if (
+            reason := self._stop_revalidation_failure(transaction_id)
+        ) is not None:
+            _LOGGER.warning("Skipping stale stop charging command: %s", reason)
+            return ChargerWriteResult.skipped(reason)
         try:
             result = await charge_point.remote_stop_transaction(
                 transaction_id=transaction_id
@@ -357,6 +388,7 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
             dedupe_key="pv_linkage_compound",
             command_name="ApplyPvLinkage",
             requires_connection=True,
+            policy=CONFIGURATION_WRITE_POLICY,
         )
 
     async def _apply_writes(self, charge_point, writes) -> ChargerWriteResult:

@@ -396,6 +396,36 @@ class ConfigurationWriteTrackingTest(unittest.TestCase):
             writes.ConfigurationWriteStatus.SKIPPED,
         )
 
+    def test_expired_write_is_terminal_and_no_longer_pending(self):
+        state = writes.begin_configuration_write(
+            {},
+            key="G_MaxCurrent",
+            raw_value="17",
+            requested_at="2026-09-15T12:00:00Z",
+        )
+        generation = state["G_MaxCurrent"].generation
+        state = writes.mark_configuration_write(
+            state,
+            key="G_MaxCurrent",
+            generation=generation,
+            status=writes.ConfigurationWriteStatus.EXPIRED,
+            result="expired_before_send",
+        )
+
+        state = writes.confirm_configuration_writes(
+            state,
+            {"G_MaxCurrent": "17"},
+            readback_at="2026-09-15T12:05:00Z",
+        )
+
+        self.assertEqual(
+            state["G_MaxCurrent"].status,
+            writes.ConfigurationWriteStatus.EXPIRED,
+        )
+        self.assertIsNone(
+            writes.pending_configuration_value(state, "G_MaxCurrent")
+        )
+
     def test_pending_value_is_visible_until_readback_resolves_it(self):
         """The LCD can show intent while a rate-limited write is in flight."""
         state = writes.begin_configuration_write(

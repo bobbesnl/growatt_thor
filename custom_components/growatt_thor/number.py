@@ -37,6 +37,7 @@ from .currency import electricity_price_unit
 from .ocpp_diagnostics import boot_notification_field
 from .pv_linkage import PvBoostMode
 from .write_queue import (
+    CONFIGURATION_WRITE_POLICY,
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
@@ -208,6 +209,11 @@ class MaxCurrentNumber(BaseConfigNumber):
             requires_connection=True,
             configuration_key=self._config_key,
             configuration_generation=generation,
+            policy=CONFIGURATION_WRITE_POLICY,
+            on_unsent=lambda _result: self._restore_previous_value(
+                previous,
+                generation,
+            ),
         )
 
     async def _write_to_thor(
@@ -233,7 +239,6 @@ class MaxCurrentNumber(BaseConfigNumber):
                 value,
                 self.native_max_value,
             )
-            self._restore_previous_value(previous, generation)
             self.coordinator.mark_configuration_write(
                 self._config_key,
                 ConfigurationWriteStatus.SKIPPED,
@@ -361,6 +366,22 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             "ocpp_key": self._config_key,
         }
 
+    def _restore_previous_value(
+        self,
+        previous: int | None,
+        generation: int,
+    ) -> None:
+        """Restore reported power only while this write still owns the UI."""
+        if (
+            previous is not None
+            and self.coordinator.configuration_write_is_current(
+                self._config_key,
+                generation,
+            )
+        ):
+            self.coordinator.external_limit_power = previous
+            self.coordinator.async_set_updated_data(True)
+
     async def async_set_native_value(self, value: float) -> None:
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning(
@@ -402,6 +423,11 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             requires_connection=True,
             configuration_key=self._config_key,
             configuration_generation=generation,
+            policy=CONFIGURATION_WRITE_POLICY,
+            on_unsent=lambda _result: self._restore_previous_value(
+                previous,
+                generation,
+            ),
         )
 
     async def _write_to_thor(
@@ -460,15 +486,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
                 _LOGGER.warning("⚠️ Load Balancing Limit write accepted (reboot required): %d kW", value)
             else:
                 _LOGGER.error("❌ Load Balancing Limit rejected by Thor: %s — rolling back UI to %s kW", result, previous)
-                if (
-                    previous is not None
-                    and self.coordinator.configuration_write_is_current(
-                        self._config_key,
-                        generation,
-                    )
-                ):
-                    self.coordinator.external_limit_power = previous
-                    self.coordinator.async_set_updated_data(True)
+                self._restore_previous_value(previous, generation)
                 return ChargerWriteResult.failed("charger_rejected", result)
 
             return ChargerWriteResult.success(result)
@@ -486,15 +504,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
             _LOGGER.error("❌ Failed to set Load Balancing Limit: %s", exc, exc_info=True)
-            if (
-                previous is not None
-                and self.coordinator.configuration_write_is_current(
-                    self._config_key,
-                    generation,
-                )
-            ):
-                self.coordinator.external_limit_power = previous
-                self.coordinator.async_set_updated_data(True)
+            self._restore_previous_value(previous, generation)
             return ChargerWriteResult.failed("unexpected_error")
 
 
@@ -535,6 +545,22 @@ class ElectricityPriceNumber(BaseConfigNumber):
             "ocpp_key": self._config_key,
             "raw_value": value.raw_value if value is not None else None,
         }
+
+    def _restore_previous_value(
+        self,
+        previous: float | None,
+        generation: int,
+    ) -> None:
+        """Restore reported tariff only while this write still owns the UI."""
+        if (
+            previous is not None
+            and self.coordinator.configuration_write_is_current(
+                self._config_key,
+                generation,
+            )
+        ):
+            self.coordinator.electricity_price = previous
+            self.coordinator.async_set_updated_data(True)
 
     async def async_set_native_value(self, value: float) -> None:
         if (block_reason := self._charger_write_block_reason) is not None:
@@ -577,6 +603,11 @@ class ElectricityPriceNumber(BaseConfigNumber):
             requires_connection=True,
             configuration_key=self._config_key,
             configuration_generation=generation,
+            policy=CONFIGURATION_WRITE_POLICY,
+            on_unsent=lambda _result: self._restore_previous_value(
+                previous,
+                generation,
+            ),
         )
 
     async def _write_to_thor(
@@ -636,15 +667,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
                 _LOGGER.warning("⚠️ Elektricteitstarief write accepted (reboot required): %s", price_str)
             else:
                 _LOGGER.error("❌ Elektricteitstarief rejected by Thor: %s — rolling back to %.2f", result, previous)
-                if (
-                    previous is not None
-                    and self.coordinator.configuration_write_is_current(
-                        self._config_key,
-                        generation,
-                    )
-                ):
-                    self.coordinator.electricity_price = previous
-                    self.coordinator.async_set_updated_data(True)
+                self._restore_previous_value(previous, generation)
                 return ChargerWriteResult.failed("charger_rejected", result)
 
             self.coordinator.schedule_configuration_refresh()
@@ -663,15 +686,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
             return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
             _LOGGER.error("❌ Failed to set Elektricteitstarief: %s", exc, exc_info=True)
-            if (
-                previous is not None
-                and self.coordinator.configuration_write_is_current(
-                    self._config_key,
-                    generation,
-                )
-            ):
-                self.coordinator.electricity_price = previous
-                self.coordinator.async_set_updated_data(True)
+            self._restore_previous_value(previous, generation)
             return ChargerWriteResult.failed("unexpected_error")
 
 

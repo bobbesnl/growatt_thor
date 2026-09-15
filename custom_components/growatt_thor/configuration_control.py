@@ -19,6 +19,7 @@ from .configuration_writes import (
 )
 from .const import DOMAIN
 from .write_queue import (
+    CONFIGURATION_WRITE_POLICY,
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
@@ -150,6 +151,7 @@ class GrowattConfigurationControlMixin:
             requires_connection=True,
             configuration_key=self._configuration_key,
             configuration_generation=generation,
+            policy=CONFIGURATION_WRITE_POLICY,
         )
 
     async def _apply_configuration(

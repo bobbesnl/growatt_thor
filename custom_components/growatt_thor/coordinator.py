@@ -55,8 +55,11 @@ from .transaction_ids import TransactionIdAllocator
 from .write_queue import (
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
+    ChargerWriteQueuePolicy,
+    ChargerWriteReconnectPolicy,
     ChargerWriteResult,
     ChargerWriteStatus,
+    DEFAULT_WRITE_POLICY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -328,6 +331,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
         requires_connection=False,
         configuration_key=None,
         configuration_generation=None,
+        policy: ChargerWriteQueuePolicy = DEFAULT_WRITE_POLICY,
+        revalidate=None,
+        on_unsent=None,
         **kwargs,
     ):
         """Queue a charger command with optional deduplication and priority.
@@ -337,6 +343,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
         connection immediately before execution.  This is intentionally
         explicit: queued work may wait for tens of seconds, during which the
         THOR can reconnect and make the originally captured object stale.
+
+        ``policy`` bounds how long an unsent intent remains valid and whether
+        it may cross a disconnect. ``revalidate`` returns a skip reason when
+        runtime state has changed. ``on_unsent`` restores entity-local
+        optimistic state for replaced, skipped, or expired queue entries.
         """
         if requires_connection and not args:
             raise ValueError("A connection-bound write requires a charge point argument")
@@ -345,11 +356,13 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 "Configuration key and generation must be queued together"
             )
 
+        enqueued_at = self.hass.loop.time()
         write_item = {
             "func": write_func,
             "args": args,
             "kwargs": kwargs,
-            "enqueued_at": self.hass.loop.time(),
+            "enqueued_at": enqueued_at,
+            "expires_at": enqueued_at + policy.expires_after,
             "dedupe_key": dedupe_key,
             "priority": priority,
             "rate_limited": rate_limited,
@@ -357,12 +370,27 @@ class GrowattCoordinator(DataUpdateCoordinator):
             "requires_connection": requires_connection,
             "configuration_key": configuration_key,
             "configuration_generation": configuration_generation,
+            "policy": policy,
+            "revalidate": revalidate,
+            "on_unsent": on_unsent,
         }
 
         if dedupe_key is not None:
-            self._write_queue = deque(
-                item for item in self._write_queue if item.get("dedupe_key") != dedupe_key
-            )
+            retained_items = deque()
+            for item in self._write_queue:
+                if item.get("dedupe_key") == dedupe_key:
+                    # The replacement's generation is already current. Marking
+                    # the old item now records a superseded diagnostic without
+                    # allowing its cleanup callback to touch the newer intent.
+                    self._finish_unsent_write(
+                        item,
+                        ChargerWriteResult.skipped(
+                            "replaced_by_newer_intent"
+                        ),
+                    )
+                else:
+                    retained_items.append(item)
+            self._write_queue = retained_items
 
         if priority:
             insert_at = next(
@@ -395,11 +423,40 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 while self._write_queue:
                     write_item = self._write_queue[0]
 
+                    if self._write_item_is_expired(write_item):
+                        self._write_queue.popleft()
+                        self._finish_unsent_write(
+                            write_item,
+                            ChargerWriteResult.expired(),
+                        )
+                        continue
+
+                    invalid_reason = self._write_revalidation_failure(write_item)
+                    if invalid_reason is not None:
+                        self._write_queue.popleft()
+                        self._finish_unsent_write(
+                            write_item,
+                            ChargerWriteResult.skipped(invalid_reason),
+                        )
+                        continue
+
                     if write_item["requires_connection"]:
                         charge_point = self.hass.data.get(DOMAIN, {}).get(
                             "charge_point"
                         )
                         if charge_point is None or not self.connected:
+                            if (
+                                write_item["policy"].reconnect
+                                == ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED
+                            ):
+                                self._write_queue.popleft()
+                                self._finish_unsent_write(
+                                    write_item,
+                                    ChargerWriteResult.expired(
+                                        "discarded_on_disconnect"
+                                    ),
+                                )
+                                continue
                             # Do not pop an unsent command while disconnected.
                             # A later write with the same dedupe key can still
                             # replace it, preserving last-value-wins semantics.
@@ -412,7 +469,17 @@ class GrowattCoordinator(DataUpdateCoordinator):
                                 "charge_point"
                             )
                             if charge_point is None or not self.connected:
-                                await self._connection_changed.wait()
+                                try:
+                                    await asyncio.wait_for(
+                                        self._connection_changed.wait(),
+                                        timeout=self._write_expiry_remaining(
+                                            write_item
+                                        ),
+                                    )
+                                except asyncio.TimeoutError:
+                                    # The next loop iteration records the
+                                    # terminal expired result without sending.
+                                    pass
                             continue
 
                     if (
@@ -438,7 +505,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
                             try:
                                 await asyncio.wait_for(
                                     self._write_queue_changed.wait(),
-                                    timeout=wait_time,
+                                    timeout=min(
+                                        wait_time,
+                                        self._write_expiry_remaining(write_item),
+                                    ),
                                 )
                             except asyncio.TimeoutError:
                                 # Re-run the connection and queue checks before
@@ -496,10 +566,24 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         )
 
                         if (
+                            isinstance(result, ChargerWriteResult)
+                            and result.status
+                            in {
+                                ChargerWriteStatus.SKIPPED,
+                                ChargerWriteStatus.EXPIRED,
+                            }
+                        ):
+                            self._run_unsent_cleanup(write_item, result)
+
+                        if (
                             write_item["rate_limited"]
                             and not (
                                 isinstance(result, ChargerWriteResult)
-                                and result.status == ChargerWriteStatus.SKIPPED
+                                and result.status
+                                in {
+                                    ChargerWriteStatus.SKIPPED,
+                                    ChargerWriteStatus.EXPIRED,
+                                }
                             )
                         ):
                             self._last_write_monotonic = self.hass.loop.time()
@@ -511,12 +595,29 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         # the front; on the next pass its connection argument is
                         # rebound again.  This differs from an uncertain write,
                         # which must be read back before any retry.
-                        self._write_queue.appendleft(write_item)
-                        _LOGGER.info(
-                            "↻ Deferring %s until the current connection is ready: %s",
-                            write_item["command_name"],
-                            err,
-                        )
+                        if (
+                            write_item["policy"].reconnect
+                            == ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED
+                        ):
+                            self._finish_unsent_write(
+                                write_item,
+                                ChargerWriteResult.expired(
+                                    "discarded_on_disconnect"
+                                ),
+                            )
+                        elif self._write_item_is_expired(write_item):
+                            self._finish_unsent_write(
+                                write_item,
+                                ChargerWriteResult.expired(),
+                            )
+                        else:
+                            self._write_queue.appendleft(write_item)
+                            _LOGGER.info(
+                                "↻ Deferring %s until the current connection "
+                                "is ready: %s",
+                                write_item["command_name"],
+                                err,
+                            )
                         await asyncio.sleep(0)
 
                     except ChargerRequestOutcomeUncertain as err:
@@ -577,9 +678,91 @@ class GrowattCoordinator(DataUpdateCoordinator):
         elif result.status == ChargerWriteStatus.FAILED:
             _LOGGER.error("❌ Write failed: %s (%s)", command_name, details)
         elif result.status == ChargerWriteStatus.SKIPPED:
-            _LOGGER.warning("⏭️ Write skipped: %s (%s)", command_name, details)
+            if result.reason == "replaced_by_newer_intent":
+                _LOGGER.info(
+                    "↪️ Queued write replaced: %s (%s)",
+                    command_name,
+                    details,
+                )
+            else:
+                _LOGGER.warning("⏭️ Write skipped: %s (%s)", command_name, details)
+        elif result.status == ChargerWriteStatus.EXPIRED:
+            _LOGGER.warning("⌛ Write expired: %s (%s)", command_name, details)
         else:
             _LOGGER.warning("❔ Write outcome uncertain: %s (%s)", command_name, details)
+
+    def _write_item_is_expired(self, write_item) -> bool:
+        """Return whether an unsent queue item has outlived its policy."""
+        return self._write_expiry_remaining(write_item) <= 0
+
+    def _write_expiry_remaining(self, write_item) -> float:
+        """Return remaining monotonic lifetime for one unsent command."""
+        return max(0.0, write_item["expires_at"] - self.hass.loop.time())
+
+    def _write_revalidation_failure(self, write_item) -> str | None:
+        """Recheck delayed intent immediately before it may be sent.
+
+        The callback returns ``None`` while the original intent is still valid,
+        or a stable diagnostic reason when changed runtime state made it stale.
+        Exceptions fail closed so a broken guard can never authorize a write.
+        """
+        revalidate = write_item.get("revalidate")
+        if revalidate is None:
+            return None
+        try:
+            reason = revalidate()
+            if reason is None:
+                return None
+            if not isinstance(reason, str) or not reason:
+                raise ValueError(
+                    "Write revalidation must return a non-empty reason or None"
+                )
+            return reason
+        except Exception:
+            _LOGGER.exception(
+                "Write revalidation failed for %s",
+                write_item["command_name"],
+            )
+            return "revalidation_error"
+
+    def _finish_unsent_write(
+        self,
+        write_item,
+        result: ChargerWriteResult,
+    ) -> None:
+        """Record a terminal outcome for a command never handed to OCPP."""
+        configuration_key = write_item.get("configuration_key")
+        configuration_generation = write_item.get("configuration_generation")
+        if configuration_key and configuration_generation is not None:
+            status = (
+                ConfigurationWriteStatus.EXPIRED
+                if result.status == ChargerWriteStatus.EXPIRED
+                else ConfigurationWriteStatus.SKIPPED
+            )
+            self.mark_configuration_write(
+                configuration_key,
+                status,
+                generation=configuration_generation,
+                result=result.reason,
+            )
+        self._run_unsent_cleanup(write_item, result)
+        self._log_write_result(write_item, result)
+
+    def _run_unsent_cleanup(
+        self,
+        write_item,
+        result: ChargerWriteResult,
+    ) -> None:
+        """Restore entity-local optimistic state after a command was not sent."""
+        on_unsent = write_item.get("on_unsent")
+        if on_unsent is not None:
+            try:
+                on_unsent(result)
+            except Exception:
+                _LOGGER.exception(
+                    "Unsent write cleanup failed for %s",
+                    write_item["command_name"],
+                )
 
     # ─────────────────────────────
     # 🔑 LOAD BALANCING PROPERTY

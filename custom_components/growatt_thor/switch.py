@@ -25,6 +25,7 @@ from .configuration_writes import (
     pending_configuration_value,
 )
 from .write_queue import (
+    CONFIGURATION_WRITE_POLICY,
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
@@ -218,6 +219,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
                 requires_connection=True,
                 configuration_key="G_ExternalLimitPowerEnable",
                 configuration_generation=generation,
+                policy=CONFIGURATION_WRITE_POLICY,
             )
 
         except Exception as exc:
@@ -412,6 +414,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
                 requires_connection=True,
                 configuration_key="G_LCDCloseEnable",
                 configuration_generation=generation,
+                policy=CONFIGURATION_WRITE_POLICY,
             )
 
         except Exception as exc:

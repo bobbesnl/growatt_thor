@@ -17,6 +17,7 @@ class ConfigurationWriteStatus(str, Enum):
     REJECTED = "rejected"
     SKIPPED = "skipped"
     UNCERTAIN = "uncertain"
+    EXPIRED = "expired"
 
 
 @dataclass(frozen=True, slots=True)

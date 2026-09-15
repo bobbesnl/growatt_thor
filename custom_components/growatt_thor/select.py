@@ -32,6 +32,7 @@ from .configuration_writes import ConfigurationWriteStatus
 from .const import DOMAIN
 from .pv_linkage import PvBoostMode
 from .write_queue import (
+    CONFIGURATION_WRITE_POLICY,
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
@@ -192,6 +193,11 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
             requires_connection=True,
             configuration_key=key,
             configuration_generation=generation,
+            policy=CONFIGURATION_WRITE_POLICY,
+            on_unsent=lambda _result: self._clear_pending_option(
+                option,
+                intent,
+            ),
         )
 
     async def _apply_working_mode(

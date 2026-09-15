@@ -22,7 +22,10 @@ from .const import (
     DEFAULT_POLL_INTERVAL,
     MIN_POLL_INTERVAL,
 )
-from .write_queue import ChargerWriteResult
+from .write_queue import (
+    VOLATILE_CONTROL_WRITE_POLICY,
+    ChargerWriteResult,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -234,4 +237,5 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             charge_point,
             command_name="DataTransfer(appconfigmode)",
             requires_connection=True,
+            policy=VOLATILE_CONTROL_WRITE_POLICY,
         )

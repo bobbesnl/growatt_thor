@@ -20,6 +20,7 @@ from .charging_controls import (
 )
 from .pv_linkage import PvBoostMode
 from .write_queue import (
+    CONFIGURATION_WRITE_POLICY,
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
@@ -85,6 +86,21 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
             charger_faulted=self.coordinator.charger_is_faulted,
         )
 
+    def _restore_reported_schedule(self, generation: int) -> None:
+        """Discard an unsent optimistic schedule owned by this generation."""
+        if not self.coordinator.configuration_write_is_current(
+            self._CONFIG_KEY,
+            generation,
+        ):
+            return
+        self.coordinator.auto_charge_start_time_pending = (
+            self.coordinator.auto_charge_start_time
+        )
+        self.coordinator.auto_charge_stop_time_pending = (
+            self.coordinator.auto_charge_stop_time
+        )
+        self.coordinator.async_set_updated_data(True)
+
     async def async_set_value(self, value: time) -> None:
         """Update time and auto-apply schedule via write queue."""
         if (block_reason := self._write_block_reason) is not None:
@@ -129,6 +145,10 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
                 requires_connection=True,
                 configuration_key=self._CONFIG_KEY,
                 configuration_generation=generation,
+                policy=CONFIGURATION_WRITE_POLICY,
+                on_unsent=lambda _result: self._restore_reported_schedule(
+                    generation
+                ),
             )
 
     async def _apply_schedule(
