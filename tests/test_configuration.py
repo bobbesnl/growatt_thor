@@ -57,6 +57,8 @@ class ConfigurationRegistryTest(unittest.TestCase):
                 "ElectricityMeterOnline",
                 "G_WebSocketPingInterval",
                 "G_TimeSharingPrice",
+                "G_SolarMode",
+                "G_WorkingMode",
                 "G_PeriodTime",
             ),
         )
@@ -80,7 +82,6 @@ class ConfigurationRegistryTest(unittest.TestCase):
                 "G_ExternalSamplingCurWring",
                 "G_TimeZone",
                 "G_DaylightSavingTime",
-                "G_SolarMode",
                 "G_SolarLimitPower",
                 "G_SolarBoost",
                 "G_SolarThresholdCurr",
@@ -89,7 +90,6 @@ class ConfigurationRegistryTest(unittest.TestCase):
                 "G_OffPeakEnable",
                 "G_OffPeakCurr",
                 "G_MeterValueInterval",
-                "G_WorkingMode",
                 "G_LowPowerReserveEnable",
                 "G_FullContinueChargeEnable",
                 "G_RandDelayChargeTime",
@@ -142,6 +142,34 @@ class ConfigurationValueTest(unittest.TestCase):
 
         self.assertEqual(value.raw_value, "not-a-number")
         self.assertEqual(value.parsed_value, "not-a-number")
+
+    def test_numeric_value_does_not_coerce_malformed_wire_text(self):
+        valid = configuration.configuration_value_from_item(
+            {"key": "G_MaxCurrent", "value": "13.00", "readonly": False}
+        )
+        malformed = configuration.configuration_value_from_item(
+            {"key": "G_MaxCurrent", "value": "not-a-number", "readonly": False}
+        )
+
+        self.assertEqual(configuration.configuration_numeric_value(valid), 13.0)
+        self.assertIsNone(configuration.configuration_numeric_value(malformed))
+
+    def test_time_sharing_price_parser_handles_compound_and_negative_values(self):
+        self.assertEqual(
+            configuration.parse_time_sharing_price(
+                "time1=00:00-23:59&price1=0.31"
+            ),
+            0.31,
+        )
+        self.assertEqual(
+            configuration.parse_time_sharing_price(
+                "time1=00:00-23:59&price1=-1.25&time2=00:00-00:00"
+            ),
+            -1.25,
+        )
+        self.assertIsNone(
+            configuration.parse_time_sharing_price("time1=00:00-23:59")
+        )
 
     def test_unknown_value_is_preserved_and_redacted_by_default(self):
         value = configuration.configuration_value_from_item(

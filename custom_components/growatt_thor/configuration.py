@@ -329,7 +329,9 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         "G_SolarMode": _definition(
             "Vendor-encoded solar charging mode",
             writable=True,
-            request_group=_INFORMATIONAL,
+            # Charging strategy depends on this value, so it belongs in the
+            # first safety-critical read rather than the diagnostic follow-up.
+            request_group=_OPERATIONAL,
         ),
         "G_SolarLimitPower": _definition(
             "PV Linkage power threshold or grid-import allowance",
@@ -377,7 +379,10 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         ),
         "G_WorkingMode": _definition(
             "Charger working mode",
-            request_group=_INFORMATIONAL,
+            # This drives entity applicability and the Charging strategy
+            # select.  Reading it with operational keys avoids an unnecessary
+            # ``unknown`` state when the informational request times out.
+            request_group=_OPERATIONAL,
         ),
         "G_LowPowerReserveEnable": _definition(
             "Low-power reserve setting",
@@ -660,6 +665,9 @@ _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
 _OFF_PEAK_WINDOW_PATTERN = re.compile(
     r"^(?P<window>\d{2}:\d{2}-\d{2}:\d{2})(?:=[^&]*)?$"
 )
+_TIME_SHARING_PRICE_PATTERN = re.compile(
+    r"(?:^|&)price1=(?P<price>-?\d+(?:\.\d+)?)(?:&|$)"
+)
 
 
 def _parse_off_peak_schedule(raw_value: str) -> str:
@@ -670,6 +678,33 @@ def _parse_off_peak_schedule(raw_value: str) -> str:
         if match:
             windows.append(match.group("window"))
     return ", ".join(windows) if windows else raw_value
+
+
+def configuration_numeric_value(value: ConfigurationValue | None) -> float | None:
+    """Return a parsed configuration number without coercing invalid raw text.
+
+    A malformed numeric response is deliberately treated as unknown.  Calling
+    ``float`` on the retained raw value in an entity callback would raise while
+    trying to restore the last charger-reported state after a rejected write.
+    """
+    if value is None or isinstance(value.parsed_value, bool):
+        return None
+    if isinstance(value.parsed_value, (int, float)):
+        return float(value.parsed_value)
+    return None
+
+
+def parse_time_sharing_price(raw_value: str | None) -> float | None:
+    """Extract the first tariff from Growatt's compound price payload.
+
+    ``G_TimeSharingPrice`` is not a plain number; the THOR reports values such
+    as ``time1=00:00-23:59&price1=0.31``.  Sharing one parser between normal
+    readback and rollback handling prevents those two paths from disagreeing.
+    """
+    if not isinstance(raw_value, str):
+        return None
+    match = _TIME_SHARING_PRICE_PATTERN.search(raw_value)
+    return float(match.group("price")) if match is not None else None
 
 
 def configuration_entity_state(
