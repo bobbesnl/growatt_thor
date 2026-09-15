@@ -35,7 +35,7 @@ The priorities in this document are based on safety and observability:
 | # | Priority | Work item | Status |
 |---|---|---|---|
 | 1 | P0 | Return blocked Home Assistant actions as errors | In progress |
-| 2 | P0 | Isolate superseded in-flight write results | Planned |
+| 2 | P0 | Isolate superseded in-flight write results | Completed |
 | 3 | P0 | Expire and revalidate delayed commands | Planned |
 | 4 | P0 | Harden Start/Stop transaction semantics | Planned |
 | 5 | P0 | Prevent ambiguous config entries and charger connections | Planned |
@@ -97,6 +97,22 @@ newer `17 A` intent.
   newer pending value.
 - A newer queued write remains visible while an older write completes.
 - Reconnect readback reconciles the current generation only.
+
+**Implemented on 2026-09-15:**
+
+- Every `ChangeConfiguration` intent now receives a monotonically increasing
+  generation per configuration key; the queue carries the key and generation
+  as one inseparable pair.
+- A callback may update pending, desired, or rollback state only while it still
+  owns the current generation. Older accepted outcomes still schedule a safe
+  readback because they may briefly have changed the physical charger.
+- Working-mode changes also carry an entity-level intent token because one
+  logical mode selector writes different Growatt keys depending on the chosen
+  mode.
+- The five latest superseded outcomes per key remain available in diagnostics
+  without replacing the current write state or growing without bounds.
+- Burst tests hold the first request in flight, queue a replacement, and prove
+  that the older acknowledgement cannot overwrite the newer visible value.
 
 ## 3. Expire and revalidate delayed commands
 
