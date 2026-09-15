@@ -36,8 +36,8 @@ The priorities in this document are based on safety and observability:
 |---|---|---|---|
 | 1 | P0 | Return blocked Home Assistant actions as errors | In progress |
 | 2 | P0 | Isolate superseded in-flight write results | Completed |
-| 3 | P0 | Expire and revalidate delayed commands | Planned |
-| 4 | P0 | Harden Start/Stop transaction semantics | Planned |
+| 3 | P0 | Expire and revalidate delayed commands | Completed |
+| 4 | P0 | Harden Start/Stop transaction semantics | In progress |
 | 5 | P0 | Prevent ambiguous config entries and charger connections | Planned |
 | 6 | P1 | Make paired and compound changes predictable | Planned |
 | 7 | P1 | Coalesce manual refresh and harden integration services | Planned |
@@ -135,12 +135,35 @@ intent may no longer be current hours later.
 - Replaced and expired entries cannot change current pending state.
 - A short reconnect can retain an eligible command; a long reconnect cannot.
 
+**Implemented on 2026-09-15:**
+
+- Every production queue entry now declares an immutable expiry/reconnect
+  policy. Configuration writes retain last-value-wins behavior for up to five
+  minutes, Stop commands for up to 60 seconds, and Start/AP-mode commands for
+  no more than 15 seconds.
+- Start and AP-mode actions are discarded as soon as they encounter a
+  disconnect. Configuration and transaction-bound Stop commands may cross only
+  a short disconnect and are never sent after their monotonic deadline.
+- Queue entries are revalidated before execution. Start cannot run after a
+  transaction became active, while Stop remains bound to the exact transaction
+  ID captured by the original action and no longer invents transaction ID `0`.
+- Expired configuration writes receive the terminal `expired` state. Replaced
+  and expired generations run guarded cleanup, so neither an old rollback nor
+  an entity-local optimistic value can overwrite the latest automation intent.
+- Regression tests cover expiry while disconnected and behind an active write,
+  short reconnect retention, volatile disconnect handling, superseded cleanup,
+  terminal configuration state, and explicit policy wiring at every call site.
+
 ## 4. Harden Start/Stop transaction semantics
 
-**Problem:** Start currently checks primarily for the literal `Charging` state,
-although `SuspendedEV`, `SuspendedEVSE`, or a retained transaction ID also mean
-that a transaction is active. Stop can fall back to transaction ID `0` while
-the real ID is temporarily unavailable.
+**Problem:** Start and Stop need to remain coherent when automations invoke them
+around transaction state transitions or queue both opposing intents.
+
+**Progress from item #3:** Start now uses the shared transaction-state decision
+both before enqueueing and immediately before execution. Stop no longer invents
+transaction ID `0`, is revalidated twice, and remains bound to the transaction
+ID captured by the original action. The remaining work is to define and test
+how opposite pending Start and Stop intents supersede each other.
 
 **Target behaviour:**
 
