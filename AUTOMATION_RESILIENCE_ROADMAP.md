@@ -37,7 +37,7 @@ The priorities in this document are based on safety and observability:
 | 1 | P0 | Return blocked Home Assistant actions as errors | In progress |
 | 2 | P0 | Isolate superseded in-flight write results | Completed |
 | 3 | P0 | Expire and revalidate delayed commands | Completed |
-| 4 | P0 | Harden Start/Stop transaction semantics | In progress |
+| 4 | P0 | Harden Start/Stop transaction semantics | Completed |
 | 5 | P0 | Prevent ambiguous config entries and charger connections | Planned |
 | 6 | P1 | Make paired and compound changes predictable | Planned |
 | 7 | P1 | Coalesce manual refresh and harden integration services | Planned |
@@ -159,12 +159,6 @@ intent may no longer be current hours later.
 **Problem:** Start and Stop need to remain coherent when automations invoke them
 around transaction state transitions or queue both opposing intents.
 
-**Progress from item #3:** Start now uses the shared transaction-state decision
-both before enqueueing and immediately before execution. Stop no longer invents
-transaction ID `0`, is revalidated twice, and remains bound to the transaction
-ID captured by the original action. The remaining work is to define and test
-how opposite pending Start and Stop intents supersede each other.
-
 **Target behaviour:**
 
 - Use the shared `transaction_is_active` decision for Remote Start.
@@ -179,6 +173,31 @@ how opposite pending Start and Stop intents supersede each other.
 - Start is rejected in every active OCPP transaction state.
 - Stop without a known transaction ID does not issue an OCPP call.
 - A stale Stop cannot affect a newer transaction after reconnect.
+
+**Implemented on 2026-09-15:**
+
+- Remote Start and Remote Stop now share one logical queue lane. Opposing
+  commands can no longer remain queued independently and execute later in an
+  order that no longer represents the latest valid automation intent.
+- Stop explicitly cancels a matching Start only while that Start is still in
+  the local queue and therefore definitely unsent. If no transaction is active,
+  that cancellation completes locally without inventing transaction ID `0` or
+  sending an unnecessary OCPP Stop; it also remains available if the charger
+  disconnected after the Start was queued.
+- An OCPP request already being executed is deliberately outside the local
+  cancellation boundary. Home Assistant does not claim such a Start was
+  retracted because the charger may already have received it.
+- The supersession rule is intentionally asymmetric: Start is rejected while
+  any retained coordinator state indicates an active transaction, so it cannot
+  erase a valid queued Stop. Once the previous transaction has ended, a newly
+  valid Start may replace that transaction's now-stale unsent Stop.
+- Start and Stop validity rules live in small pure functions and are applied
+  again immediately before OCPP execution. A delayed Stop requires both an
+  active transaction and an exact match with its originally captured ID.
+- Regression tests cover all three active OCPP statuses (`Charging`,
+  `SuspendedEV`, and `SuspendedEVSE`), retained partial transaction state,
+  unsent Start cancellation, the in-flight cancellation boundary, opposing
+  intent replacement, ended transactions, and changed transaction IDs.
 
 ## 5. Prevent ambiguous config entries and charger connections
 
