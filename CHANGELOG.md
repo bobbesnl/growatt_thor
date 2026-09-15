@@ -43,6 +43,24 @@ _Target version: 1.7.0_
 - **Load-balancing guidance**: The load-balancing controls now explain that they are available only in Fast and Off-Peak modes, not in PV Linkage modes.
 
 ### Fixed
+- **Reliable charger writes across reconnects**: Serialize integration-initiated
+  OCPP operations, keep commands that were definitely not sent in the queue,
+  and rebind them to the current charger connection after reconnecting. A lost
+  acknowledgement is shown as uncertain and resolved through configuration
+  readback instead of being reported as a rejection or blindly retried.
+- **Write/readback request collisions**: Coalesce post-write configuration
+  refreshes and wait until the write queue is idle. Periodic external-meter
+  polling yields to pending writes so both tasks no longer wake together and
+  send a burst of requests to sensitive THOR firmware.
+- **Stable configuration controls**: Keep reported values visible while an
+  active transaction or fault temporarily blocks writes, show the LCD's pending
+  state, and restore rejected numeric changes from the last charger-reported
+  value rather than an earlier optimistic UI value.
+- **Power Distribution strategy**: Keep a charger-reported Power Distribution
+  mode visible as the current select option without exposing it as an
+  unverified writable target. Working and solar mode are now part of the first
+  operational configuration request, so a later diagnostic timeout cannot
+  leave charging strategy unknown.
 - **Home Assistant 2026.8 compatibility**: Removes a warning when upgrading an existing External Meter device while keeping the existing device and entities intact.
 - **Controls while the charger has a fault**: Settings and Start Charging are unavailable while the charger reports a fault. Stop Charging remains available, and the other controls return automatically after recovery.
 - **PV Linkage with a meter fault**: PV Linkage cannot be newly selected while the external meter reports a fault or repeatedly stops responding. One or two temporary timeouts do not block the mode, and an active mode is never changed automatically.
