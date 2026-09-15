@@ -11,12 +11,18 @@ from homeassistant.helpers.entity import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
 from .const import DOMAIN
-from .configuration_control import async_confirm_configuration
+from .configuration_writes import ConfigurationWriteStatus
 from .charging_controls import (
     ChargingControl,
+    control_is_applicable,
     control_write_block_reason,
 )
 from .pv_linkage import PvBoostMode
+from .write_queue import (
+    ChargerConnectionUnavailable,
+    ChargerRequestOutcomeUncertain,
+    ChargerWriteResult,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,9 +62,16 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
 
     @property
     def available(self):
+        # Writing a schedule while charging is unsafe, but that temporary write
+        # guard must not hide the already reported schedule from Home Assistant.
         return (
             super().available
-            and self._write_block_reason is None
+            and self.coordinator.connected
+            and control_is_applicable(
+                ChargingControl.AUTO_CHARGE_SCHEDULE,
+                self.coordinator.configuration_values,
+            )
+            and self.native_value is not None
         )
 
     @property
@@ -99,6 +112,10 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
             formatted_value = f"{start_time.strftime('%H:%M')}-{stop_time.strftime('%H:%M')}"
             _LOGGER.info("🔄 Auto-queueing schedule update: %s", formatted_value)
 
+            self.coordinator.begin_configuration_write(
+                self._CONFIG_KEY,
+                formatted_value,
+            )
             await self.coordinator.queue_write(
                 self._apply_schedule,
                 charge_point,
@@ -106,21 +123,31 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
                 start_time,
                 stop_time,
                 dedupe_key=self._CONFIG_KEY,  # ✅ only keep latest G_AutoChargeTime in queue
+                command_name=f"ChangeConfiguration({self._CONFIG_KEY})",
+                requires_connection=True,
+                configuration_key=self._CONFIG_KEY,
             )
 
-    async def _apply_schedule(self, charge_point, formatted_value: str, start_time: time, stop_time: time):
+    async def _apply_schedule(
+        self,
+        charge_point,
+        formatted_value: str,
+        start_time: time,
+        stop_time: time,
+    ) -> ChargerWriteResult:
         """Actually write schedule to the charger (runs inside write-queue)."""
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning(
                 "Skipping queued charging schedule change: %s",
                 block_reason,
             )
-            return
-        try:
-            self.coordinator.begin_configuration_write(
+            self.coordinator.mark_configuration_write(
                 self._CONFIG_KEY,
-                formatted_value,
+                ConfigurationWriteStatus.SKIPPED,
+                result=block_reason,
             )
+            return ChargerWriteResult.skipped(block_reason)
+        try:
             result = await charge_point.change_configuration(
                 self._CONFIG_KEY,
                 formatted_value
@@ -136,9 +163,11 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
                 result=result,
             )
             if accepted:
-                self.hass.async_create_task(
-                    async_confirm_configuration(self.hass, charge_point)
+                self.coordinator.update_configuration_value(
+                    self._CONFIG_KEY,
+                    formatted_value,
                 )
+                self.coordinator.schedule_configuration_refresh()
 
             if result == ConfigurationStatus.accepted:
                 self.coordinator.auto_charge_start_time = start_time
@@ -152,9 +181,23 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
                 _LOGGER.warning("⚠️ Charging schedule applied (reboot required): %s", formatted_value)
             else:
                 _LOGGER.error("❌ Charging schedule rejected: %s", result)
+                return ChargerWriteResult.failed("charger_rejected", result)
 
+            return ChargerWriteResult.success(result)
+
+        except ChargerConnectionUnavailable:
+            raise
+        except ChargerRequestOutcomeUncertain as exc:
+            self.coordinator.mark_configuration_write(
+                self._CONFIG_KEY,
+                ConfigurationWriteStatus.UNCERTAIN,
+                result=str(exc),
+            )
+            self.coordinator.schedule_configuration_refresh(delay=0)
+            return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
             _LOGGER.error("❌ Failed to auto-apply schedule: %s", exc, exc_info=True)
+            return ChargerWriteResult.failed("unexpected_error")
 
 
 class AutoChargeStartTime(BaseAutoChargeTime):
@@ -240,10 +283,17 @@ class BasePvBoostTime(CoordinatorEntity, TimeEntity):
 
     @property
     def available(self):
+        # Temporary write guards belong in async_set_value, not availability.
+        # The locally edited draft remains useful state during a charge session.
         return (
             super().available
-            and self._write_block_reason is None
+            and self.coordinator.connected
+            and control_is_applicable(
+                ChargingControl.SOLAR_BOOST,
+                self.coordinator.configuration_values,
+            )
             and self.coordinator.pv_boost_mode_draft == self._required_mode
+            and self.native_value is not None
         )
 
     @property

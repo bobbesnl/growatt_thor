@@ -15,13 +15,18 @@ from .charging_controls import (
     charger_write_block_reason,
     control_write_block_reason,
 )
-from .configuration_control import async_confirm_configuration
+from .configuration_writes import ConfigurationWriteStatus
 from .const import DOMAIN
 from .pv_linkage import (
     ConfigurationWrite,
     DataTransferWrite,
     build_pv_linkage_writes,
     draft_validation_errors,
+)
+from .write_queue import (
+    ChargerConnectionUnavailable,
+    ChargerRequestOutcomeUncertain,
+    ChargerWriteResult,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -98,13 +103,14 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             priority=True,
             rate_limited=False,
             command_name="RemoteStartTransaction",
+            requires_connection=True,
         )
 
-    async def _start_charging(self, charge_point):
+    async def _start_charging(self, charge_point) -> ChargerWriteResult:
         """Start charging command (runs inside write-queue)."""
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Skipping queued start charging: %s", block_reason)
-            return
+            return ChargerWriteResult.skipped(block_reason)
         try:
             result = await charge_point.remote_start_transaction(
                 connector_id=1,
@@ -113,18 +119,33 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 
             if result.get("status") == "Accepted":
                 _LOGGER.info("✅ Charging session started successfully")
-                self.hass.async_create_task(self._post_status_update(charge_point))
+                self.hass.async_create_task(self._post_status_update())
                 self.coordinator.async_set_updated_data(True)
+                return ChargerWriteResult.success(result.get("status"))
             else:
                 _LOGGER.error("❌ Start charging rejected: %s", result.get("status"))
+                return ChargerWriteResult.failed(
+                    "charger_rejected",
+                    result.get("status"),
+                )
 
+        except ChargerConnectionUnavailable:
+            raise
+        except ChargerRequestOutcomeUncertain as exc:
+            return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
             _LOGGER.error("❌ Failed to start charging: %s", exc, exc_info=True)
+            return ChargerWriteResult.failed("unexpected_error")
 
-    async def _post_status_update(self, charge_point):
-        """Trigger a status update after a short delay (outside write-queue)."""
+    async def _post_status_update(self):
+        """Trigger a status update on whichever connection is current later."""
         await asyncio.sleep(2)
         try:
+            # Capturing the charge point used for the original command is unsafe:
+            # the THOR can reconnect during this delay and replace its socket.
+            charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+            if charge_point is None:
+                return
             await charge_point.trigger_status()
             self.coordinator.async_set_updated_data(True)
         except Exception as exc:
@@ -189,9 +210,14 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
             priority=True,
             rate_limited=False,
             command_name="RemoteStopTransaction",
+            requires_connection=True,
         )
 
-    async def _stop_charging(self, charge_point, transaction_id: int):
+    async def _stop_charging(
+        self,
+        charge_point,
+        transaction_id: int,
+    ) -> ChargerWriteResult:
         """Stop charging command (runs inside write-queue)."""
         try:
             result = await charge_point.remote_stop_transaction(
@@ -200,18 +226,33 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
 
             if result.get("status") == "Accepted":
                 _LOGGER.info("✅ Charging session stopped successfully")
-                self.hass.async_create_task(self._post_status_update(charge_point))
+                self.hass.async_create_task(self._post_status_update())
                 self.coordinator.async_set_updated_data(True)
+                return ChargerWriteResult.success(result.get("status"))
             else:
                 _LOGGER.error("❌ Stop charging rejected: %s", result.get("status"))
+                return ChargerWriteResult.failed(
+                    "charger_rejected",
+                    result.get("status"),
+                )
 
+        except ChargerConnectionUnavailable:
+            raise
+        except ChargerRequestOutcomeUncertain as exc:
+            return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
             _LOGGER.error("❌ Failed to stop charging: %s", exc, exc_info=True)
+            return ChargerWriteResult.failed("unexpected_error")
 
-    async def _post_status_update(self, charge_point):
-        """Trigger a status update after a short delay (outside write-queue)."""
+    async def _post_status_update(self):
+        """Trigger a status update on whichever connection is current later."""
         await asyncio.sleep(2)
         try:
+            # See the matching start helper: delayed work must not retain a
+            # websocket that may have been superseded during the wait.
+            charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+            if charge_point is None:
+                return
             await charge_point.trigger_status()
             self.coordinator.async_set_updated_data(True)
         except Exception as exc:
@@ -300,66 +341,88 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
             charge_point,
             writes,
             dedupe_key="pv_linkage_compound",
+            command_name="ApplyPvLinkage",
+            requires_connection=True,
         )
 
-    async def _apply_writes(self, charge_point, writes) -> None:
+    async def _apply_writes(self, charge_point, writes) -> ChargerWriteResult:
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning(
                 "Skipping queued PV Linkage configuration: %s",
                 block_reason,
             )
-            return
+            return ChargerWriteResult.skipped(block_reason)
 
         accepted_configuration = False
-        for write in writes:
-            if isinstance(write, ConfigurationWrite):
-                self.coordinator.begin_configuration_write(
-                    write.key,
-                    write.value,
-                )
-                result = await charge_point.change_configuration(
-                    write.key,
-                    write.value,
-                )
-                accepted = result in {
-                    ConfigurationStatus.accepted,
-                    ConfigurationStatus.reboot_required,
-                }
-                self.coordinator.acknowledge_configuration_write(
-                    write.key,
-                    accepted=accepted,
-                    result=result,
-                )
-                if not accepted:
-                    _LOGGER.error(
-                        "PV Linkage write %s was rejected: %s",
+        active_configuration_key = None
+        try:
+            for write in writes:
+                if isinstance(write, ConfigurationWrite):
+                    active_configuration_key = write.key
+                    self.coordinator.begin_configuration_write(
                         write.key,
-                        result,
+                        write.value,
                     )
-                    return
-                self.coordinator.update_configuration_value(
-                    write.key,
-                    write.value,
-                )
-                accepted_configuration = True
-                continue
+                    result = await charge_point.change_configuration(
+                        write.key,
+                        write.value,
+                    )
+                    accepted = result in {
+                        ConfigurationStatus.accepted,
+                        ConfigurationStatus.reboot_required,
+                    }
+                    self.coordinator.acknowledge_configuration_write(
+                        write.key,
+                        accepted=accepted,
+                        result=result,
+                    )
+                    if not accepted:
+                        _LOGGER.error(
+                            "PV Linkage write %s was rejected: %s",
+                            write.key,
+                            result,
+                        )
+                        return ChargerWriteResult.failed(
+                            f"{write.key}_rejected",
+                            result,
+                        )
+                    self.coordinator.update_configuration_value(
+                        write.key,
+                        write.value,
+                    )
+                    accepted_configuration = True
+                    active_configuration_key = None
+                    continue
 
-            if isinstance(write, DataTransferWrite):
-                result = await charge_point.send_data_transfer(
-                    vendor_id=write.vendor_id,
-                    message_id=write.message_id,
-                    data=write.data,
-                )
-                if result != DataTransferStatus.accepted:
-                    _LOGGER.error(
-                        "PV Linkage DataTransfer %s was rejected: %s",
-                        write.message_id,
-                        result,
+                if isinstance(write, DataTransferWrite):
+                    result = await charge_point.send_data_transfer(
+                        vendor_id=write.vendor_id,
+                        message_id=write.message_id,
+                        data=write.data,
                     )
-                    return
+                    if result != DataTransferStatus.accepted:
+                        _LOGGER.error(
+                            "PV Linkage DataTransfer %s was rejected: %s",
+                            write.message_id,
+                            result,
+                        )
+                        return ChargerWriteResult.failed(
+                            f"{write.message_id}_rejected",
+                            result,
+                        )
+        except ChargerConnectionUnavailable:
+            raise
+        except ChargerRequestOutcomeUncertain as exc:
+            if active_configuration_key is not None:
+                self.coordinator.mark_configuration_write(
+                    active_configuration_key,
+                    ConfigurationWriteStatus.UNCERTAIN,
+                    result=str(exc),
+                )
+            self.coordinator.schedule_configuration_refresh(delay=0)
+            return ChargerWriteResult.uncertain(str(exc))
 
         self.coordinator.mark_pv_linkage_draft_applied()
         if accepted_configuration:
-            self.hass.async_create_task(
-                async_confirm_configuration(self.hass, charge_point)
-            )
+            self.coordinator.schedule_configuration_refresh()
+        return ChargerWriteResult.success()

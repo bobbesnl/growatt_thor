@@ -23,8 +23,14 @@ from .configuration import (
     configuration_entity_state,
 )
 from .configuration_control import GrowattConfigurationControlMixin
+from .configuration_writes import ConfigurationWriteStatus
 from .const import DOMAIN
 from .pv_linkage import PvBoostMode
+from .write_queue import (
+    ChargerConnectionUnavailable,
+    ChargerRequestOutcomeUncertain,
+    ChargerWriteResult,
+)
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,13 +78,6 @@ class AuthorizationModeSelect(GrowattConfigurationControlMixin, CoordinatorEntit
         if option != self.current_option:
             await self._async_write_configuration(encode_control_value(self._control, option))
 
-    async def _apply_configuration(self, charge_point, raw_value: str) -> None:
-        # A queued write must never reach a previous OCPP connection.
-        if self.hass.data.get(DOMAIN, {}).get("charge_point") is not charge_point:
-            return
-        await super()._apply_configuration(charge_point, raw_value)
-
-
 class WorkingModeSelect(CoordinatorEntity, SelectEntity):
     """Select a charging strategy through the captured indirect writes."""
 
@@ -114,10 +113,12 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def available(self):
+        # An active charging transaction prevents mode changes, but the last
+        # reported strategy remains useful state and must stay visible.
         return (
             super().available
+            and self.coordinator.connected
             and self.current_option is not None
-            and self._write_block_reason is None
         )
 
     @property
@@ -156,6 +157,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         if self._readback_task is not None and not self._readback_task.done():
             self._readback_task.cancel()
         self.async_write_ha_state()
+        self.coordinator.begin_configuration_write(key, raw_value)
         await self.coordinator.queue_write(
             self._apply_working_mode,
             charge_point,
@@ -163,6 +165,9 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
             raw_value,
             option,
             dedupe_key="working_mode",
+            command_name=f"ChangeConfiguration({key})",
+            requires_connection=True,
+            configuration_key=key,
         )
 
     async def _apply_working_mode(
@@ -171,7 +176,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         key: str,
         raw_value: str,
         option: str,
-    ) -> None:
+    ) -> ChargerWriteResult:
         if (
             option in PV_LINKAGE_WORKING_MODES
             and not self.coordinator.external_meter_ready_for_pv
@@ -180,17 +185,39 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
                 "Skipping queued PV Linkage change: external meter health is %s",
                 self.coordinator.external_meter_health,
             )
+            self.coordinator.mark_configuration_write(
+                key,
+                ConfigurationWriteStatus.SKIPPED,
+                result="external_meter_not_ready",
+            )
             self._clear_pending_option(option)
-            return
+            return ChargerWriteResult.skipped("external_meter_not_ready")
         block_reason = self._write_block_reason
         if block_reason is not None:
             _LOGGER.warning("Skipping queued working mode change: %s", block_reason)
+            self.coordinator.mark_configuration_write(
+                key,
+                ConfigurationWriteStatus.SKIPPED,
+                result=block_reason,
+            )
             self._clear_pending_option(option)
-            return
+            return ChargerWriteResult.skipped(block_reason)
 
-        self.coordinator.begin_configuration_write(key, raw_value)
         try:
             result = await charge_point.change_configuration(key, raw_value)
+        except ChargerConnectionUnavailable:
+            raise
+        except ChargerRequestOutcomeUncertain as exc:
+            self.coordinator.mark_configuration_write(
+                key,
+                ConfigurationWriteStatus.UNCERTAIN,
+                result=str(exc),
+            )
+            if self._pending_option == option:
+                self._readback_task = self.hass.async_create_task(
+                    self._refresh_configuration(option, delay=0)
+                )
+            return ChargerWriteResult.uncertain(str(exc))
         except Exception:
             self._clear_pending_option(option)
             raise
@@ -206,7 +233,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         if not accepted:
             _LOGGER.error("Working mode change rejected by charger: %s", result)
             self._clear_pending_option(option)
-            return
+            return ChargerWriteResult.failed("charger_rejected", result)
 
         self.coordinator.update_configuration_value(key, raw_value)
         reported_mode = {
@@ -229,8 +256,9 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
 
         if self._pending_option == option:
             self._readback_task = self.hass.async_create_task(
-                self._refresh_configuration(charge_point, option)
+                self._refresh_configuration(option)
             )
+        return ChargerWriteResult.success(result)
 
     def _clear_pending_option(self, option: str) -> None:
         """Clear only the pending selection owned by this write."""
@@ -238,12 +266,21 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
             self._pending_option = None
             self.async_write_ha_state()
 
-    async def _refresh_configuration(self, charge_point, option: str) -> None:
-        """Confirm the effective mode after the charger has applied the write."""
+    async def _refresh_configuration(
+        self,
+        option: str,
+        *,
+        delay: float = 20.0,
+    ) -> None:
+        """Confirm the effective mode through the shared, coalesced readback."""
         try:
-            await asyncio.sleep(20)
-            if self.hass.data.get(DOMAIN, {}).get("charge_point") is charge_point:
-                await charge_point.trigger_get_configuration()
+            refresh_task = self.coordinator.schedule_configuration_refresh(
+                delay=delay
+            )
+            # This entity owns only its waiter.  Shielding keeps cancellation
+            # (for a newer selection or entity removal) from cancelling the
+            # readback shared by all configuration entities.
+            await asyncio.shield(refresh_task)
         except asyncio.CancelledError:
             return
         finally:
@@ -390,9 +427,15 @@ class PvBoostDraftSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def available(self):
+        # Draft state is still meaningful during charging or a charger fault.
+        # Those conditions block applying it, but should not make it disappear.
         return (
             super().available
-            and self._write_block_reason is None
+            and self.coordinator.connected
+            and control_is_applicable(
+                ChargingControl.SOLAR_BOOST,
+                self.coordinator.configuration_values,
+            )
             and self.current_option is not None
         )
 

@@ -362,11 +362,22 @@ def available_working_mode_options(
     *,
     external_meter_ready: bool,
 ) -> list[str]:
-    """Return modes that remain safe to select for the current meter health."""
+    """Return writable modes plus a currently reported read-only mode.
+
+    Some THORs initially report ``Power Distribution``.  We do not know a
+    verified ChangeConfiguration payload for selecting that mode, but Home
+    Assistant requires the current select value to be present in ``options``.
+    Keeping only the currently reported value avoids displaying ``unknown``
+    without accidentally advertising an unverified write target.
+    """
     if external_meter_ready:
-        return list(WORKING_MODE_OPTIONS)
-    return [
-        option
-        for option in WORKING_MODE_OPTIONS
-        if option not in PV_LINKAGE_WORKING_MODES or option == current_option
-    ]
+        options = list(WORKING_MODE_OPTIONS)
+    else:
+        options = [
+            option
+            for option in WORKING_MODE_OPTIONS
+            if option not in PV_LINKAGE_WORKING_MODES or option == current_option
+        ]
+    if current_option is not None and current_option not in options:
+        options.append(current_option)
+    return options

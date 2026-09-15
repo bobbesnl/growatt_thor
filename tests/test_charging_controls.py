@@ -93,6 +93,18 @@ class ChargingControlDependencyTest(unittest.TestCase):
             list(controls.WORKING_MODE_OPTIONS),
         )
 
+    def test_reported_power_distribution_remains_a_visible_current_option(self):
+        """A readable but unverified mode must not render as unknown in HA."""
+        options = controls.available_working_mode_options(
+            "power_distribution",
+            external_meter_ready=True,
+        )
+
+        self.assertIn("power_distribution", options)
+        self.assertNotIn("power_distribution", controls.WORKING_MODE_OPTIONS)
+        with self.assertRaises(ValueError):
+            controls.encode_working_mode("power_distribution")
+
     def test_solar_limit_requires_pv_mode_and_enabled_solar_mode(self):
         control = controls.ChargingControl.SOLAR_GRID_IMPORT_LIMIT
         self.assertFalse(
@@ -146,6 +158,26 @@ class ChargingControlDependencyTest(unittest.TestCase):
                 charger_faulted=True,
             ),
             "charger_faulted",
+        )
+
+    def test_active_transaction_blocks_write_without_erasing_control_state(self):
+        """Availability and temporary write permission are separate concerns."""
+        values = _values(G_WorkingMode="Fast")
+
+        self.assertTrue(
+            controls.control_is_applicable(
+                controls.ChargingControl.WORKING_MODE,
+                values,
+            )
+        )
+        self.assertEqual(
+            controls.control_write_block_reason(
+                controls.ChargingControl.WORKING_MODE,
+                values,
+                connected=True,
+                transaction_active=True,
+            ),
+            "active_transaction",
         )
 
     def test_grid_off_peak_requires_plug_and_charge(self):
