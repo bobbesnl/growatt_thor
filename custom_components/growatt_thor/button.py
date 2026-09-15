@@ -10,6 +10,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from ocpp.v16.enums import ConfigurationStatus, DataTransferStatus
 
+from .action_errors import (
+    raise_action_validation,
+    raise_charger_disconnected,
+    raise_write_blocked,
+)
 from .charging_controls import (
     ChargingControl,
     charger_write_block_reason,
@@ -82,18 +87,18 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
         """Start a charging session via queue."""
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot start charging: %s", block_reason)
-            return
+            raise_write_blocked(block_reason)
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot start charging: charger not connected")
-            return
+            raise_charger_disconnected()
 
         if self.coordinator.status == "Charging":
             _LOGGER.warning(
                 "⚠️ Cannot start charging: session already active (transaction_id=%s)",
                 self.coordinator.transaction_id
             )
-            return
+            raise_action_validation("charging_already_active")
 
         _LOGGER.info("🔘 Queueing priority start charging command")
         await self.coordinator.queue_write(
@@ -179,7 +184,7 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot stop charging: charger not connected")
-            return
+            raise_charger_disconnected()
 
         is_charging = self.coordinator.status == "Charging"
         transaction_id = self.coordinator.transaction_id
@@ -189,7 +194,7 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
                 "⚠️ Cannot stop charging: no active session (status=%s)",
                 self.coordinator.status
             )
-            return
+            raise_action_validation("no_active_transaction")
 
         # Gebruik transaction_id 0 als fallback (stop huidige sessie)
         tid = transaction_id if transaction_id is not None else 0
@@ -320,7 +325,7 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
                 "Cannot apply PV Linkage configuration: %s",
                 block_reason,
             )
-            return
+            raise_write_blocked(block_reason)
 
         draft = self.coordinator.pv_linkage_draft()
         if draft is None or (errors := draft_validation_errors(draft)):
@@ -328,12 +333,21 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
                 "Cannot apply incomplete PV Linkage configuration: %s",
                 errors if draft is not None else ("draft_not_initialized",),
             )
-            return
+            raise_action_validation(
+                "invalid_pv_linkage_draft",
+                placeholders={
+                    "errors": ", ".join(
+                        errors
+                        if draft is not None
+                        else ("draft_not_initialized",)
+                    ),
+                },
+            )
 
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if charge_point is None:
             _LOGGER.warning("Cannot apply PV Linkage: charger not connected")
-            return
+            raise_charger_disconnected()
 
         writes = build_pv_linkage_writes(draft, now=dt_util.now())
         await self.coordinator.queue_write(

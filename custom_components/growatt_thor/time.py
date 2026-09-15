@@ -10,6 +10,7 @@ from homeassistant.helpers.entity import EntityCategory
 
 from ocpp.v16.enums import ConfigurationStatus
 
+from .action_errors import raise_charger_disconnected, raise_write_blocked
 from .const import DOMAIN
 from .configuration_writes import ConfigurationWriteStatus
 from .charging_controls import (
@@ -88,11 +89,11 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
         """Update time and auto-apply schedule via write queue."""
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot change %s: %s", self.name, block_reason)
-            return
+            raise_write_blocked(block_reason)
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot change %s: charger not connected", self.name)
-            return
+            raise_charger_disconnected()
 
         _LOGGER.info("📝 %s changed to %s (auto-queuing)", self.name, value.strftime("%H:%M"))
 
@@ -303,7 +304,7 @@ class BasePvBoostTime(CoordinatorEntity, TimeEntity):
     async def async_set_value(self, value: time) -> None:
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot edit PV Boost time: %s", block_reason)
-            return
+            raise_write_blocked(block_reason)
         self.coordinator.update_pv_linkage_draft(
             **{self._coordinator_field: value}
         )

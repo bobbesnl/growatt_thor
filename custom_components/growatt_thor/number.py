@@ -9,6 +9,11 @@ from homeassistant.helpers.entity import EntityCategory
 
 from ocpp.v16.enums import ConfigurationStatus
 
+from .action_errors import (
+    raise_action_validation,
+    raise_charger_disconnected,
+    raise_write_blocked,
+)
 from .const import DOMAIN
 from .charging_controls import (
     ChargingControl,
@@ -137,7 +142,7 @@ class MaxCurrentNumber(BaseConfigNumber):
     async def async_set_native_value(self, value: float) -> None:
         if (block_reason := self._charger_write_block_reason) is not None:
             _LOGGER.warning("Cannot change Max Current: %s", block_reason)
-            return
+            raise_write_blocked(block_reason)
         value = int(round(value))
         if not self._value_is_valid(value):
             _LOGGER.warning(
@@ -147,12 +152,19 @@ class MaxCurrentNumber(BaseConfigNumber):
                 self.native_min_value,
                 self.native_max_value,
             )
-            return
+            raise_action_validation(
+                "value_out_of_range",
+                placeholders={
+                    "value": f"{value} A",
+                    "minimum": f"{self.native_min_value} A",
+                    "maximum": f"{self.native_max_value} A",
+                },
+            )
 
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot change Max Current: charger not connected")
-            return
+            raise_charger_disconnected()
 
         current = self.coordinator.max_current
         if current is not None and int(round(current)) == value:
@@ -331,13 +343,13 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
                 "Cannot change Load Balancing Limit: %s",
                 block_reason,
             )
-            return
+            raise_write_blocked(block_reason)
         value = int(round(value))
 
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot change Load Balancing Limit: charger not connected")
-            return
+            raise_charger_disconnected()
 
         current = self.coordinator.external_limit_power
         if current is not None and int(round(current)) == value:
@@ -479,13 +491,13 @@ class ElectricityPriceNumber(BaseConfigNumber):
     async def async_set_native_value(self, value: float) -> None:
         if (block_reason := self._charger_write_block_reason) is not None:
             _LOGGER.warning("Cannot change Electricity Price: %s", block_reason)
-            return
+            raise_write_blocked(block_reason)
         value = round(value, 2)
 
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot change Elektricteitstarief: charger not connected")
-            return
+            raise_charger_disconnected()
 
         current = self.coordinator.electricity_price
         if current is not None and round(current, 2) == value:
@@ -752,7 +764,7 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
                 "Cannot edit Smart Boost target energy: %s",
                 block_reason,
             )
-            return
+            raise_write_blocked(block_reason)
         self.coordinator.update_pv_linkage_draft(
             pv_smart_target_energy_draft=round(float(value), 3)
         )

@@ -9,6 +9,11 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ocpp.v16.enums import ConfigurationStatus
 
+from .action_errors import (
+    raise_action_validation,
+    raise_charger_disconnected,
+    raise_write_blocked,
+)
 from .charging_controls import (
     PV_LINKAGE_WORKING_MODES,
     ChargingControl,
@@ -143,15 +148,22 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
                 "Cannot select PV Linkage while external meter health is %s",
                 self.coordinator.external_meter_health,
             )
-            return
+            raise_action_validation(
+                (
+                    "external_meter_not_ready"
+                    if option in PV_LINKAGE_WORKING_MODES
+                    else "invalid_working_mode"
+                ),
+                placeholders={"option": option},
+            )
         block_reason = self._write_block_reason
         if block_reason is not None:
             _LOGGER.warning("Cannot change working mode: %s", block_reason)
-            return
+            raise_write_blocked(block_reason)
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if charge_point is None:
             _LOGGER.warning("Cannot change working mode: charger not connected")
-            return
+            raise_charger_disconnected()
         key, raw_value = encode_working_mode(option)
         self._pending_option = option
         if self._readback_task is not None and not self._readback_task.done():
@@ -446,7 +458,7 @@ class PvBoostDraftSelect(CoordinatorEntity, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot edit PV Boost mode: %s", block_reason)
-            return
+            raise_write_blocked(block_reason)
         self.coordinator.update_pv_linkage_draft(
             pv_boost_mode_draft=PvBoostMode(option)
         )

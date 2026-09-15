@@ -82,6 +82,44 @@
       "charger_mode_changed": "✅ Charger mode changed. The THOR will reboot. Re-plug the EV if needed."
     }
   },
+  "exceptions": {
+    "action_not_allowed": {
+      "message": "The requested action is not allowed ({reason})."
+    },
+    "charger_disconnected": {
+      "message": "The charger is not connected, so the requested action cannot be performed."
+    },
+    "charger_faulted": {
+      "message": "The requested action is blocked while the charger reports a fault."
+    },
+    "active_transaction": {
+      "message": "This setting cannot be changed while a charging transaction is active."
+    },
+    "control_not_applicable": {
+      "message": "This control does not apply to the charger's current operating mode."
+    },
+    "configuration_read_only": {
+      "message": "The charger reports this configuration value as read-only."
+    },
+    "external_meter_not_ready": {
+      "message": "Cannot select {option} because external meter communication is not ready."
+    },
+    "invalid_working_mode": {
+      "message": "{option} is not a supported charging strategy."
+    },
+    "charging_already_active": {
+      "message": "Charging cannot be started because a transaction is already active."
+    },
+    "no_active_transaction": {
+      "message": "Charging cannot be stopped because no active transaction is known."
+    },
+    "invalid_pv_linkage_draft": {
+      "message": "The PV Linkage settings are incomplete or invalid ({errors})."
+    },
+    "value_out_of_range": {
+      "message": "The requested value {value} is outside the supported range from {minimum} to {maximum}."
+    }
+  },
   "selector": {
     "charger_mode": {
       "options": {

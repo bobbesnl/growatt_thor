@@ -74,6 +74,44 @@
       "charger_mode_changed": "✅ Oplaadmodus gewijzigd. De THOR herstart. Plug de EV indien nodig opnieuw in."
     }
   },
+  "exceptions": {
+    "action_not_allowed": {
+      "message": "De gevraagde actie is niet toegestaan ({reason})."
+    },
+    "charger_disconnected": {
+      "message": "De lader is niet verbonden, waardoor de gevraagde actie niet kan worden uitgevoerd."
+    },
+    "charger_faulted": {
+      "message": "De gevraagde actie is geblokkeerd zolang de lader een storing meldt."
+    },
+    "active_transaction": {
+      "message": "Deze instelling kan niet worden gewijzigd terwijl een laadsessie actief is."
+    },
+    "control_not_applicable": {
+      "message": "Deze bediening is niet van toepassing op de huidige bedrijfsmodus van de lader."
+    },
+    "configuration_read_only": {
+      "message": "De lader meldt deze configuratiewaarde als alleen-lezen."
+    },
+    "external_meter_not_ready": {
+      "message": "{option} kan niet worden geselecteerd omdat de communicatie met de externe meter niet gereed is."
+    },
+    "invalid_working_mode": {
+      "message": "{option} is geen ondersteunde laadstrategie."
+    },
+    "charging_already_active": {
+      "message": "Laden kan niet worden gestart omdat er al een transactie actief is."
+    },
+    "no_active_transaction": {
+      "message": "Laden kan niet worden gestopt omdat er geen actieve transactie bekend is."
+    },
+    "invalid_pv_linkage_draft": {
+      "message": "De PV Linkage-instellingen zijn onvolledig of ongeldig ({errors})."
+    },
+    "value_out_of_range": {
+      "message": "De gevraagde waarde {value} valt buiten het ondersteunde bereik van {minimum} tot {maximum}."
+    }
+  },
   "selector": {
     "charger_mode": {
       "options": {

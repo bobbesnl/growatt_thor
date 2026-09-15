@@ -5,6 +5,7 @@ import logging
 
 from ocpp.v16.enums import ConfigurationStatus
 
+from .action_errors import raise_charger_disconnected, raise_write_blocked
 from .charging_controls import (
     CONTROL_DEFINITIONS,
     ChargingControl,
@@ -80,14 +81,17 @@ class GrowattConfigurationControlMixin:
                 self._configuration_key,
                 block_reason,
             )
-            return
+            # Entity methods are HA action handlers. Raising here makes a
+            # blocked automation visible in its trace instead of reporting a
+            # successful call for a command that was never queued.
+            raise_write_blocked(block_reason)
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if charge_point is None:
             _LOGGER.warning(
                 "Cannot change %s: charger not connected",
                 self._configuration_key,
             )
-            return
+            raise_charger_disconnected()
 
         # Record the desired value while it is still waiting in the queue.  It
         # remains separate from configuration_values, which always represents

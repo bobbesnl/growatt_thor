@@ -82,6 +82,44 @@
       "charger_mode_changed": "✅ Lademodus geändert. Die THOR-Wallbox wird neu gestartet. Schließe das Fahrzeug bei Bedarf erneut an."
     }
   },
+  "exceptions": {
+    "action_not_allowed": {
+      "message": "Die angeforderte Aktion ist nicht zulässig ({reason})."
+    },
+    "charger_disconnected": {
+      "message": "Die Wallbox ist nicht verbunden. Die angeforderte Aktion kann daher nicht ausgeführt werden."
+    },
+    "charger_faulted": {
+      "message": "Die angeforderte Aktion ist gesperrt, solange die Wallbox eine Störung meldet."
+    },
+    "active_transaction": {
+      "message": "Diese Einstellung kann während eines aktiven Ladevorgangs nicht geändert werden."
+    },
+    "control_not_applicable": {
+      "message": "Diese Steuerung ist im aktuellen Betriebsmodus der Wallbox nicht anwendbar."
+    },
+    "configuration_read_only": {
+      "message": "Die Wallbox meldet diesen Konfigurationswert als schreibgeschützt."
+    },
+    "external_meter_not_ready": {
+      "message": "{option} kann nicht ausgewählt werden, da die Kommunikation mit dem externen Zähler nicht bereit ist."
+    },
+    "invalid_working_mode": {
+      "message": "{option} ist keine unterstützte Ladestrategie."
+    },
+    "charging_already_active": {
+      "message": "Der Ladevorgang kann nicht gestartet werden, da bereits eine Transaktion aktiv ist."
+    },
+    "no_active_transaction": {
+      "message": "Der Ladevorgang kann nicht gestoppt werden, da keine aktive Transaktion bekannt ist."
+    },
+    "invalid_pv_linkage_draft": {
+      "message": "Die PV-Linkage-Einstellungen sind unvollständig oder ungültig ({errors})."
+    },
+    "value_out_of_range": {
+      "message": "Der angeforderte Wert {value} liegt außerhalb des unterstützten Bereichs von {minimum} bis {maximum}."
+    }
+  },
   "selector": {
     "charger_mode": {
       "options": {

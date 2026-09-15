@@ -9,6 +9,7 @@ from homeassistant.helpers.entity import EntityCategory
 
 from ocpp.v16.enums import ConfigurationStatus
 
+from .action_errors import raise_charger_disconnected, raise_write_blocked
 from .const import DOMAIN
 from .charging_controls import (
     ChargingControl,
@@ -174,12 +175,12 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
         """Queue the configuration update (prevents rapid-fire FW crashes)."""
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot change Load Balancing: %s", block_reason)
-            return
+            raise_write_blocked(block_reason)
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
 
         if not charge_point:
             _LOGGER.warning("Cannot change Loadbalancing: charger not connected")
-            return
+            raise_charger_disconnected()
 
         new_state = value == "1"
         if self.coordinator.external_limit_power_enable == new_state:
@@ -350,12 +351,12 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
         """Queue the configuration update (prevents rapid-fire FW crashes)."""
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot change LCD display: %s", block_reason)
-            return
+            raise_write_blocked(block_reason)
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
 
         if not charge_point:
             _LOGGER.warning("Cannot change LCD display: charger not connected")
-            return
+            raise_charger_disconnected()
 
         if self.coordinator.lcd_close_enable == value:
             _LOGGER.debug(
