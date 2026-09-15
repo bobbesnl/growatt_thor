@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
+from decimal import Decimal, InvalidOperation
 from enum import Enum
 from typing import Mapping
 
@@ -14,6 +15,8 @@ class ConfigurationWriteStatus(str, Enum):
     CONFIRMED = "confirmed"
     MISMATCH = "mismatch"
     REJECTED = "rejected"
+    SKIPPED = "skipped"
+    UNCERTAIN = "uncertain"
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +80,30 @@ def acknowledge_configuration_write(
     return updated
 
 
+def mark_configuration_write(
+    writes: Mapping[str, ConfigurationWriteState],
+    *,
+    key: str,
+    status: ConfigurationWriteStatus,
+    result: str | None = None,
+) -> dict[str, ConfigurationWriteState]:
+    """Record a non-acknowledgement outcome for an existing write.
+
+    Transport loss is deliberately not represented as ``REJECTED``.  Once a
+    ChangeConfiguration request has entered the OCPP layer, a disconnect does
+    not tell us whether the THOR applied it before the socket disappeared.
+    ``UNCERTAIN`` therefore remains eligible for reconciliation by the next
+    GetConfiguration response.
+    """
+    state = writes.get(key)
+    if state is None:
+        return dict(writes)
+
+    updated = dict(writes)
+    updated[key] = replace(state, status=status, result=result)
+    return updated
+
+
 def confirm_configuration_writes(
     writes: Mapping[str, ConfigurationWriteState],
     reported_values: Mapping[str, str | None],
@@ -89,20 +116,66 @@ def confirm_configuration_writes(
         state = updated.get(key)
         if (
             state is None
-            or state.status != ConfigurationWriteStatus.AWAITING_READBACK
+            or state.status
+            not in {
+                ConfigurationWriteStatus.AWAITING_READBACK,
+                ConfigurationWriteStatus.UNCERTAIN,
+            }
         ):
             continue
         updated[key] = replace(
             state,
             status=(
                 ConfigurationWriteStatus.CONFIRMED
-                if reported_raw_value == state.requested_raw_value
+                if _raw_values_match(
+                    state.requested_raw_value,
+                    reported_raw_value,
+                )
                 else ConfigurationWriteStatus.MISMATCH
             ),
             reported_raw_value=reported_raw_value,
             readback_at=readback_at,
         )
     return updated
+
+
+def pending_configuration_value(
+    writes: Mapping[str, ConfigurationWriteState],
+    key: str,
+) -> str | None:
+    """Return the desired value while the charger outcome is still unresolved.
+
+    Entities such as the LCD switch should show the user's newly requested
+    state while it waits in the rate-limited queue.  A rejected, skipped, or
+    mismatching write is deliberately excluded so the entity falls back to the
+    last value actually reported by the THOR.
+    """
+    state = writes.get(key)
+    if state is None or state.status not in {
+        ConfigurationWriteStatus.PENDING,
+        ConfigurationWriteStatus.AWAITING_READBACK,
+        ConfigurationWriteStatus.UNCERTAIN,
+    }:
+        return None
+    return state.requested_raw_value
+
+
+def _raw_values_match(requested: str, reported: str | None) -> bool:
+    """Compare wire values without treating harmless number formatting as drift.
+
+    The THOR commonly acknowledges ``13`` and later reports ``13.00``.  Exact
+    string comparison would mark that successful write as a mismatch.  Only
+    values that are both plain decimals receive numeric comparison; compound
+    vendor payloads such as ``1&Enable`` remain exact and case-sensitive.
+    """
+    if reported is None:
+        return False
+    if requested == reported:
+        return True
+    try:
+        return Decimal(requested.strip()) == Decimal(reported.strip())
+    except (InvalidOperation, AttributeError, ValueError):
+        return False
 
 
 def serialize_configuration_writes(
