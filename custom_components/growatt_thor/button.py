@@ -369,13 +369,16 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
 
         accepted_configuration = False
         active_configuration_key = None
+        active_configuration_generation = None
         try:
             for write in writes:
                 if isinstance(write, ConfigurationWrite):
                     active_configuration_key = write.key
-                    self.coordinator.begin_configuration_write(
-                        write.key,
-                        write.value,
+                    active_configuration_generation = (
+                        self.coordinator.begin_configuration_write(
+                            write.key,
+                            write.value,
+                        )
                     )
                     result = await charge_point.change_configuration(
                         write.key,
@@ -385,10 +388,13 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
                         ConfigurationStatus.accepted,
                         ConfigurationStatus.reboot_required,
                     }
-                    self.coordinator.acknowledge_configuration_write(
-                        write.key,
-                        accepted=accepted,
-                        result=result,
+                    outcome_is_current = (
+                        self.coordinator.acknowledge_configuration_write(
+                            write.key,
+                            generation=active_configuration_generation,
+                            accepted=accepted,
+                            result=result,
+                        )
                     )
                     if not accepted:
                         _LOGGER.error(
@@ -400,12 +406,14 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
                             f"{write.key}_rejected",
                             result,
                         )
-                    self.coordinator.update_configuration_value(
-                        write.key,
-                        write.value,
-                    )
+                    if outcome_is_current:
+                        self.coordinator.update_configuration_value(
+                            write.key,
+                            write.value,
+                        )
                     accepted_configuration = True
                     active_configuration_key = None
+                    active_configuration_generation = None
                     continue
 
                 if isinstance(write, DataTransferWrite):
@@ -427,10 +435,14 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
         except ChargerConnectionUnavailable:
             raise
         except ChargerRequestOutcomeUncertain as exc:
-            if active_configuration_key is not None:
+            if (
+                active_configuration_key is not None
+                and active_configuration_generation is not None
+            ):
                 self.coordinator.mark_configuration_write(
                     active_configuration_key,
                     ConfigurationWriteStatus.UNCERTAIN,
+                    generation=active_configuration_generation,
                     result=str(exc),
                 )
             self.coordinator.schedule_configuration_refresh(delay=0)

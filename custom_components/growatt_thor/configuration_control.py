@@ -12,7 +12,11 @@ from .charging_controls import (
     control_is_applicable,
     control_write_block_reason,
 )
-from .configuration_writes import ConfigurationWriteStatus
+from .configuration import configuration_value_from_item
+from .configuration_writes import (
+    ConfigurationWriteStatus,
+    pending_configuration_value,
+)
 from .const import DOMAIN
 from .write_queue import (
     ChargerConnectionUnavailable,
@@ -35,7 +39,27 @@ class GrowattConfigurationControlMixin:
 
     @property
     def _configuration_value(self):
-        return self.coordinator.configuration_values.get(self._configuration_key)
+        reported = self.coordinator.configuration_values.get(
+            self._configuration_key
+        )
+        pending_raw_value = pending_configuration_value(
+            self.coordinator.configuration_writes,
+            self._configuration_key,
+        )
+        if pending_raw_value is None:
+            return reported
+        # Configuration entities should display the latest queued intent. The
+        # reported snapshot remains untouched and is used again once the write
+        # reaches a terminal rejected, skipped, or mismatching state.
+        return configuration_value_from_item(
+            {
+                "key": self._configuration_key,
+                "value": pending_raw_value,
+                "readonly": (
+                    reported.readonly if reported is not None else False
+                ),
+            }
+        )
 
     @property
     def _control_available(self) -> bool:
@@ -74,6 +98,22 @@ class GrowattConfigurationControlMixin:
         }
 
     async def _async_write_configuration(self, raw_value: str) -> None:
+        pending_raw_value = pending_configuration_value(
+            self.coordinator.configuration_writes,
+            self._configuration_key,
+        )
+        if pending_raw_value == raw_value:
+            # Repeating an already pending action is idempotent. In contrast,
+            # selecting the last reported value while a different value is
+            # pending must create a new generation and supersede that request.
+            return
+        if (
+            pending_raw_value is None
+            and self._configuration_value is not None
+            and self._configuration_value.raw_value == raw_value
+        ):
+            return
+
         block_reason = self._write_block_reason
         if block_reason is not None:
             _LOGGER.warning(
@@ -96,7 +136,7 @@ class GrowattConfigurationControlMixin:
         # Record the desired value while it is still waiting in the queue.  It
         # remains separate from configuration_values, which always represents
         # the last value reported or acknowledged by the THOR.
-        self.coordinator.begin_configuration_write(
+        generation = self.coordinator.begin_configuration_write(
             self._configuration_key,
             raw_value,
         )
@@ -104,16 +144,19 @@ class GrowattConfigurationControlMixin:
             self._apply_configuration,
             charge_point,
             raw_value,
+            generation,
             dedupe_key=self._configuration_key,
             command_name=f"ChangeConfiguration({self._configuration_key})",
             requires_connection=True,
             configuration_key=self._configuration_key,
+            configuration_generation=generation,
         )
 
     async def _apply_configuration(
         self,
         charge_point,
         raw_value: str,
+        generation: int,
     ) -> ChargerWriteResult:
         block_reason = self._write_block_reason
         if block_reason is not None:
@@ -125,6 +168,7 @@ class GrowattConfigurationControlMixin:
             self.coordinator.mark_configuration_write(
                 self._configuration_key,
                 ConfigurationWriteStatus.SKIPPED,
+                generation=generation,
                 result=block_reason,
             )
             return ChargerWriteResult.skipped(block_reason)
@@ -142,6 +186,7 @@ class GrowattConfigurationControlMixin:
             self.coordinator.mark_configuration_write(
                 self._configuration_key,
                 ConfigurationWriteStatus.UNCERTAIN,
+                generation=generation,
                 result=str(exc),
             )
             self.coordinator.schedule_configuration_refresh(delay=0)
@@ -151,16 +196,21 @@ class GrowattConfigurationControlMixin:
             ConfigurationStatus.accepted,
             ConfigurationStatus.reboot_required,
         }
-        self.coordinator.acknowledge_configuration_write(
+        outcome_is_current = self.coordinator.acknowledge_configuration_write(
             self._configuration_key,
+            generation=generation,
             accepted=accepted,
             result=result,
         )
         if accepted:
-            self.coordinator.update_configuration_value(
-                self._configuration_key,
-                raw_value,
-            )
+            # The charger may accept an older request after a newer automation
+            # has already queued its replacement. Keep the accepted physical
+            # outcome for readback, but expose only the newest intent in HA.
+            if outcome_is_current:
+                self.coordinator.update_configuration_value(
+                    self._configuration_key,
+                    raw_value,
+                )
             if result == ConfigurationStatus.reboot_required:
                 _LOGGER.warning(
                     "%s accepted but requires a charger reboot",

@@ -113,7 +113,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
             formatted_value = f"{start_time.strftime('%H:%M')}-{stop_time.strftime('%H:%M')}"
             _LOGGER.info("🔄 Auto-queueing schedule update: %s", formatted_value)
 
-            self.coordinator.begin_configuration_write(
+            generation = self.coordinator.begin_configuration_write(
                 self._CONFIG_KEY,
                 formatted_value,
             )
@@ -123,10 +123,12 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
                 formatted_value,
                 start_time,
                 stop_time,
+                generation,
                 dedupe_key=self._CONFIG_KEY,  # ✅ only keep latest G_AutoChargeTime in queue
                 command_name=f"ChangeConfiguration({self._CONFIG_KEY})",
                 requires_connection=True,
                 configuration_key=self._CONFIG_KEY,
+                configuration_generation=generation,
             )
 
     async def _apply_schedule(
@@ -135,6 +137,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
         formatted_value: str,
         start_time: time,
         stop_time: time,
+        generation: int,
     ) -> ChargerWriteResult:
         """Actually write schedule to the charger (runs inside write-queue)."""
         if (block_reason := self._write_block_reason) is not None:
@@ -145,6 +148,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
             self.coordinator.mark_configuration_write(
                 self._CONFIG_KEY,
                 ConfigurationWriteStatus.SKIPPED,
+                generation=generation,
                 result=block_reason,
             )
             return ChargerWriteResult.skipped(block_reason)
@@ -158,27 +162,31 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
                 ConfigurationStatus.accepted,
                 ConfigurationStatus.reboot_required,
             }
-            self.coordinator.acknowledge_configuration_write(
+            outcome_is_current = self.coordinator.acknowledge_configuration_write(
                 self._CONFIG_KEY,
+                generation=generation,
                 accepted=accepted,
                 result=result,
             )
-            if accepted:
+            if accepted and outcome_is_current:
                 self.coordinator.update_configuration_value(
                     self._CONFIG_KEY,
                     formatted_value,
                 )
+            if accepted:
                 self.coordinator.schedule_configuration_refresh()
 
             if result == ConfigurationStatus.accepted:
-                self.coordinator.auto_charge_start_time = start_time
-                self.coordinator.auto_charge_stop_time = stop_time
-                self.coordinator.async_set_updated_data(True)
+                if outcome_is_current:
+                    self.coordinator.auto_charge_start_time = start_time
+                    self.coordinator.auto_charge_stop_time = stop_time
+                    self.coordinator.async_set_updated_data(True)
                 _LOGGER.info("✅ Auto-applied charging schedule: %s", formatted_value)
             elif result == ConfigurationStatus.reboot_required:
-                self.coordinator.auto_charge_start_time = start_time
-                self.coordinator.auto_charge_stop_time = stop_time
-                self.coordinator.async_set_updated_data(True)
+                if outcome_is_current:
+                    self.coordinator.auto_charge_start_time = start_time
+                    self.coordinator.auto_charge_stop_time = stop_time
+                    self.coordinator.async_set_updated_data(True)
                 _LOGGER.warning("⚠️ Charging schedule applied (reboot required): %s", formatted_value)
             else:
                 _LOGGER.error("❌ Charging schedule rejected: %s", result)
@@ -192,6 +200,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
             self.coordinator.mark_configuration_write(
                 self._CONFIG_KEY,
                 ConfigurationWriteStatus.UNCERTAIN,
+                generation=generation,
                 result=str(exc),
             )
             self.coordinator.schedule_configuration_refresh(delay=0)

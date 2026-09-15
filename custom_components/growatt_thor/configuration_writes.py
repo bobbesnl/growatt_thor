@@ -20,21 +20,35 @@ class ConfigurationWriteStatus(str, Enum):
 
 
 @dataclass(frozen=True, slots=True)
+class SupersededConfigurationWriteOutcome:
+    """Bounded diagnostic record for a response to an older generation."""
+
+    generation: int
+    outcome: str
+    result: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ConfigurationWriteState:
     """Last write state retained for one configuration key."""
 
     key: str
     requested_raw_value: str
     requested_at: str
+    generation: int
     status: ConfigurationWriteStatus = ConfigurationWriteStatus.PENDING
     result: str | None = None
     reported_raw_value: str | None = None
     readback_at: str | None = None
+    superseded_outcomes: tuple[SupersededConfigurationWriteOutcome, ...] = ()
 
     def as_dict(self) -> dict[str, object]:
         """Return a diagnostics-friendly representation."""
         data = asdict(self)
         data["status"] = self.status.value
+        data["superseded_outcomes"] = [
+            asdict(outcome) for outcome in self.superseded_outcomes
+        ]
         return data
 
 
@@ -45,20 +59,43 @@ def begin_configuration_write(
     raw_value: str,
     requested_at: str,
 ) -> dict[str, ConfigurationWriteState]:
-    """Start tracking a write without mutating the previous snapshot."""
+    """Start tracking a write without mutating the previous snapshot.
+
+    A generation belongs to one configuration key and increases for every new
+    user intent. Queue deduplication can remove writes that have not started,
+    but it cannot cancel an OCPP request already awaiting a response. The
+    generation lets that older response identify itself as superseded.
+    """
     updated = dict(writes)
+    previous = writes.get(key)
     updated[key] = ConfigurationWriteState(
         key=key,
         requested_raw_value=raw_value,
         requested_at=requested_at,
+        generation=1 if previous is None else previous.generation + 1,
+        superseded_outcomes=(
+            () if previous is None else previous.superseded_outcomes
+        ),
     )
     return updated
+
+
+def configuration_write_is_current(
+    writes: Mapping[str, ConfigurationWriteState],
+    *,
+    key: str,
+    generation: int,
+) -> bool:
+    """Return whether an outcome still belongs to the latest user intent."""
+    state = writes.get(key)
+    return state is not None and state.generation == generation
 
 
 def acknowledge_configuration_write(
     writes: Mapping[str, ConfigurationWriteState],
     *,
     key: str,
+    generation: int,
     accepted: bool,
     result: str,
 ) -> dict[str, ConfigurationWriteState]:
@@ -66,6 +103,16 @@ def acknowledge_configuration_write(
     state = writes.get(key)
     if state is None:
         return dict(writes)
+    if state.generation != generation:
+        # An older in-flight request may finish after a newer HA automation has
+        # already replaced it. Its response must not overwrite the new intent.
+        return _record_superseded_outcome(
+            writes,
+            key=key,
+            generation=generation,
+            outcome="accepted" if accepted else "rejected",
+            result=result,
+        )
 
     updated = dict(writes)
     updated[key] = replace(
@@ -84,6 +131,7 @@ def mark_configuration_write(
     writes: Mapping[str, ConfigurationWriteState],
     *,
     key: str,
+    generation: int,
     status: ConfigurationWriteStatus,
     result: str | None = None,
 ) -> dict[str, ConfigurationWriteState]:
@@ -98,9 +146,42 @@ def mark_configuration_write(
     state = writes.get(key)
     if state is None:
         return dict(writes)
+    if state.generation != generation:
+        return _record_superseded_outcome(
+            writes,
+            key=key,
+            generation=generation,
+            outcome=status.value,
+            result=result,
+        )
 
     updated = dict(writes)
     updated[key] = replace(state, status=status, result=result)
+    return updated
+
+
+def _record_superseded_outcome(
+    writes: Mapping[str, ConfigurationWriteState],
+    *,
+    key: str,
+    generation: int,
+    outcome: str,
+    result: str | None,
+) -> dict[str, ConfigurationWriteState]:
+    """Append an old outcome without allowing unbounded diagnostics growth."""
+    state = writes.get(key)
+    if state is None:
+        return dict(writes)
+    diagnostic = SupersededConfigurationWriteOutcome(
+        generation=generation,
+        outcome=outcome,
+        result=result,
+    )
+    updated = dict(writes)
+    updated[key] = replace(
+        state,
+        superseded_outcomes=(*state.superseded_outcomes[-4:], diagnostic),
+    )
     return updated
 
 

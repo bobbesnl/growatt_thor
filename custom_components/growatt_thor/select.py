@@ -73,15 +73,19 @@ class AuthorizationModeSelect(GrowattConfigurationControlMixin, CoordinatorEntit
 
     @property
     def current_option(self):
-        return configuration_entity_state(self._configuration_key, self._configuration_value)
+        return configuration_entity_state(
+            self._configuration_key,
+            self._configuration_value,
+        )
 
     @property
     def available(self):
         return super().available and self._control_available and self.current_option is not None
 
     async def async_select_option(self, option: str) -> None:
-        if option != self.current_option:
-            await self._async_write_configuration(encode_control_value(self._control, option))
+        await self._async_write_configuration(
+            encode_control_value(self._control, option)
+        )
 
 class WorkingModeSelect(CoordinatorEntity, SelectEntity):
     """Select a charging strategy through the captured indirect writes."""
@@ -94,6 +98,8 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         super().__init__(coordinator)
         self.hass = coordinator.hass
         self._pending_option: str | None = None
+        self._intent_sequence = 0
+        self._pending_intent: int | None = None
         self._readback_task: asyncio.Task | None = None
         self._attr_unique_id = f"{entry.entry_id}_working_mode_control"
         self._attr_device_info = {
@@ -165,21 +171,27 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
             _LOGGER.warning("Cannot change working mode: charger not connected")
             raise_charger_disconnected()
         key, raw_value = encode_working_mode(option)
+        self._intent_sequence += 1
+        intent = self._intent_sequence
         self._pending_option = option
+        self._pending_intent = intent
         if self._readback_task is not None and not self._readback_task.done():
             self._readback_task.cancel()
         self.async_write_ha_state()
-        self.coordinator.begin_configuration_write(key, raw_value)
+        generation = self.coordinator.begin_configuration_write(key, raw_value)
         await self.coordinator.queue_write(
             self._apply_working_mode,
             charge_point,
             key,
             raw_value,
             option,
+            generation,
+            intent,
             dedupe_key="working_mode",
             command_name=f"ChangeConfiguration({key})",
             requires_connection=True,
             configuration_key=key,
+            configuration_generation=generation,
         )
 
     async def _apply_working_mode(
@@ -188,6 +200,8 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         key: str,
         raw_value: str,
         option: str,
+        generation: int,
+        intent: int,
     ) -> ChargerWriteResult:
         if (
             option in PV_LINKAGE_WORKING_MODES
@@ -200,9 +214,10 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
             self.coordinator.mark_configuration_write(
                 key,
                 ConfigurationWriteStatus.SKIPPED,
+                generation=generation,
                 result="external_meter_not_ready",
             )
-            self._clear_pending_option(option)
+            self._clear_pending_option(option, intent)
             return ChargerWriteResult.skipped("external_meter_not_ready")
         block_reason = self._write_block_reason
         if block_reason is not None:
@@ -210,9 +225,10 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
             self.coordinator.mark_configuration_write(
                 key,
                 ConfigurationWriteStatus.SKIPPED,
+                generation=generation,
                 result=block_reason,
             )
-            self._clear_pending_option(option)
+            self._clear_pending_option(option, intent)
             return ChargerWriteResult.skipped(block_reason)
 
         try:
@@ -223,64 +239,83 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
             self.coordinator.mark_configuration_write(
                 key,
                 ConfigurationWriteStatus.UNCERTAIN,
+                generation=generation,
                 result=str(exc),
             )
-            if self._pending_option == option:
+            if self._selection_is_current(option, intent):
                 self._readback_task = self.hass.async_create_task(
-                    self._refresh_configuration(option, delay=0)
+                    self._refresh_configuration(option, intent, delay=0)
                 )
+            else:
+                self.coordinator.schedule_configuration_refresh(delay=0)
             return ChargerWriteResult.uncertain(str(exc))
         except Exception:
-            self._clear_pending_option(option)
+            self._clear_pending_option(option, intent)
             raise
         accepted = result in {
             ConfigurationStatus.accepted,
             ConfigurationStatus.reboot_required,
         }
-        self.coordinator.acknowledge_configuration_write(
+        outcome_is_current = self.coordinator.acknowledge_configuration_write(
             key,
+            generation=generation,
             accepted=accepted,
             result=result,
         )
         if not accepted:
             _LOGGER.error("Working mode change rejected by charger: %s", result)
-            self._clear_pending_option(option)
+            self._clear_pending_option(option, intent)
             return ChargerWriteResult.failed("charger_rejected", result)
 
-        self.coordinator.update_configuration_value(key, raw_value)
-        reported_mode = {
-            "fast": "Fast",
-            "pv_linkage": "PVlink",
-            "pv_linkage_plus": "PVlink",
-            "off_peak": "Off Peak",
-        }[option]
-        self.coordinator.update_configuration_value(
-            "G_WorkingMode",
-            reported_mode,
-        )
-        if option == "off_peak":
-            self.coordinator.update_configuration_value("G_SolarMode", "1&0")
-        elif option in {"fast", "pv_linkage", "pv_linkage_plus"}:
+        selection_is_current = self._selection_is_current(option, intent)
+        if outcome_is_current and selection_is_current:
+            # Working modes use different underlying Growatt keys. Therefore
+            # the entity-level intent token complements the per-key generation
+            # and prevents an older mode response from winning across keys.
+            self.coordinator.update_configuration_value(key, raw_value)
+            reported_mode = {
+                "fast": "Fast",
+                "pv_linkage": "PVlink",
+                "pv_linkage_plus": "PVlink",
+                "off_peak": "Off Peak",
+            }[option]
             self.coordinator.update_configuration_value(
-                "G_OffPeakEnable",
-                "1&Disable",
+                "G_WorkingMode",
+                reported_mode,
             )
+            if option == "off_peak":
+                self.coordinator.update_configuration_value("G_SolarMode", "1&0")
+            elif option in {"fast", "pv_linkage", "pv_linkage_plus"}:
+                self.coordinator.update_configuration_value(
+                    "G_OffPeakEnable",
+                    "1&Disable",
+                )
 
-        if self._pending_option == option:
+        if selection_is_current:
             self._readback_task = self.hass.async_create_task(
-                self._refresh_configuration(option)
+                self._refresh_configuration(option, intent)
             )
+        else:
+            # Even a superseded accepted write changed the charger briefly;
+            # the shared refresh waits for the replacement before reading back.
+            self.coordinator.schedule_configuration_refresh()
         return ChargerWriteResult.success(result)
 
-    def _clear_pending_option(self, option: str) -> None:
+    def _selection_is_current(self, option: str, intent: int) -> bool:
+        """Return whether a callback owns the latest logical mode selection."""
+        return self._pending_option == option and self._pending_intent == intent
+
+    def _clear_pending_option(self, option: str, intent: int) -> None:
         """Clear only the pending selection owned by this write."""
-        if self._pending_option == option:
+        if self._selection_is_current(option, intent):
             self._pending_option = None
+            self._pending_intent = None
             self.async_write_ha_state()
 
     async def _refresh_configuration(
         self,
         option: str,
+        intent: int,
         *,
         delay: float = 20.0,
     ) -> None:
@@ -296,11 +331,12 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         except asyncio.CancelledError:
             return
         finally:
-            self._clear_pending_option(option)
+            self._clear_pending_option(option, intent)
 
     async def async_will_remove_from_hass(self) -> None:
         """Cancel a delayed mode readback when the entity is removed."""
         self._pending_option = None
+        self._pending_intent = None
         if self._readback_task is not None and not self._readback_task.done():
             self._readback_task.cancel()
         await super().async_will_remove_from_hass()

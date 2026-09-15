@@ -29,6 +29,7 @@ from .configuration_writes import (
     ConfigurationWriteState,
     acknowledge_configuration_write,
     begin_configuration_write,
+    configuration_write_is_current,
     confirm_configuration_writes,
     mark_configuration_write,
 )
@@ -326,6 +327,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         command_name=None,
         requires_connection=False,
         configuration_key=None,
+        configuration_generation=None,
         **kwargs,
     ):
         """Queue a charger command with optional deduplication and priority.
@@ -338,6 +340,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """
         if requires_connection and not args:
             raise ValueError("A connection-bound write requires a charge point argument")
+        if (configuration_key is None) != (configuration_generation is None):
+            raise ValueError(
+                "Configuration key and generation must be queued together"
+            )
 
         write_item = {
             "func": write_func,
@@ -350,6 +356,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             "command_name": command_name or write_func.__name__,
             "requires_connection": requires_connection,
             "configuration_key": configuration_key,
+            "configuration_generation": configuration_generation,
         }
 
         if dedupe_key is not None:
@@ -516,10 +523,17 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         if write_item["rate_limited"]:
                             self._last_write_monotonic = self.hass.loop.time()
                         configuration_key = write_item.get("configuration_key")
-                        if configuration_key:
+                        configuration_generation = write_item.get(
+                            "configuration_generation"
+                        )
+                        if (
+                            configuration_key
+                            and configuration_generation is not None
+                        ):
                             self.mark_configuration_write(
                                 configuration_key,
                                 ConfigurationWriteStatus.UNCERTAIN,
+                                generation=configuration_generation,
                                 result=str(err),
                             )
                             self.schedule_configuration_refresh(delay=0)
@@ -626,8 +640,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.configuration_values[key] = value
         self.async_set_updated_data(True)
 
-    def begin_configuration_write(self, key: str, raw_value: str) -> None:
-        """Track a configuration write separately from reported state."""
+    def begin_configuration_write(self, key: str, raw_value: str) -> int:
+        """Track a configuration write and return its per-key generation."""
         self.configuration_writes = begin_configuration_write(
             self.configuration_writes,
             key=key,
@@ -635,39 +649,74 @@ class GrowattCoordinator(DataUpdateCoordinator):
             requested_at=self.now(),
         )
         self.async_set_updated_data(True)
+        return self.configuration_writes[key].generation
+
+    def configuration_write_is_current(
+        self,
+        key: str,
+        generation: int,
+    ) -> bool:
+        """Return whether a callback still owns the latest intent for a key."""
+        return configuration_write_is_current(
+            self.configuration_writes,
+            key=key,
+            generation=generation,
+        )
 
     def acknowledge_configuration_write(
         self,
         key: str,
         *,
+        generation: int,
         accepted: bool,
         result: object,
-    ) -> None:
-        """Retain the OCPP result while awaiting charger readback."""
+    ) -> bool:
+        """Retain a current OCPP result; ignore a superseded response."""
+        outcome_is_current = self.configuration_write_is_current(key, generation)
+        if not outcome_is_current:
+            _LOGGER.info(
+                "Ignoring superseded ChangeConfiguration result for %s "
+                "(generation %d)",
+                key,
+                generation,
+            )
         result_value = result.value if hasattr(result, "value") else str(result)
         self.configuration_writes = acknowledge_configuration_write(
             self.configuration_writes,
             key=key,
+            generation=generation,
             accepted=accepted,
             result=result_value,
         )
         self.async_set_updated_data(True)
+        return outcome_is_current
 
     def mark_configuration_write(
         self,
         key: str,
         status: ConfigurationWriteStatus,
         *,
+        generation: int,
         result: str | None = None,
-    ) -> None:
-        """Retain a skipped, retryable, or uncertain configuration outcome."""
+    ) -> bool:
+        """Retain a current non-acknowledgement outcome."""
+        outcome_is_current = self.configuration_write_is_current(key, generation)
+        if not outcome_is_current:
+            _LOGGER.info(
+                "Ignoring superseded %s outcome for %s (generation %d)",
+                status.value,
+                key,
+                generation,
+            )
         self.configuration_writes = mark_configuration_write(
             self.configuration_writes,
             key=key,
+            generation=generation,
             status=status,
             result=result,
         )
         self.async_set_updated_data(True)
+        return outcome_is_current
 
     def schedule_configuration_refresh(self, *, delay: float = 20.0):
         """Coalesce post-write readbacks into one reconnect-safe task.

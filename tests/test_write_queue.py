@@ -93,6 +93,18 @@ def _build_coordinator(loop):
 class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
     """Verify deduplication and prompt transaction controls."""
 
+    async def test_configuration_queue_metadata_requires_generation(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+
+        async def write():
+            return None
+
+        with self.assertRaisesRegex(ValueError, "key and generation"):
+            await coordinator.queue_write(
+                write,
+                configuration_key="G_MaxCurrent",
+            )
+
     async def test_duplicate_configuration_write_keeps_latest_value(self):
         coordinator = _build_coordinator(asyncio.get_running_loop())
         calls = []
@@ -113,6 +125,71 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         await coordinator._write_task
 
         self.assertEqual(calls, ["new"])
+
+    async def test_active_older_write_cannot_overwrite_newer_intent(self):
+        """Deduplication cannot cancel an in-flight OCPP request.
+
+        The first callback is deliberately held after it became active. A
+        second HA action then records and queues a newer value for the same key.
+        When the old acknowledgement arrives, its generation must keep it from
+        changing either the tracked request or the optimistic visible value.
+        """
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        first_started = asyncio.Event()
+        release_first = asyncio.Event()
+        visible_values = []
+
+        async def write(value, generation):
+            if value == "13":
+                first_started.set()
+                await release_first.wait()
+            outcome_is_current = coordinator.acknowledge_configuration_write(
+                "G_MaxCurrent",
+                generation=generation,
+                accepted=True,
+                result="Accepted",
+            )
+            if outcome_is_current:
+                visible_values.append(value)
+            return coordinator_module.ChargerWriteResult.success("Accepted")
+
+        old_generation = coordinator.begin_configuration_write(
+            "G_MaxCurrent",
+            "13",
+        )
+        await coordinator.queue_write(
+            write,
+            "13",
+            old_generation,
+            dedupe_key="G_MaxCurrent",
+            configuration_key="G_MaxCurrent",
+            configuration_generation=old_generation,
+        )
+        await first_started.wait()
+
+        new_generation = coordinator.begin_configuration_write(
+            "G_MaxCurrent",
+            "17",
+        )
+        await coordinator.queue_write(
+            write,
+            "17",
+            new_generation,
+            dedupe_key="G_MaxCurrent",
+            configuration_key="G_MaxCurrent",
+            configuration_generation=new_generation,
+        )
+        release_first.set()
+        await coordinator._write_task
+
+        tracked = coordinator.configuration_writes["G_MaxCurrent"]
+        self.assertEqual(tracked.generation, new_generation)
+        self.assertEqual(tracked.requested_raw_value, "17")
+        self.assertEqual(
+            tracked.status,
+            coordinator_module.ConfigurationWriteStatus.AWAITING_READBACK,
+        )
+        self.assertEqual(visible_values, ["17"])
 
     async def test_control_interrupts_configuration_rate_limit(self):
         coordinator = _build_coordinator(asyncio.get_running_loop())

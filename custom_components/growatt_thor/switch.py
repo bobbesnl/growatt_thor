@@ -66,6 +66,12 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
     @property
     def is_on(self):
         """Return true if load balancing is enabled."""
+        desired_value = pending_configuration_value(
+            self.coordinator.configuration_writes,
+            "G_ExternalLimitPowerEnable",
+        )
+        if desired_value is not None:
+            return desired_value == "1"
         return self.coordinator.external_limit_power_enable
 
     @property
@@ -108,6 +114,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
         self,
         charge_point,
         value: str,
+        generation: int,
     ) -> ChargerWriteResult:
         """Actually write setting to the charger (runs inside write-queue)."""
         if (block_reason := self._write_block_reason) is not None:
@@ -118,6 +125,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             self.coordinator.mark_configuration_write(
                 "G_ExternalLimitPowerEnable",
                 ConfigurationWriteStatus.SKIPPED,
+                generation=generation,
                 result=block_reason,
             )
             return ChargerWriteResult.skipped(block_reason)
@@ -132,6 +140,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             self.coordinator.mark_configuration_write(
                 key,
                 ConfigurationWriteStatus.UNCERTAIN,
+                generation=generation,
                 result=str(exc),
             )
             self.coordinator.schedule_configuration_refresh(delay=0)
@@ -141,27 +150,31 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             ConfigurationStatus.accepted,
             ConfigurationStatus.reboot_required,
         }
-        self.coordinator.acknowledge_configuration_write(
+        outcome_is_current = self.coordinator.acknowledge_configuration_write(
             key,
+            generation=generation,
             accepted=accepted,
             result=result,
         )
-        if accepted:
+        if accepted and outcome_is_current:
             self.coordinator.update_configuration_value(key, value)
+        if accepted:
             self.coordinator.schedule_configuration_refresh()
 
         new_state = (value == "1")
 
         if result == ConfigurationStatus.accepted:
-            self.coordinator.external_limit_power_enable = new_state
-            self.coordinator.async_set_updated_data(True)
+            if outcome_is_current:
+                self.coordinator.external_limit_power_enable = new_state
+                self.coordinator.async_set_updated_data(True)
             _LOGGER.info(
                 "✅ Loadbalancing enabled → %s (accepted)",
                 "ON" if new_state else "OFF"
             )
         elif result == ConfigurationStatus.reboot_required:
-            self.coordinator.external_limit_power_enable = new_state
-            self.coordinator.async_set_updated_data(True)
+            if outcome_is_current:
+                self.coordinator.external_limit_power_enable = new_state
+                self.coordinator.async_set_updated_data(True)
             _LOGGER.warning(
                 "⚠️ Loadbalancing enabled → %s (reboot required)",
                 "ON" if new_state else "OFF"
@@ -183,7 +196,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             raise_charger_disconnected()
 
         new_state = value == "1"
-        if self.coordinator.external_limit_power_enable == new_state:
+        if self.is_on == new_state:
             _LOGGER.debug(
                 "Loadbalancing already %s - skipping write",
                 "ON" if new_state else "OFF",
@@ -191,7 +204,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             return
 
         try:
-            self.coordinator.begin_configuration_write(
+            generation = self.coordinator.begin_configuration_write(
                 "G_ExternalLimitPowerEnable",
                 value,
             )
@@ -199,10 +212,12 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
                 self._apply_external_limit_power_enable,
                 charge_point,
                 value,
+                generation,
                 dedupe_key="G_ExternalLimitPowerEnable",
                 command_name="ChangeConfiguration(G_ExternalLimitPowerEnable)",
                 requires_connection=True,
                 configuration_key="G_ExternalLimitPowerEnable",
+                configuration_generation=generation,
             )
 
         except Exception as exc:
@@ -287,6 +302,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
         self,
         charge_point,
         value: str,
+        generation: int,
     ) -> ChargerWriteResult:
         """Actually write LCD setting to the charger (runs inside write-queue)."""
         if (block_reason := self._write_block_reason) is not None:
@@ -294,6 +310,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
             self.coordinator.mark_configuration_write(
                 "G_LCDCloseEnable",
                 ConfigurationWriteStatus.SKIPPED,
+                generation=generation,
                 result=block_reason,
             )
             return ChargerWriteResult.skipped(block_reason)
@@ -308,6 +325,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
             self.coordinator.mark_configuration_write(
                 key,
                 ConfigurationWriteStatus.UNCERTAIN,
+                generation=generation,
                 result=str(exc),
             )
             self.coordinator.schedule_configuration_refresh(delay=0)
@@ -317,24 +335,27 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
             ConfigurationStatus.accepted,
             ConfigurationStatus.reboot_required,
         }
-        self.coordinator.acknowledge_configuration_write(
+        outcome_is_current = self.coordinator.acknowledge_configuration_write(
             key,
+            generation=generation,
             accepted=accepted,
             result=result,
         )
 
         if result == ConfigurationStatus.accepted:
-            self.coordinator.lcd_close_enable = value
-            self.coordinator.update_configuration_value(key, value)
-            self.coordinator.async_set_updated_data(True)
+            if outcome_is_current:
+                self.coordinator.lcd_close_enable = value
+                self.coordinator.update_configuration_value(key, value)
+                self.coordinator.async_set_updated_data(True)
             _LOGGER.info(
                 "✅ LCD display → %s (accepted)",
                 "ON" if value == "Disable" else "OFF"
             )
         elif result == ConfigurationStatus.reboot_required:
-            self.coordinator.lcd_close_enable = value
-            self.coordinator.update_configuration_value(key, value)
-            self.coordinator.async_set_updated_data(True)
+            if outcome_is_current:
+                self.coordinator.lcd_close_enable = value
+                self.coordinator.update_configuration_value(key, value)
+                self.coordinator.async_set_updated_data(True)
             _LOGGER.warning(
                 "⚠️ LCD display → %s (reboot required)",
                 "ON" if value == "Disable" else "OFF"
@@ -358,7 +379,16 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
             _LOGGER.warning("Cannot change LCD display: charger not connected")
             raise_charger_disconnected()
 
-        if self.coordinator.lcd_close_enable == value:
+        desired_value = pending_configuration_value(
+            self.coordinator.configuration_writes,
+            "G_LCDCloseEnable",
+        )
+        effective_value = (
+            desired_value
+            if desired_value is not None
+            else self.coordinator.lcd_close_enable
+        )
+        if effective_value == value:
             _LOGGER.debug(
                 "LCD display already %s - skipping write",
                 "ON" if value == "Disable" else "OFF",
@@ -368,7 +398,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
         try:
             # Begin tracking before enqueueing so ``is_on`` can expose the
             # user's desired value during the rate-limit wait.
-            self.coordinator.begin_configuration_write(
+            generation = self.coordinator.begin_configuration_write(
                 "G_LCDCloseEnable",
                 value,
             )
@@ -376,10 +406,12 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
                 self._apply_lcd_close_enable,
                 charge_point,
                 value,
+                generation,
                 dedupe_key="G_LCDCloseEnable",
                 command_name="ChangeConfiguration(G_LCDCloseEnable)",
                 requires_connection=True,
                 configuration_key="G_LCDCloseEnable",
+                configuration_generation=generation,
             )
 
         except Exception as exc:
