@@ -22,6 +22,7 @@ from .const import (
     DEFAULT_POLL_INTERVAL,
     MIN_POLL_INTERVAL,
 )
+from .write_queue import ChargerWriteResult
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -208,8 +209,6 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
 
     async def _activate_ap_mode(self):
         """Activate AP Mode via OCPP DataTransfer."""
-        from ocpp.v16 import call
-
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
 
@@ -219,13 +218,20 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
 
         _LOGGER.info("Activating AP Mode...")
 
-        async def _do_ap():
-            result = await charge_point.call(
-                call.DataTransfer(
-                    vendor_id="Growatt",
-                    message_id="appconfigmode"
-                )
+        async def _do_ap(current_charge_point):
+            status = await current_charge_point.send_data_transfer(
+                vendor_id="Growatt",
+                message_id="appconfigmode",
             )
-            _LOGGER.info("AP Mode result: %s", result)
+            status_value = status.value if hasattr(status, "value") else str(status)
+            _LOGGER.info("AP Mode result: %s", status_value)
+            if status_value == "Accepted":
+                return ChargerWriteResult.success(status)
+            return ChargerWriteResult.failed("charger_rejected", status)
 
-        await coordinator.queue_write(_do_ap)
+        await coordinator.queue_write(
+            _do_ap,
+            charge_point,
+            command_name="DataTransfer(appconfigmode)",
+            requires_connection=True,
+        )

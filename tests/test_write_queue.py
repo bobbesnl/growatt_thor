@@ -75,9 +75,18 @@ def _build_coordinator(loop):
     coordinator._write_lock = asyncio.Lock()
     coordinator._write_task = None
     coordinator._write_queue_changed = asyncio.Event()
+    coordinator._write_queue_idle = asyncio.Event()
+    coordinator._write_queue_idle.set()
+    coordinator._connection_changed = asyncio.Event()
+    coordinator._connection_changed.set()
+    coordinator._active_write_item = None
+    coordinator._configuration_refresh_task = None
     coordinator._last_write_monotonic = None
     coordinator._min_write_interval = 0.0
     coordinator._poll_pause_after_write = 0.0
+    coordinator.connected = True
+    coordinator.configuration_writes = {}
+    coordinator.async_set_updated_data = lambda data: None
     return coordinator
 
 
@@ -157,6 +166,163 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         await coordinator._write_task
 
         self.assertEqual(calls, ["start", "stop", "configuration"])
+
+    async def test_connection_bound_write_waits_and_uses_reconnected_charge_point(self):
+        """An unsent command survives disconnect and never uses the old socket."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.connected = False
+        coordinator._connection_changed.clear()
+        old_charge_point = object()
+        new_charge_point = object()
+        calls = []
+
+        async def write(charge_point, value):
+            calls.append((charge_point, value))
+            return coordinator_module.ChargerWriteResult.success("Accepted")
+
+        await coordinator.queue_write(
+            write,
+            old_charge_point,
+            "17",
+            dedupe_key="G_MaxCurrent",
+            requires_connection=True,
+        )
+        await asyncio.sleep(0)
+        self.assertEqual(calls, [])
+        self.assertEqual(len(coordinator._write_queue), 1)
+
+        coordinator.hass.data["growatt_thor"]["charge_point"] = new_charge_point
+        coordinator.connected = True
+        coordinator._connection_changed.set()
+        await coordinator._write_task
+
+        self.assertEqual(calls, [(new_charge_point, "17")])
+
+    async def test_last_value_wins_while_waiting_for_reconnect(self):
+        """Reconnect retention must not regress the existing deduplication rule."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.connected = False
+        coordinator._connection_changed.clear()
+        old_charge_point = object()
+        new_charge_point = object()
+        calls = []
+
+        async def write(charge_point, value):
+            calls.append((charge_point, value))
+            return coordinator_module.ChargerWriteResult.success("Accepted")
+
+        await coordinator.queue_write(
+            write,
+            old_charge_point,
+            "16",
+            dedupe_key="G_MaxCurrent",
+            requires_connection=True,
+        )
+        await asyncio.sleep(0)
+        await coordinator.queue_write(
+            write,
+            old_charge_point,
+            "13",
+            dedupe_key="G_MaxCurrent",
+            requires_connection=True,
+        )
+
+        coordinator.hass.data["growatt_thor"]["charge_point"] = new_charge_point
+        coordinator.connected = True
+        coordinator._connection_changed.set()
+        await coordinator._write_task
+
+        self.assertEqual(calls, [(new_charge_point, "13")])
+
+    async def test_definitely_unsent_command_is_rebound_and_retried(self):
+        """A stale connection error is safe to retry on the current connection."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        first_charge_point = object()
+        second_charge_point = object()
+        coordinator.hass.data["growatt_thor"]["charge_point"] = first_charge_point
+        calls = []
+
+        async def write(charge_point):
+            calls.append(charge_point)
+            if len(calls) == 1:
+                coordinator.hass.data["growatt_thor"][
+                    "charge_point"
+                ] = second_charge_point
+                raise coordinator_module.ChargerConnectionUnavailable(
+                    "connection replaced before send"
+                )
+            return coordinator_module.ChargerWriteResult.success("Accepted")
+
+        await coordinator.queue_write(
+            write,
+            first_charge_point,
+            requires_connection=True,
+        )
+        await coordinator._write_task
+
+        self.assertEqual(calls, [first_charge_point, second_charge_point])
+
+    async def test_uncertain_command_is_not_blindly_retried(self):
+        """A lost acknowledgement requires readback rather than duplicate send."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        calls = 0
+
+        async def write():
+            nonlocal calls
+            calls += 1
+            raise coordinator_module.ChargerRequestOutcomeUncertain(
+                "connection lost after send"
+            )
+
+        with self.assertLogs(coordinator_module._LOGGER, level="WARNING") as logs:
+            await coordinator.queue_write(write, command_name="ChangeConfiguration")
+            await coordinator._write_task
+
+        self.assertEqual(calls, 1)
+        self.assertTrue(any("outcome uncertain" in line for line in logs.output))
+
+    async def test_failed_outcome_is_never_logged_as_success(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+
+        async def write():
+            return coordinator_module.ChargerWriteResult.failed(
+                "charger_rejected",
+                "Rejected",
+            )
+
+        with self.assertLogs(coordinator_module._LOGGER, level="INFO") as logs:
+            await coordinator.queue_write(write, command_name="ChangeConfiguration")
+            await coordinator._write_task
+
+        combined = "\n".join(logs.output)
+        self.assertIn("Write failed", combined)
+        self.assertNotIn("Write succeeded", combined)
+
+    async def test_post_write_readbacks_are_coalesced_until_queue_is_idle(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator._write_queue_idle.clear()
+        calls = 0
+
+        class ChargePoint:
+            async def trigger_get_configuration(self, *, skip_if_writes_pending):
+                nonlocal calls
+                self.skip_if_writes_pending = skip_if_writes_pending
+                calls += 1
+                return True
+
+        charge_point = ChargePoint()
+        coordinator.hass.data["growatt_thor"]["charge_point"] = charge_point
+
+        first = coordinator.schedule_configuration_refresh(delay=0)
+        second = coordinator.schedule_configuration_refresh(delay=0)
+        self.assertIs(first, second)
+        await asyncio.sleep(0)
+        self.assertEqual(calls, 0)
+
+        coordinator._write_queue_idle.set()
+        self.assertTrue(await first)
+        self.assertEqual(calls, 1)
+        self.assertTrue(charge_point.skip_if_writes_pending)
 
 
 if __name__ == "__main__":

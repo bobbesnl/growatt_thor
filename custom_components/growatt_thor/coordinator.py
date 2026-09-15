@@ -1,5 +1,4 @@
 import logging
-import re
 from datetime import datetime, time, timezone
 from collections import deque
 import asyncio
@@ -19,15 +18,19 @@ from .charger_faults import (
 from .configuration import (
     ConfigurationValue,
     configuration_entity_state,
+    configuration_numeric_value,
     configuration_value_from_item,
     merge_configuration_values,
     normalize_unknown_configuration_keys,
+    parse_time_sharing_price,
 )
 from .configuration_writes import (
+    ConfigurationWriteStatus,
     ConfigurationWriteState,
     acknowledge_configuration_write,
     begin_configuration_write,
     confirm_configuration_writes,
+    mark_configuration_write,
 )
 from .const import DOMAIN
 from .external_meter import (
@@ -48,6 +51,12 @@ from .pv_linkage import (
 from .session_records import GrowattSessionRecord
 from .session_state import LastSessionState
 from .transaction_ids import TransactionIdAllocator
+from .write_queue import (
+    ChargerConnectionUnavailable,
+    ChargerRequestOutcomeUncertain,
+    ChargerWriteResult,
+    ChargerWriteStatus,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -170,6 +179,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._write_lock = asyncio.Lock()
         self._write_task = None
         self._write_queue_changed = asyncio.Event()
+        self._write_queue_idle = asyncio.Event()
+        self._write_queue_idle.set()
+        self._connection_changed = asyncio.Event()
+        self._active_write_item = None
+        self._configuration_refresh_task = None
 
         # Rate limiting / polling pause (monotonic time)
         self._last_write_monotonic = None
@@ -310,9 +324,21 @@ class GrowattCoordinator(DataUpdateCoordinator):
         priority=False,
         rate_limited=True,
         command_name=None,
+        requires_connection=False,
+        configuration_key=None,
         **kwargs,
     ):
-        """Queue a charger command with optional deduplication and priority."""
+        """Queue a charger command with optional deduplication and priority.
+
+        ``requires_connection`` means that the first positional argument is a
+        charge-point object.  We replace that object with the current
+        connection immediately before execution.  This is intentionally
+        explicit: queued work may wait for tens of seconds, during which the
+        THOR can reconnect and make the originally captured object stale.
+        """
+        if requires_connection and not args:
+            raise ValueError("A connection-bound write requires a charge point argument")
+
         write_item = {
             "func": write_func,
             "args": args,
@@ -322,6 +348,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
             "priority": priority,
             "rate_limited": rate_limited,
             "command_name": command_name or write_func.__name__,
+            "requires_connection": requires_connection,
+            "configuration_key": configuration_key,
         }
 
         if dedupe_key is not None:
@@ -347,17 +375,38 @@ class GrowattCoordinator(DataUpdateCoordinator):
             write_item["command_name"],
             len(self._write_queue),
         )
+        self._write_queue_idle.clear()
         self._write_queue_changed.set()
 
         if self._write_task is None or self._write_task.done():
             self._write_task = self.hass.async_create_task(self._process_write_queue())
 
     async def _process_write_queue(self):
-        """Verwerk de write queue met rate limiting."""
+        """Process writes without losing them across a charger reconnect."""
         async with self._write_lock:
             try:
                 while self._write_queue:
                     write_item = self._write_queue[0]
+
+                    if write_item["requires_connection"]:
+                        charge_point = self.hass.data.get(DOMAIN, {}).get(
+                            "charge_point"
+                        )
+                        if charge_point is None or not self.connected:
+                            # Do not pop an unsent command while disconnected.
+                            # A later write with the same dedupe key can still
+                            # replace it, preserving last-value-wins semantics.
+                            _LOGGER.info(
+                                "⏸️ Waiting for reconnect before %s",
+                                write_item["command_name"],
+                            )
+                            self._connection_changed.clear()
+                            charge_point = self.hass.data.get(DOMAIN, {}).get(
+                                "charge_point"
+                            )
+                            if charge_point is None or not self.connected:
+                                await self._connection_changed.wait()
+                            continue
 
                     if (
                         write_item["rate_limited"]
@@ -385,7 +434,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
                                     timeout=wait_time,
                                 )
                             except asyncio.TimeoutError:
-                                pass
+                                # Re-run the connection and queue checks before
+                                # removing the item.  The THOR may have
+                                # disconnected during this long rate-limit wait.
+                                continue
                             else:
                                 # Re-evaluate the head of the queue so a newly
                                 # queued control command can run immediately.
@@ -394,6 +446,13 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     # Keep the item in the queue while rate limiting so a newer
                     # write with the same dedupe key can still replace it.
                     write_item = self._write_queue.popleft()
+                    call_args = list(write_item["args"])
+                    if write_item["requires_connection"]:
+                        # The current connection can differ from the one that
+                        # existed when the UI action was queued.  Rebinding here
+                        # prevents commands from being sent to a closed socket.
+                        call_args[0] = self.hass.data[DOMAIN]["charge_point"]
+                    self._active_write_item = write_item
 
                     try:
                         queue_age = (
@@ -425,20 +484,88 @@ class GrowattCoordinator(DataUpdateCoordinator):
                             )
 
                         result = await write_item["func"](
-                            *write_item["args"],
+                            *call_args,
                             **write_item["kwargs"],
                         )
 
-                        if write_item["rate_limited"]:
+                        if (
+                            write_item["rate_limited"]
+                            and not (
+                                isinstance(result, ChargerWriteResult)
+                                and result.status == ChargerWriteStatus.SKIPPED
+                            )
+                        ):
                             self._last_write_monotonic = self.hass.loop.time()
 
-                        _LOGGER.info("✅ Write completed successfully. Result: %s", result)
+                        self._log_write_result(write_item, result)
+
+                    except ChargerConnectionUnavailable as err:
+                        # The request was definitely not sent.  Put it back at
+                        # the front; on the next pass its connection argument is
+                        # rebound again.  This differs from an uncertain write,
+                        # which must be read back before any retry.
+                        self._write_queue.appendleft(write_item)
+                        _LOGGER.info(
+                            "↻ Deferring %s until the current connection is ready: %s",
+                            write_item["command_name"],
+                            err,
+                        )
+                        await asyncio.sleep(0)
+
+                    except ChargerRequestOutcomeUncertain as err:
+                        if write_item["rate_limited"]:
+                            self._last_write_monotonic = self.hass.loop.time()
+                        configuration_key = write_item.get("configuration_key")
+                        if configuration_key:
+                            self.mark_configuration_write(
+                                configuration_key,
+                                ConfigurationWriteStatus.UNCERTAIN,
+                                result=str(err),
+                            )
+                            self.schedule_configuration_refresh(delay=0)
+                        self._log_write_result(
+                            write_item,
+                            ChargerWriteResult.uncertain(str(err)),
+                        )
 
                     except Exception as err:
                         _LOGGER.error("❌ Write command failed: %s", err, exc_info=True)
 
+                    finally:
+                        self._active_write_item = None
+
             finally:
                 self._write_task = None
+                if not self._write_queue:
+                    self._write_queue_idle.set()
+
+    @property
+    def has_pending_charger_writes(self) -> bool:
+        """Return whether a queued or currently executing write exists."""
+        return bool(self._write_queue) or self._active_write_item is not None
+
+    def _log_write_result(self, write_item, result) -> None:
+        """Log the charger outcome instead of merely logging callback return."""
+        command_name = write_item["command_name"]
+        if not isinstance(result, ChargerWriteResult):
+            # Legacy callbacks still returning None are intentionally described
+            # neutrally.  "Callback finished" must never be mistaken for an
+            # acknowledgement from the charger.
+            _LOGGER.info(
+                "Write callback finished without a structured outcome: %s",
+                command_name,
+            )
+            return
+
+        details = result.reason or result.charger_result or "no details"
+        if result.status == ChargerWriteStatus.SUCCESS:
+            _LOGGER.info("✅ Write succeeded: %s (%s)", command_name, details)
+        elif result.status == ChargerWriteStatus.FAILED:
+            _LOGGER.error("❌ Write failed: %s (%s)", command_name, details)
+        elif result.status == ChargerWriteStatus.SKIPPED:
+            _LOGGER.warning("⏭️ Write skipped: %s (%s)", command_name, details)
+        else:
+            _LOGGER.warning("❔ Write outcome uncertain: %s (%s)", command_name, details)
 
     # ─────────────────────────────
     # 🔑 LOAD BALANCING PROPERTY
@@ -480,6 +607,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_message_at = self.connection_started_at
         self.last_message_action = "WebSocketConnect"
         self.last_heartbeat_at = None
+        self._connection_changed.set()
         _LOGGER.info("Charge point connected: %s", cp_id)
         self.async_set_updated_data(True)
 
@@ -524,6 +652,79 @@ class GrowattCoordinator(DataUpdateCoordinator):
             result=result_value,
         )
         self.async_set_updated_data(True)
+
+    def mark_configuration_write(
+        self,
+        key: str,
+        status: ConfigurationWriteStatus,
+        *,
+        result: str | None = None,
+    ) -> None:
+        """Retain a skipped, retryable, or uncertain configuration outcome."""
+        self.configuration_writes = mark_configuration_write(
+            self.configuration_writes,
+            key=key,
+            status=status,
+            result=result,
+        )
+        self.async_set_updated_data(True)
+
+    def schedule_configuration_refresh(self, *, delay: float = 20.0):
+        """Coalesce post-write readbacks into one reconnect-safe task.
+
+        Historically each accepted write slept for exactly the same 20 seconds
+        as the queue rate limit.  The readback and the next write therefore woke
+        together and competed for the OCPP connection.  A single shared task
+        now waits until all queued writes have finished, then reads once from
+        whichever connection is current at that time.
+        """
+        if (
+            self._configuration_refresh_task is not None
+            and not self._configuration_refresh_task.done()
+        ):
+            return self._configuration_refresh_task
+
+        self._configuration_refresh_task = self.hass.async_create_task(
+            self._delayed_configuration_refresh(delay)
+        )
+        return self._configuration_refresh_task
+
+    async def _delayed_configuration_refresh(self, delay: float) -> bool:
+        """Wait for a safe request window and refresh reported configuration."""
+        try:
+            if delay > 0:
+                await asyncio.sleep(delay)
+
+            while True:
+                await self._write_queue_idle.wait()
+
+                charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+                if charge_point is None or not self.connected:
+                    self._connection_changed.clear()
+                    charge_point = self.hass.data.get(DOMAIN, {}).get(
+                        "charge_point"
+                    )
+                    if charge_point is None or not self.connected:
+                        await self._connection_changed.wait()
+                    continue
+
+                # trigger_get_configuration repeats the pending-write check
+                # while holding the per-connection request lock.  If a write
+                # enters the queue in this small hand-off window, retry after
+                # the queue is idle rather than racing it.
+                completed = await charge_point.trigger_get_configuration(
+                    skip_if_writes_pending=True
+                )
+                if completed:
+                    return True
+                # A false result can represent a 30-second timeout, a stale
+                # connection, or a newly queued write.  Backing off avoids a
+                # tight retry loop while the websocket cleanup catches up.
+                await asyncio.sleep(1.0)
+        except asyncio.CancelledError:
+            return False
+        finally:
+            self._configuration_refresh_task = None
 
     def pv_linkage_draft(self) -> PvLinkageDraft | None:
         """Return the current local PV Linkage draft when initialized."""
@@ -613,7 +814,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
     def mark_connection_activity(self, action):
         """Record the latest inbound OCPP message."""
         timestamp = self.now()
+        was_connected = self.connected
         self.connected = True
+        if not was_connected:
+            self._connection_changed.set()
         self.last_message_at = timestamp
         self.last_message_action = action
         if action == "Heartbeat":
@@ -624,9 +828,24 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """Mark the active OCPP transport connection as disconnected."""
         was_connected = self.connected
         self.connected = False
+        self._connection_changed.clear()
         if was_connected:
             _LOGGER.info("Charge point disconnected: %s", self.charge_point_id)
         self.async_set_updated_data(True)
+
+    async def async_shutdown(self) -> None:
+        """Cancel coordinator-owned background work during integration unload."""
+        tasks = (self._write_task, self._configuration_refresh_task)
+        for task in tasks:
+            if task is not None and not task.done():
+                task.cancel()
+        for task in tasks:
+            if task is None or task.done():
+                continue
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
     def set_status(self, status):
         """Set charger status and notify sensors."""
@@ -955,14 +1174,22 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
             try:
                 if key == "G_MaxCurrent":
-                    value = float(raw)
+                    value = configuration_numeric_value(
+                        self.configuration_values.get(key)
+                    )
+                    if value is None:
+                        continue
                     if self.max_current != value:
                         self.max_current = value
                         _LOGGER.debug("Config: MaxCurrent = %.1f A", value)
                         updated = True
 
                 elif key == "G_ExternalLimitPower":
-                    value = float(raw)
+                    value = configuration_numeric_value(
+                        self.configuration_values.get(key)
+                    )
+                    if value is None:
+                        continue
                     if self.external_limit_power != value:
                         self.external_limit_power = value
                         _LOGGER.debug("Config: ExternalLimitPower = %.1f kW", value)
@@ -1016,9 +1243,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         updated = True
 
                 elif key == "G_TimeSharingPrice":
-                    match = re.search(r'price1=(-?\d+\.\d+)', raw)
-                    if match:
-                        value = round(float(match.group(1)), 2)
+                    value = parse_time_sharing_price(raw)
+                    if value is not None:
+                        value = round(value, 2)
                         if self.electricity_price != value:
                             self.electricity_price = value
                             _LOGGER.debug("Config: G_TimeSharingPrice = %.2f per kWh", value)

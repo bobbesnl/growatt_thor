@@ -31,9 +31,12 @@ class Coordinator:
     def __init__(self):
         self.authorization = auth.LocalAuthorization()
         self.charger_mode = 1
+        self.connected = True
+        self.has_pending_charger_writes = False
         self.next_id = 40
         self.active_transaction = None
         self.stops = []
+        self.configuration_batches = []
 
     def now(self):
         return '2026-09-04T10:00:00Z'
@@ -53,6 +56,9 @@ class Coordinator:
 
     def stop_transaction(self, reason, **kwargs):
         self.stops.append(kwargs)
+
+    def process_configuration(self, configuration, unknown_keys=()):
+        self.configuration_batches.append((list(configuration), tuple(unknown_keys)))
 
 
 @unittest.skipUnless(HAS_OCPP, 'Install tests/requirements-auth.txt for real OCPP handler tests')
@@ -153,6 +159,61 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             (await self.start('12345678'))['idTagInfo']['status'],
             'Invalid',
+        )
+
+    async def test_remote_start_timeout_keeps_one_shot_authorization(self):
+        """A lost response must not make an accepted charger start fail locally."""
+        self.restrict()
+        with patch.object(self.cp, 'call', side_effect=asyncio.TimeoutError):
+            with self.assertRaises(server.ChargerRequestOutcomeUncertain):
+                await self.cp.remote_start_transaction(1, '12345678')
+
+        self.assertEqual(
+            (await self.start('12345678'))['idTagInfo']['status'],
+            'Accepted',
+        )
+
+    async def test_unsent_remote_start_discards_one_shot_authorization(self):
+        """A stale connection is safe to retry and must not leave a grant behind."""
+        self.restrict()
+        self.hass.data[server.DOMAIN]['charge_point'] = object()
+
+        with self.assertRaises(server.ChargerConnectionUnavailable):
+            await self.cp.remote_start_transaction(1, '12345678')
+
+        self.assertEqual(
+            (await self.start('12345678'))['idTagInfo']['status'],
+            'Invalid',
+        )
+
+    async def test_operational_configuration_survives_diagnostic_timeout(self):
+        """The useful first response is retained even when CALL 2 times out."""
+        operational = [
+            {
+                'key': 'G_WorkingMode',
+                'value': 'Power Distribution',
+                'readonly': True,
+            }
+        ]
+        calls = 0
+
+        async def call_side_effect(message):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return SimpleNamespace(
+                    configuration_key=operational,
+                    unknown_key=[],
+                )
+            raise asyncio.TimeoutError
+
+        with patch.object(self.cp, 'call', side_effect=call_side_effect):
+            self.assertFalse(await self.cp.trigger_get_configuration())
+
+        self.assertEqual(calls, 2)
+        self.assertEqual(
+            self.coordinator.configuration_batches,
+            [(operational, ())],
         )
 
     async def test_plug_and_charge_start_is_not_treated_as_an_rfid_card(self):

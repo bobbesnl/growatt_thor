@@ -255,7 +255,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
                 if charge_point and coordinator:
                     _LOGGER.debug("Polling external meter (%ds interval)", poll_interval)
-                    await charge_point.trigger_external_meterval()
+                    # Meter data is periodic and may be skipped once.  It must
+                    # never queue behind or wake together with a configuration
+                    # write, because the THOR firmware is sensitive to bursts
+                    # of integration-initiated requests.
+                    await charge_point.trigger_external_meterval(
+                        skip_if_writes_pending=True
+                    )
                 else:
                     _LOGGER.debug("External meter poll skipped: charger not connected")
 
@@ -364,6 +370,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await polling_task
         except asyncio.CancelledError:
             pass
+
+    coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
+    if coordinator is not None:
+        # The write queue may intentionally be waiting for a reconnect.  Stop
+        # that wait before clearing hass.data so no background task survives a
+        # reload of the integration.
+        await coordinator.async_shutdown()
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 

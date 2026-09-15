@@ -132,7 +132,7 @@ class LocalAuthorization:
         return True
 
     def cancel_ha_remote_start(self) -> None:
-        """Discard a grant when the charger rejects or loses the request."""
+        """Discard a grant when the remote start was rejected or never sent."""
         self._pending_ha_remote_start = None
 
     def _consume_ha_remote_start(self, id_tag: object) -> bool:
