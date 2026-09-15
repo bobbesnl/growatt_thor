@@ -1,0 +1,267 @@
+# Home Assistant Automation Resilience Roadmap
+
+## Purpose
+
+Home Assistant users can combine the Growatt THOR entities in automations that
+issue commands much faster, in a different order, or in charger states that a
+person using the dashboard would rarely produce. This roadmap records the
+defensive behaviour needed to keep those automations predictable without
+hiding mistakes or sending stale commands to the charger.
+
+The priorities in this document are based on safety and observability:
+
+- **P0** prevents an action from affecting the wrong state, transaction, or
+  charger.
+- **P1** prevents misleading results, unnecessary OCPP traffic, and ambiguous
+  partial state.
+- **P2** improves diagnostics and long-term maintainability.
+
+## Design principles
+
+1. A Home Assistant action must not report success when it was rejected before
+   reaching the charger.
+2. The latest user intent must not be overwritten by the result of an older
+   in-flight request.
+3. "Safe to retry" and "still wanted" are separate decisions.
+4. Every delayed command must be validated again immediately before execution.
+5. Reported charger state, desired state, and command outcome remain separate.
+6. Invalid or ambiguous input is rejected explicitly instead of being silently
+   rounded, guessed, or ignored.
+7. Non-obvious queue and reconnect decisions are documented next to the code
+   and covered by regression tests.
+
+## Delivery status
+
+| # | Priority | Work item | Status |
+|---|---|---|---|
+| 1 | P0 | Return blocked Home Assistant actions as errors | In progress |
+| 2 | P0 | Isolate superseded in-flight write results | Planned |
+| 3 | P0 | Expire and revalidate delayed commands | Planned |
+| 4 | P0 | Harden Start/Stop transaction semantics | Planned |
+| 5 | P0 | Prevent ambiguous config entries and charger connections | Planned |
+| 6 | P1 | Make paired and compound changes predictable | Planned |
+| 7 | P1 | Coalesce manual refresh and harden integration services | Planned |
+| 8 | P1 | Tighten value and config-entry validation | Planned |
+| 9 | P1 | Expose a reliable command completion signal | Planned |
+
+## 1. Return blocked Home Assistant actions as errors
+
+**Problem:** Several entity methods currently log a warning and return normally
+when an action is blocked. Home Assistant consequently considers the service
+call successful, so an automation continues even though nothing was queued.
+
+Examples include a disconnected or faulted charger, an active transaction, a
+control that does not apply in the current mode, an unsupported current, an
+unavailable external meter, and an incomplete PV Linkage draft.
+
+**Target behaviour:**
+
+- Raise `ServiceValidationError` when the request is invalid in the current
+  state or contains an invalid value.
+- Raise `HomeAssistantError` when the charger connection is unavailable.
+- Provide translated exception keys in every bundled language.
+- Keep idempotent requests successful: setting an already effective value is
+  not an error.
+- Keep the write queue asynchronous for now. Reporting a rejection or uncertain
+  result that happens after enqueueing depends on the completion mechanism in
+  item #9 and the expiry rules in item #3.
+
+**Acceptance tests:**
+
+- Every known write-block reason maps to the intended HA exception class and a
+  stable translation key.
+- Unknown internal block reasons fail closed with a generic translated error.
+- Translation files contain identical exception keys and placeholders.
+- Public entity methods no longer silently accept the covered blocked actions.
+
+## 2. Isolate superseded in-flight write results
+
+**Problem:** Queue deduplication replaces waiting entries, but an older request
+that is already executing can still update the state owned by a newer request
+for the same configuration key. A rapid `13 -> 20 -> 17 A` sequence can
+therefore temporarily attach the `20 A` acknowledgement or rejection to the
+newer `17 A` intent.
+
+**Target behaviour:**
+
+- Assign a monotonically increasing generation or request ID per logical key.
+- Allow every response to update confirmed charger state where appropriate.
+- Allow only the current generation to update desired state, pending state, or
+  rollback state.
+- Record superseded outcomes for diagnostics without presenting them as the
+  result of the latest action.
+
+**Acceptance tests:**
+
+- Older accepted, rejected, uncertain, and failed writes cannot overwrite a
+  newer pending value.
+- A newer queued write remains visible while an older write completes.
+- Reconnect readback reconciles the current generation only.
+
+## 3. Expire and revalidate delayed commands
+
+**Problem:** A definitely unsent command can currently remain queued for an
+unbounded time. Retrying after reconnect is transport-safe, but the original
+intent may no longer be current hours later.
+
+**Target behaviour:**
+
+- Add an explicit expiry and reconnect policy to every queue entry.
+- Configuration changes retain last-value-wins semantics for a bounded time.
+- Start and AP-mode commands expire quickly and never execute as a surprise
+  after a long reconnect.
+- Stop commands remain tied to the transaction they were created for.
+- Expired commands receive a terminal `expired` outcome.
+
+**Acceptance tests:**
+
+- Expired commands never reach OCPP.
+- Replaced and expired entries cannot change current pending state.
+- A short reconnect can retain an eligible command; a long reconnect cannot.
+
+## 4. Harden Start/Stop transaction semantics
+
+**Problem:** Start currently checks primarily for the literal `Charging` state,
+although `SuspendedEV`, `SuspendedEVSE`, or a retained transaction ID also mean
+that a transaction is active. Stop can fall back to transaction ID `0` while
+the real ID is temporarily unavailable.
+
+**Target behaviour:**
+
+- Use the shared `transaction_is_active` decision for Remote Start.
+- Check Start and Stop both when queued and immediately before execution.
+- Never invent transaction ID `0`.
+- Bind Stop to the expected transaction ID and skip it if that transaction has
+  ended or changed.
+- Define how opposite pending Start and Stop intents supersede each other.
+
+**Acceptance tests:**
+
+- Start is rejected in every active OCPP transaction state.
+- Stop without a known transaction ID does not issue an OCPP call.
+- A stale Stop cannot affect a newer transaction after reconnect.
+
+## 5. Prevent ambiguous config entries and charger connections
+
+**Problem:** Runtime data is currently stored in one domain-global slot. A
+second config entry or a second charge point can replace the coordinator or
+active connection and make an action operate on an ambiguous device.
+
+**Target behaviour for the 1.7 line:**
+
+- Permit one config entry until multi-charger support is intentionally modeled.
+- Retain the active charge-point identity for the current entry.
+- Reject a simultaneous connection with a different charge-point identity.
+- Never let a superseded connection update the current coordinator.
+
+**Later option:** Store all runtime data per config entry and route charge-point
+identities explicitly when true multi-charger support is designed.
+
+**Acceptance tests:**
+
+- A second config entry is rejected with a clear flow error.
+- A second charger cannot replace an active, different charger.
+- Disconnect cleanup from an old socket cannot affect the current connection.
+
+## 6. Make paired and compound changes predictable
+
+**Problem:** Setting Auto Charge start and stop times back-to-back can send one
+intermediate schedule containing one new and one old value. PV Linkage applies
+multiple physical writes and can stop after a partial success without exposing
+that state clearly.
+
+**Target behaviour:**
+
+- Debounce paired Auto Charge edits or stage them behind an explicit Apply.
+- Optionally provide one action that accepts the complete schedule atomically
+  from Home Assistant's perspective.
+- Record compound writes as `success`, `failed`, `partial`, or `uncertain`.
+- Always read back readable configuration after a partial compound result.
+- Never clear a draft unless the complete logical operation succeeded.
+
+**Acceptance tests:**
+
+- A back-to-back start/stop update emits one final schedule payload.
+- A rejected second PV write retains the draft and schedules readback.
+- A partial result is visible in diagnostics and is not reported as success.
+
+## 7. Coalesce manual refresh and harden integration services
+
+**Problem:** Repeated `growatt_thor.refresh` calls are serialized at the OCPP
+layer but can still build a backlog of complete refresh sequences. Service
+errors are logged rather than returned to the calling automation.
+
+**Target behaviour:**
+
+- Implement refresh as a single-flight operation shared by concurrent callers.
+- Give pending writes priority over manually requested diagnostic reads.
+- Return communication failures to Home Assistant.
+- Register integration services once and keep their behaviour defined while an
+  entry is temporarily unloaded.
+- Serialize or deduplicate exports that target the same output file.
+
+**Acceptance tests:**
+
+- Many concurrent refresh calls create one OCPP refresh sequence.
+- A write queued during refresh gets the documented priority.
+- Disconnected and failed refresh actions return HA errors.
+
+## 8. Tighten value and config-entry validation
+
+**Problem:** Some values are silently rounded, non-finite numbers are not
+rejected everywhere, and several config or service fields lack cross-field
+validation.
+
+**Target behaviour:**
+
+- Reject `NaN`, positive infinity, and negative infinity before formatting.
+- Validate bounds and step size without unexpected coercion.
+- Validate TCP ports as `1..65535`.
+- Validate export date order as well as date format.
+- Apply a changed poll interval to the running poller or explicitly reload the
+  entry.
+
+**Acceptance tests:**
+
+- No non-finite or out-of-range value reaches an OCPP payload.
+- Invalid dates and reversed ranges return validation errors.
+- A changed poll interval affects the next polling cycle predictably.
+
+## 9. Expose a reliable command completion signal
+
+**Problem:** `await queue_write(...)` currently waits only until the command is
+enqueued. An automation can continue while the physical write is still waiting
+for rate limiting, reconnect, acknowledgement, or readback.
+
+**Target behaviour:**
+
+- Give each queued command a completion future and stable command ID.
+- Define terminal outcomes: `confirmed`, `failed`, `skipped`, `expired`, and
+  `uncertain`.
+- Let suitable HA actions await a bounded terminal result.
+- Expose the last command result through a stable diagnostic entity or event so
+  automations can wait for confirmation without interpreting optimistic state
+  as reported charger state.
+- Do not leave unresolved futures behind during reload or deduplication.
+
+**Acceptance tests:**
+
+- Every completed, replaced, expired, and cancelled queue item resolves once.
+- Integration unload resolves or cancels every waiter.
+- An automation can distinguish enqueueing from charger confirmation.
+
+## Proposed commit sequence
+
+1. `docs: add automation resilience roadmap`
+2. `fix(ha): reject blocked automation actions`
+3. `fix(writes): isolate superseded automation intents`
+4. `fix(writes): expire and revalidate queued commands`
+5. `fix(ocpp): harden transaction and charger identity guards`
+6. `fix(schedules): coalesce paired and compound updates`
+7. `fix(services): coalesce refresh and validate inputs`
+8. `feat(diagnostics): expose charger command outcomes`
+9. `chore(release): prepare 1.7.0-dev.29`
+
+Each behavioural commit should include its focused regression tests and inline
+comments for timing, safety, or reconnect rules that are not obvious from the
+code alone.
