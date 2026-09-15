@@ -277,7 +277,7 @@ class ChargingControlDependencyTest(unittest.TestCase):
         )
 
     def test_transaction_guard_survives_partial_reconnect_state(self):
-        for state in (
+        partial_states = (
             {
                 "active_transaction": {"start": {}},
                 "transaction_id": None,
@@ -288,14 +288,26 @@ class ChargingControlDependencyTest(unittest.TestCase):
                 "transaction_id": 42,
                 "status": "Available",
             },
-            {
-                "active_transaction": None,
-                "transaction_id": None,
-                "status": "SuspendedEV",
-            },
-        ):
+        )
+        ocpp_active_statuses = (
+            "Charging",
+            "SuspendedEV",
+            "SuspendedEVSE",
+        )
+
+        for state in partial_states:
             with self.subTest(state=state):
                 self.assertTrue(controls.transaction_state_is_active(**state))
+
+        for status in ocpp_active_statuses:
+            with self.subTest(status=status):
+                self.assertTrue(
+                    controls.transaction_state_is_active(
+                        active_transaction=None,
+                        transaction_id=None,
+                        status=status,
+                    )
+                )
 
         self.assertFalse(
             controls.transaction_state_is_active(

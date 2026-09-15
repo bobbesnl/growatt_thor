@@ -561,6 +561,139 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(visible_values, ["17"])
 
+    async def test_stop_intent_cancels_only_a_matching_unsent_start(self):
+        """Stop may retract a Start only before OCPP execution begins."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        blocker_started = asyncio.Event()
+        release_blocker = asyncio.Event()
+        calls = []
+        cancelled_results = []
+
+        async def blocker():
+            calls.append("blocker")
+            blocker_started.set()
+            await release_blocker.wait()
+
+        async def write(name):
+            calls.append(name)
+
+        await coordinator.queue_write(blocker, rate_limited=False)
+        await blocker_started.wait()
+        await coordinator.queue_write(
+            write,
+            "start",
+            dedupe_key="charging_session_control",
+            command_name="RemoteStartTransaction",
+            priority=True,
+            rate_limited=False,
+            on_unsent=cancelled_results.append,
+        )
+        await coordinator.queue_write(
+            write,
+            "configuration",
+            dedupe_key="G_MaxCurrent",
+            command_name="ChangeConfiguration(G_MaxCurrent)",
+        )
+
+        with self.assertLogs(coordinator_module._LOGGER, level="INFO"):
+            cancelled_count = coordinator.cancel_queued_writes(
+                dedupe_key="charging_session_control",
+                command_name="RemoteStartTransaction",
+                reason="cancelled_by_stop_intent",
+            )
+
+        self.assertEqual(cancelled_count, 1)
+        self.assertEqual(len(cancelled_results), 1)
+        self.assertEqual(
+            cancelled_results[0].status,
+            coordinator_module.ChargerWriteStatus.SKIPPED,
+        )
+        self.assertEqual(
+            cancelled_results[0].reason,
+            "cancelled_by_stop_intent",
+        )
+
+        release_blocker.set()
+        await coordinator._write_task
+        self.assertEqual(calls, ["blocker", "configuration"])
+
+    async def test_cancel_does_not_claim_an_active_start_was_retracted(self):
+        """An in-flight request is outside the safe local-cancellation window."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        request_started = asyncio.Event()
+        release_response = asyncio.Event()
+        calls = []
+
+        async def start():
+            calls.append("start")
+            request_started.set()
+            await release_response.wait()
+
+        await coordinator.queue_write(
+            start,
+            dedupe_key="charging_session_control",
+            command_name="RemoteStartTransaction",
+            rate_limited=False,
+        )
+        await request_started.wait()
+
+        cancelled_count = coordinator.cancel_queued_writes(
+            dedupe_key="charging_session_control",
+            command_name="RemoteStartTransaction",
+            reason="cancelled_by_stop_intent",
+        )
+        self.assertEqual(cancelled_count, 0)
+
+        release_response.set()
+        await coordinator._write_task
+        self.assertEqual(calls, ["start"])
+
+    async def test_new_start_replaces_stale_unsent_stop_on_shared_lane(self):
+        """After the old transaction ends, the newer valid intent wins."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        blocker_started = asyncio.Event()
+        release_blocker = asyncio.Event()
+        calls = []
+        replaced_results = []
+
+        async def blocker():
+            calls.append("blocker")
+            blocker_started.set()
+            await release_blocker.wait()
+
+        async def write(name):
+            calls.append(name)
+
+        await coordinator.queue_write(blocker, rate_limited=False)
+        await blocker_started.wait()
+        await coordinator.queue_write(
+            write,
+            "stop",
+            dedupe_key="charging_session_control",
+            command_name="RemoteStopTransaction",
+            priority=True,
+            rate_limited=False,
+            on_unsent=replaced_results.append,
+        )
+        await coordinator.queue_write(
+            write,
+            "start",
+            dedupe_key="charging_session_control",
+            command_name="RemoteStartTransaction",
+            priority=True,
+            rate_limited=False,
+        )
+
+        self.assertEqual(len(replaced_results), 1)
+        self.assertEqual(
+            replaced_results[0].reason,
+            "replaced_by_newer_intent",
+        )
+
+        release_blocker.set()
+        await coordinator._write_task
+        self.assertEqual(calls, ["blocker", "start"])
+
     async def test_control_interrupts_configuration_rate_limit(self):
         coordinator = _build_coordinator(asyncio.get_running_loop())
         coordinator._min_write_interval = 0.2
@@ -833,11 +966,11 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
 
     def test_start_stop_and_ap_mode_use_their_specific_policies(self):
         expected = {
-            ("button.py", "RemoteStartTransaction"): (
+            ("button.py", "REMOTE_START_COMMAND"): (
                 "VOLATILE_CONTROL_WRITE_POLICY",
                 True,
             ),
-            ("button.py", "RemoteStopTransaction"): (
+            ("button.py", "REMOTE_STOP_COMMAND"): (
                 "TRANSACTION_CONTROL_WRITE_POLICY",
                 True,
             ),
@@ -865,13 +998,15 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
                 }
                 command = keywords.get("command_name")
                 policy = keywords.get("policy")
-                if not (
-                    isinstance(command, ast.Constant)
-                    and isinstance(command.value, str)
-                    and isinstance(policy, ast.Name)
-                ):
+                if not isinstance(policy, ast.Name):
                     continue
-                key = (filename, command.value)
+                if isinstance(command, ast.Constant):
+                    command_identifier = command.value
+                elif isinstance(command, ast.Name):
+                    command_identifier = command.id
+                else:
+                    continue
+                key = (filename, command_identifier)
                 if key in expected:
                     found[key] = (
                         policy.id,
@@ -903,6 +1038,57 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
         self.assertNotIn(0, integer_constants)
         self.assertIn("transaction_id", attributes)
         self.assertIn("transaction_is_active", attributes)
+
+    def test_start_and_stop_share_one_opposing_intent_queue_lane(self):
+        tree = ast.parse((PACKAGE_PATH / "button.py").read_text())
+        classes = {
+            node.name: node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef)
+            and node.name in {"StartChargingButton", "StopChargingButton"}
+        }
+
+        for class_name in classes:
+            queue_call = next(
+                node
+                for node in ast.walk(classes[class_name])
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "queue_write"
+            )
+            keywords = {
+                keyword.arg: keyword.value
+                for keyword in queue_call.keywords
+                if keyword.arg is not None
+            }
+            dedupe_key = keywords["dedupe_key"]
+            with self.subTest(class_name=class_name):
+                self.assertIsInstance(dedupe_key, ast.Name)
+                self.assertEqual(
+                    dedupe_key.id,
+                    "SESSION_CONTROL_DEDUPE_KEY",
+                )
+
+        stop_calls = {
+            node.func.attr: node
+            for node in ast.walk(classes["StopChargingButton"])
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+        }
+        cancellation = stop_calls["cancel_queued_writes"]
+        cancellation_keywords = {
+            keyword.arg: keyword.value
+            for keyword in cancellation.keywords
+            if keyword.arg is not None
+        }
+        self.assertEqual(
+            cancellation_keywords["command_name"].id,
+            "REMOTE_START_COMMAND",
+        )
+        self.assertEqual(
+            cancellation_keywords["reason"].id,
+            "STOP_CANCELLED_START_REASON",
+        )
 
 
 if __name__ == "__main__":

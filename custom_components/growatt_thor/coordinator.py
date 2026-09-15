@@ -654,6 +654,50 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 if not self._write_queue:
                     self._write_queue_idle.set()
 
+    def cancel_queued_writes(
+        self,
+        *,
+        dedupe_key: str,
+        command_name: str | None = None,
+        reason: str,
+    ) -> int:
+        """Cancel matching writes that have definitely not reached OCPP.
+
+        This method intentionally searches only ``_write_queue``.  The active
+        item has already crossed the boundary where a request may have reached
+        the charger; pretending to cancel it would create a false guarantee for
+        automations and could leave Home Assistant out of sync with the THOR.
+        """
+        retained_items = deque()
+        cancelled_items = []
+        for item in self._write_queue:
+            matches = item.get("dedupe_key") == dedupe_key and (
+                command_name is None
+                or item.get("command_name") == command_name
+            )
+            if matches:
+                cancelled_items.append(item)
+            else:
+                retained_items.append(item)
+
+        if not cancelled_items:
+            return 0
+
+        self._write_queue = retained_items
+        for item in cancelled_items:
+            self._finish_unsent_write(
+                item,
+                ChargerWriteResult.skipped(reason),
+            )
+
+        # Wake a processor waiting on rate limiting so it re-evaluates its head
+        # immediately.  If cancellation emptied the queue, idle is already a
+        # truthful state even while the processor task winds down.
+        self._write_queue_changed.set()
+        if not self._write_queue and self._active_write_item is None:
+            self._write_queue_idle.set()
+        return len(cancelled_items)
+
     @property
     def has_pending_charger_writes(self) -> bool:
         """Return whether a queued or currently executing write exists."""
@@ -681,6 +725,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
             if result.reason == "replaced_by_newer_intent":
                 _LOGGER.info(
                     "↪️ Queued write replaced: %s (%s)",
+                    command_name,
+                    details,
+                )
+            elif result.reason and result.reason.startswith("cancelled_by_"):
+                _LOGGER.info(
+                    "↩️ Queued write cancelled: %s (%s)",
                     command_name,
                     details,
                 )

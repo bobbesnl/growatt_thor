@@ -28,6 +28,14 @@ from .pv_linkage import (
     build_pv_linkage_writes,
     draft_validation_errors,
 )
+from .session_controls import (
+    REMOTE_START_COMMAND,
+    REMOTE_STOP_COMMAND,
+    SESSION_CONTROL_DEDUPE_KEY,
+    STOP_CANCELLED_START_REASON,
+    start_revalidation_failure,
+    stop_revalidation_failure,
+)
 from .write_queue import (
     CONFIGURATION_WRITE_POLICY,
     TRANSACTION_CONTROL_WRITE_POLICY,
@@ -88,11 +96,10 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 
     def _start_revalidation_failure(self) -> str | None:
         """Return why a delayed start no longer represents a valid intent."""
-        if self.coordinator.charger_is_faulted:
-            return "charger_faulted"
-        if self.coordinator.transaction_is_active:
-            return "charging_already_active"
-        return None
+        return start_revalidation_failure(
+            charger_faulted=self.coordinator.charger_is_faulted,
+            transaction_active=self.coordinator.transaction_is_active,
+        )
 
     async def async_press(self) -> None:
         """Start a charging session via queue."""
@@ -115,10 +122,12 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
         await self.coordinator.queue_write(
             self._start_charging,
             charge_point,
-            dedupe_key="RemoteStartTransaction",
+            # Start and Stop share one logical queue lane.  A later, valid
+            # opposing intent can therefore replace work that was never sent.
+            dedupe_key=SESSION_CONTROL_DEDUPE_KEY,
             priority=True,
             rate_limited=False,
-            command_name="RemoteStartTransaction",
+            command_name=REMOTE_START_COMMAND,
             requires_connection=True,
             policy=VOLATILE_CONTROL_WRITE_POLICY,
             revalidate=self._start_revalidation_failure,
@@ -197,27 +206,41 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
         expected_transaction_id: int,
     ) -> str | None:
         """Keep a delayed Stop bound to the transaction it was created for."""
-        current_transaction_id = self.coordinator.transaction_id
-        if current_transaction_id != expected_transaction_id:
-            return (
-                "transaction_ended"
-                if current_transaction_id is None
-                else "transaction_changed"
-            )
-        if not self.coordinator.transaction_is_active:
-            return "transaction_ended"
-        return None
+        return stop_revalidation_failure(
+            expected_transaction_id=expected_transaction_id,
+            current_transaction_id=self.coordinator.transaction_id,
+            transaction_active=self.coordinator.transaction_is_active,
+        )
 
     async def async_press(self) -> None:
         """Stop a charging session via queue."""
+        # A Stop pressed before a queued Start reaches OCPP means "do not
+        # start".  Cancelling that local intent is useful even if the charger
+        # disconnected in the meantime and must not manufacture a Stop for ID
+        # 0.  An already executing Start is intentionally not cancellable: once
+        # OCPP may have received it, only observed transaction state is safe.
+        cancelled_starts = self.coordinator.cancel_queued_writes(
+            dedupe_key=SESSION_CONTROL_DEDUPE_KEY,
+            command_name=REMOTE_START_COMMAND,
+            reason=STOP_CANCELLED_START_REASON,
+        )
+        transaction_id = self.coordinator.transaction_id
+        transaction_active = self.coordinator.transaction_is_active
+
+        if cancelled_starts and not transaction_active:
+            _LOGGER.info(
+                "⏹️ Cancelled %d unsent start command(s); no active "
+                "transaction needs an OCPP Stop",
+                cancelled_starts,
+            )
+            return
+
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot stop charging: charger not connected")
             raise_charger_disconnected()
 
-        transaction_id = self.coordinator.transaction_id
-
-        if transaction_id is None or not self.coordinator.transaction_is_active:
+        if transaction_id is None or not transaction_active:
             _LOGGER.warning(
                 "⚠️ Cannot stop charging: no active session (status=%s)",
                 self.coordinator.status
@@ -233,10 +256,13 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
             self._stop_charging,
             charge_point,
             transaction_id,
-            dedupe_key="RemoteStopTransaction",
+            # A valid Stop replaces only an unsent Start.  Conversely, public
+            # Start is blocked while this transaction remains active, so it
+            # cannot erase a still-valid Stop for the running session.
+            dedupe_key=SESSION_CONTROL_DEDUPE_KEY,
             priority=True,
             rate_limited=False,
-            command_name="RemoteStopTransaction",
+            command_name=REMOTE_STOP_COMMAND,
             requires_connection=True,
             policy=TRANSACTION_CONTROL_WRITE_POLICY,
             revalidate=lambda: self._stop_revalidation_failure(
