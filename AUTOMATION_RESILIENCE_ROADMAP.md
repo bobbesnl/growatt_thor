@@ -40,7 +40,7 @@ The priorities in this document are based on safety and observability:
 | 4 | P0 | Harden Start/Stop transaction semantics | Completed |
 | 5 | P0 | Prevent ambiguous config entries and charger connections | Completed |
 | 6 | P1 | Make paired and compound changes predictable | Completed |
-| 7 | P1 | Coalesce manual refresh and harden integration services | Planned |
+| 7 | P1 | Coalesce manual refresh and harden integration services | Completed |
 | 8 | P1 | Tighten value and config-entry validation | Planned |
 | 9 | P1 | Expose a reliable command completion signal | Planned |
 
@@ -320,6 +320,37 @@ errors are logged rather than returned to the calling automation.
 - Many concurrent refresh calls create one OCPP refresh sequence.
 - A write queued during refresh gets the documented priority.
 - Disconnected and failed refresh actions return HA errors.
+
+**Implemented on 2026-09-16:**
+
+- Manual refresh now uses a single-flight task. Concurrent dashboards,
+  scripts, and automations await the same Status, External Meter, and
+  Configuration sequence instead of appending duplicate sequences behind the
+  OCPP request lock. Cancelling one caller does not cancel the shared physical
+  operation for the remaining callers.
+- Every manual-refresh read participates in the existing two-stage write
+  priority check. If a charger write is already pending or appears between
+  refresh steps, the remaining optional reads are not started and the service
+  reports which step could not complete. The integration does not silently
+  retry and move those reads back in front of the user write.
+- A missing, unloaded, or disconnected charger now raises the translated
+  `charger_disconnected` Home Assistant error. Failed refresh steps and export
+  I/O failures likewise return localized service errors instead of only
+  writing a log line, while malformed export dates return a validation error.
+- Domain services are registered once during integration setup and are no
+  longer removed with one config-entry unload. Their behaviour during reload
+  is explicit: historical session export remains usable, while charger refresh
+  fails clearly until the runtime connection is available again.
+- Concurrent exports for the same normalized destination path share one task,
+  executor job, and notification. CSV output is assembled in a temporary file
+  beside the destination and atomically replaced, so a failure preserves the
+  previous complete export; an absent session log produces a valid header-only
+  export instead of a broken download link.
+- Regression tests cover 20 concurrent refresh callers, caller cancellation,
+  write priority before and between refresh steps, disconnected and failed
+  refreshes, explicit retry, same-target export deduplication, failed-export
+  retry, atomic replacement, empty exports, service lifetime wiring, translated
+  errors, and all-language translation structure.
 
 ## 8. Tighten value and config-entry validation
 
