@@ -19,6 +19,7 @@ class ChargerWriteStatus(str, Enum):
 
     SUCCESS = "success"
     FAILED = "failed"
+    PARTIAL = "partial"
     SKIPPED = "skipped"
     UNCERTAIN = "uncertain"
     EXPIRED = "expired"
@@ -97,6 +98,19 @@ class ChargerWriteResult:
         """Return a result for a command that definitively did not succeed."""
         return cls(
             ChargerWriteStatus.FAILED,
+            reason=reason,
+            charger_result=_stringify(charger_result),
+        )
+
+    @classmethod
+    def partial(
+        cls,
+        reason: str,
+        charger_result: object = None,
+    ) -> "ChargerWriteResult":
+        """Return a result when only part of a compound command succeeded."""
+        return cls(
+            ChargerWriteStatus.PARTIAL,
             reason=reason,
             charger_result=_stringify(charger_result),
         )

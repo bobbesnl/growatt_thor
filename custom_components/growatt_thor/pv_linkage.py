@@ -1,7 +1,7 @@
 """Validated compound writes for Growatt PV Linkage boost controls."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, time, timedelta
 from enum import Enum
 import re
@@ -13,6 +13,95 @@ class PvBoostMode(str, Enum):
     DISABLED = "disabled"
     MANUAL = "manual"
     SMART = "smart"
+
+
+class PvLinkageApplyStatus(str, Enum):
+    """Overall result of one logical PV Linkage Apply operation."""
+
+    SUCCESS = "success"
+    FAILED = "failed"
+    PARTIAL = "partial"
+    UNCERTAIN = "uncertain"
+
+
+@dataclass(frozen=True, slots=True)
+class PvLinkageApplyResult:
+    """Retain compound progress without claiming transactional OCPP writes.
+
+    Growatt exposes the logical Apply operation as multiple independent OCPP
+    requests.  ``completed_steps`` therefore describes acknowledged physical
+    steps, while ``status`` tells Home Assistant whether the whole draft was
+    applied, rejected before any change, partially applied, or left uncertain.
+    """
+
+    status: PvLinkageApplyStatus
+    completed_steps: int
+    total_steps: int
+    failed_step: str | None = None
+    reason: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.total_steps <= 0:
+            raise ValueError("Compound apply must contain at least one step")
+        if not 0 <= self.completed_steps <= self.total_steps:
+            raise ValueError("Completed steps must fit within total steps")
+        if (
+            self.status == PvLinkageApplyStatus.SUCCESS
+            and self.completed_steps != self.total_steps
+        ):
+            raise ValueError("Successful apply must complete every step")
+
+    @classmethod
+    def success(cls, total_steps: int) -> "PvLinkageApplyResult":
+        return cls(
+            status=PvLinkageApplyStatus.SUCCESS,
+            completed_steps=total_steps,
+            total_steps=total_steps,
+        )
+
+    @classmethod
+    def failed(
+        cls,
+        *,
+        completed_steps: int,
+        total_steps: int,
+        failed_step: str,
+        reason: object,
+    ) -> "PvLinkageApplyResult":
+        return cls(
+            status=(
+                PvLinkageApplyStatus.PARTIAL
+                if completed_steps
+                else PvLinkageApplyStatus.FAILED
+            ),
+            completed_steps=completed_steps,
+            total_steps=total_steps,
+            failed_step=failed_step,
+            reason=_outcome_text(reason),
+        )
+
+    @classmethod
+    def uncertain(
+        cls,
+        *,
+        completed_steps: int,
+        total_steps: int,
+        failed_step: str,
+        reason: object,
+    ) -> "PvLinkageApplyResult":
+        return cls(
+            status=PvLinkageApplyStatus.UNCERTAIN,
+            completed_steps=completed_steps,
+            total_steps=total_steps,
+            failed_step=failed_step,
+            reason=_outcome_text(reason),
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        """Return a diagnostics- and entity-attribute-friendly snapshot."""
+        data = asdict(self)
+        data["status"] = self.status.value
+        return data
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +137,11 @@ PvLinkageWrite = ConfigurationWrite | DataTransferWrite
 _PERIOD_PATTERN = re.compile(
     r"(?:^|&)time1=(?P<start>\d{2}:\d{2})-(?P<end>\d{2}:\d{2})(?:&|$)"
 )
+
+
+def _outcome_text(value: object) -> str:
+    """Normalize enum and exception details for stable diagnostics."""
+    return str(value.value if hasattr(value, "value") else value)
 
 
 def parse_manual_period(raw_value: str | None) -> tuple[time, time] | None:

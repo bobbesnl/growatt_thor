@@ -38,6 +38,9 @@ async def async_get_config_entry_diagnostics(
             },
             "configuration": {},
             "configuration_writes": {},
+            "compound_writes": {
+                "pv_linkage": None,
+            },
             "unknown_configuration_keys": [],
             "growatt": {
                 "last_charger_fault": None,
@@ -156,6 +159,13 @@ async def async_get_config_entry_diagnostics(
             redact=True,
         ),
         "configuration_writes": configuration_writes,
+        "compound_writes": {
+            "pv_linkage": (
+                coordinator.pv_linkage_apply_result.as_dict()
+                if coordinator.pv_linkage_apply_result is not None
+                else None
+            ),
+        },
         "unknown_configuration_keys": list(
             coordinator.unknown_configuration_keys
         ),

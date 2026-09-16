@@ -83,6 +83,7 @@ def _build_coordinator(loop):
     coordinator._connection_changed.set()
     coordinator._active_write_item = None
     coordinator._configuration_refresh_task = None
+    coordinator._auto_charge_schedule_task = None
     coordinator._last_write_monotonic = None
     coordinator._min_write_interval = 0.0
     coordinator._poll_pause_after_write = 0.0
@@ -903,6 +904,130 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await first)
         self.assertEqual(calls, 1)
         self.assertTrue(charge_point.skip_if_writes_pending)
+
+    async def test_paired_auto_charge_edits_emit_one_final_schedule(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.auto_charge_start_time_pending = coordinator_module.time(
+            1,
+            0,
+        )
+        coordinator.auto_charge_stop_time_pending = coordinator_module.time(
+            5,
+            0,
+        )
+        payloads = []
+
+        async def capture_current_schedule():
+            payloads.append(
+                f"{coordinator.auto_charge_start_time_pending:%H:%M}-"
+                f"{coordinator.auto_charge_stop_time_pending:%H:%M}"
+            )
+
+        coordinator.schedule_auto_charge_schedule_write(
+            capture_current_schedule,
+            delay=0.02,
+        )
+        await asyncio.sleep(0.005)
+        coordinator.auto_charge_start_time_pending = coordinator_module.time(
+            2,
+            0,
+        )
+        coordinator.auto_charge_stop_time_pending = coordinator_module.time(
+            6,
+            0,
+        )
+        final_task = coordinator.schedule_auto_charge_schedule_write(
+            capture_current_schedule,
+            delay=0.01,
+        )
+
+        await final_task
+
+        self.assertEqual(payloads, ["02:00-06:00"])
+
+    async def test_shutdown_cancels_pending_auto_charge_debounce(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        calls = []
+
+        async def write_schedule():
+            calls.append("sent")
+
+        task = coordinator.schedule_auto_charge_schedule_write(
+            write_schedule,
+            delay=60,
+        )
+        await asyncio.sleep(0)
+
+        await coordinator.async_shutdown()
+
+        self.assertTrue(task.done())
+        self.assertEqual(calls, [])
+
+    async def test_debounced_auto_charge_failure_is_not_unobserved(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+
+        async def fail_to_queue_schedule():
+            raise RuntimeError("queue unavailable")
+
+        with self.assertLogs(coordinator_module._LOGGER, level="ERROR") as logs:
+            task = coordinator.schedule_auto_charge_schedule_write(
+                fail_to_queue_schedule,
+                delay=0,
+            )
+            await task
+
+        self.assertTrue(
+            any(
+                "Failed to queue debounced Auto Charge schedule" in line
+                for line in logs.output
+            )
+        )
+        self.assertIsNone(coordinator._auto_charge_schedule_task)
+
+    async def test_only_the_applied_pv_draft_can_be_marked_clean(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.pv_boost_mode_draft = coordinator_module.PvBoostMode.MANUAL
+        coordinator.pv_manual_start_draft = coordinator_module.time(1, 0)
+        coordinator.pv_manual_end_draft = coordinator_module.time(2, 0)
+        coordinator.pv_smart_finish_draft = None
+        coordinator.pv_smart_target_energy_draft = None
+        coordinator.pv_linkage_draft_dirty = True
+
+        older_draft = coordinator_module.PvLinkageDraft(
+            coordinator_module.PvBoostMode.MANUAL,
+            manual_start=coordinator_module.time(0, 0),
+            manual_end=coordinator_module.time(2, 0),
+        )
+        self.assertFalse(
+            coordinator.mark_pv_linkage_draft_applied(older_draft)
+        )
+        self.assertTrue(coordinator.pv_linkage_draft_dirty)
+
+        current_draft = coordinator.pv_linkage_draft()
+        self.assertTrue(
+            coordinator.mark_pv_linkage_draft_applied(current_draft)
+        )
+        self.assertFalse(coordinator.pv_linkage_draft_dirty)
+
+    async def test_partial_outcome_is_never_logged_as_success(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+
+        async def write():
+            return coordinator_module.ChargerWriteResult.partial(
+                "G_PeriodTime_rejected",
+                "Rejected",
+            )
+
+        with self.assertLogs(coordinator_module._LOGGER, level="INFO") as logs:
+            await coordinator.queue_write(
+                write,
+                command_name="ApplyPvLinkage",
+            )
+            await coordinator._write_task
+
+        combined = "\n".join(logs.output)
+        self.assertIn("partially applied", combined)
+        self.assertNotIn("Write succeeded", combined)
 
 
 class WriteQueuePolicyWiringTest(unittest.TestCase):

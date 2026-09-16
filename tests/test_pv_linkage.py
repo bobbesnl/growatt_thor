@@ -145,6 +145,55 @@ class PvLinkageControlTest(unittest.TestCase):
             )
         )
 
+    def test_compound_failure_distinguishes_failed_from_partial(self):
+        failed = pv.PvLinkageApplyResult.failed(
+            completed_steps=0,
+            total_steps=2,
+            failed_step="G_SolarBoost",
+            reason="Rejected",
+        )
+        partial = pv.PvLinkageApplyResult.failed(
+            completed_steps=1,
+            total_steps=2,
+            failed_step="G_PeriodTime",
+            reason="Rejected",
+        )
+
+        self.assertEqual(failed.status, pv.PvLinkageApplyStatus.FAILED)
+        self.assertEqual(partial.status, pv.PvLinkageApplyStatus.PARTIAL)
+        self.assertEqual(
+            partial.as_dict(),
+            {
+                "status": "partial",
+                "completed_steps": 1,
+                "total_steps": 2,
+                "failed_step": "G_PeriodTime",
+                "reason": "Rejected",
+            },
+        )
+
+    def test_compound_uncertain_and_success_outcomes_are_explicit(self):
+        uncertain = pv.PvLinkageApplyResult.uncertain(
+            completed_steps=1,
+            total_steps=2,
+            failed_step="solar_target_data",
+            reason=RuntimeError("acknowledgement lost"),
+        )
+        success = pv.PvLinkageApplyResult.success(total_steps=2)
+
+        self.assertEqual(uncertain.status, pv.PvLinkageApplyStatus.UNCERTAIN)
+        self.assertEqual(uncertain.reason, "acknowledgement lost")
+        self.assertEqual(success.status, pv.PvLinkageApplyStatus.SUCCESS)
+        self.assertEqual(success.completed_steps, 2)
+
+    def test_compound_outcome_rejects_impossible_progress(self):
+        with self.assertRaisesRegex(ValueError, "Completed steps"):
+            pv.PvLinkageApplyResult(
+                status=pv.PvLinkageApplyStatus.PARTIAL,
+                completed_steps=3,
+                total_steps=2,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

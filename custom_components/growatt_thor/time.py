@@ -121,35 +121,52 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
 
         self.coordinator.async_set_updated_data(True)
 
-        # Auto-apply via queue when both are set
+        # The two HA time entities represent one THOR configuration value.  A
+        # short shared debounce gives back-to-back automation calls time to
+        # update both pending fields before one final payload is constructed.
         start_time = self.coordinator.auto_charge_start_time_pending
         stop_time = self.coordinator.auto_charge_stop_time_pending
 
         if start_time and stop_time:
-            formatted_value = f"{start_time.strftime('%H:%M')}-{stop_time.strftime('%H:%M')}"
-            _LOGGER.info("🔄 Auto-queueing schedule update: %s", formatted_value)
+            _LOGGER.info("⏱️ Debouncing paired Auto Charge schedule update")
+            self.coordinator.schedule_auto_charge_schedule_write(
+                lambda: self._queue_pending_schedule(charge_point)
+            )
 
-            generation = self.coordinator.begin_configuration_write(
-                self._CONFIG_KEY,
-                formatted_value,
-            )
-            await self.coordinator.queue_write(
-                self._apply_schedule,
-                charge_point,
-                formatted_value,
-                start_time,
-                stop_time,
-                generation,
-                dedupe_key=self._CONFIG_KEY,  # ✅ only keep latest G_AutoChargeTime in queue
-                command_name=f"ChangeConfiguration({self._CONFIG_KEY})",
-                requires_connection=True,
-                configuration_key=self._CONFIG_KEY,
-                configuration_generation=generation,
-                policy=CONFIGURATION_WRITE_POLICY,
-                on_unsent=lambda _result: self._restore_reported_schedule(
-                    generation
-                ),
-            )
+    async def _queue_pending_schedule(self, charge_point) -> None:
+        """Queue one snapshot after the paired entity values have settled."""
+        start_time = self.coordinator.auto_charge_start_time_pending
+        stop_time = self.coordinator.auto_charge_stop_time_pending
+        if start_time is None or stop_time is None:
+            return
+
+        formatted_value = (
+            f"{start_time.strftime('%H:%M')}-"
+            f"{stop_time.strftime('%H:%M')}"
+        )
+        _LOGGER.info("🔄 Auto-queueing schedule update: %s", formatted_value)
+
+        generation = self.coordinator.begin_configuration_write(
+            self._CONFIG_KEY,
+            formatted_value,
+        )
+        await self.coordinator.queue_write(
+            self._apply_schedule,
+            charge_point,
+            formatted_value,
+            start_time,
+            stop_time,
+            generation,
+            dedupe_key=self._CONFIG_KEY,
+            command_name=f"ChangeConfiguration({self._CONFIG_KEY})",
+            requires_connection=True,
+            configuration_key=self._CONFIG_KEY,
+            configuration_generation=generation,
+            policy=CONFIGURATION_WRITE_POLICY,
+            on_unsent=lambda _result: self._restore_reported_schedule(
+                generation
+            ),
+        )
 
     async def _apply_schedule(
         self,

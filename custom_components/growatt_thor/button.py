@@ -8,7 +8,6 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
-from ocpp.v16.enums import ConfigurationStatus, DataTransferStatus
 
 from .action_errors import (
     raise_action_validation,
@@ -20,14 +19,12 @@ from .charging_controls import (
     charger_write_block_reason,
     control_write_block_reason,
 )
-from .configuration_writes import ConfigurationWriteStatus
 from .const import DOMAIN
 from .pv_linkage import (
-    ConfigurationWrite,
-    DataTransferWrite,
     build_pv_linkage_writes,
     draft_validation_errors,
 )
+from .pv_linkage_apply import apply_pv_linkage_writes
 from .session_controls import (
     REMOTE_START_COMMAND,
     REMOTE_STOP_COMMAND,
@@ -370,10 +367,14 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
 
     @property
     def extra_state_attributes(self):
+        last_apply = self.coordinator.pv_linkage_apply_result
         return {
             "information": "details",
             "pending_changes": self.coordinator.pv_linkage_draft_dirty,
             "validation_errors": list(self._validation_errors),
+            "last_apply": (
+                last_apply.as_dict() if last_apply is not None else None
+            ),
         }
 
     async def async_press(self) -> None:
@@ -410,6 +411,7 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
         await self.coordinator.queue_write(
             self._apply_writes,
             charge_point,
+            draft,
             writes,
             dedupe_key="pv_linkage_compound",
             command_name="ApplyPvLinkage",
@@ -417,96 +419,21 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
             policy=CONFIGURATION_WRITE_POLICY,
         )
 
-    async def _apply_writes(self, charge_point, writes) -> ChargerWriteResult:
+    async def _apply_writes(
+        self,
+        charge_point,
+        draft,
+        writes,
+    ) -> ChargerWriteResult:
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning(
                 "Skipping queued PV Linkage configuration: %s",
                 block_reason,
             )
             return ChargerWriteResult.skipped(block_reason)
-
-        accepted_configuration = False
-        active_configuration_key = None
-        active_configuration_generation = None
-        try:
-            for write in writes:
-                if isinstance(write, ConfigurationWrite):
-                    active_configuration_key = write.key
-                    active_configuration_generation = (
-                        self.coordinator.begin_configuration_write(
-                            write.key,
-                            write.value,
-                        )
-                    )
-                    result = await charge_point.change_configuration(
-                        write.key,
-                        write.value,
-                    )
-                    accepted = result in {
-                        ConfigurationStatus.accepted,
-                        ConfigurationStatus.reboot_required,
-                    }
-                    outcome_is_current = (
-                        self.coordinator.acknowledge_configuration_write(
-                            write.key,
-                            generation=active_configuration_generation,
-                            accepted=accepted,
-                            result=result,
-                        )
-                    )
-                    if not accepted:
-                        _LOGGER.error(
-                            "PV Linkage write %s was rejected: %s",
-                            write.key,
-                            result,
-                        )
-                        return ChargerWriteResult.failed(
-                            f"{write.key}_rejected",
-                            result,
-                        )
-                    if outcome_is_current:
-                        self.coordinator.update_configuration_value(
-                            write.key,
-                            write.value,
-                        )
-                    accepted_configuration = True
-                    active_configuration_key = None
-                    active_configuration_generation = None
-                    continue
-
-                if isinstance(write, DataTransferWrite):
-                    result = await charge_point.send_data_transfer(
-                        vendor_id=write.vendor_id,
-                        message_id=write.message_id,
-                        data=write.data,
-                    )
-                    if result != DataTransferStatus.accepted:
-                        _LOGGER.error(
-                            "PV Linkage DataTransfer %s was rejected: %s",
-                            write.message_id,
-                            result,
-                        )
-                        return ChargerWriteResult.failed(
-                            f"{write.message_id}_rejected",
-                            result,
-                        )
-        except ChargerConnectionUnavailable:
-            raise
-        except ChargerRequestOutcomeUncertain as exc:
-            if (
-                active_configuration_key is not None
-                and active_configuration_generation is not None
-            ):
-                self.coordinator.mark_configuration_write(
-                    active_configuration_key,
-                    ConfigurationWriteStatus.UNCERTAIN,
-                    generation=active_configuration_generation,
-                    result=str(exc),
-                )
-            self.coordinator.schedule_configuration_refresh(delay=0)
-            return ChargerWriteResult.uncertain(str(exc))
-
-        self.coordinator.mark_pv_linkage_draft_applied()
-        if accepted_configuration:
-            self.coordinator.schedule_configuration_refresh()
-        return ChargerWriteResult.success()
+        return await apply_pv_linkage_writes(
+            coordinator=self.coordinator,
+            charge_point=charge_point,
+            draft=draft,
+            writes=writes,
+        )

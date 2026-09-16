@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, time, timezone
 from collections import deque
+from collections.abc import Awaitable, Callable
 import asyncio
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -45,6 +46,7 @@ from .ocpp_diagnostics import create_ocpp_snapshot
 from .ocpp_status import normalize_ocpp_status
 from .pv_linkage import (
     PvBoostMode,
+    PvLinkageApplyResult,
     PvLinkageDraft,
     draft_matches_reported,
     parse_manual_period,
@@ -145,6 +147,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.pv_smart_finish_draft: time | None = None
         self.pv_smart_target_energy_draft: float | None = None
         self.pv_linkage_draft_dirty = False
+        self.pv_linkage_apply_result: PvLinkageApplyResult | None = None
 
         # ── Last session ─────────────────
         self.last_session_energy = None           # kWh
@@ -188,6 +191,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._connection_changed = asyncio.Event()
         self._active_write_item = None
         self._configuration_refresh_task = None
+        self._auto_charge_schedule_task = None
 
         # Rate limiting / polling pause (monotonic time)
         self._last_write_monotonic = None
@@ -721,6 +725,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
             _LOGGER.info("✅ Write succeeded: %s (%s)", command_name, details)
         elif result.status == ChargerWriteStatus.FAILED:
             _LOGGER.error("❌ Write failed: %s (%s)", command_name, details)
+        elif result.status == ChargerWriteStatus.PARTIAL:
+            _LOGGER.error(
+                "◐ Compound write only partially applied: %s (%s)",
+                command_name,
+                details,
+            )
         elif result.status == ChargerWriteStatus.SKIPPED:
             if result.reason == "replaced_by_newer_intent":
                 _LOGGER.info(
@@ -971,6 +981,46 @@ class GrowattCoordinator(DataUpdateCoordinator):
         )
         return self._configuration_refresh_task
 
+    def schedule_auto_charge_schedule_write(
+        self,
+        write_callback: Callable[[], Awaitable[None]],
+        *,
+        delay: float = 0.5,
+    ):
+        """Debounce the two entity edits that form one Auto Charge schedule.
+
+        Home Assistant exposes start and stop as separate time entities, while
+        the THOR accepts only one compound ``start-stop`` value.  Cancelling a
+        still-sleeping task lets a typical back-to-back automation settle both
+        entity values before a generation enters the charger write queue.
+        """
+        previous_task = self._auto_charge_schedule_task
+        if previous_task is not None and not previous_task.done():
+            previous_task.cancel()
+
+        async def _delayed_write() -> None:
+            try:
+                await asyncio.sleep(delay)
+                await write_callback()
+            except asyncio.CancelledError:
+                # Replacement and integration unload are expected cancellation
+                # paths; neither represents a failed charger command.
+                return
+            except Exception:
+                # The original HA entity action has already returned by the
+                # time the debounce expires.  Preserve a visible traceback
+                # instead of leaving an unobserved background-task exception.
+                _LOGGER.exception(
+                    "Failed to queue debounced Auto Charge schedule"
+                )
+            finally:
+                if self._auto_charge_schedule_task is asyncio.current_task():
+                    self._auto_charge_schedule_task = None
+
+        task = self.hass.async_create_task(_delayed_write())
+        self._auto_charge_schedule_task = task
+        return task
+
     async def _delayed_configuration_refresh(self, delay: float) -> bool:
         """Wait for a safe request window and refresh reported configuration."""
         try:
@@ -1054,10 +1104,32 @@ class GrowattCoordinator(DataUpdateCoordinator):
         )
         self.async_set_updated_data(True)
 
-    def mark_pv_linkage_draft_applied(self) -> None:
-        """Mark the local draft as sent while readback is still tracked."""
+    def record_pv_linkage_apply_result(
+        self,
+        result: PvLinkageApplyResult,
+    ) -> None:
+        """Expose the latest logical compound-write outcome."""
+        self.pv_linkage_apply_result = result
+        self.async_set_updated_data(True)
+
+    def mark_pv_linkage_draft_applied(
+        self,
+        expected_draft: PvLinkageDraft,
+    ) -> bool:
+        """Clear only the exact draft whose complete Apply succeeded.
+
+        A user may edit the local draft while an older Apply is executing.  A
+        successful acknowledgement for that older snapshot must not erase the
+        newer unsent changes.
+        """
+        if self.pv_linkage_draft() != expected_draft:
+            _LOGGER.info(
+                "Keeping newer PV Linkage draft dirty after an older Apply"
+            )
+            return False
         self.pv_linkage_draft_dirty = False
         self.async_set_updated_data(True)
+        return True
 
     def _initialize_pv_linkage_draft(self) -> bool:
         """Initialize an untouched draft from reported configuration values."""
@@ -1117,7 +1189,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     async def async_shutdown(self) -> None:
         """Cancel coordinator-owned background work during integration unload."""
-        tasks = (self._write_task, self._configuration_refresh_task)
+        tasks = (
+            self._write_task,
+            self._configuration_refresh_task,
+            self._auto_charge_schedule_task,
+        )
         for task in tasks:
             if task is not None and not task.done():
                 task.cancel()
