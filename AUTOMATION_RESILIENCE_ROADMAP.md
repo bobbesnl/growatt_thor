@@ -38,7 +38,7 @@ The priorities in this document are based on safety and observability:
 | 2 | P0 | Isolate superseded in-flight write results | Completed |
 | 3 | P0 | Expire and revalidate delayed commands | Completed |
 | 4 | P0 | Harden Start/Stop transaction semantics | Completed |
-| 5 | P0 | Prevent ambiguous config entries and charger connections | Planned |
+| 5 | P0 | Prevent ambiguous config entries and charger connections | Completed |
 | 6 | P1 | Make paired and compound changes predictable | Planned |
 | 7 | P1 | Coalesce manual refresh and harden integration services | Planned |
 | 8 | P1 | Tighten value and config-entry validation | Planned |
@@ -220,6 +220,35 @@ identities explicitly when true multi-charger support is designed.
 - A second config entry is rejected with a clear flow error.
 - A second charger cannot replace an active, different charger.
 - Disconnect cleanup from an old socket cannot affect the current connection.
+
+**Implemented on 2026-09-16:**
+
+- The config flow now aborts before showing a second setup form, using the
+  localized `single_instance_allowed` reason in every bundled language. The
+  runtime independently claims the first entry as its owner, so duplicate
+  legacy entries or concurrent setup calls cannot bypass the UI guard and
+  replace the global coordinator.
+- Unload and failed-setup cleanup are ownership-aware. A rejected or stale
+  config entry cannot stop the server or clear state belonging to the active
+  entry, while a failed owner releases its claim so a later retry can succeed.
+- The first charger ID connected during one loaded-entry lifetime is retained.
+  The same charger may reconnect, but a different ID receives an OCPP policy
+  close and cannot inherit existing entities, transactions, or session data.
+  Intentionally replacing the physical charger therefore requires reloading
+  the integration, which starts a fresh runtime identity boundary.
+- A same-charger reconnect publishes the replacement socket as owner before
+  closing the older socket. Every inbound OCPP handler verifies socket-object
+  ownership, and `StartTransaction` repeats that check after waiting for the
+  transaction-ID allocator so the old socket cannot consume authorization or
+  commit transaction state during the race.
+- Integration-initiated OCPP calls now discard a result if their socket was
+  superseded while the request was in flight. Such writes remain non-retryable
+  and uncertain rather than being repeated on the new socket; read responses
+  and timeout counters likewise cannot update the replacement's coordinator.
+- Watchdog and connection-finalizer cleanup release the active slot by object
+  identity. Regression tests cover entry claims, translated aborts, first
+  connection, same-ID reconnects, different-ID rejection, retained identity,
+  in-flight responses, stale inbound messages, and superseded disconnects.
 
 ## 6. Make paired and compound changes predictable
 
