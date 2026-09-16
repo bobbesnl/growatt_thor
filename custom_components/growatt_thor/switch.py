@@ -9,7 +9,11 @@ from homeassistant.helpers.entity import EntityCategory
 
 from ocpp.v16.enums import ConfigurationStatus
 
-from .action_errors import raise_charger_disconnected, raise_write_blocked
+from .action_errors import (
+    async_require_command_completion,
+    raise_charger_disconnected,
+    raise_write_blocked,
+)
 from .const import DOMAIN
 from .charging_controls import (
     ChargingControl,
@@ -204,26 +208,23 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             )
             return
 
-        try:
-            generation = self.coordinator.begin_configuration_write(
-                "G_ExternalLimitPowerEnable",
-                value,
-            )
-            await self.coordinator.queue_write(
-                self._apply_external_limit_power_enable,
-                charge_point,
-                value,
-                generation,
-                dedupe_key="G_ExternalLimitPowerEnable",
-                command_name="ChangeConfiguration(G_ExternalLimitPowerEnable)",
-                requires_connection=True,
-                configuration_key="G_ExternalLimitPowerEnable",
-                configuration_generation=generation,
-                policy=CONFIGURATION_WRITE_POLICY,
-            )
-
-        except Exception as exc:
-            _LOGGER.error("❌ Failed to change Loadbalancing: %s", exc, exc_info=True)
+        generation = self.coordinator.begin_configuration_write(
+            "G_ExternalLimitPowerEnable",
+            value,
+        )
+        handle = await self.coordinator.queue_write(
+            self._apply_external_limit_power_enable,
+            charge_point,
+            value,
+            generation,
+            dedupe_key="G_ExternalLimitPowerEnable",
+            command_name="ChangeConfiguration(G_ExternalLimitPowerEnable)",
+            requires_connection=True,
+            configuration_key="G_ExternalLimitPowerEnable",
+            configuration_generation=generation,
+            policy=CONFIGURATION_WRITE_POLICY,
+        )
+        await async_require_command_completion(handle)
 
 
 class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
@@ -397,28 +398,25 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
             )
             return
 
-        try:
-            # Begin tracking before enqueueing so ``is_on`` can expose the
-            # user's desired value during the rate-limit wait.
-            generation = self.coordinator.begin_configuration_write(
-                "G_LCDCloseEnable",
-                value,
-            )
-            await self.coordinator.queue_write(
-                self._apply_lcd_close_enable,
-                charge_point,
-                value,
-                generation,
-                dedupe_key="G_LCDCloseEnable",
-                command_name="ChangeConfiguration(G_LCDCloseEnable)",
-                requires_connection=True,
-                configuration_key="G_LCDCloseEnable",
-                configuration_generation=generation,
-                policy=CONFIGURATION_WRITE_POLICY,
-            )
-
-        except Exception as exc:
-            _LOGGER.error("❌ Failed to change LCD display: %s", exc, exc_info=True)
+        # Begin tracking before enqueueing so ``is_on`` can expose the user's
+        # desired value during the rate-limit wait.
+        generation = self.coordinator.begin_configuration_write(
+            "G_LCDCloseEnable",
+            value,
+        )
+        handle = await self.coordinator.queue_write(
+            self._apply_lcd_close_enable,
+            charge_point,
+            value,
+            generation,
+            dedupe_key="G_LCDCloseEnable",
+            command_name="ChangeConfiguration(G_LCDCloseEnable)",
+            requires_connection=True,
+            configuration_key="G_LCDCloseEnable",
+            configuration_generation=generation,
+            policy=CONFIGURATION_WRITE_POLICY,
+        )
+        await async_require_command_completion(handle)
 
 
 class BaseModeAwareSwitch(

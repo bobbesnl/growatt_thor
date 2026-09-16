@@ -12,6 +12,7 @@ from .authorization import (
     CONF_RESTRICT_AUTHORIZATION,
     policy_from_input,
 )
+from .action_errors import async_require_command_completion
 from .const import (
     CONFIG_ENTRY_VERSION,
     DOMAIN,
@@ -297,10 +298,13 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 return ChargerWriteResult.success(status)
             return ChargerWriteResult.failed("charger_rejected", status)
 
-        await coordinator.queue_write(
+        handle = await coordinator.queue_write(
             _do_ap,
             charge_point,
             command_name="DataTransfer(appconfigmode)",
             requires_connection=True,
             policy=VOLATILE_CONTROL_WRITE_POLICY,
         )
+        # The success abort screen is shown only after the charger has
+        # acknowledged AP mode, not merely after local enqueueing.
+        await async_require_command_completion(handle)

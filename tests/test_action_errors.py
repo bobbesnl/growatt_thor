@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import asyncio
 import importlib.util
 from pathlib import Path
 import sys
@@ -138,39 +139,138 @@ class ActionErrorMappingTest(unittest.TestCase):
         )
 
 
+class ActionCommandCompletionTest(unittest.IsolatedAsyncioTestCase):
+    """Bounded HA action waits must report every non-confirmed outcome."""
+
+    def _completed_handle(self, status, *, reason=None):
+        future = asyncio.get_running_loop().create_future()
+        handle = action_errors.ChargerCommandHandle("command-1", future)
+        future.set_result(
+            action_errors.ChargerCommandResult(
+                command_id=handle.command_id,
+                command_name="TestCommand",
+                status=status,
+                write_status="test_status",
+                queued_at="2026-09-16T10:00:00Z",
+                completed_at="2026-09-16T10:00:01Z",
+                reason=reason,
+            )
+        )
+        return handle
+
+    async def test_confirmed_command_returns_terminal_result(self):
+        result = await action_errors.async_require_command_completion(
+            self._completed_handle(
+                action_errors.ChargerCommandStatus.CONFIRMED
+            )
+        )
+
+        self.assertEqual(
+            result.status,
+            action_errors.ChargerCommandStatus.CONFIRMED,
+        )
+
+    async def test_skipped_and_expired_commands_are_validation_errors(self):
+        for status in (
+            action_errors.ChargerCommandStatus.SKIPPED,
+            action_errors.ChargerCommandStatus.EXPIRED,
+        ):
+            with self.subTest(status=status):
+                with self.assertRaises(_ServiceValidationError) as raised:
+                    await action_errors.async_require_command_completion(
+                        self._completed_handle(status, reason="not_sent")
+                    )
+                self.assertEqual(
+                    raised.exception.translation_key,
+                    "command_not_executed",
+                )
+                self.assertEqual(
+                    raised.exception.translation_placeholders["command_id"],
+                    "command-1",
+                )
+
+    async def test_failed_and_uncertain_commands_are_runtime_errors(self):
+        for status, translation_key in (
+            (
+                action_errors.ChargerCommandStatus.FAILED,
+                "command_failed",
+            ),
+            (
+                action_errors.ChargerCommandStatus.UNCERTAIN,
+                "command_outcome_uncertain",
+            ),
+        ):
+            with self.subTest(status=status):
+                with self.assertRaises(_HomeAssistantError) as raised:
+                    await action_errors.async_require_command_completion(
+                        self._completed_handle(status, reason="test_reason")
+                    )
+                self.assertNotIsInstance(
+                    raised.exception,
+                    _ServiceValidationError,
+                )
+                self.assertEqual(
+                    raised.exception.translation_key,
+                    translation_key,
+                )
+
+    async def test_wait_timeout_keeps_completion_future_alive(self):
+        future = asyncio.get_running_loop().create_future()
+        handle = action_errors.ChargerCommandHandle("command-2", future)
+
+        with self.assertRaises(_HomeAssistantError) as raised:
+            await action_errors.async_require_command_completion(
+                handle,
+                timeout=0.01,
+            )
+
+        self.assertEqual(
+            raised.exception.translation_key,
+            "command_still_pending",
+        )
+        self.assertFalse(future.cancelled())
+
+
 class PublicActionWiringTest(unittest.TestCase):
     """Keep the immediate HA action guards connected to the shared helpers."""
 
     EXPECTED_HELPERS = {
         ("configuration_control.py", "GrowattConfigurationControlMixin", "_async_write_configuration"): {
+            "async_require_command_completion",
             "raise_write_blocked",
             "raise_charger_disconnected",
         },
         ("button.py", "StartChargingButton", "async_press"): {
+            "async_require_command_completion",
             "raise_write_blocked",
             "raise_charger_disconnected",
             "raise_action_validation",
         },
         ("button.py", "StopChargingButton", "async_press"): {
+            "async_require_command_completion",
             "raise_charger_disconnected",
             "raise_action_validation",
         },
         ("button.py", "ApplyPvLinkageButton", "async_press"): {
+            "async_require_command_completion",
             "raise_write_blocked",
             "raise_charger_disconnected",
             "raise_action_validation",
         },
         ("number.py", "MaxCurrentNumber", "async_set_native_value"): {
+            "async_require_command_completion",
             "raise_write_blocked",
             "raise_charger_disconnected",
             "_validated_entity_number",
         },
         ("number.py", "LoadBalancingLimitNumber", "async_set_native_value"): {
+            "async_require_command_completion",
             "raise_write_blocked",
             "raise_charger_disconnected",
             "_validated_entity_number",
         },
         ("number.py", "ElectricityPriceNumber", "async_set_native_value"): {
+            "async_require_command_completion",
             "raise_write_blocked",
             "raise_charger_disconnected",
             "_validated_entity_number",
@@ -186,6 +286,7 @@ class PublicActionWiringTest(unittest.TestCase):
             "_validated_entity_number",
         },
         ("select.py", "WorkingModeSelect", "async_select_option"): {
+            "async_require_command_completion",
             "raise_write_blocked",
             "raise_charger_disconnected",
             "raise_action_validation",
@@ -194,10 +295,12 @@ class PublicActionWiringTest(unittest.TestCase):
             "raise_write_blocked",
         },
         ("switch.py", "LoadBalancingEnableSwitch", "_set_value"): {
+            "async_require_command_completion",
             "raise_write_blocked",
             "raise_charger_disconnected",
         },
         ("switch.py", "LcdDisplaySwitch", "_set_value"): {
+            "async_require_command_completion",
             "raise_write_blocked",
             "raise_charger_disconnected",
         },
@@ -301,6 +404,31 @@ class PublicActionWiringTest(unittest.TestCase):
                     )
                 )
                 self.assertEqual(round_calls, [])
+
+    def test_ap_mode_waits_for_charger_completion_before_success_abort(self):
+        tree = ast.parse(
+            (PACKAGE_PATH / "config_flow.py").read_text(encoding="utf-8")
+        )
+        options_flow = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef)
+            and node.name == "GrowattThorOptionsFlow"
+        )
+        activate = next(
+            node
+            for node in options_flow.body
+            if isinstance(node, ast.AsyncFunctionDef)
+            and node.name == "_activate_ap_mode"
+        )
+        calls = {
+            node.func.id
+            for node in ast.walk(activate)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+        }
+
+        self.assertIn("async_require_command_completion", calls)
 
 
 if __name__ == "__main__":

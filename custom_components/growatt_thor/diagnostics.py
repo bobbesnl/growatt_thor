@@ -38,6 +38,9 @@ async def async_get_config_entry_diagnostics(
             },
             "configuration": {},
             "configuration_writes": {},
+            "commands": {
+                "last_result": None,
+            },
             "compound_writes": {
                 "pv_linkage": None,
             },
@@ -159,6 +162,13 @@ async def async_get_config_entry_diagnostics(
             redact=True,
         ),
         "configuration_writes": configuration_writes,
+        "commands": {
+            "last_result": (
+                coordinator.last_command_result.as_dict()
+                if coordinator.last_command_result is not None
+                else None
+            ),
+        },
         "compound_writes": {
             "pv_linkage": (
                 coordinator.pv_linkage_apply_result.as_dict()

@@ -143,6 +143,18 @@
     },
     "session_export_failed": {
       "message": "The charging-session export failed. Check the Home Assistant log for details."
+    },
+    "command_still_pending": {
+      "message": "Command {command_id} is still pending; its final result will appear in the Last command result sensor."
+    },
+    "command_not_executed": {
+      "message": "Command {command_name} ({command_id}) was not executed: {status} ({details})."
+    },
+    "command_outcome_uncertain": {
+      "message": "The outcome of command {command_name} ({command_id}) is uncertain: {status} ({details})."
+    },
+    "command_failed": {
+      "message": "Command {command_name} ({command_id}) failed: {status} ({details})."
     }
   },
   "selector": {
@@ -186,6 +198,26 @@
               "details": "Retains the most recent actual Faulted event after the charger recovers. OCPP StatusNotification and Growatt faultmessage details belonging to the same event are combined."
             }
           }
+        }
+      },
+      "last_command_result": {
+        "name": "Last command result",
+        "state": {
+          "confirmed": "Confirmed",
+          "failed": "Failed",
+          "skipped": "Skipped",
+          "expired": "Expired",
+          "uncertain": "Uncertain"
+        },
+        "state_attributes": {
+          "information": { "name": "About this result", "state": { "details": "The latest terminal queue result; use Command ID to correlate repeated automation actions." } },
+          "command_id": { "name": "Command ID" },
+          "command_name": { "name": "Command" },
+          "write_status": { "name": "Detailed result" },
+          "queued_at": { "name": "Queued at" },
+          "completed_at": { "name": "Completed at" },
+          "reason": { "name": "Reason" },
+          "charger_result": { "name": "Charger result" }
         }
       },
       "charge_point_id": { "name": "Charge Point ID" },

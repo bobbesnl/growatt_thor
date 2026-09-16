@@ -135,6 +135,18 @@
     },
     "session_export_failed": {
       "message": "Het exporteren van de laadsessies is mislukt. Controleer het Home Assistant-logboek voor details."
+    },
+    "command_still_pending": {
+      "message": "Opdracht {command_id} is nog in behandeling; het eindresultaat verschijnt in de sensor Laatste opdrachtresultaat."
+    },
+    "command_not_executed": {
+      "message": "Opdracht {command_name} ({command_id}) is niet uitgevoerd: {status} ({details})."
+    },
+    "command_outcome_uncertain": {
+      "message": "Het resultaat van opdracht {command_name} ({command_id}) is onzeker: {status} ({details})."
+    },
+    "command_failed": {
+      "message": "Opdracht {command_name} ({command_id}) is mislukt: {status} ({details})."
     }
   },
   "selector": {
@@ -178,6 +190,26 @@
               "details": "Bewaart de laatste echte Faulted-gebeurtenis nadat de lader is hersteld. Bijbehorende details uit OCPP StatusNotification en Growatt faultmessage worden samengevoegd."
             }
           }
+        }
+      },
+      "last_command_result": {
+        "name": "Laatste opdrachtresultaat",
+        "state": {
+          "confirmed": "Bevestigd",
+          "failed": "Mislukt",
+          "skipped": "Overgeslagen",
+          "expired": "Verlopen",
+          "uncertain": "Onzeker"
+        },
+        "state_attributes": {
+          "information": { "name": "Over dit resultaat", "state": { "details": "Het laatste terminale wachtrijresultaat; gebruik de opdracht-ID om herhaalde automatiseringen te correleren." } },
+          "command_id": { "name": "Opdracht-ID" },
+          "command_name": { "name": "Opdracht" },
+          "write_status": { "name": "Gedetailleerd resultaat" },
+          "queued_at": { "name": "In wachtrij sinds" },
+          "completed_at": { "name": "Voltooid om" },
+          "reason": { "name": "Reden" },
+          "charger_result": { "name": "Laderresultaat" }
         }
       },
       "charge_point_id": { "name": "Laadpunt-ID" },

@@ -10,6 +10,7 @@ from homeassistant.helpers.entity import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
 from .action_errors import (
+    async_require_command_completion,
     raise_action_validation,
     raise_charger_disconnected,
     raise_write_blocked,
@@ -274,7 +275,7 @@ class MaxCurrentNumber(BaseConfigNumber):
             self._config_key,
             str(value),
         )
-        await self.coordinator.queue_write(
+        handle = await self.coordinator.queue_write(
             self._write_to_thor,
             charge_point,
             value,
@@ -291,6 +292,7 @@ class MaxCurrentNumber(BaseConfigNumber):
                 generation,
             ),
         )
+        await async_require_command_completion(handle)
 
     async def _write_to_thor(
         self,
@@ -496,7 +498,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             self._config_key,
             str(value),
         )
-        await self.coordinator.queue_write(
+        handle = await self.coordinator.queue_write(
             self._write_to_thor,
             charge_point,
             value,
@@ -513,6 +515,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
                 generation,
             ),
         )
+        await async_require_command_completion(handle)
 
     async def _write_to_thor(
         self,
@@ -679,7 +682,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
             self._config_key,
             price_str,
         )
-        await self.coordinator.queue_write(
+        handle = await self.coordinator.queue_write(
             self._write_to_thor,
             charge_point,
             value,
@@ -696,6 +699,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
                 generation,
             ),
         )
+        await async_require_command_completion(handle)
 
     async def _write_to_thor(
         self,

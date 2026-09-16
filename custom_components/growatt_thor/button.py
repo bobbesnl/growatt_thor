@@ -10,6 +10,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .action_errors import (
+    async_require_command_completion,
     raise_action_validation,
     raise_charger_disconnected,
     raise_write_blocked,
@@ -116,7 +117,7 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             raise_action_validation("charging_already_active")
 
         _LOGGER.info("🔘 Queueing priority start charging command")
-        await self.coordinator.queue_write(
+        handle = await self.coordinator.queue_write(
             self._start_charging,
             charge_point,
             # Start and Stop share one logical queue lane.  A later, valid
@@ -129,6 +130,9 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             policy=VOLATILE_CONTROL_WRITE_POLICY,
             revalidate=self._start_revalidation_failure,
         )
+        # Start/Stop are priority controls rather than slow configuration
+        # edits, so their HA actions can wait for a bounded physical outcome.
+        await async_require_command_completion(handle)
 
     async def _start_charging(self, charge_point) -> ChargerWriteResult:
         """Start charging command (runs inside write-queue)."""
@@ -249,7 +253,7 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
             transaction_id,
         )
 
-        await self.coordinator.queue_write(
+        handle = await self.coordinator.queue_write(
             self._stop_charging,
             charge_point,
             transaction_id,
@@ -266,6 +270,7 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
                 transaction_id
             ),
         )
+        await async_require_command_completion(handle)
 
     async def _stop_charging(
         self,
@@ -408,7 +413,7 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
             raise_charger_disconnected()
 
         writes = build_pv_linkage_writes(draft, now=dt_util.now())
-        await self.coordinator.queue_write(
+        handle = await self.coordinator.queue_write(
             self._apply_writes,
             charge_point,
             draft,
@@ -418,6 +423,9 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
             requires_connection=True,
             policy=CONFIGURATION_WRITE_POLICY,
         )
+        # A compound Apply must not return success merely because it entered
+        # the queue; partial and uncertain physical outcomes are surfaced.
+        await async_require_command_completion(handle)
 
     async def _apply_writes(
         self,

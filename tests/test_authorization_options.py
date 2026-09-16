@@ -48,11 +48,15 @@ def load_flow():
     ha.config_entries = SimpleNamespace(ConfigFlow=FlowBase, OptionsFlow=FlowBase)
     core = ModuleType('homeassistant.core')
     core.callback = lambda function: function
+    exceptions = ModuleType('homeassistant.exceptions')
+    exceptions.HomeAssistantError = Exception
+    exceptions.ServiceValidationError = Exception
     selectors = ModuleType('homeassistant.helpers.selector')
     selectors.SelectSelector = selectors.TextSelector = TextSelector
     selectors.SelectSelectorConfig = selectors.TextSelectorConfig = dict
     with patch.dict(sys.modules, {
         'homeassistant': ha, 'homeassistant.core': core,
+        'homeassistant.exceptions': exceptions,
         'homeassistant.helpers': ModuleType('homeassistant.helpers'),
         'homeassistant.helpers.selector': selectors,
     }):

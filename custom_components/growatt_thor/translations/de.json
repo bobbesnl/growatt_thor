@@ -143,6 +143,18 @@
     },
     "session_export_failed": {
       "message": "Der Export der Ladesitzungen ist fehlgeschlagen. Weitere Details stehen im Home-Assistant-Protokoll."
+    },
+    "command_still_pending": {
+      "message": "Der Befehl {command_id} steht noch aus; sein Endergebnis erscheint im Sensor Letztes Befehlsergebnis."
+    },
+    "command_not_executed": {
+      "message": "Der Befehl {command_name} ({command_id}) wurde nicht ausgeführt: {status} ({details})."
+    },
+    "command_outcome_uncertain": {
+      "message": "Das Ergebnis des Befehls {command_name} ({command_id}) ist ungewiss: {status} ({details})."
+    },
+    "command_failed": {
+      "message": "Der Befehl {command_name} ({command_id}) ist fehlgeschlagen: {status} ({details})."
     }
   },
   "selector": {
@@ -186,6 +198,26 @@
               "details": "Bewahrt das letzte echte Faulted-Ereignis auch nach der Erholung der Wallbox auf. Zusammengehörige Details aus OCPP StatusNotification und Growatt faultmessage werden kombiniert."
             }
           }
+        }
+      },
+      "last_command_result": {
+        "name": "Letztes Befehlsergebnis",
+        "state": {
+          "confirmed": "Bestätigt",
+          "failed": "Fehlgeschlagen",
+          "skipped": "Übersprungen",
+          "expired": "Abgelaufen",
+          "uncertain": "Ungewiss"
+        },
+        "state_attributes": {
+          "information": { "name": "Über dieses Ergebnis", "state": { "details": "Das letzte terminale Queue-Ergebnis; die Befehls-ID ordnet wiederholte Automationsaufrufe eindeutig zu." } },
+          "command_id": { "name": "Befehls-ID" },
+          "command_name": { "name": "Befehl" },
+          "write_status": { "name": "Detailliertes Ergebnis" },
+          "queued_at": { "name": "Eingereiht um" },
+          "completed_at": { "name": "Abgeschlossen um" },
+          "reason": { "name": "Grund" },
+          "charger_result": { "name": "Wallbox-Ergebnis" }
         }
       },
       "charge_point_id": { "name": "Ladepunkt-ID" },

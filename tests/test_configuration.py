@@ -20,6 +20,7 @@ TRANSLATIONS_PATH = MODULE_PATH.parent / "translations"
 TRANSLATION_LANGUAGES = ("en", "de", "nl", "it", "hu", "sl", "fr", "es")
 TRANSLATION_PLACEHOLDER_PATTERN = re.compile(r"\{[^{}]+\}")
 SENSOR_PATH = MODULE_PATH.parent / "sensor.py"
+DIAGNOSTICS_PATH = MODULE_PATH.parent / "diagnostics.py"
 CONFIGURATION_CONTROL_PATH = MODULE_PATH.parent / "configuration_control.py"
 SELECT_PATH = MODULE_PATH.parent / "select.py"
 CONTROL_PATHS = tuple(
@@ -495,6 +496,7 @@ class EntityTranslationTest(unittest.TestCase):
             "server_url",
             "status",
             "last_charger_fault",
+            "last_command_result",
             "charge_point_id",
             "charger_vendor",
             "charger_model",
@@ -589,6 +591,7 @@ class EntityTranslationTest(unittest.TestCase):
             "warm_up_after_full_charge",
             "delayed_charging_time",
             "external_meter_health",
+            "last_command_result",
         }
 
         for language in TRANSLATION_LANGUAGES:
@@ -613,6 +616,16 @@ class EntityTranslationTest(unittest.TestCase):
                         "unavailable",
                         "faulted",
                         "idle",
+                    ),
+                )
+                self.assertEqual(
+                    tuple(sensors["last_command_result"]["state"]),
+                    (
+                        "confirmed",
+                        "failed",
+                        "skipped",
+                        "expired",
+                        "uncertain",
                     ),
                 )
 
@@ -681,6 +694,7 @@ class EntityTranslationTest(unittest.TestCase):
         self.assertTrue(
             {
                 "status",
+                "last_command_result",
                 "charging_power",
                 "electricity_price",
                 "last_session_energy",
@@ -692,6 +706,43 @@ class EntityTranslationTest(unittest.TestCase):
                 "grid_current",
             }.issubset(translation_keys)
         )
+
+    def test_last_command_result_sensor_is_registered_and_correlatable(self):
+        source = SENSOR_PATH.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        setup = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.AsyncFunctionDef)
+            and node.name == "async_setup_entry"
+        )
+        setup_source = ast.unparse(setup)
+
+        self.assertIn("LastCommandResultSensor(coordinator, entry)", setup_source)
+        self.assertIn('attributes.pop("status")', source)
+        self.assertIn(
+            "coordinator.last_command_result.as_dict()",
+            DIAGNOSTICS_PATH.read_text(encoding="utf-8"),
+        )
+        for attribute in (
+            "command_id",
+            "command_name",
+            "write_status",
+            "queued_at",
+            "completed_at",
+            "reason",
+            "charger_result",
+        ):
+            self.assertIn(
+                attribute,
+                json.loads(
+                    (TRANSLATIONS_PATH / "en.json").read_text(
+                        encoding="utf-8"
+                    )
+                )["entity"]["sensor"]["last_command_result"][
+                    "state_attributes"
+                ],
+            )
 
     def test_last_session_duration_declares_ha_duration_semantics(self):
         tree = ast.parse(SENSOR_PATH.read_text(encoding="utf-8"))

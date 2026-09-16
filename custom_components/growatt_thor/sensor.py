@@ -35,6 +35,7 @@ from .session_records import (
     normalize_session_charge_mode,
     normalize_session_work_mode,
 )
+from .write_queue import COMMAND_COMPLETION_STATUSES
 
 
 @dataclass(frozen=True)
@@ -368,6 +369,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             # ── Status / live ─────────────────────────
             StatusSensor(coordinator, entry),
             LastChargerFaultSensor(coordinator, entry),
+            LastCommandResultSensor(coordinator, entry),
             ChargePointIdSensor(coordinator, entry),
             *boot_sensors,
             ChargingPowerSensor(coordinator, entry),
@@ -471,6 +473,43 @@ class LastChargerFaultSensor(BaseSensor):
         return {
             "information": "details",
             **fault.as_dict(),
+        }
+
+
+class LastCommandResultSensor(BaseSensor):
+    """Expose the latest queue completion for automation correlation."""
+
+    _attr_translation_key = "last_command_result"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = list(COMMAND_COMPLETION_STATUSES)
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:progress-check"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_command_result")
+
+    @property
+    def native_value(self):
+        result = self.coordinator.last_command_result
+        return result.status.value if result is not None else None
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self.coordinator.last_command_result is not None
+        )
+
+    @property
+    def extra_state_attributes(self):
+        result = self.coordinator.last_command_result
+        if result is None:
+            return {"information": "details"}
+        attributes = result.as_dict()
+        attributes.pop("status")
+        return {
+            "information": "details",
+            **attributes,
         }
 
 

@@ -1,9 +1,10 @@
-"""Home Assistant errors for charger actions rejected before queueing.
+"""Home Assistant errors for charger action validation and completion.
 
 Entity methods are also Home Assistant service-action handlers. Logging and
 returning from such a method tells scripts and automations that the action
-succeeded, even when no charger command was queued. These helpers keep that
-boundary explicit and ensure every caller uses the same translated error.
+succeeded, even when no charger command was queued or confirmed. These helpers
+keep both boundaries explicit and ensure every caller uses the same translated
+error.
 """
 from __future__ import annotations
 
@@ -12,6 +13,15 @@ from collections.abc import Mapping
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from .const import DOMAIN
+from .write_queue import (
+    ChargerCommandHandle,
+    ChargerCommandResult,
+    ChargerCommandStatus,
+    ChargerCommandWaitTimeout,
+)
+
+
+DEFAULT_ACTION_COMMAND_WAIT_TIMEOUT = 30.0
 
 
 # A disconnected charger is a communication failure. The remaining reasons
@@ -77,6 +87,54 @@ def raise_communication_error(
         translation_domain=DOMAIN,
         translation_key=translation_key,
         translation_placeholders=_stringify_placeholders(placeholders),
+    )
+
+
+async def async_require_command_completion(
+    handle: ChargerCommandHandle,
+    *,
+    timeout: float = DEFAULT_ACTION_COMMAND_WAIT_TIMEOUT,
+) -> ChargerCommandResult:
+    """Wait a bounded time and turn non-confirmation into an HA action error.
+
+    The underlying queue command keeps running if the wait times out or the HA
+    caller is cancelled.  This prevents a dashboard timeout from being
+    mistaken for proof that the charger never received the request.
+    """
+    try:
+        result = await handle.async_wait(timeout=timeout)
+    except ChargerCommandWaitTimeout:
+        raise_communication_error(
+            "command_still_pending",
+            placeholders={"command_id": handle.command_id},
+        )
+
+    if result.status == ChargerCommandStatus.CONFIRMED:
+        return result
+
+    details = result.reason or result.charger_result or "unknown"
+    placeholders = {
+        "command_id": result.command_id,
+        "command_name": result.command_name,
+        "status": result.status.value,
+        "details": details,
+    }
+    if result.status in {
+        ChargerCommandStatus.SKIPPED,
+        ChargerCommandStatus.EXPIRED,
+    }:
+        raise_action_validation(
+            "command_not_executed",
+            placeholders=placeholders,
+        )
+    if result.status == ChargerCommandStatus.UNCERTAIN:
+        raise_communication_error(
+            "command_outcome_uncertain",
+            placeholders=placeholders,
+        )
+    raise_communication_error(
+        "command_failed",
+        placeholders=placeholders,
     )
 
 

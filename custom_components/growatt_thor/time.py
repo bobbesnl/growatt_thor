@@ -150,6 +150,10 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
             self._CONFIG_KEY,
             formatted_value,
         )
+        # The originating HA calls have already returned before this debounce
+        # callback runs, so there is no caller left to receive a completion
+        # exception.  The queue still publishes its terminal Command ID and
+        # result through the shared Last command result sensor.
         await self.coordinator.queue_write(
             self._apply_schedule,
             charge_point,

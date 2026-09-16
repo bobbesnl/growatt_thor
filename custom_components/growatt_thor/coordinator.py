@@ -55,6 +55,8 @@ from .session_records import GrowattSessionRecord
 from .session_state import LastSessionState
 from .transaction_ids import TransactionIdAllocator
 from .write_queue import (
+    ChargerCommandHandle,
+    ChargerCommandResult,
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
     ChargerWriteQueuePolicy,
@@ -62,6 +64,7 @@ from .write_queue import (
     ChargerWriteResult,
     ChargerWriteStatus,
     DEFAULT_WRITE_POLICY,
+    create_command_handle,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -139,6 +142,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.configuration_values: dict[str, ConfigurationValue] = {}
         self.unknown_configuration_keys: tuple[str, ...] = ()
         self.configuration_writes: dict[str, ConfigurationWriteState] = {}
+        self.last_command_result: ChargerCommandResult | None = None
 
         # Local compound PV Linkage draft. It is sent only by the Apply button.
         self.pv_boost_mode_draft: PvBoostMode | None = None
@@ -190,6 +194,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._write_queue_idle.set()
         self._connection_changed = asyncio.Event()
         self._active_write_item = None
+        self._shutting_down = False
         self._configuration_refresh_task = None
         self._auto_charge_schedule_task = None
 
@@ -339,7 +344,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         revalidate=None,
         on_unsent=None,
         **kwargs,
-    ):
+    ) -> ChargerCommandHandle:
         """Queue a charger command with optional deduplication and priority.
 
         ``requires_connection`` means that the first positional argument is a
@@ -351,7 +356,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
         ``policy`` bounds how long an unsent intent remains valid and whether
         it may cross a disconnect. ``revalidate`` returns a skip reason when
         runtime state has changed. ``on_unsent`` restores entity-local
-        optimistic state for replaced, skipped, or expired queue entries.
+        optimistic state for replaced, skipped, or expired queue entries. The
+        returned handle identifies this exact intent and resolves once with
+        its terminal physical or local outcome.
         """
         if requires_connection and not args:
             raise ValueError("A connection-bound write requires a charge point argument")
@@ -361,11 +368,13 @@ class GrowattCoordinator(DataUpdateCoordinator):
             )
 
         enqueued_at = self.hass.loop.time()
+        handle = create_command_handle()
         write_item = {
             "func": write_func,
             "args": args,
             "kwargs": kwargs,
             "enqueued_at": enqueued_at,
+            "queued_at": self.now(),
             "expires_at": enqueued_at + policy.expires_after,
             "dedupe_key": dedupe_key,
             "priority": priority,
@@ -377,7 +386,19 @@ class GrowattCoordinator(DataUpdateCoordinator):
             "policy": policy,
             "revalidate": revalidate,
             "on_unsent": on_unsent,
+            "command_id": handle.command_id,
+            "completion": handle._completion,
         }
+
+        if self._shutting_down:
+            # A late background callback can race integration unload.  Return
+            # a normal, already resolved handle instead of creating an orphan
+            # Future or silently accepting work that can never execute.
+            self._finish_unsent_write(
+                write_item,
+                ChargerWriteResult.skipped("integration_unloaded"),
+            )
+            return handle
 
         if dedupe_key is not None:
             retained_items = deque()
@@ -410,8 +431,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self._write_queue.append(write_item)
 
         _LOGGER.debug(
-            "📥 Queued %s. Queue size: %d",
+            "📥 Queued %s [%s]. Queue size: %d",
             write_item["command_name"],
+            write_item["command_id"],
             len(self._write_queue),
         )
         self._write_queue_idle.clear()
@@ -419,6 +441,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         if self._write_task is None or self._write_task.done():
             self._write_task = self.hass.async_create_task(self._process_write_queue())
+        return handle
 
     async def _process_write_queue(self):
         """Process writes without losing them across a charger reconnect."""
@@ -540,8 +563,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
                             self.hass.loop.time() - write_item["enqueued_at"]
                         )
                         _LOGGER.info(
-                            "✍️ Executing %s after %.1fs. Remaining in queue: %d",
+                            "✍️ Executing %s [%s] after %.1fs. "
+                            "Remaining in queue: %d",
                             write_item["command_name"],
+                            write_item["command_id"],
                             queue_age,
                             len(self._write_queue),
                         )
@@ -593,6 +618,17 @@ class GrowattCoordinator(DataUpdateCoordinator):
                             self._last_write_monotonic = self.hass.loop.time()
 
                         self._log_write_result(write_item, result)
+                        completion_result = (
+                            result
+                            if isinstance(result, ChargerWriteResult)
+                            else ChargerWriteResult.uncertain(
+                                "missing_structured_outcome"
+                            )
+                        )
+                        self._resolve_write_result(
+                            write_item,
+                            completion_result,
+                        )
 
                     except ChargerConnectionUnavailable as err:
                         # The request was definitely not sent.  Put it back at
@@ -642,17 +678,45 @@ class GrowattCoordinator(DataUpdateCoordinator):
                                 result=str(err),
                             )
                             self.schedule_configuration_refresh(delay=0)
-                        self._log_write_result(
-                            write_item,
-                            ChargerWriteResult.uncertain(str(err)),
+                        result = ChargerWriteResult.uncertain(str(err))
+                        self._log_write_result(write_item, result)
+                        self._resolve_write_result(write_item, result)
+
+                    except asyncio.CancelledError:
+                        # The callback may already have handed its request to
+                        # OCPP.  Unload therefore resolves the active command
+                        # as uncertain, never as safely cancelled or skipped.
+                        result = ChargerWriteResult.uncertain(
+                            "integration_unloaded_during_execution"
                         )
+                        self._log_write_result(write_item, result)
+                        self._resolve_write_result(write_item, result)
+                        raise
 
                     except Exception as err:
                         _LOGGER.error("❌ Write command failed: %s", err, exc_info=True)
+                        self._resolve_write_result(
+                            write_item,
+                            ChargerWriteResult.failed("unexpected_error"),
+                        )
 
                     finally:
                         self._active_write_item = None
 
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # Queue infrastructure must fail closed.  Entries still in
+                # the deque are definitely unsent and every waiter receives a
+                # terminal result instead of hanging forever.
+                _LOGGER.exception("Charger write queue processor failed")
+                while self._write_queue:
+                    self._finish_unsent_write(
+                        self._write_queue.popleft(),
+                        ChargerWriteResult.skipped(
+                            "queue_processor_failed"
+                        ),
+                    )
             finally:
                 self._write_task = None
                 if not self._write_queue:
@@ -710,46 +774,87 @@ class GrowattCoordinator(DataUpdateCoordinator):
     def _log_write_result(self, write_item, result) -> None:
         """Log the charger outcome instead of merely logging callback return."""
         command_name = write_item["command_name"]
+        command_label = f"{command_name} [{write_item['command_id']}]"
         if not isinstance(result, ChargerWriteResult):
             # Legacy callbacks still returning None are intentionally described
             # neutrally.  "Callback finished" must never be mistaken for an
             # acknowledgement from the charger.
             _LOGGER.info(
                 "Write callback finished without a structured outcome: %s",
-                command_name,
+                command_label,
             )
             return
 
         details = result.reason or result.charger_result or "no details"
         if result.status == ChargerWriteStatus.SUCCESS:
-            _LOGGER.info("✅ Write succeeded: %s (%s)", command_name, details)
+            _LOGGER.info("✅ Write succeeded: %s (%s)", command_label, details)
         elif result.status == ChargerWriteStatus.FAILED:
-            _LOGGER.error("❌ Write failed: %s (%s)", command_name, details)
+            _LOGGER.error("❌ Write failed: %s (%s)", command_label, details)
         elif result.status == ChargerWriteStatus.PARTIAL:
             _LOGGER.error(
                 "◐ Compound write only partially applied: %s (%s)",
-                command_name,
+                command_label,
                 details,
             )
         elif result.status == ChargerWriteStatus.SKIPPED:
             if result.reason == "replaced_by_newer_intent":
                 _LOGGER.info(
                     "↪️ Queued write replaced: %s (%s)",
-                    command_name,
+                    command_label,
                     details,
                 )
             elif result.reason and result.reason.startswith("cancelled_by_"):
                 _LOGGER.info(
                     "↩️ Queued write cancelled: %s (%s)",
-                    command_name,
+                    command_label,
                     details,
                 )
             else:
-                _LOGGER.warning("⏭️ Write skipped: %s (%s)", command_name, details)
+                _LOGGER.warning("⏭️ Write skipped: %s (%s)", command_label, details)
         elif result.status == ChargerWriteStatus.EXPIRED:
-            _LOGGER.warning("⌛ Write expired: %s (%s)", command_name, details)
+            _LOGGER.warning("⌛ Write expired: %s (%s)", command_label, details)
         else:
-            _LOGGER.warning("❔ Write outcome uncertain: %s (%s)", command_name, details)
+            _LOGGER.warning(
+                "❔ Write outcome uncertain: %s (%s)",
+                command_label,
+                details,
+            )
+
+    def _resolve_write_result(
+        self,
+        write_item,
+        result: ChargerWriteResult,
+    ) -> ChargerCommandResult:
+        """Resolve one completion Future and publish exactly one last result."""
+        existing = write_item.get("terminal_result")
+        if existing is not None:
+            return existing
+
+        completion = ChargerCommandResult.from_write_result(
+            command_id=write_item["command_id"],
+            command_name=write_item["command_name"],
+            queued_at=write_item["queued_at"],
+            completed_at=self.now(),
+            result=result,
+        )
+        # Store the terminal result before touching the Future.  Even if a
+        # caller cancelled its own wait, every later queue path observes this
+        # marker and cannot publish a conflicting second outcome.
+        write_item["terminal_result"] = completion
+        future = write_item["completion"]
+        if not future.done():
+            future.set_result(completion)
+        self.last_command_result = completion
+        try:
+            self.async_set_updated_data(True)
+        except Exception:
+            # Entity publication is secondary to resolving the command.  A
+            # listener failure must never strand this or later queue waiters.
+            _LOGGER.exception(
+                "Failed to publish command completion %s",
+                completion.command_id,
+            )
+        return completion
 
     def _write_item_is_expired(self, write_item) -> bool:
         """Return whether an unsent queue item has outlived its policy."""
@@ -807,6 +912,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             )
         self._run_unsent_cleanup(write_item, result)
         self._log_write_result(write_item, result)
+        self._resolve_write_result(write_item, result)
 
     def _run_unsent_cleanup(
         self,
@@ -1189,6 +1295,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     async def async_shutdown(self) -> None:
         """Cancel coordinator-owned background work during integration unload."""
+        self._shutting_down = True
         tasks = (
             self._write_task,
             self._configuration_refresh_task,
@@ -1204,6 +1311,16 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 await task
             except asyncio.CancelledError:
                 pass
+
+        # Anything still in the deque is definitely unsent and can be skipped
+        # honestly.  The active item is resolved in the processor's
+        # CancelledError path because OCPP delivery may already have started.
+        while self._write_queue:
+            self._finish_unsent_write(
+                self._write_queue.popleft(),
+                ChargerWriteResult.skipped("integration_unloaded"),
+            )
+        self._write_queue_idle.set()
 
     def set_status(self, status):
         """Set charger status and notify sensors."""

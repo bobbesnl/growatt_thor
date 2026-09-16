@@ -5,7 +5,11 @@ import logging
 
 from ocpp.v16.enums import ConfigurationStatus
 
-from .action_errors import raise_charger_disconnected, raise_write_blocked
+from .action_errors import (
+    async_require_command_completion,
+    raise_charger_disconnected,
+    raise_write_blocked,
+)
 from .charging_controls import (
     CONTROL_DEFINITIONS,
     ChargingControl,
@@ -141,7 +145,7 @@ class GrowattConfigurationControlMixin:
             self._configuration_key,
             raw_value,
         )
-        await self.coordinator.queue_write(
+        handle = await self.coordinator.queue_write(
             self._apply_configuration,
             charge_point,
             raw_value,
@@ -153,6 +157,7 @@ class GrowattConfigurationControlMixin:
             configuration_generation=generation,
             policy=CONFIGURATION_WRITE_POLICY,
         )
+        await async_require_command_completion(handle)
 
     async def _apply_configuration(
         self,

@@ -10,6 +10,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ocpp.v16.enums import ConfigurationStatus
 
 from .action_errors import (
+    async_require_command_completion,
     raise_action_validation,
     raise_charger_disconnected,
     raise_write_blocked,
@@ -180,7 +181,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
             self._readback_task.cancel()
         self.async_write_ha_state()
         generation = self.coordinator.begin_configuration_write(key, raw_value)
-        await self.coordinator.queue_write(
+        handle = await self.coordinator.queue_write(
             self._apply_working_mode,
             charge_point,
             key,
@@ -199,6 +200,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
                 intent,
             ),
         )
+        await async_require_command_completion(handle)
 
     async def _apply_working_mode(
         self,
