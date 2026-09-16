@@ -30,6 +30,8 @@ _Target version: 1.7.0_
 - **Effective charging time**: A new sensor shows how long energy was actually transferred, excluding time when the vehicle remained plugged in without charging. The value is also included in diagnostics and CSV exports.
 - **Charger information**: Manufacturer, model, firmware version, and serial number are available as read-only diagnostic sensors when reported by the charger.
 - **Network information**: Network mode, IP address, subnet mask, gateway, DNS server, MAC address, and Wi-Fi SSID are available as read-only diagnostic sensors. Sensitive data remains hidden in downloaded diagnostics.
+- **Command outcome diagnostics**: A new Last command result sensor distinguishes charger-confirmed writes from failed, skipped, expired, and uncertain commands. Stable command IDs and detailed diagnostics make delayed automation outcomes traceable without treating optimistic entity state as physical confirmation.
+- **Automation resilience guide**: Repository documentation now explains the Home Assistant automation failure scenarios, queue and reconnect safeguards, observable behavior, deliberate limitations, and the implementation commit for each protection area.
 
 ### Changed
 - **Current range matches the charger**: The maximum-current control now stops
@@ -43,6 +45,12 @@ _Target version: 1.7.0_
 - **Load-balancing guidance**: The load-balancing controls now explain that they are available only in Fast and Off-Peak modes, not in PV Linkage modes.
 
 ### Fixed
+- **Action failures visible to automations**: Blocked, disconnected, rejected, expired, and uncertain actions no longer return as apparent success. Suitable Home Assistant actions wait for a bounded terminal result while idempotent requests remain successful without unnecessary charger traffic.
+- **Latest automation intent wins**: Rapid changes to the same setting retain the newest desired value even when an older OCPP response arrives later. Superseded results remain available for diagnosis and accepted older writes trigger a safe readback instead of overwriting current state.
+- **Safe delayed commands**: Every queued write now has an explicit lifetime, reconnect policy, and execution-time validation. Old Start and AP-mode requests cannot execute after a later reconnect, and Stop remains bound to the exact transaction for which it was requested.
+- **Transaction and charger ownership**: Opposing Start and Stop intents are serialized without invented transaction IDs, duplicate configuration entries are rejected, and stale or different charger connections cannot replace or update the active runtime.
+- **Predictable compound changes and service bursts**: Paired Auto Charge times settle into one combined schedule, partial PV Linkage writes remain visible and trigger readback, concurrent refreshes share one operation, and same-target CSV exports are serialized and replaced atomically.
+- **Strict automation input validation**: Non-finite, out-of-range, and off-step values are rejected instead of being rounded or truncated. TCP ports, polling intervals, and export date ranges receive equivalent validation, and polling interval changes take effect without a reload.
 - **Reliable charger writes across reconnects**: Serialize integration-initiated
   OCPP operations, keep commands that were definitely not sent in the queue,
   and rebind them to the current charger connection after reconnecting. A lost
