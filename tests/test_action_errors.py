@@ -122,6 +122,21 @@ class ActionErrorMappingTest(unittest.TestCase):
             {"value": "64", "minimum": "6", "maximum": "32"},
         )
 
+    def test_runtime_service_failure_is_returned_as_ha_error(self):
+        with self.assertRaises(_HomeAssistantError) as raised:
+            action_errors.raise_communication_error(
+                "refresh_failed",
+                placeholders={"step": "configuration"},
+            )
+
+        self.assertNotIsInstance(raised.exception, _ServiceValidationError)
+        self.assertEqual(raised.exception.translation_domain, "growatt_thor")
+        self.assertEqual(raised.exception.translation_key, "refresh_failed")
+        self.assertEqual(
+            raised.exception.translation_placeholders,
+            {"step": "configuration"},
+        )
+
 
 class PublicActionWiringTest(unittest.TestCase):
     """Keep the immediate HA action guards connected to the shared helpers."""

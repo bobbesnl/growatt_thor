@@ -2,9 +2,8 @@
 import logging
 import asyncio
 from contextlib import suppress
-import csv
-import os
 from datetime import datetime
+from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -15,6 +14,11 @@ from homeassistant.helpers import entity_registry as er
 import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 
+from .action_errors import (
+    raise_action_validation,
+    raise_charger_disconnected,
+    raise_communication_error,
+)
 from .const import (
     CONFIG_ENTRY_VERSION,
     DOMAIN,
@@ -34,10 +38,14 @@ from .runtime_ownership import (
     claim_runtime_entry,
     runtime_entry_is_owner,
 )
+from .service_runtime import (
+    ChargerServiceUnavailable,
+    IntegrationServiceOperations,
+    ManualRefreshFailed,
+)
 from .session_csv import (
-    SESSION_EXPORT_HEADERS,
     append_session_row,
-    normalize_session_row,
+    export_session_rows,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -180,6 +188,114 @@ async def _append_session_to_csv(hass, session: dict):
     _LOGGER.debug("📝 Session appended to CSV: %s", path)
 
 
+def _register_services(hass: HomeAssistant) -> None:
+    """Register domain services once for the lifetime of Home Assistant.
+
+    The handlers resolve ``hass.data`` at call time.  They therefore remain
+    well-defined while a config entry is being reloaded: exports can still use
+    the historical CSV, while charger refresh reports a translated connection
+    error instead of disappearing from the service registry.
+    """
+    if (
+        hass.services.has_service(DOMAIN, "refresh")
+        and hass.services.has_service(DOMAIN, "export_sessions")
+    ):
+        return
+
+    operations = IntegrationServiceOperations(hass.async_create_task)
+
+    async def handle_refresh(call: ServiceCall):
+        """Coalesce concurrent refresh calls and report incomplete reads."""
+        _LOGGER.debug("Manual refresh triggered")
+        try:
+            await operations.async_refresh(hass.data.get(DOMAIN, {}))
+        except ChargerServiceUnavailable:
+            _LOGGER.warning("No charge point connected - cannot refresh")
+            raise_charger_disconnected()
+        except ManualRefreshFailed as exc:
+            _LOGGER.warning("Manual refresh failed during %s", exc.step)
+            raise_communication_error(
+                "refresh_failed",
+                placeholders={"step": exc.step},
+            )
+        _LOGGER.info("Manual refresh completed successfully")
+
+    async def handle_export_sessions(call: ServiceCall):
+        """Export one date range without racing the same destination file."""
+        date_from_str = call.data.get("date_from")
+        date_to_str = call.data.get("date_to")
+
+        try:
+            date_from = datetime.strptime(date_from_str, "%Y-%m-%d")
+            date_to = datetime.strptime(
+                date_to_str,
+                "%Y-%m-%d",
+            ).replace(hour=23, minute=59, second=59)
+        except (TypeError, ValueError):
+            raise_action_validation("invalid_export_date")
+
+        source_path = _get_session_log_path(hass)
+        export_filename = (
+            f"growatt_thor_export_{date_from_str}_{date_to_str}.csv"
+        )
+        export_path = hass.config.path("www", export_filename)
+        target_key = str(Path(export_path).resolve())
+
+        async def _export_and_notify() -> int:
+            def _export() -> int:
+                return export_session_rows(
+                    source_path,
+                    export_path,
+                    date_from=date_from,
+                    date_to=date_to,
+                )
+
+            count = await hass.async_add_executor_job(_export)
+            pn_create(
+                hass,
+                (
+                    f"Export klaar: **{count} sessies** van "
+                    f"{date_from_str} t/m {date_to_str}\n\n"
+                    f"[⬇️ Download CSV](/local/{export_filename})"
+                ),
+                title="Growatt THOR sessie-export",
+                notification_id=(
+                    f"growatt_thor_export_{date_from_str}_{date_to_str}"
+                ),
+            )
+            _LOGGER.info(
+                "Session export: %d rows written to %s",
+                count,
+                export_path,
+            )
+            return count
+
+        try:
+            await operations.async_export(target_key, _export_and_notify)
+        except Exception as exc:
+            _LOGGER.error("Session export failed: %s", exc, exc_info=True)
+            raise_communication_error("session_export_failed")
+
+    if not hass.services.has_service(DOMAIN, "refresh"):
+        hass.services.async_register(DOMAIN, "refresh", handle_refresh)
+    if not hass.services.has_service(DOMAIN, "export_sessions"):
+        hass.services.async_register(
+            DOMAIN,
+            "export_sessions",
+            handle_export_sessions,
+            schema=vol.Schema({
+                vol.Required("date_from"): cv.string,
+                vol.Required("date_to"): cv.string,
+            }),
+        )
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Register integration-level services independently from config entries."""
+    _register_services(hass)
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Growatt THOR from config entry."""
 
@@ -304,88 +420,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         name="growatt_thor_external_meter_poll"
     )
 
-    async def handle_refresh(call: ServiceCall):
-        """Handle manual refresh service call."""
-        charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
-
-        if not charge_point:
-            _LOGGER.warning("No charge point connected - cannot refresh")
-            return
-
-        _LOGGER.debug("Manual refresh triggered")
-
-        try:
-            await charge_point.trigger_status()
-            await charge_point.trigger_external_meterval()
-            await charge_point.trigger_get_configuration()
-            _LOGGER.info("Manual refresh completed successfully")
-
-        except Exception as exc:
-            _LOGGER.error("Manual refresh failed: %s", exc, exc_info=True)
-
-    async def handle_export_sessions(call: ServiceCall):
-        """Export sessions within a date range to a separate CSV."""
-        date_from_str = call.data.get("date_from")
-        date_to_str = call.data.get("date_to")
-
-        try:
-            date_from = datetime.strptime(date_from_str, "%Y-%m-%d")
-            date_to = datetime.strptime(date_to_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-        except ValueError:
-            _LOGGER.error("Invalid date format. Use YYYY-MM-DD")
-            return
-
-        source_path = _get_session_log_path(hass)
-        export_filename = f"growatt_thor_export_{date_from_str}_{date_to_str}.csv"
-        www_path = hass.config.path("www")
-        export_path = os.path.join(www_path, export_filename)
-
-        def _export():
-            os.makedirs(www_path, exist_ok=True)
-
-            if not os.path.isfile(source_path):
-                return 0
-
-            rows = []
-            with open(source_path, "r", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    try:
-                        row_date = datetime.strptime(row["start_time"], "%Y-%m-%d %H:%M:%S")
-                        if date_from <= row_date <= date_to:
-                            rows.append(normalize_session_row(row))
-                    except (ValueError, KeyError):
-                        continue
-
-            with open(export_path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=SESSION_EXPORT_HEADERS, extrasaction="ignore")
-                writer.writeheader()
-                writer.writerows(rows)
-
-            return len(rows)
-
-        count = await hass.async_add_executor_job(_export)
-
-        pn_create(
-            hass,
-            f"Export klaar: **{count} sessies** van {date_from_str} t/m {date_to_str}\n\n"
-            f"[⬇️ Download CSV](/local/{export_filename})",
-            title="Growatt THOR sessie-export",
-            notification_id="growatt_thor_export",
-        )
-        _LOGGER.info("Session export: %d rows written to %s", count, export_path)
-
-    hass.services.async_register(DOMAIN, "refresh", handle_refresh)
-    hass.services.async_register(
-        DOMAIN,
-        "export_sessions",
-        handle_export_sessions,
-        schema=vol.Schema({
-            vol.Required("date_from"): cv.string,
-            vol.Required("date_to"): cv.string,
-        }),
-    )
-
     return True
 
 
@@ -423,9 +457,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if server:
         server.close()
         await server.wait_closed()
-
-    hass.services.async_remove(DOMAIN, "refresh")
-    hass.services.async_remove(DOMAIN, "export_sessions")
 
     if unload_ok:
         runtime_data.clear()

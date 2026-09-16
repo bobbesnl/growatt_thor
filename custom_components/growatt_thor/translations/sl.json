@@ -87,7 +87,10 @@
     "charging_already_active": { "message": "Charging cannot be started because a transaction is already active." },
     "no_active_transaction": { "message": "Charging cannot be stopped because no active transaction is known." },
     "invalid_pv_linkage_draft": { "message": "The PV Linkage settings are incomplete or invalid ({errors})." },
-    "value_out_of_range": { "message": "The requested value {value} is outside the supported range from {minimum} to {maximum}." }
+    "value_out_of_range": { "message": "The requested value {value} is outside the supported range from {minimum} to {maximum}." },
+    "invalid_export_date": { "message": "The session export dates must use the YYYY-MM-DD format." },
+    "refresh_failed": { "message": "The charger refresh could not complete the {step} step." },
+    "session_export_failed": { "message": "The charging-session export failed. Check the Home Assistant log for details." }
   },
   "selector": {
     "charger_mode": {

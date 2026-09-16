@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+from datetime import datetime
 import os
 from pathlib import Path
 import stat
@@ -129,3 +130,64 @@ def append_session_row(path: str | Path, row: dict[str, Any]) -> None:
         if not file_exists:
             writer.writeheader()
         writer.writerow(normalized_row)
+
+
+def export_session_rows(
+    source_path: str | Path,
+    target_path: str | Path,
+    *,
+    date_from: datetime,
+    date_to: datetime,
+) -> int:
+    """Atomically export normalized rows within one inclusive date range.
+
+    The export is assembled beside its destination and then replaced in one
+    filesystem operation.  Readers therefore see either the previous complete
+    export or the new complete export, never a half-written CSV.
+    """
+    source = Path(source_path)
+    target = Path(target_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    rows = []
+    if source.is_file():
+        with source.open("r", newline="", encoding="utf-8") as source_file:
+            reader = csv.DictReader(source_file)
+            for row in reader:
+                try:
+                    row_date = datetime.strptime(
+                        row["start_time"],
+                        "%Y-%m-%d %H:%M:%S",
+                    )
+                except (KeyError, TypeError, ValueError):
+                    # One malformed historical row must not prevent all valid
+                    # sessions from being exported.
+                    continue
+                if date_from <= row_date <= date_to:
+                    rows.append(normalize_session_row(row))
+
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            newline="",
+            encoding="utf-8",
+            dir=target.parent,
+            prefix=f".{target.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            writer = csv.DictWriter(
+                temporary,
+                fieldnames=SESSION_EXPORT_HEADERS,
+                extrasaction="ignore",
+            )
+            writer.writeheader()
+            writer.writerows(rows)
+        os.replace(temporary_path, target)
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
+
+    return len(rows)

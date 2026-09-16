@@ -111,6 +111,15 @@
     },
     "value_out_of_range": {
       "message": "De gevraagde waarde {value} valt buiten het ondersteunde bereik van {minimum} tot {maximum}."
+    },
+    "invalid_export_date": {
+      "message": "De datums voor de sessie-export moeten de notatie JJJJ-MM-DD gebruiken."
+    },
+    "refresh_failed": {
+      "message": "Het vernieuwen van de lader kon de stap {step} niet voltooien."
+    },
+    "session_export_failed": {
+      "message": "Het exporteren van de laadsessies is mislukt. Controleer het Home Assistant-logboek voor details."
     }
   },
   "selector": {

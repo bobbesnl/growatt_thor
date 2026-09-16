@@ -482,10 +482,10 @@ class GrowattChargePoint(OcppChargePoint):
         )
         return []
 
-    async def trigger_status(self):
+    async def trigger_status(self, *, skip_if_writes_pending=False):
         try:
             _LOGGER.info("Triggering StatusNotification")
-            await self._run_serialized_request(
+            result = await self._run_serialized_request(
                 "TriggerMessage(StatusNotification)",
                 lambda: self.call(
                     call.TriggerMessage(
@@ -493,8 +493,9 @@ class GrowattChargePoint(OcppChargePoint):
                         connector_id=1,
                     ),
                 ),
+                skip_if_writes_pending=skip_if_writes_pending,
             )
-            return True
+            return result is not REQUEST_SKIPPED
         except Exception as exc:
             _LOGGER.warning("Failed to trigger StatusNotification: %s", exc)
             return False

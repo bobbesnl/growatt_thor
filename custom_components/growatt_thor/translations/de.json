@@ -119,6 +119,15 @@
     },
     "value_out_of_range": {
       "message": "Der angeforderte Wert {value} liegt außerhalb des unterstützten Bereichs von {minimum} bis {maximum}."
+    },
+    "invalid_export_date": {
+      "message": "Die Datumswerte für den Sitzungsexport müssen das Format JJJJ-MM-TT verwenden."
+    },
+    "refresh_failed": {
+      "message": "Die Aktualisierung der Wallbox konnte den Schritt {step} nicht abschließen."
+    },
+    "session_export_failed": {
+      "message": "Der Export der Ladesitzungen ist fehlgeschlagen. Weitere Details stehen im Home-Assistant-Protokoll."
     }
   },
   "selector": {

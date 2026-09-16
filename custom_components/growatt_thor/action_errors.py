@@ -63,9 +63,27 @@ def raise_action_validation(
     raise ServiceValidationError(
         translation_domain=DOMAIN,
         translation_key=translation_key,
-        translation_placeholders=(
-            None
-            if placeholders is None
-            else {key: str(value) for key, value in placeholders.items()}
-        ),
+        translation_placeholders=_stringify_placeholders(placeholders),
     )
+
+
+def raise_communication_error(
+    translation_key: str,
+    *,
+    placeholders: Mapping[str, object] | None = None,
+) -> None:
+    """Report a runtime service failure to the calling HA automation."""
+    raise HomeAssistantError(
+        translation_domain=DOMAIN,
+        translation_key=translation_key,
+        translation_placeholders=_stringify_placeholders(placeholders),
+    )
+
+
+def _stringify_placeholders(
+    placeholders: Mapping[str, object] | None,
+) -> dict[str, str] | None:
+    """Normalize translated error placeholders in one shared boundary."""
+    if placeholders is None:
+        return None
+    return {key: str(value) for key, value in placeholders.items()}
