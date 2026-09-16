@@ -34,7 +34,7 @@ The priorities in this document are based on safety and observability:
 
 | # | Priority | Work item | Status |
 |---|---|---|---|
-| 1 | P0 | Return blocked Home Assistant actions as errors | In progress |
+| 1 | P0 | Return blocked Home Assistant actions as errors | Completed |
 | 2 | P0 | Isolate superseded in-flight write results | Completed |
 | 3 | P0 | Expire and revalidate delayed commands | Completed |
 | 4 | P0 | Harden Start/Stop transaction semantics | Completed |
@@ -42,7 +42,7 @@ The priorities in this document are based on safety and observability:
 | 6 | P1 | Make paired and compound changes predictable | Completed |
 | 7 | P1 | Coalesce manual refresh and harden integration services | Completed |
 | 8 | P1 | Tighten value and config-entry validation | Completed |
-| 9 | P1 | Expose a reliable command completion signal | Planned |
+| 9 | P1 | Expose a reliable command completion signal | Completed |
 
 ## 1. Return blocked Home Assistant actions as errors
 
@@ -62,9 +62,9 @@ unavailable external meter, and an incomplete PV Linkage draft.
 - Provide translated exception keys in every bundled language.
 - Keep idempotent requests successful: setting an already effective value is
   not an error.
-- Keep the write queue asynchronous for now. Reporting a rejection or uncertain
-  result that happens after enqueueing depends on the completion mechanism in
-  item #9 and the expiry rules in item #3.
+- Keep physical queue processing asynchronous, while suitable HA actions await
+  the bounded completion mechanism from item #9 and expiry remains governed by
+  item #3.
 
 **Acceptance tests:**
 
@@ -73,6 +73,16 @@ unavailable external meter, and an incomplete PV Linkage draft.
 - Unknown internal block reasons fail closed with a generic translated error.
 - Translation files contain identical exception keys and placeholders.
 - Public entity methods no longer silently accept the covered blocked actions.
+
+**Implemented across items #1, #3, #8, and #9:**
+
+- Immediate state and value guards raise translated validation or
+  communication errors instead of logging and returning success. Idempotent
+  requests still complete without creating unnecessary charger traffic.
+- Delayed actions are revalidated before execution, and suitable public HA
+  actions now also report their terminal queue result. A charger rejection,
+  skipped or expired intent, uncertain outcome, and a command still pending
+  after the bounded wait can no longer masquerade as confirmation.
 
 ## 2. Isolate superseded in-flight write results
 
@@ -424,6 +434,36 @@ for rate limiting, reconnect, acknowledgement, or readback.
 - Every completed, replaced, expired, and cancelled queue item resolves once.
 - Integration unload resolves or cancels every waiter.
 - An automation can distinguish enqueueing from charger confirmation.
+
+**Implemented on 2026-09-16:**
+
+- Every queued intent receives a UUID command ID and an immutable completion
+  handle. The Future resolves exactly once to the public states `confirmed`,
+  `failed`, `skipped`, `expired`, or `uncertain`; the more detailed internal
+  `partial` compound outcome is retained while mapping safely to `uncertain`
+  for automation decisions.
+- Caller timeout and cancellation are shielded from the physical command. A
+  30-second HA wait can therefore report that a command remains pending without
+  cancelling a queue entry or falsely claiming that the charger did not
+  receive it.
+- Start, Stop, PV Linkage Apply, AP mode, direct configuration controls,
+  working mode, numeric configuration, and direct switches await that bounded
+  result. The intentionally delayed paired Auto Charge write has no original
+  caller left after its debounce and therefore reports completion through the
+  shared result sensor instead.
+- The diagnostic `Last command result` sensor publishes the terminal state,
+  command ID, command name, detailed write status, timestamps, reason, and
+  charger result. The same structured record is included in config-entry
+  diagnostics, and command IDs are present in queue logs for correlation.
+- Replacement, explicit cancellation, expiry, revalidation failure, callback
+  failure, legacy callbacks without a structured result, lost acknowledgement,
+  partial compound writes, and integration unload all converge on one central
+  resolution path. Unload marks an active request `uncertain` because it may
+  already have reached OCPP, while queued work is truthfully `skipped`.
+- Regression tests cover unique IDs, every terminal mapping, timeout shielding,
+  exact-once resolution, replacement, cancellation, expiry, late enqueueing,
+  active and queued unload, translated action errors, sensor wiring, diagnostic
+  serialization, and all-language translation parity.
 
 ## Proposed commit sequence
 
