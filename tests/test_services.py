@@ -78,12 +78,14 @@ class IntegrationServiceWiringTest(unittest.TestCase):
         self.assertIn("raise_charger_disconnected", refresh_source)
         self.assertIn("raise_communication_error", refresh_source)
         self.assertIn("operations.async_export", export_source)
+        self.assertIn("parse_export_date_range", export_source)
         self.assertIn("raise_action_validation", export_source)
         self.assertIn("raise_communication_error", export_source)
 
     def test_service_exception_keys_exist_in_every_translation(self):
         expected = {
             "invalid_export_date",
+            "invalid_export_date_range",
             "refresh_failed",
             "session_export_failed",
         }

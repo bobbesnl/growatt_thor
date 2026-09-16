@@ -6,6 +6,12 @@ from datetime import datetime, time, timedelta
 from enum import Enum
 import re
 
+from .value_validation import (
+    NumericValidationError,
+    format_decimal,
+    validate_number,
+)
+
 
 class PvBoostMode(str, Enum):
     """PV Linkage boost modes confirmed in Growatt captures."""
@@ -171,11 +177,20 @@ def draft_validation_errors(draft: PvLinkageDraft) -> tuple[str, ...]:
     elif draft.boost_mode == PvBoostMode.SMART:
         if draft.smart_finish is None:
             errors.append("smart_finish_required")
-        if (
-            draft.smart_target_energy_kwh is None
-            or draft.smart_target_energy_kwh <= 0
-        ):
+        if draft.smart_target_energy_kwh is None:
             errors.append("smart_target_energy_required")
+        else:
+            try:
+                validate_number(
+                    draft.smart_target_energy_kwh,
+                    minimum=0.1,
+                    maximum=200,
+                    step=0.1,
+                )
+            except NumericValidationError:
+                # Keep the validation code stable and independent from the
+                # Python float failure that happened to expose the bad input.
+                errors.append("smart_target_energy_invalid")
     return tuple(errors)
 
 
@@ -203,7 +218,15 @@ def draft_matches_reported(
 
 
 def _format_number(value: float) -> str:
-    return f"{value:.3f}".rstrip("0").rstrip(".")
+    # Payload construction is a second safety boundary: malformed drafts must
+    # not emit NaN, infinity, rounded values, or values outside the entity UI.
+    numeric = validate_number(
+        value,
+        minimum=0.1,
+        maximum=200,
+        step=0.1,
+    )
+    return format_decimal(numeric)
 
 
 def next_finish_at(now: datetime, finish: time) -> datetime:

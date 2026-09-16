@@ -369,6 +369,21 @@ class ChargingControlEncodingTest(unittest.TestCase):
             "4.2",
         )
 
+    def test_solar_limit_rejects_values_that_cannot_be_written_exactly(self):
+        for invalid in (
+            -0.1,
+            22.1,
+            4.25,
+            float("nan"),
+            float("inf"),
+            float("-inf"),
+        ):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                controls.encode_control_value(
+                    controls.ChargingControl.SOLAR_GRID_IMPORT_LIMIT,
+                    invalid,
+                )
+
     def test_boolean_payloads_match_captured_values(self):
         self.assertEqual(
             controls.encode_control_value(
@@ -430,7 +445,14 @@ class ChargingControlEncodingTest(unittest.TestCase):
             ),
             "2",
         )
-        for invalid in (0, 1.5, 248):
+        for invalid in (
+            0,
+            1.5,
+            248,
+            float("nan"),
+            float("inf"),
+            float("-inf"),
+        ):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 controls.encode_control_value(
                     controls.ChargingControl.POWER_METER_ADDRESS,

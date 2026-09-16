@@ -36,6 +36,11 @@ from .configuration_writes import ConfigurationWriteStatus
 from .currency import electricity_price_unit
 from .ocpp_diagnostics import boot_notification_field
 from .pv_linkage import PvBoostMode
+from .value_validation import (
+    NumericValidationError,
+    NumericValidationReason,
+    validate_number,
+)
 from .write_queue import (
     CONFIGURATION_WRITE_POLICY,
     ChargerConnectionUnavailable,
@@ -44,6 +49,88 @@ from .write_queue import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _display_number(entity, value: object) -> str:
+    """Add the entity unit to validation errors without changing the value."""
+    unit = entity.native_unit_of_measurement
+    return f"{value} {unit}" if unit else str(value)
+
+
+def _validated_entity_number(
+    entity,
+    value: object,
+    *,
+    integer: bool = False,
+) -> int | float:
+    """Validate one HA number request against its advertised exact contract."""
+    minimum = entity.native_min_value
+    maximum = entity.native_max_value
+    step = entity.native_step
+    try:
+        numeric = validate_number(
+            value,
+            minimum=minimum,
+            maximum=maximum,
+            step=step,
+        )
+    except NumericValidationError as exc:
+        if exc.reason == NumericValidationReason.NOT_FINITE:
+            raise_action_validation(
+                "value_not_finite",
+                placeholders={"value": value},
+            )
+        if exc.reason == NumericValidationReason.OUT_OF_RANGE:
+            raise_action_validation(
+                "value_out_of_range",
+                placeholders={
+                    "value": _display_number(entity, value),
+                    "minimum": _display_number(entity, minimum),
+                    "maximum": _display_number(entity, maximum),
+                },
+            )
+        if exc.reason == NumericValidationReason.STEP_MISMATCH:
+            raise_action_validation(
+                "value_step_mismatch",
+                placeholders={
+                    "value": _display_number(entity, value),
+                    "step": _display_number(entity, step),
+                },
+            )
+        raise_action_validation(
+            "invalid_numeric_value",
+            placeholders={"value": value},
+        )
+
+    return int(numeric) if integer else float(numeric)
+
+
+def _validated_reported_entity_number(
+    entity,
+    value: object,
+    *,
+    integer: bool = False,
+) -> int | float | None:
+    """Normalize charger readback only when it matches the entity contract."""
+    if value is None:
+        return None
+    try:
+        numeric = validate_number(
+            value,
+            minimum=entity.native_min_value,
+            maximum=entity.native_max_value,
+            step=entity.native_step,
+        )
+    except NumericValidationError:
+        # A malformed readback must neither crash a valid user command nor be
+        # restored optimistically after that command fails.
+        _LOGGER.warning(
+            "Ignoring invalid reported value %r for %s",
+            value,
+            entity._attr_translation_key,
+        )
+        return None
+    return int(numeric) if integer else float(numeric)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -73,9 +160,6 @@ class BaseConfigNumber(CoordinatorEntity, NumberEntity):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_{key}"
         self.hass = coordinator.hass
-
-    def _format_value(self, value: float) -> str:
-        return str(int(round(value)))
 
     @property
     def _charger_write_block_reason(self) -> str | None:
@@ -153,40 +237,32 @@ class MaxCurrentNumber(BaseConfigNumber):
             self.coordinator.async_set_updated_data(True)
 
     async def async_set_native_value(self, value: float) -> None:
+        value = _validated_entity_number(self, value, integer=True)
         if (block_reason := self._charger_write_block_reason) is not None:
             _LOGGER.warning("Cannot change Max Current: %s", block_reason)
             raise_write_blocked(block_reason)
-        value = int(round(value))
-        if not self._value_is_valid(value):
-            _LOGGER.warning(
-                "Cannot change Max Current: %d A is outside the supported "
-                "range %d-%d A for the reported charger model",
-                value,
-                self.native_min_value,
-                self.native_max_value,
-            )
-            raise_action_validation(
-                "value_out_of_range",
-                placeholders={
-                    "value": f"{value} A",
-                    "minimum": f"{self.native_min_value} A",
-                    "maximum": f"{self.native_max_value} A",
-                },
-            )
 
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot change Max Current: charger not connected")
             raise_charger_disconnected()
 
-        current = self.coordinator.max_current
-        if current is not None and int(round(current)) == value:
+        current = _validated_reported_entity_number(
+            self,
+            self.coordinator.max_current,
+            integer=True,
+        )
+        if current == value:
             _LOGGER.debug("Max Current unchanged (%d A) - skipping write", value)
             return
 
         reported = self.coordinator.configuration_values.get(self._config_key)
         reported_value = configuration_numeric_value(reported)
-        previous = int(round(reported_value)) if reported_value is not None else None
+        previous = _validated_reported_entity_number(
+            self,
+            reported_value,
+            integer=True,
+        )
         self.coordinator.max_current = value
         self.coordinator.async_set_updated_data(True)
         _LOGGER.info("📝 Max Current UI updated to %d A (queued for write)", value)
@@ -383,27 +459,35 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             self.coordinator.async_set_updated_data(True)
 
     async def async_set_native_value(self, value: float) -> None:
+        value = _validated_entity_number(self, value, integer=True)
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning(
                 "Cannot change Load Balancing Limit: %s",
                 block_reason,
             )
             raise_write_blocked(block_reason)
-        value = int(round(value))
 
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot change Load Balancing Limit: charger not connected")
             raise_charger_disconnected()
 
-        current = self.coordinator.external_limit_power
-        if current is not None and int(round(current)) == value:
+        current = _validated_reported_entity_number(
+            self,
+            self.coordinator.external_limit_power,
+            integer=True,
+        )
+        if current == value:
             _LOGGER.debug("Load Balancing Limit unchanged (%d kW) - skipping write", value)
             return
 
         reported = self.coordinator.configuration_values.get(self._config_key)
         reported_value = configuration_numeric_value(reported)
-        previous = int(round(reported_value)) if reported_value is not None else None
+        previous = _validated_reported_entity_number(
+            self,
+            reported_value,
+            integer=True,
+        )
         self.coordinator.external_limit_power = value
         self.coordinator.async_set_updated_data(True)
         _LOGGER.info("📝 Load Balancing Limit UI updated to %d kW (queued for write)", value)
@@ -563,18 +647,21 @@ class ElectricityPriceNumber(BaseConfigNumber):
             self.coordinator.async_set_updated_data(True)
 
     async def async_set_native_value(self, value: float) -> None:
+        value = _validated_entity_number(self, value)
         if (block_reason := self._charger_write_block_reason) is not None:
             _LOGGER.warning("Cannot change Electricity Price: %s", block_reason)
             raise_write_blocked(block_reason)
-        value = round(value, 2)
 
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot change Elektricteitstarief: charger not connected")
             raise_charger_disconnected()
 
-        current = self.coordinator.electricity_price
-        if current is not None and round(current, 2) == value:
+        current = _validated_reported_entity_number(
+            self,
+            self.coordinator.electricity_price,
+        )
+        if current == value:
             _LOGGER.debug("Electricity price unchanged (%.2f per kWh) - skipping write", value)
             return
 
@@ -582,7 +669,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
         reported_value = parse_time_sharing_price(
             reported.raw_value if reported is not None else None
         )
-        previous = round(reported_value, 2) if reported_value is not None else None
+        previous = _validated_reported_entity_number(self, reported_value)
         self.coordinator.electricity_price = value
         self.coordinator.async_set_updated_data(True)
         _LOGGER.info("📝 Electricity price updated to %.2f per kWh (queued for write)", value)
@@ -738,6 +825,7 @@ class SolarGridImportLimitNumber(
         )
 
     async def async_set_native_value(self, value: float) -> None:
+        value = _validated_entity_number(self, value)
         await self._async_write_configuration(
             encode_control_value(self._control, value)
         )
@@ -788,6 +876,7 @@ class PowerMeterAddressNumber(
         )
 
     async def async_set_native_value(self, value: float) -> None:
+        value = _validated_entity_number(self, value, integer=True)
         await self._async_write_configuration(
             encode_control_value(self._control, value)
         )
@@ -845,6 +934,7 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
         return {"information": "details"}
 
     async def async_set_native_value(self, value: float) -> None:
+        value = _validated_entity_number(self, value)
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning(
                 "Cannot edit Smart Boost target energy: %s",
@@ -852,5 +942,5 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
             )
             raise_write_blocked(block_reason)
         self.coordinator.update_pv_linkage_draft(
-            pv_smart_target_energy_draft=round(float(value), 3)
+            pv_smart_target_energy_draft=value
         )

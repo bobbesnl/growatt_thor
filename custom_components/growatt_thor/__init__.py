@@ -2,7 +2,6 @@
 import logging
 import asyncio
 from contextlib import suppress
-from datetime import datetime
 from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
@@ -22,9 +21,12 @@ from .action_errors import (
 from .const import (
     CONFIG_ENTRY_VERSION,
     DOMAIN,
+    CONF_PORT,
     CONF_POLL_INTERVAL,
     CONF_LOCATION,
+    DEFAULT_PORT,
     DEFAULT_POLL_INTERVAL,
+    MIN_POLL_INTERVAL,
 )
 from .coordinator import GrowattCoordinator
 from .entity_migrations import (
@@ -34,6 +36,7 @@ from .entity_migrations import (
     migrate_session_duration_unit,
 )
 from .ocpp_server import start_ocpp_server
+from .polling import PollIntervalSchedule
 from .runtime_ownership import (
     claim_runtime_entry,
     runtime_entry_is_owner,
@@ -46,6 +49,13 @@ from .service_runtime import (
 from .session_csv import (
     append_session_row,
     export_session_rows,
+)
+from .value_validation import (
+    DateRangeValidationError,
+    DateRangeValidationReason,
+    parse_export_date_range,
+    validate_poll_interval,
+    validate_tcp_port,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -226,12 +236,13 @@ def _register_services(hass: HomeAssistant) -> None:
         date_to_str = call.data.get("date_to")
 
         try:
-            date_from = datetime.strptime(date_from_str, "%Y-%m-%d")
-            date_to = datetime.strptime(
+            date_from, date_to = parse_export_date_range(
+                date_from_str,
                 date_to_str,
-                "%Y-%m-%d",
-            ).replace(hour=23, minute=59, second=59)
-        except (TypeError, ValueError):
+            )
+        except DateRangeValidationError as exc:
+            if exc.reason == DateRangeValidationReason.REVERSED_RANGE:
+                raise_action_validation("invalid_export_date_range")
             raise_action_validation("invalid_export_date")
 
         source_path = _get_session_log_path(hass)
@@ -325,14 +336,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             lambda session: _append_session_to_csv(hass, session)
         )
 
-        port = entry.data.get("port", 9000)
+        # Revalidate persisted entries as well as form submissions.  This
+        # covers older or manually altered storage before opening a socket or
+        # starting a poll loop with an unusable value.
+        port = validate_tcp_port(entry.data.get(CONF_PORT, DEFAULT_PORT))
         coordinator.location = entry.data.get(CONF_LOCATION, "")
 
-        poll_interval = entry.data.get(
-            CONF_POLL_INTERVAL,
-            DEFAULT_POLL_INTERVAL,
+        poll_interval = validate_poll_interval(
+            entry.data.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
+            minimum=MIN_POLL_INTERVAL,
         )
         runtime_data["poll_interval"] = poll_interval
+        poll_interval_schedule = PollIntervalSchedule(poll_interval)
+        runtime_data["poll_interval_schedule"] = poll_interval_schedule
 
         _LOGGER.info("Configured grid poll interval: %d seconds", poll_interval)
 
@@ -369,19 +385,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def periodic_external_meter_poll():
         """Poll the external meter while a charge point is connected."""
-        poll_interval = hass.data[DOMAIN].get("poll_interval", DEFAULT_POLL_INTERVAL)
-
-        await asyncio.sleep(poll_interval)
-
-        _LOGGER.info("External meter poll started (interval: %ds)", poll_interval)
         loop = asyncio.get_event_loop()
+        poll_started = False
 
         while True:
+            # The schedule can be woken by the options flow.  This makes a new
+            # interval effective for the very next cycle instead of leaving a
+            # stale sleep (or requiring an integration reload).
+            await poll_interval_schedule.async_wait_for_next_cycle()
+            poll_interval = poll_interval_schedule.interval
+            if not poll_started:
+                _LOGGER.info(
+                    "External meter poll started (interval: %ds)",
+                    poll_interval,
+                )
+                poll_started = True
             try:
                 skip_until = hass.data[DOMAIN].get("skip_polling_until", 0.0)
                 current_time = loop.time()
 
-                if current_time < skip_until:
+                while current_time < skip_until:
                     if not getattr(
                         periodic_external_meter_poll,
                         "_skip_logged",
@@ -390,10 +413,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         remaining = int(skip_until - current_time)
                         _LOGGER.info("⏸️ Polling paused (%ds remaining)", remaining)
                         periodic_external_meter_poll._skip_logged = True
-                    await asyncio.sleep(1)
-                    continue
-                else:
-                    periodic_external_meter_poll._skip_logged = False
+                    await asyncio.sleep(min(1, skip_until - current_time))
+                    current_time = loop.time()
+                periodic_external_meter_poll._skip_logged = False
 
                 charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
                 coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
@@ -412,8 +434,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             except Exception as exc:
                 _LOGGER.error("💥 Smart poll crashed: %s", exc, exc_info=True)
-
-            await asyncio.sleep(poll_interval)
 
     hass.data[DOMAIN]["polling_task"] = hass.async_create_background_task(
         periodic_external_meter_poll(),

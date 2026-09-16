@@ -12,7 +12,9 @@
       }
     },
     "error": {
-      "poll_interval_too_low": "Poll interval must be at least {min_interval} seconds"
+      "poll_interval_too_low": "Poll interval must be at least {min_interval} seconds",
+      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
+      "invalid_port": "Port must be a whole number from 1 to 65535"
     },
     "abort": {
       "ap_mode_activated": "✅ AP Mode activated! THOR is broadcasting a WiFi network. Look for SSID with THOR Serialnumber in it.",
@@ -75,7 +77,8 @@
     },
     "error": {
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
-      "poll_interval_too_low": "Poll interval must be at least {min_interval} seconds"
+      "poll_interval_too_low": "Poll interval must be at least {min_interval} seconds",
+      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
     },
     "abort": {
       "ap_mode_activated": "✅ AP Mode activated! THOR is broadcasting a WiFi network. Look for SSID with THOR Serialnumber in it.",
@@ -120,8 +123,20 @@
     "value_out_of_range": {
       "message": "The requested value {value} is outside the supported range from {minimum} to {maximum}."
     },
+    "invalid_numeric_value": {
+      "message": "The requested value {value} is not a valid number."
+    },
+    "value_not_finite": {
+      "message": "The requested value {value} must be a finite number."
+    },
+    "value_step_mismatch": {
+      "message": "The requested value {value} does not match the supported step size {step}."
+    },
     "invalid_export_date": {
       "message": "The session export dates must use the YYYY-MM-DD format."
+    },
+    "invalid_export_date_range": {
+      "message": "The session export start date must not be after its end date."
     },
     "refresh_failed": {
       "message": "The charger refresh could not complete the {step} step."

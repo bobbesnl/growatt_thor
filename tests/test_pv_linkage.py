@@ -5,6 +5,7 @@ from datetime import datetime, time, timezone
 import importlib.util
 from pathlib import Path
 import sys
+from types import ModuleType
 import unittest
 
 
@@ -14,8 +15,12 @@ MODULE_PATH = (
     / "growatt_thor"
     / "pv_linkage.py"
 )
+PACKAGE_NAME = "growatt_thor_pv_linkage_test_target"
+package = ModuleType(PACKAGE_NAME)
+package.__path__ = [str(MODULE_PATH.parent)]
+sys.modules[PACKAGE_NAME] = package
 SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_pv_linkage_test_target",
+    f"{PACKAGE_NAME}.pv_linkage",
     MODULE_PATH,
 )
 assert SPEC is not None and SPEC.loader is not None
@@ -99,8 +104,52 @@ class PvLinkageControlTest(unittest.TestCase):
                     smart_target_energy_kwh=0,
                 )
             ),
-            ("smart_target_energy_required",),
+            ("smart_target_energy_invalid",),
         )
+
+    def test_smart_boost_rejects_ambiguous_energy_before_payload(self):
+        for invalid in (
+            0,
+            200.1,
+            4.25,
+            float("nan"),
+            float("inf"),
+            float("-inf"),
+        ):
+            with self.subTest(invalid=invalid):
+                draft = pv.PvLinkageDraft(
+                    pv.PvBoostMode.SMART,
+                    smart_finish=time(10, 0),
+                    smart_target_energy_kwh=invalid,
+                )
+                self.assertEqual(
+                    pv.draft_validation_errors(draft),
+                    ("smart_target_energy_invalid",),
+                )
+                with self.assertRaises(ValueError):
+                    pv.build_pv_linkage_writes(
+                        draft,
+                        now=datetime(
+                            2026,
+                            8,
+                            24,
+                            9,
+                            0,
+                            tzinfo=timezone.utc,
+                        ),
+                    )
+
+    def test_smart_boost_preserves_upper_bound_integer(self):
+        writes = pv.build_pv_linkage_writes(
+            pv.PvLinkageDraft(
+                pv.PvBoostMode.SMART,
+                smart_finish=time(10, 34),
+                smart_target_energy_kwh=200,
+            ),
+            now=datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc),
+        )
+
+        self.assertTrue(writes[-1].data.endswith("&energy=200"))
 
     def test_draft_matches_only_readable_reported_state(self):
         disabled = pv.PvLinkageDraft(pv.PvBoostMode.DISABLED)

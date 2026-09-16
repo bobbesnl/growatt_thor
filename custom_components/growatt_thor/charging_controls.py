@@ -7,6 +7,7 @@ from types import MappingProxyType
 from typing import Final, Mapping
 
 from .configuration import ConfigurationValue, configuration_entity_state
+from .value_validation import format_decimal, validate_number
 
 
 WORKING_MODE_OPTIONS = ("fast", "pv_linkage", "pv_linkage_plus", "off_peak")
@@ -286,10 +287,15 @@ def encode_control_value(control: ChargingControl, value: object) -> str:
         return encoded
 
     if control == ChargingControl.SOLAR_GRID_IMPORT_LIMIT:
-        numeric = float(value)
-        if numeric < 0:
-            raise ValueError("Solar grid import limit must not be negative")
-        return f"{numeric:.2f}".rstrip("0").rstrip(".")
+        # This second validation boundary protects the wire encoder even when
+        # a future caller bypasses the Home Assistant Number entity.
+        numeric = validate_number(
+            value,
+            minimum=0,
+            maximum=22,
+            step=0.1,
+        )
+        return format_decimal(numeric)
 
     if control == ChargingControl.WARM_UP:
         return "Enable" if bool(value) else "Disable"
@@ -322,9 +328,12 @@ def encode_control_value(control: ChargingControl, value: object) -> str:
         return encoded
 
     if control == ChargingControl.POWER_METER_ADDRESS:
-        numeric = float(value)
-        if not numeric.is_integer() or not 1 <= numeric <= 247:
-            raise ValueError("Power meter address must be an integer from 1 to 247")
+        numeric = validate_number(
+            value,
+            minimum=1,
+            maximum=247,
+            step=1,
+        )
         return str(int(numeric))
 
     raise ValueError(f"No encoder is defined for {control.value}")

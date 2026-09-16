@@ -163,18 +163,27 @@ class PublicActionWiringTest(unittest.TestCase):
         ("number.py", "MaxCurrentNumber", "async_set_native_value"): {
             "raise_write_blocked",
             "raise_charger_disconnected",
-            "raise_action_validation",
+            "_validated_entity_number",
         },
         ("number.py", "LoadBalancingLimitNumber", "async_set_native_value"): {
             "raise_write_blocked",
             "raise_charger_disconnected",
+            "_validated_entity_number",
         },
         ("number.py", "ElectricityPriceNumber", "async_set_native_value"): {
             "raise_write_blocked",
             "raise_charger_disconnected",
+            "_validated_entity_number",
+        },
+        ("number.py", "SolarGridImportLimitNumber", "async_set_native_value"): {
+            "_validated_entity_number",
+        },
+        ("number.py", "PowerMeterAddressNumber", "async_set_native_value"): {
+            "_validated_entity_number",
         },
         ("number.py", "PvSmartBoostTargetEnergyNumber", "async_set_native_value"): {
             "raise_write_blocked",
+            "_validated_entity_number",
         },
         ("select.py", "WorkingModeSelect", "async_select_option"): {
             "raise_write_blocked",
@@ -230,6 +239,68 @@ class PublicActionWiringTest(unittest.TestCase):
                         (file_name, class_name, method_name)
                     ].issubset(calls)
                 )
+
+    def test_number_validation_precedes_every_write_or_draft_mutation(self):
+        tree = ast.parse(
+            (PACKAGE_PATH / "number.py").read_text(encoding="utf-8")
+        )
+        number_classes = (
+            "MaxCurrentNumber",
+            "LoadBalancingLimitNumber",
+            "ElectricityPriceNumber",
+            "SolarGridImportLimitNumber",
+            "PowerMeterAddressNumber",
+            "PvSmartBoostTargetEnergyNumber",
+        )
+        side_effects = {
+            "queue_write",
+            "_async_write_configuration",
+            "update_pv_linkage_draft",
+        }
+
+        for class_name in number_classes:
+            class_node = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.ClassDef) and node.name == class_name
+            )
+            setter = next(
+                node
+                for node in class_node.body
+                if isinstance(node, ast.AsyncFunctionDef)
+                and node.name == "async_set_native_value"
+            )
+            validation = next(
+                node
+                for node in ast.walk(setter)
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "_validated_entity_number"
+            )
+            mutations = [
+                node
+                for node in ast.walk(setter)
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in side_effects
+            ]
+            round_calls = [
+                node
+                for node in ast.walk(setter)
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "round"
+            ]
+
+            with self.subTest(class_name=class_name):
+                self.assertTrue(mutations)
+                self.assertTrue(
+                    all(
+                        validation.lineno < mutation.lineno
+                        for mutation in mutations
+                    )
+                )
+                self.assertEqual(round_calls, [])
 
 
 if __name__ == "__main__":

@@ -22,12 +22,42 @@ from .const import (
     DEFAULT_POLL_INTERVAL,
     MIN_POLL_INTERVAL,
 )
+from .value_validation import (
+    NumericValidationError,
+    NumericValidationReason,
+    validate_poll_interval,
+    validate_tcp_port,
+)
 from .write_queue import (
     VOLATILE_CONTROL_WRITE_POLICY,
     ChargerWriteResult,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _port_schema_value(value):
+    """Apply the protocol port range in the HA form and direct flow calls."""
+    try:
+        return validate_tcp_port(value)
+    except NumericValidationError as exc:
+        raise vol.Invalid("invalid_port") from exc
+
+
+def _poll_interval_schema_value(value):
+    """Reject fractional and non-finite intervals instead of coercing them."""
+    try:
+        return validate_poll_interval(value, minimum=MIN_POLL_INTERVAL)
+    except NumericValidationError as exc:
+        raise vol.Invalid("invalid_poll_interval") from exc
+
+
+def _poll_interval_error(exc: NumericValidationError) -> str:
+    """Retain the specific minimum error while naming all other bad values."""
+    if exc.reason == NumericValidationReason.OUT_OF_RANGE:
+        return "poll_interval_too_low"
+    return "invalid_poll_interval"
+
 
 class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for Growatt THOR EV Charger."""
@@ -46,21 +76,38 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            poll_interval = user_input.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
+            normalized_input = dict(user_input)
+            try:
+                normalized_input[CONF_PORT] = validate_tcp_port(
+                    user_input.get(CONF_PORT, DEFAULT_PORT)
+                )
+            except NumericValidationError:
+                errors[CONF_PORT] = "invalid_port"
+            try:
+                normalized_input[CONF_POLL_INTERVAL] = validate_poll_interval(
+                    user_input.get(
+                        CONF_POLL_INTERVAL,
+                        DEFAULT_POLL_INTERVAL,
+                    ),
+                    minimum=MIN_POLL_INTERVAL,
+                )
+            except NumericValidationError as exc:
+                errors[CONF_POLL_INTERVAL] = _poll_interval_error(exc)
 
-            if poll_interval < MIN_POLL_INTERVAL:
-                errors[CONF_POLL_INTERVAL] = "poll_interval_too_low"
-            else:
+            if not errors:
                 return self.async_create_entry(
                     title="Growatt THOR EV Charger",
-                    data=user_input,
+                    data=normalized_input,
                 )
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
+                    vol.Required(
+                        CONF_PORT,
+                        default=DEFAULT_PORT,
+                    ): _port_schema_value,
                     vol.Required(CONF_LOCATION, default=""): str,
                     vol.Required(
                         CONF_POLL_INTERVAL,
@@ -68,7 +115,7 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         description={
                             "suggested_value": DEFAULT_POLL_INTERVAL
                         }
-                    ): vol.All(vol.Coerce(int), vol.Range(min=MIN_POLL_INTERVAL)),
+                    ): _poll_interval_schema_value,
                 }
             ),
             errors=errors,
@@ -100,9 +147,13 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         errors = {}
 
         if user_input is not None:
-            poll_interval = user_input.get(CONF_POLL_INTERVAL)
-            if poll_interval < MIN_POLL_INTERVAL:
-                errors[CONF_POLL_INTERVAL] = "poll_interval_too_low"
+            try:
+                poll_interval = validate_poll_interval(
+                    user_input.get(CONF_POLL_INTERVAL),
+                    minimum=MIN_POLL_INTERVAL,
+                )
+            except NumericValidationError as exc:
+                errors[CONF_POLL_INTERVAL] = _poll_interval_error(exc)
             else:
                 new_location = user_input.get(CONF_LOCATION, "")
                 self.hass.config_entries.async_update_entry(
@@ -117,6 +168,13 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
                 if coordinator:
                     coordinator.location = new_location
+                runtime_data = self.hass.data.get(DOMAIN, {})
+                runtime_data["poll_interval"] = poll_interval
+                schedule = runtime_data.get("poll_interval_schedule")
+                if schedule is not None:
+                    # Wake the active sleep so the new cadence starts from
+                    # this options save, without reloading the integration.
+                    schedule.update(poll_interval)
                 return self.async_create_entry(title="", data={})
 
         current_poll_interval = self.config_entry.data.get(
@@ -131,7 +189,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(
                         CONF_POLL_INTERVAL,
                         default=current_poll_interval,
-                    ): vol.All(vol.Coerce(int), vol.Range(min=MIN_POLL_INTERVAL)),
+                    ): _poll_interval_schema_value,
                     vol.Required(
                         CONF_LOCATION,
                         default=current_location,

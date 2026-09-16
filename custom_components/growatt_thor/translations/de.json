@@ -12,7 +12,9 @@
       }
     },
     "error": {
-      "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen"
+      "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen",
+      "invalid_poll_interval": "Das Abfrageintervall muss eine endliche ganze Anzahl Sekunden sein",
+      "invalid_port": "Der Port muss eine ganze Zahl zwischen 1 und 65535 sein"
     },
     "abort": {
       "ap_mode_activated": "✅ AP-Modus aktiviert! Die THOR-Wallbox stellt jetzt ein WLAN bereit. Suche nach einer SSID, die die THOR-Seriennummer enthält.",
@@ -75,7 +77,8 @@
     },
     "error": {
       "invalid_authorization": "Höchstens 100 Kennungen mit je 1–20 druckbaren ASCII-Zeichen ohne Leerzeichen eingeben.",
-      "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen"
+      "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen",
+      "invalid_poll_interval": "Das Abfrageintervall muss eine endliche ganze Anzahl Sekunden sein"
     },
     "abort": {
       "ap_mode_activated": "✅ AP-Modus aktiviert! Die THOR-Wallbox stellt jetzt ein WLAN bereit. Suche nach einer SSID, die die THOR-Seriennummer enthält.",
@@ -120,8 +123,20 @@
     "value_out_of_range": {
       "message": "Der angeforderte Wert {value} liegt außerhalb des unterstützten Bereichs von {minimum} bis {maximum}."
     },
+    "invalid_numeric_value": {
+      "message": "Der angeforderte Wert {value} ist keine gültige Zahl."
+    },
+    "value_not_finite": {
+      "message": "Der angeforderte Wert {value} muss eine endliche Zahl sein."
+    },
+    "value_step_mismatch": {
+      "message": "Der angeforderte Wert {value} entspricht nicht der unterstützten Schrittweite {step}."
+    },
     "invalid_export_date": {
       "message": "Die Datumswerte für den Sitzungsexport müssen das Format JJJJ-MM-TT verwenden."
+    },
+    "invalid_export_date_range": {
+      "message": "Das Startdatum des Sitzungsexports darf nicht nach dem Enddatum liegen."
     },
     "refresh_failed": {
       "message": "Die Aktualisierung der Wallbox konnte den Schritt {step} nicht abschließen."

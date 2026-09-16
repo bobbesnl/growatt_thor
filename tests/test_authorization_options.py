@@ -133,6 +133,42 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
         policy = self.auth.AuthorizationPolicy.from_config(self.entry.data['local_authorization'])
         self.assertEqual(policy.status('TEST-CARD'), 'Invalid')
 
+    async def test_general_options_apply_poll_interval_to_running_schedule(self):
+        updates = []
+        schedule = SimpleNamespace(update=updates.append)
+        self.flow.hass.data['growatt_thor']['poll_interval_schedule'] = schedule
+
+        result = await self.flow.async_step_general({
+            'poll_interval': '45',
+            'location': 'Garage',
+        })
+
+        self.assertEqual(result['data'], {})
+        self.assertEqual(self.entry.data['poll_interval'], 45)
+        self.assertEqual(self.coordinator.location, 'Garage')
+        self.assertEqual(
+            self.flow.hass.data['growatt_thor']['poll_interval'],
+            45,
+        )
+        self.assertEqual(updates, [45])
+
+    async def test_general_options_reject_ambiguous_poll_intervals(self):
+        for invalid, expected in (
+            (4, 'poll_interval_too_low'),
+            (5.5, 'invalid_poll_interval'),
+            (float('nan'), 'invalid_poll_interval'),
+        ):
+            with self.subTest(invalid=invalid):
+                result = await self.flow.async_step_general({
+                    'poll_interval': invalid,
+                    'location': 'Garage',
+                })
+                self.assertEqual(
+                    result['errors'],
+                    {'poll_interval': expected},
+                )
+        self.assertEqual(self.updates, [])
+
     async def test_editable_list_is_persistent_and_blank_clears_it(self):
         await self.flow.async_step_authorization({
             'restrict_authorization': True, 'authorized_id_tags': 'TEST-CARD',
@@ -169,6 +205,31 @@ class SingleInstanceConfigFlowTest(unittest.IsolatedAsyncioTestCase):
         result = await flow.async_step_user()
 
         self.assertEqual(result["step_id"], "user")
+
+    async def test_port_must_be_an_exact_protocol_port(self):
+        for invalid in (0, 65536, 9000.5, float('nan')):
+            with self.subTest(invalid=invalid):
+                flow = self.module.GrowattThorConfigFlow()
+                flow.current_entries = []
+                result = await flow.async_step_user({
+                    'port': invalid,
+                    'location': '',
+                    'poll_interval': 30,
+                })
+                self.assertEqual(result['errors'], {'port': 'invalid_port'})
+
+    async def test_valid_numeric_strings_are_normalized_without_rounding(self):
+        flow = self.module.GrowattThorConfigFlow()
+        flow.current_entries = []
+
+        result = await flow.async_step_user({
+            'port': '9000',
+            'location': '',
+            'poll_interval': '30',
+        })
+
+        self.assertEqual(result['data']['port'], 9000)
+        self.assertEqual(result['data']['poll_interval'], 30)
 
 
 if __name__ == '__main__':

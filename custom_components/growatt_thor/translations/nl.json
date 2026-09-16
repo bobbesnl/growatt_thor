@@ -12,7 +12,9 @@
       }
     },
     "error": {
-      "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn"
+      "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn",
+      "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn",
+      "invalid_port": "De poort moet een geheel getal van 1 tot en met 65535 zijn"
     },
     "abort": {
       "ap_mode_activated": "✅ AP Mode geactiveerd! THOR zendt nu een WiFi netwerk uit. Zoek naar het SSID met daarin het serienummer van de THOR",
@@ -67,7 +69,8 @@
     },
     "error": {
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
-      "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn"
+      "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn",
+      "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn"
     },
     "abort": {
       "ap_mode_activated": "✅ AP Mode geactiveerd! THOR zendt nu een WiFi netwerk uit. Zoek naar het SSID met daarin het serienummer van de THOR",
@@ -112,8 +115,20 @@
     "value_out_of_range": {
       "message": "De gevraagde waarde {value} valt buiten het ondersteunde bereik van {minimum} tot {maximum}."
     },
+    "invalid_numeric_value": {
+      "message": "De gevraagde waarde {value} is geen geldig getal."
+    },
+    "value_not_finite": {
+      "message": "De gevraagde waarde {value} moet een eindig getal zijn."
+    },
+    "value_step_mismatch": {
+      "message": "De gevraagde waarde {value} past niet bij de ondersteunde stapgrootte {step}."
+    },
     "invalid_export_date": {
       "message": "De datums voor de sessie-export moeten de notatie JJJJ-MM-DD gebruiken."
+    },
+    "invalid_export_date_range": {
+      "message": "De begindatum van de sessie-export mag niet na de einddatum liggen."
     },
     "refresh_failed": {
       "message": "Het vernieuwen van de lader kon de stap {step} niet voltooien."
