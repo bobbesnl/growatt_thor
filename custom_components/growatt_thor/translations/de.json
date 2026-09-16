@@ -16,7 +16,8 @@
     },
     "abort": {
       "ap_mode_activated": "✅ AP-Modus aktiviert! Die THOR-Wallbox stellt jetzt ein WLAN bereit. Suche nach einer SSID, die die THOR-Seriennummer enthält.",
-      "ap_mode_failed": "❌ Der AP-Modus konnte nicht aktiviert werden. Weitere Informationen sind in den Protokollen verfügbar."
+      "ap_mode_failed": "❌ Der AP-Modus konnte nicht aktiviert werden. Weitere Informationen sind in den Protokollen verfügbar.",
+      "single_instance_allowed": "Es kann nur eine Growatt THOR-Integration eingerichtet werden."
     }
   },
   "options": {

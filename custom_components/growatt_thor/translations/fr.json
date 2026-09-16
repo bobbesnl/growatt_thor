@@ -16,7 +16,8 @@
     },
     "abort": {
       "ap_mode_activated": "✅ Mode AP activé ! THOR diffuse un réseau Wi-Fi. Recherchez le SSID contenant le numéro de série THOR.",
-      "ap_mode_failed": "❌ Échec de l'activation du mode AP. Consultez les journaux pour plus de détails."
+      "ap_mode_failed": "❌ Échec de l'activation du mode AP. Consultez les journaux pour plus de détails.",
+      "single_instance_allowed": "Une seule intégration Growatt THOR peut être configurée."
     }
   },
   "options": {

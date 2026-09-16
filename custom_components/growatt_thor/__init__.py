@@ -30,6 +30,10 @@ from .entity_migrations import (
     migrate_session_duration_unit,
 )
 from .ocpp_server import start_ocpp_server
+from .runtime_ownership import (
+    claim_runtime_entry,
+    runtime_entry_is_owner,
+)
 from .session_csv import (
     SESSION_EXPORT_HEADERS,
     append_session_row,
@@ -179,28 +183,52 @@ async def _append_session_to_csv(hass, session: dict):
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Growatt THOR from config entry."""
 
-    await _recover_pending_entity_migrations(hass, entry)
+    runtime_data = hass.data.setdefault(DOMAIN, {})
+    if not claim_runtime_entry(runtime_data, entry.entry_id):
+        _LOGGER.error(
+            "Cannot set up config entry %s: the single Growatt THOR runtime "
+            "is already owned by %s",
+            entry.entry_id,
+            runtime_data.get("config_entry_id"),
+        )
+        return False
 
-    from .authorization import CONF_AUTHORIZATION, LocalAuthorization
+    try:
+        await _recover_pending_entity_migrations(hass, entry)
 
-    coordinator = GrowattCoordinator(hass, source_instance_id=entry.entry_id)
-    coordinator.authorization = LocalAuthorization(entry.data.get(CONF_AUTHORIZATION))
-    await coordinator.async_load_storage()
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN]["coordinator"] = coordinator
-    hass.data[DOMAIN]["skip_polling_until"] = 0.0
-    hass.data[DOMAIN]["append_session_to_csv"] = lambda session: _append_session_to_csv(hass, session)
+        from .authorization import CONF_AUTHORIZATION, LocalAuthorization
 
-    port = entry.data.get("port", 9000)
-    coordinator.location = entry.data.get(CONF_LOCATION, "")
+        coordinator = GrowattCoordinator(hass, source_instance_id=entry.entry_id)
+        coordinator.authorization = LocalAuthorization(
+            entry.data.get(CONF_AUTHORIZATION)
+        )
+        await coordinator.async_load_storage()
+        runtime_data["coordinator"] = coordinator
+        runtime_data["skip_polling_until"] = 0.0
+        runtime_data["append_session_to_csv"] = (
+            lambda session: _append_session_to_csv(hass, session)
+        )
 
-    poll_interval = entry.data.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
-    hass.data[DOMAIN]["poll_interval"] = poll_interval
+        port = entry.data.get("port", 9000)
+        coordinator.location = entry.data.get(CONF_LOCATION, "")
 
-    _LOGGER.info("Configured grid poll interval: %d seconds", poll_interval)
+        poll_interval = entry.data.get(
+            CONF_POLL_INTERVAL,
+            DEFAULT_POLL_INTERVAL,
+        )
+        runtime_data["poll_interval"] = poll_interval
 
-    server = await start_ocpp_server("0.0.0.0", port, coordinator, hass)
-    hass.data[DOMAIN]["server"] = server
+        _LOGGER.info("Configured grid poll interval: %d seconds", poll_interval)
+
+        server = await start_ocpp_server("0.0.0.0", port, coordinator, hass)
+        runtime_data["server"] = server
+    except BaseException:
+        # A failed setup must release its claim or every future retry would be
+        # mistaken for a second entry.  No server-owned tasks exist yet when
+        # this path runs successfully through the cleanup boundary above.
+        if runtime_entry_is_owner(runtime_data, entry.entry_id):
+            runtime_data.clear()
+        raise
 
     _LOGGER.info("OCPP server started on %s:%s", "0.0.0.0", port)
 
@@ -219,7 +247,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await startup_check_task
         server.close()
         await server.wait_closed()
-        hass.data[DOMAIN].pop("server", None)
+        if runtime_entry_is_owner(runtime_data, entry.entry_id):
+            runtime_data.clear()
         raise
 
     async def periodic_external_meter_poll():
@@ -363,7 +392,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload Growatt THOR config entry."""
 
-    polling_task = hass.data.get(DOMAIN, {}).get("polling_task")
+    runtime_data = hass.data.get(DOMAIN, {})
+    if not runtime_entry_is_owner(runtime_data, entry.entry_id):
+        # A stale or rejected entry must never tear down the server and
+        # coordinator belonging to the active entry.
+        _LOGGER.warning(
+            "Ignoring unload for non-owning config entry %s",
+            entry.entry_id,
+        )
+        return True
+
+    polling_task = runtime_data.get("polling_task")
     if polling_task:
         polling_task.cancel()
         try:
@@ -371,7 +410,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except asyncio.CancelledError:
             pass
 
-    coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
+    coordinator = runtime_data.get("coordinator")
     if coordinator is not None:
         # The write queue may intentionally be waiting for a reconnect.  Stop
         # that wait before clearing hass.data so no background task survives a
@@ -380,7 +419,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
-    server = hass.data.get(DOMAIN, {}).get("server")
+    server = runtime_data.get("server")
     if server:
         server.close()
         await server.wait_closed()
@@ -389,6 +428,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_remove(DOMAIN, "export_sessions")
 
     if unload_ok:
-        hass.data[DOMAIN].clear()
+        runtime_data.clear()
 
     return unload_ok

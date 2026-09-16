@@ -36,6 +36,13 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         """Handle initial setup."""
+        # The 1.7 runtime has one domain-global coordinator and OCPP socket.
+        # A second entry would therefore expose duplicate entities that both
+        # operate on whichever charger connected last.  Fail explicitly until
+        # runtime state is deliberately keyed by config-entry ID.
+        if self._async_current_entries():
+            return self.async_abort(reason="single_instance_allowed")
+
         errors = {}
 
         if user_input is not None:

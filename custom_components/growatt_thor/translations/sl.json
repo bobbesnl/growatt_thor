@@ -16,7 +16,8 @@
     },
     "abort": {
       "ap_mode_activated": "✅ Način AP je omogočen. THOR oddaja omrežje Wi-Fi. Poiščite SSID, ki vsebuje serijsko številko THOR.",
-      "ap_mode_failed": "❌ Načina AP ni bilo mogoče omogočiti. Za podrobnosti preverite dnevnike."
+      "ap_mode_failed": "❌ Načina AP ni bilo mogoče omogočiti. Za podrobnosti preverite dnevnike.",
+      "single_instance_allowed": "Nastavite lahko samo eno integracijo Growatt THOR."
     }
   },
   "options": {

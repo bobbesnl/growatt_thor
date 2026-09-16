@@ -145,6 +145,18 @@ class OcppRequestGateTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(write_queue.ChargerRequestOutcomeUncertain):
             await self.gate.run("write", write)
 
+    async def test_response_from_superseded_connection_is_not_published(self):
+        """A reconnect during an in-flight call invalidates the old result."""
+        async def write():
+            self.current = False
+            return "Accepted"
+
+        with self.assertRaisesRegex(
+            write_queue.ChargerRequestOutcomeUncertain,
+            "superseded",
+        ):
+            await self.gate.run("write", write)
+
     async def test_write_timeout_is_uncertain_instead_of_rejected(self):
         async def write():
             raise asyncio.TimeoutError

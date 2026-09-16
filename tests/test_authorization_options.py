@@ -23,6 +23,12 @@ class FlowBase:
     def async_show_menu(self, **kwargs):
         return kwargs
 
+    def async_abort(self, **kwargs):
+        return {"type": "abort", **kwargs}
+
+    def _async_current_entries(self):
+        return getattr(self, "current_entries", [])
+
 
 class TextSelector:
     def __init__(self, config):
@@ -137,6 +143,32 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
             'restrict_authorization': True, 'authorized_id_tags': '',
         })
         self.assertEqual(self.coordinator.authorization.policy.status('TEST-CARD'), 'Invalid')
+
+
+@unittest.skipUnless(HAS_VOL, 'Install tests/requirements-auth.txt for config-flow tests')
+class SingleInstanceConfigFlowTest(unittest.IsolatedAsyncioTestCase):
+    """The 1.7 domain-global runtime must not accept a second entry."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.module, _auth = load_flow()
+
+    async def test_second_entry_aborts_before_showing_the_form(self):
+        flow = self.module.GrowattThorConfigFlow()
+        flow.current_entries = [SimpleNamespace(entry_id="existing")]
+
+        result = await flow.async_step_user()
+
+        self.assertEqual(result["type"], "abort")
+        self.assertEqual(result["reason"], "single_instance_allowed")
+
+    async def test_first_entry_can_open_the_setup_form(self):
+        flow = self.module.GrowattThorConfigFlow()
+        flow.current_entries = []
+
+        result = await flow.async_step_user()
+
+        self.assertEqual(result["step_id"], "user")
 
 
 if __name__ == '__main__':

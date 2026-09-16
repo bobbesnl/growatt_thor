@@ -82,7 +82,19 @@ class SerializedOcppRequestGate:
                 return REQUEST_SKIPPED
 
             try:
-                return await operation()
+                result = await operation()
+                if not self._connection_is_current():
+                    # The request was handed to OCPP and may even have a valid
+                    # response, but a reconnect changed the owner while it was
+                    # in flight.  Never retry it blindly and never let the old
+                    # socket's result update state owned by the new socket.
+                    raise ChargerRequestOutcomeUncertain(
+                        f"{operation_name}: connection was superseded while "
+                        "the request was in flight"
+                    )
+                return result
+            except ChargerRequestOutcomeUncertain:
+                raise
             except self._uncertain_transport_errors as exc:
                 raise ChargerRequestOutcomeUncertain(
                     f"{operation_name}: connection lost before acknowledgement"

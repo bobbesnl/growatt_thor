@@ -22,9 +22,13 @@ if HAS_OCPP:
 class Websocket:
     def __init__(self):
         self.sent = []
+        self.closed = []
 
     async def send(self, value):
         self.sent.append(json.loads(value))
+
+    async def close(self, code=None, reason=None):
+        self.closed.append((code, reason))
 
 
 class Coordinator:
@@ -185,6 +189,80 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
             (await self.start('12345678'))['idTagInfo']['status'],
             'Invalid',
         )
+
+    async def test_different_charger_cannot_replace_active_connection(self):
+        incoming_websocket = Websocket()
+
+        with self.assertLogs(server._LOGGER, level='ERROR') as logs:
+            await server._on_connect(
+                incoming_websocket,
+                '/ocpp/ws/OTHER-CHARGER',
+                self.coordinator,
+                self.hass,
+            )
+
+        self.assertIs(
+            self.hass.data[server.DOMAIN]['charge_point'],
+            self.cp,
+        )
+        self.assertEqual(incoming_websocket.closed[0][0], 1008)
+        self.assertIn('runtime belongs to', '\n'.join(logs.output))
+
+    async def test_superseded_connection_cannot_publish_status(self):
+        replacement = server.GrowattChargePoint(
+            'TEST-CHARGER',
+            Websocket(),
+            self.coordinator,
+            self.hass,
+        )
+        self.assertIs(
+            self.hass.data[server.DOMAIN]['charge_point'],
+            replacement,
+        )
+
+        with patch.object(
+            self.coordinator,
+            'record_status_notification',
+            create=True,
+        ) as record_status:
+            await self.cp.on_status_notification(
+                connector_id=1,
+                status='Available',
+            )
+
+        record_status.assert_not_called()
+
+    async def test_start_rechecks_ownership_after_transaction_id_wait(self):
+        allocator_started = asyncio.Event()
+        release_allocator = asyncio.Event()
+
+        async def delayed_allocate():
+            allocator_started.set()
+            await release_allocator.wait()
+            return 41
+
+        self.coordinator.async_allocate_transaction_id = delayed_allocate
+        start_task = asyncio.create_task(
+            self.cp.on_start_transaction(
+                connector_id=1,
+                id_tag='TEST-CARD',
+                meter_start=0,
+            )
+        )
+        await allocator_started.wait()
+        server.GrowattChargePoint(
+            'TEST-CHARGER',
+            Websocket(),
+            self.coordinator,
+            self.hass,
+        )
+        release_allocator.set()
+
+        result = await start_task
+
+        self.assertEqual(result.transaction_id, 0)
+        self.assertIsNone(self.coordinator.active_transaction)
+        self.assertIsNone(self.coordinator.authorization.last_decision)
 
     async def test_operational_configuration_survives_diagnostic_timeout(self):
         """The useful first response is retained even when CALL 2 times out."""

@@ -16,7 +16,8 @@
     },
     "abort": {
       "ap_mode_activated": "✅ Az AP mód aktiválva. A THOR Wi-Fi-hálózatot sugároz. Keresse azt az SSID-t, amely tartalmazza a THOR sorozatszámát.",
-      "ap_mode_failed": "❌ Az AP mód aktiválása sikertelen. További részletekért ellenőrizze a naplókat."
+      "ap_mode_failed": "❌ Az AP mód aktiválása sikertelen. További részletekért ellenőrizze a naplókat.",
+      "single_instance_allowed": "Csak egy Growatt THOR integráció állítható be."
     }
   },
   "options": {
