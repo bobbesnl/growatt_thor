@@ -39,7 +39,7 @@ The priorities in this document are based on safety and observability:
 | 3 | P0 | Expire and revalidate delayed commands | Completed |
 | 4 | P0 | Harden Start/Stop transaction semantics | Completed |
 | 5 | P0 | Prevent ambiguous config entries and charger connections | Completed |
-| 6 | P1 | Make paired and compound changes predictable | Planned |
+| 6 | P1 | Make paired and compound changes predictable | Completed |
 | 7 | P1 | Coalesce manual refresh and harden integration services | Planned |
 | 8 | P1 | Tighten value and config-entry validation | Planned |
 | 9 | P1 | Expose a reliable command completion signal | Planned |
@@ -271,6 +271,34 @@ that state clearly.
 - A back-to-back start/stop update emits one final schedule payload.
 - A rejected second PV write retains the draft and schedules readback.
 - A partial result is visible in diagnostics and is not reported as success.
+
+**Implemented on 2026-09-16:**
+
+- Auto Charge start and stop now share one 500 ms debounce task. A second
+  entity edit cancels the still-sleeping first task, and the final combined
+  `G_AutoChargeTime` value is built only after both pending values have
+  settled. Integration unload cancels the task, and unexpected background
+  failures are logged explicitly instead of becoming unobserved task errors.
+- PV Linkage Apply now records both the number of acknowledged physical steps
+  and one explicit logical outcome: `success`, `failed`, `partial`, or
+  `uncertain`. A disconnect before any acknowledgement remains safe for the
+  queue to retry, while a disconnect after an accepted step cannot replay the
+  complete compound operation and is retained as partial progress.
+- A rejected later step, a lost acknowledgement, or another uncertain failure
+  keeps the user's draft dirty and schedules a coalesced immediate readback of
+  readable configuration. The integration does not attempt a synthetic
+  rollback because that would add another independently fallible OCPP write.
+- A complete Apply clears only the exact draft snapshot that was sent. Changes
+  made while an older Apply is in flight therefore remain visibly pending even
+  after every step of the older snapshot was accepted.
+- The Apply button exposes the latest result as `last_apply`, and diagnostics
+  retain the same structured progress under `compound_writes.pv_linkage`.
+  Queue logging has a separate partial branch and never labels it as success.
+- Regression tests cover the settled paired schedule, debounce cancellation
+  and failure logging, first- and second-step rejection, Manual and Smart
+  partial applies, safe pre-write retry, post-success disconnect, lost
+  acknowledgement, exact-draft cleanup, readback scheduling, and partial
+  queue logging.
 
 ## 7. Coalesce manual refresh and harden integration services
 
