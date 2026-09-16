@@ -41,7 +41,7 @@ The priorities in this document are based on safety and observability:
 | 5 | P0 | Prevent ambiguous config entries and charger connections | Completed |
 | 6 | P1 | Make paired and compound changes predictable | Completed |
 | 7 | P1 | Coalesce manual refresh and harden integration services | Completed |
-| 8 | P1 | Tighten value and config-entry validation | Planned |
+| 8 | P1 | Tighten value and config-entry validation | Completed |
 | 9 | P1 | Expose a reliable command completion signal | Planned |
 
 ## 1. Return blocked Home Assistant actions as errors
@@ -372,6 +372,35 @@ validation.
 - No non-finite or out-of-range value reaches an OCPP payload.
 - Invalid dates and reversed ranges return validation errors.
 - A changed poll interval affects the next polling cycle predictably.
+
+**Implemented on 2026-09-16:**
+
+- Number actions now share one exact decimal validation boundary. `NaN`, both
+  infinities, values outside the entity range, and values that do not match the
+  advertised step are rejected with translated Home Assistant validation
+  errors before pending state, optimistic state, or a write-queue entry is
+  created. User values are no longer silently rounded to a different intent.
+- Solar import limit, power-meter address, and Smart Boost payload builders
+  repeat the relevant finite, range, and step checks immediately before wire
+  formatting. Decimal formatting removes only fractional zeroes, so an upper
+  bound such as `200` cannot accidentally become `2`. Invalid charger
+  readbacks are likewise excluded from unchanged-value and rollback decisions.
+- Config-flow and persisted-entry validation now accept only exact TCP ports in
+  `1..65535` and finite whole-second polling intervals at or above the safety
+  minimum. Numeric strings are normalized deliberately; fractional values are
+  not truncated.
+- The running external-meter poller uses a wakeable schedule. Saving a changed
+  interval interrupts an existing wait and starts the new cadence from the
+  save time; an update that arrives while OCPP poll work is executing is
+  retained rather than lost before the next wait.
+- Session exports distinguish malformed dates from a reversed inclusive date
+  range and reject both before resolving a target path or starting an executor
+  job. All bundled translations expose the same validation keys and
+  placeholders.
+- Regression tests cover non-finite values, exact bounds and steps, direct
+  encoder bypasses, Smart Boost formatting, read/write ordering, protocol port
+  limits, live option application, poll-update races, malformed dates,
+  reversed ranges, and translation structure.
 
 ## 9. Expose a reliable command completion signal
 
