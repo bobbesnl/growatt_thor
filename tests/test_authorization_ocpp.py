@@ -37,6 +37,7 @@ class Coordinator:
         self.charger_mode = 1
         self.connected = True
         self.has_pending_charger_writes = False
+        self.charge_point_id = None
         self.next_id = 40
         self.active_transaction = None
         self.stops = []
@@ -46,7 +47,9 @@ class Coordinator:
         return '2026-09-04T10:00:00Z'
 
     def set_charge_point(self, cp_id):
-        pass
+        # Match the production coordinator: the retained identity survives a
+        # socket replacement and lets _on_connect reject a different charger.
+        self.charge_point_id = cp_id
 
     def mark_connection_activity(self, action):
         pass
@@ -185,6 +188,16 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(server.ChargerConnectionUnavailable):
             await self.cp.remote_start_transaction(1, '12345678')
 
+        # The ownership guard correctly ignores all inbound traffic from the
+        # stale socket.  Reconnect the same charger before proving that the
+        # failed, definitely-unsent Remote Start left no one-shot grant behind.
+        self.ws = Websocket()
+        self.cp = server.GrowattChargePoint(
+            'TEST-CHARGER',
+            self.ws,
+            self.coordinator,
+            self.hass,
+        )
         self.assertEqual(
             (await self.start('12345678'))['idTagInfo']['status'],
             'Invalid',
