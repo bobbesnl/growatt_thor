@@ -513,10 +513,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     from .charging.pv_service import async_setup_pv_linkage_service
+    from .energy.stop_runtime import EnergyStopGuard
     from .targets.services import async_setup_target_services
 
     await async_setup_pv_linkage_service(hass, entry, coordinator)
     await async_setup_target_services(hass, entry, coordinator)
+    runtime_data["energy_stop_guard"] = EnergyStopGuard(hass, coordinator)
+    runtime_data["energy_stop_guard"].refresh()
     return True
 
 
@@ -540,6 +543,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await polling_task
         except asyncio.CancelledError:
             pass
+
+    energy_stop_guard = runtime_data.get("energy_stop_guard")
+    if energy_stop_guard is not None:
+        await energy_stop_guard.async_shutdown()
 
     coordinator = runtime_data.get("coordinator")
     if coordinator is not None:

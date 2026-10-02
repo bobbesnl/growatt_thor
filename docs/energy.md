@@ -1,7 +1,5 @@
 # Energy sources, solar charging and costs
 
-> Automatic charging stop is introduced in **2.0.0-dev.6**. In dev.5, site accounting records energy and costs without automatic stopping.
-
 [Handbook](../README.md#documentation) · [Installation](installation.md) · [Charging](usage.md) · [Energy](energy.md) · [Sessions](sessions.md)
 
 Use this chapter to connect battery and site sensors, interpret energy shares

@@ -246,7 +246,7 @@ class PublicActionWiringTest(unittest.TestCase):
             "raise_charger_disconnected",
             "raise_action_validation",
         },
-        ("button.py", "StopChargingButton", "async_press"): {
+        ("charging/commands.py", "StopChargingCommand", "async_request"): {
             "async_require_command_completion",
             "raise_charger_disconnected",
             "raise_action_validation",

@@ -1,7 +1,5 @@
 [!["Buy Us A Coffee"](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/bobbesnl)
 
-> Automatic charging stop is introduced in **2.0.0-dev.6**. In dev.5, site accounting records energy and costs without automatic stopping.
-
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
 ![Version](https://img.shields.io/badge/version-2.0_development-blue)
 

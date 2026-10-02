@@ -40,6 +40,7 @@ from .energy.sources import (
     tariff_sensor_options,
     duplicate_source_fields,
 )
+from .energy.stop_guard import AUTO_STOP_MODES, CONF_AUTO_STOP_MODE
 from .energy.accounting_runtime import (
     CONF_FIXED_PRICE, CONF_GRID_ENTITY, CONF_GRID_SIGN, CONF_HOUSE_ENTITY,
     CONF_SITE_PROFILE, CONF_SOLAR_ENTITY, CONF_TARIFF_ENTITY, GRID_SIGNS,
@@ -256,6 +257,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     errors[CONF_BATTERY_POWER_ENTITY] = "duplicate_power_source"
             elif self.config_entry.data.get(CONF_SITE_PROFILE) in ("pv_battery", "grohome_load_first"):
                 errors[CONF_BATTERY_POWER_ENTITY] = "profile_requires_battery"
+            elif self.config_entry.data.get(CONF_AUTO_STOP_MODE) in ("battery", "battery_or_grid"):
+                errors[CONF_BATTERY_POWER_ENTITY] = "auto_stop_requires_battery"
 
             if not errors:
                 updated_data = dict(self.config_entry.data)
@@ -337,7 +340,17 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             profile = user_input.get(CONF_SITE_PROFILE, "disabled")
             if profile not in PROFILES:
                 errors[CONF_SITE_PROFILE] = "invalid_site_profile"
+            auto_stop_mode = user_input.get(CONF_AUTO_STOP_MODE, "off")
+            if auto_stop_mode not in AUTO_STOP_MODES:
+                errors[CONF_AUTO_STOP_MODE] = "invalid_auto_stop_mode"
+            elif auto_stop_mode != "off":
+                if profile == "disabled":
+                    errors[CONF_AUTO_STOP_MODE] = "auto_stop_requires_profile"
+                elif auto_stop_mode in ("battery", "battery_or_grid") and not current.get(CONF_BATTERY_POWER_ENTITY):
+                    errors[CONF_AUTO_STOP_MODE] = "auto_stop_requires_battery"
             grid_source = user_input.get("site_grid_source", "none")
+            if auto_stop_mode in ("grid", "battery_or_grid") and grid_source == "none":
+                errors["site_grid_source"] = "grid_source_required"
             if profile in ("pv", "pv_battery", "grohome_load_first") and grid_source == "none":
                 errors["site_grid_source"] = "grid_source_required"
             if grid_source == "ha_sensor" and not user_input.get(CONF_GRID_ENTITY):
@@ -380,7 +393,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 updated = dict(current)
                 keys = (CONF_SITE_PROFILE, CONF_GRID_ENTITY, CONF_GRID_SIGN,
                         CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY, CONF_TARIFF_ENTITY,
-                        CONF_FIXED_PRICE, "site_grid_source")
+                        CONF_FIXED_PRICE, "site_grid_source", CONF_AUTO_STOP_MODE)
                 for key in keys:
                     value = user_input.get(key)
                     if value in (None, ""):
@@ -392,6 +405,9 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 if coordinator:
                     coordinator.site_accounting_options = dict(updated)
                     coordinator.async_set_updated_data(True)
+                    guard = self.hass.data.get(DOMAIN, {}).get("energy_stop_guard")
+                    if guard is not None:
+                        guard.refresh()
                 return self.async_create_entry(title="", data={})
 
         # Redisplay the submitted draft on validation errors, including cleared fields.
@@ -425,6 +441,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             step_id="site_accounting",
             data_schema=vol.Schema({
                 vol.Required(CONF_SITE_PROFILE, default=current.get(CONF_SITE_PROFILE, "disabled")): SelectSelector(SelectSelectorConfig(options=list(PROFILES), translation_key=CONF_SITE_PROFILE, mode="dropdown")),
+                vol.Required(CONF_AUTO_STOP_MODE, default=current.get(CONF_AUTO_STOP_MODE, "off")): SelectSelector(SelectSelectorConfig(options=list(AUTO_STOP_MODES), translation_key=CONF_AUTO_STOP_MODE, mode="dropdown")),
                 vol.Required("site_grid_source", default=current.get("site_grid_source", "none")): SelectSelector(SelectSelectorConfig(options=["none", "thor_external", "ha_sensor"], translation_key="site_grid_source", mode="dropdown")),
                 source_field(CONF_GRID_ENTITY): power_selector(CONF_GRID_ENTITY, "grid"),
                 vol.Required(CONF_GRID_SIGN, default=current.get(CONF_GRID_SIGN, "positive_import")): SelectSelector(SelectSelectorConfig(options=list(GRID_SIGNS), translation_key=CONF_GRID_SIGN, mode="dropdown")),

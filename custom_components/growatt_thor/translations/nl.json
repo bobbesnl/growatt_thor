@@ -95,7 +95,7 @@
         "title": "Growatt THOR Opties",
         "description": "Kies welk onderdeel je wilt configureren. Optionele energiebronnen worden alleen voor visualisatie gebruikt.",
         "menu_options": {"general": "Algemene instellingen", "energy_sources": "Optionele energiebronnen", "site_accounting": "Site EV accounting", "authorization": "Lokale toegangscontrole", "confirm_ap_mode": "Onderhoud: AP-modus"},
-        "menu_option_descriptions": {"general": "Configureer het pollinginterval en de locatie.", "energy_sources": "Configureer optionele batterijstroom voor kaarten en grafieken.", "site_accounting": "Book EV energy against site power and tariffs without controlling devices.", "authorization": "Beheer RFID-toegang en starts vanuit Home Assistant afzonderlijk.", "confirm_ap_mode": "Schakel de configuratie-wifi van de lader in; Home Assistant wordt hierbij losgekoppeld."}
+        "menu_option_descriptions": {"general": "Configureer het pollinginterval en de locatie.", "energy_sources": "Configureer optionele batterijstroom voor kaarten en grafieken.", "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.", "authorization": "Beheer RFID-toegang en starts vanuit Home Assistant afzonderlijk.", "confirm_ap_mode": "Schakel de configuratie-wifi van de lader in; Home Assistant wordt hierbij losgekoppeld."}
       },
       "general": {
         "title": "Algemene instellingen",
@@ -123,9 +123,10 @@
       },
       "site_accounting": {
         "title": "Site EV accounting",
-        "description": "Read-only model. Grid import is positive unless you select the opposite sign. GroHome Load First is a declared booking order, not a measured flow. Changes apply to future meter deltas; reload once to add site sensors when first enabling accounting.",
+        "description": "Accounting is an observational model. The optional stop acts in every active charging session and uses the existing OCPP Stop: at least 200 W battery discharge or grid import for 90 seconds. Missing or stale readings never trigger it; charging does not restart automatically. The grid source must measure the real grid connection. Reload once to add new site entities.",
         "data": {
           "site_accounting_profile": "Site profile",
+          "site_auto_stop_mode": "Automatic charging stop",
           "site_grid_source": "Grid source",
           "site_grid_power_entity": "Grid power sensor (optional)",
           "site_grid_power_sign": "Grid sensor sign",
@@ -133,6 +134,9 @@
           "site_house_power_entity": "Non-EV household power sensor (optional)",
           "site_tariff_entity": "Current price per kWh sensor (optional)",
           "site_fixed_price": "Fixed price per kWh (used without price sensor)"
+        },
+        "data_description": {
+          "site_auto_stop_mode": "Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
         }
       },
       "authorization": {
@@ -172,6 +176,9 @@
       "invalid_fixed_price": "Voer een eindige prijs per kWh in; negatieve prijzen zijn toegestaan.",
       "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
       "invalid_site_profile": "Choose a supported site profile.",
+      "invalid_auto_stop_mode": "Choose a supported automatic stop mode.",
+      "auto_stop_requires_profile": "Enable a site profile before automatic charging stop.",
+      "auto_stop_requires_battery": "Select a battery power sensor under Optional energy sources first.",
       "grid_source_required": "Select a grid source for PV accounting.",
       "tariff_required": "Choose a fixed price or a current price-per-kWh sensor.",
       "invalid_grid_sign": "Confirm whether positive means import or export.",
@@ -265,6 +272,14 @@
         "pv": "PV zonder batterij",
         "pv_battery": "PV met batterij",
         "grohome_load_first": "GroHome: huishouden → batterij → laadpaal → GroBoost"
+      }
+    },
+    "site_auto_stop_mode": {
+      "options": {
+        "off": "Uit",
+        "battery": "Bij batterijontlading",
+        "grid": "Bij netafname",
+        "battery_or_grid": "Bij batterijontlading of netafname"
       }
     },
     "site_grid_source": {

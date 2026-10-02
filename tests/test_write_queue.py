@@ -1346,6 +1346,7 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
 
     PRODUCTION_FILES = (
         "button.py",
+        "charging/commands.py",
         "config_flow.py",
         "configuration/controls.py",
         "number.py",
@@ -1406,7 +1407,7 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
                 "VOLATILE_CONTROL_WRITE_POLICY",
                 True,
             ),
-            ("button.py", "REMOTE_STOP_COMMAND"): (
+            ("charging/commands.py", "REMOTE_STOP_COMMAND"): (
                 "TRANSACTION_CONTROL_WRITE_POLICY",
                 True,
             ),
@@ -1452,12 +1453,12 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
         self.assertEqual(found, expected)
 
     def test_stop_no_longer_invents_transaction_zero(self):
-        tree = ast.parse((PACKAGE_PATH / "button.py").read_text())
+        tree = ast.parse((PACKAGE_PATH / "charging/commands.py").read_text())
         stop_class = next(
             node
             for node in tree.body
             if isinstance(node, ast.ClassDef)
-            and node.name == "StopChargingButton"
+            and node.name == "StopChargingCommand"
         )
         integer_constants = [
             node.value
@@ -1476,12 +1477,12 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
         self.assertIn("transaction_is_active", attributes)
 
     def test_start_and_stop_share_one_opposing_intent_queue_lane(self):
-        tree = ast.parse((PACKAGE_PATH / "button.py").read_text())
+        tree = ast.parse((PACKAGE_PATH / "button.py").read_text() + "\n" + (PACKAGE_PATH / "charging/commands.py").read_text().replace("from __future__ import annotations", ""))
         classes = {
             node.name: node
             for node in tree.body
             if isinstance(node, ast.ClassDef)
-            and node.name in {"StartChargingButton", "StopChargingButton"}
+            and node.name in {"StartChargingButton", "StopChargingCommand"}
         }
 
         for class_name in classes:
@@ -1507,7 +1508,7 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
 
         stop_calls = {
             node.func.attr: node
-            for node in ast.walk(classes["StopChargingButton"])
+            for node in ast.walk(classes["StopChargingCommand"])
             if isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)
         }

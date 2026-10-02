@@ -104,7 +104,7 @@
         "menu_option_descriptions": {
           "general": "Abfrageintervall und Installationsort konfigurieren.",
           "energy_sources": "Optionalen Batteriefluss für Karten und Diagramme konfigurieren.",
-          "site_accounting": "EV-Energie anhand von Standortleistung und Tarif verbuchen, ohne Geräte zu steuern.",
+          "site_accounting": "EV-Energie und Kosten verbuchen; optionalen automatischen Ladestopp konfigurieren.",
           "authorization": "RFID-Zugriff und Starts durch Home Assistant getrennt verwalten.",
           "confirm_ap_mode": "Einrichtungs-WLAN der Wallbox aktivieren; Home Assistant wird dabei getrennt."
         }
@@ -135,9 +135,10 @@
       },
       "site_accounting": {
         "title": "Standortweite EV-Abrechnung",
-        "description": "Rein beobachtendes Modell. Netzbezug ist positiv, sofern kein anderes Vorzeichen gewählt wird. GroHome Load First ist eine deklarierte Buchungsregel und kein gemessener Energiefluss. Änderungen gelten für künftige Zählerdeltas; beim erstmaligen Aktivieren für neue Standortentitäten einmal neu laden.",
+        "description": "Die Abrechnung ist ein beobachtendes Modell. Der optionale Ladestopp wirkt bei jeder aktiven Ladesitzung und nutzt den vorhandenen OCPP-Stoppbefehl: mindestens 200 W Batterieentladung oder Netzbezug für 90 Sekunden. Fehlende oder veraltete Werte lösen keinen Stopp aus; danach kein automatischer Neustart. Die Netzquelle muss den tatsächlichen Netzanschlusspunkt messen. Neue Standortentitäten erscheinen nach einmaligem Neuladen.",
         "data": {
           "site_accounting_profile": "Standortprofil",
+          "site_auto_stop_mode": "Automatischer Ladestopp",
           "site_grid_source": "Netzquelle",
           "site_grid_power_entity": "Netzleistungssensor (optional)",
           "site_grid_power_sign": "Vorzeichen des Netzsensors",
@@ -145,6 +146,9 @@
           "site_house_power_entity": "Hausleistung ohne EV (optional)",
           "site_tariff_entity": "Aktueller Preis-pro-kWh-Sensor (optional)",
           "site_fixed_price": "Fester Preis pro kWh (ohne Preissensor)"
+        },
+        "data_description": {
+          "site_auto_stop_mode": "Aus, Batterieentladung, Netzbezug oder beides. Nur bei frischen Messwerten und aktiver Ladesitzung; die Batteriequelle wird unter Optionale Energiequellen eingerichtet."
         }
       },
       "authorization": {
@@ -184,6 +188,9 @@
       "invalid_fixed_price": "Einen endlichen Preis pro kWh eingeben; negative Preise sind erlaubt.",
       "invalid_power_sensor": "Bitte einen Sensor mit der Einheit W, kW oder MW auswählen.",
       "invalid_site_profile": "Bitte ein unterstütztes Standortprofil auswählen.",
+      "invalid_auto_stop_mode": "Bitte einen unterstützten Ladestopp-Modus auswählen.",
+      "auto_stop_requires_profile": "Für den automatischen Ladestopp zuerst ein Standortprofil aktivieren.",
+      "auto_stop_requires_battery": "Für diesen Ladestopp-Modus zuerst einen Batterie-Leistungssensor unter Optionale Energiequellen auswählen.",
       "grid_source_required": "Für die PV-Abrechnung bitte eine Netzquelle auswählen.",
       "tariff_required": "Bitte einen festen Preis oder einen Preis-pro-kWh-Sensor wählen.",
       "invalid_grid_sign": "Bitte bestätigen, ob ein positiver Wert Netzbezug oder Einspeisung bedeutet.",
@@ -277,6 +284,14 @@
         "pv": "PV ohne Batterie",
         "pv_battery": "PV mit Batterie",
         "grohome_load_first": "GroHome: Haushalt → Batterie → Wallbox → GroBoost"
+      }
+    },
+    "site_auto_stop_mode": {
+      "options": {
+        "off": "Aus",
+        "battery": "Bei Batterieentladung",
+        "grid": "Bei Netzbezug",
+        "battery_or_grid": "Bei Batterieentladung oder Netzbezug"
       }
     },
     "site_grid_source": {

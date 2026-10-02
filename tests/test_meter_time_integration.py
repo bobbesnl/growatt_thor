@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import unittest
 
 from test_write_queue import coordinator_module
+from custom_components.growatt_thor.energy.stop_runtime import EnergyStopGuard
 from custom_components.growatt_thor.presentation.card_data import dashboard_attributes
 
 AT = datetime(2026, 10, 2, 14, 52, 49, tzinfo=timezone.utc)
@@ -60,6 +61,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         c.site_accounting = coordinator_module.SessionAccumulator(
             transaction_id="27", last_meter_wh=1000, last_meter_at=AT - timedelta(seconds=30),
         )
+        self.guard = EnergyStopGuard(c.hass, c)
 
     def receive(self, timestamp="2026-10-02T16:52:49", energy=1050):
         self.c.process_meter_values([{"timestamp": timestamp, "sampledValue": [
@@ -89,7 +91,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         c.record_status_notification(1, "SuspendedEV", "NoError")
         self.assertEqual(saved, [True])
 
-    def test_local_sample_reaches_accounting_and_curve(self):
+    def test_local_sample_reaches_gauge_accounting_curve_and_stop_guard(self):
         self.receive()
         packet = self.c.last_meter_values["meter_values"][0]
         self.assertEqual(packet["timestamp"], "2026-10-02T14:52:49Z")
@@ -101,6 +103,14 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         self.assertGreater(self.c.site_accounting.buckets["battery_unknown"], 0)
         self.assertAlmostEqual(sum(self.c.site_accounting.buckets.values()), .05)
         self.assertEqual(self.c._active_power_curve[-1][0], "2026-10-02T14:52:49Z")
+        observation = self.guard._observation(AT)
+        self.assertTrue(observation.eligible)
+        self.assertEqual(observation.battery_discharge_w, 2000)
+        self.assertIsNone(self.guard.tracker.evaluate(AT, "battery", observation))
+        self.at += timedelta(seconds=90)
+        self.receive("2026-10-02T16:54:19", 1200)
+        self.assertEqual(self.guard.tracker.evaluate(self.at, "battery", self.guard._observation(self.at)), "battery")
+        self.assertIsNone(self.guard.tracker.evaluate(self.at, "battery", self.guard._observation(self.at)))
 
     def test_newer_site_updates_are_usable_for_live_gauge(self):
         self.receive()
@@ -109,15 +119,17 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         sources = dashboard_attributes(self.c)["power_flow"]["charging_sources"]
         self.assertAlmostEqual(sources["battery_w"], 2000)
 
-    def test_stale_future_invalid_and_dst_ambiguous_samples_are_not_displayed(self):
+    def test_stale_future_invalid_and_dst_ambiguous_samples_cannot_trigger_stop(self):
         for raw in ("2026-10-02T16:40:00", "2026-10-02T17:52:49", "bad",
                     "2026-10-25T02:30:00", "2026-03-29T02:30:00"):
             with self.subTest(raw=raw):
                 self.receive(raw)
                 self.assertNotIn("charging_sources", dashboard_attributes(self.c)["power_flow"])
+                self.assertFalse(self.guard._observation(self.at).eligible)
         self.receive()
         self.c.last_meter_values["received_at"] = (AT - timedelta(hours=1)).isoformat()
         self.assertNotIn("charging_sources", dashboard_attributes(self.c)["power_flow"])
+        self.assertFalse(self.guard._observation(AT).eligible)
 
     def test_future_timestamp_does_not_advance_accounting_checkpoint(self):
         previous_at = self.c.site_accounting.last_meter_at
@@ -133,3 +145,13 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         self.assertAlmostEqual(self.c.site_accounting.buckets["unknown"], .05)
         self.assertEqual(self.c.site_accounting.buckets["battery_unknown"], 0)
 
+    def test_restored_numeric_transaction_matches_live_meter_for_stop_guard(self):
+        self.c.sessions = coordinator_module.SessionLifecycle(self.c)
+        self.c.id_tag = None
+        stored = self.c._active_session_state()
+        self.c._restore_active_session_state(stored)
+        self.assertEqual(self.c.transaction_id, 27)
+        self.receive()
+        self.assertTrue(self.guard._observation(AT).eligible)
+        self.c.last_meter_values["transaction_id"] = 28
+        self.assertFalse(self.guard._observation(AT).eligible)

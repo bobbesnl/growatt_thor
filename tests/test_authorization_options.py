@@ -163,7 +163,7 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
             )
         }
         return {
-            'site_accounting_profile': 'pv_battery', 
+            'site_accounting_profile': 'pv_battery', 'site_auto_stop_mode': 'off',
             'site_grid_source': 'ha_sensor', 'site_grid_power_entity': 'sensor.grid',
             'site_grid_power_sign': 'positive_import', 'site_solar_power_entity': 'sensor.solar',
             'site_house_power_entity': 'sensor.house', 'site_tariff_entity': 'sensor.price',
@@ -268,6 +268,7 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
         )
         expected = {
             'site_accounting_profile': list(self.module.PROFILES),
+            'site_auto_stop_mode': list(self.module.AUTO_STOP_MODES),
             'site_grid_source': ['none', 'thor_external', 'ha_sensor'],
             'site_grid_power_sign': list(self.module.GRID_SIGNS),
         }

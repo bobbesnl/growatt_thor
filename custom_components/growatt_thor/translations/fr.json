@@ -95,7 +95,7 @@
         "title": "Options Growatt THOR",
         "description": "Choisissez la zone à configurer. Les sources d’énergie facultatives servent uniquement à la visualisation.",
         "menu_options": {"general": "Paramètres généraux", "energy_sources": "Sources d’énergie facultatives", "site_accounting": "Site EV accounting", "authorization": "Contrôle d’accès local", "confirm_ap_mode": "Maintenance : mode AP"},
-        "menu_option_descriptions": {"general": "Configurer l’intervalle d’interrogation et l’emplacement.", "energy_sources": "Configurer le flux de batterie facultatif pour les cartes et graphiques.", "site_accounting": "Book EV energy against site power and tariffs without controlling devices.", "authorization": "Gérer séparément l’accès RFID et les démarrages Home Assistant.", "confirm_ap_mode": "Activer le Wi-Fi de configuration de la borne ; Home Assistant sera déconnecté."}
+        "menu_option_descriptions": {"general": "Configurer l’intervalle d’interrogation et l’emplacement.", "energy_sources": "Configurer le flux de batterie facultatif pour les cartes et graphiques.", "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.", "authorization": "Gérer séparément l’accès RFID et les démarrages Home Assistant.", "confirm_ap_mode": "Activer le Wi-Fi de configuration de la borne ; Home Assistant sera déconnecté."}
       },
       "general": {
         "title": "Paramètres généraux",
@@ -123,9 +123,10 @@
       },
       "site_accounting": {
         "title": "Site EV accounting",
-        "description": "Read-only model. Grid import is positive unless you select the opposite sign. GroHome Load First is a declared booking order, not a measured flow. Changes apply to future meter deltas; reload once to add site sensors when first enabling accounting.",
+        "description": "Accounting is an observational model. The optional stop acts in every active charging session and uses the existing OCPP Stop: at least 200 W battery discharge or grid import for 90 seconds. Missing or stale readings never trigger it; charging does not restart automatically. The grid source must measure the real grid connection. Reload once to add new site entities.",
         "data": {
           "site_accounting_profile": "Site profile",
+          "site_auto_stop_mode": "Automatic charging stop",
           "site_grid_source": "Grid source",
           "site_grid_power_entity": "Grid power sensor (optional)",
           "site_grid_power_sign": "Grid sensor sign",
@@ -133,6 +134,9 @@
           "site_house_power_entity": "Non-EV household power sensor (optional)",
           "site_tariff_entity": "Current price per kWh sensor (optional)",
           "site_fixed_price": "Fixed price per kWh (used without price sensor)"
+        },
+        "data_description": {
+          "site_auto_stop_mode": "Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
         }
       },
       "authorization": {
@@ -172,6 +176,9 @@
       "invalid_fixed_price": "Saisissez un prix fini par kWh ; les prix négatifs sont autorisés.",
       "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
       "invalid_site_profile": "Choose a supported site profile.",
+      "invalid_auto_stop_mode": "Choose a supported automatic stop mode.",
+      "auto_stop_requires_profile": "Enable a site profile before automatic charging stop.",
+      "auto_stop_requires_battery": "Select a battery power sensor under Optional energy sources first.",
       "grid_source_required": "Select a grid source for PV accounting.",
       "tariff_required": "Choose a fixed price or a current price-per-kWh sensor.",
       "invalid_grid_sign": "Confirm whether positive means import or export.",
@@ -219,6 +226,14 @@
         "pv": "Photovoltaïque sans batterie",
         "pv_battery": "Photovoltaïque avec batterie",
         "grohome_load_first": "GroHome : maison → batterie → borne → GroBoost"
+      }
+    },
+    "site_auto_stop_mode": {
+      "options": {
+        "off": "Désactivé",
+        "battery": "Lors de la décharge de la batterie",
+        "grid": "Lors du soutirage du réseau",
+        "battery_or_grid": "Lors de la décharge de la batterie ou du soutirage du réseau"
       }
     },
     "site_grid_source": {

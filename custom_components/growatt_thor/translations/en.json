@@ -104,7 +104,7 @@
         "menu_option_descriptions": {
           "general": "Configure polling and location.",
           "energy_sources": "Configure optional battery flow for cards and charts.",
-          "site_accounting": "Book EV energy against site power and tariffs without controlling devices.",
+          "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.",
           "authorization": "Manage RFID access and Home Assistant remote starts separately.",
           "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant."
         }
@@ -135,9 +135,10 @@
       },
       "site_accounting": {
         "title": "Site EV accounting",
-        "description": "Read-only model. Grid import is positive unless you select the opposite sign. GroHome Load First is a declared booking order, not a measured flow. Changes apply to future meter deltas; reload once to add site sensors when first enabling accounting.",
+        "description": "Accounting is an observational model. The optional stop acts in every active charging session and uses the existing OCPP Stop: at least 200 W battery discharge or grid import for 90 seconds. Missing or stale readings never trigger it; charging does not restart automatically. The grid source must measure the real grid connection. Reload once to add new site entities.",
         "data": {
           "site_accounting_profile": "Site profile",
+          "site_auto_stop_mode": "Automatic charging stop",
           "site_grid_source": "Grid source",
           "site_grid_power_entity": "Grid power sensor (optional)",
           "site_grid_power_sign": "Grid sensor sign",
@@ -145,6 +146,9 @@
           "site_house_power_entity": "Non-EV household power sensor (optional)",
           "site_tariff_entity": "Current price per kWh sensor (optional)",
           "site_fixed_price": "Fixed price per kWh (used without price sensor)"
+        },
+        "data_description": {
+          "site_auto_stop_mode": "Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
         }
       },
       "authorization": {
@@ -184,6 +188,9 @@
       "invalid_fixed_price": "Enter a finite price per kWh; negative prices are allowed.",
       "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
       "invalid_site_profile": "Choose a supported site profile.",
+      "invalid_auto_stop_mode": "Choose a supported automatic stop mode.",
+      "auto_stop_requires_profile": "Enable a site profile before automatic charging stop.",
+      "auto_stop_requires_battery": "Select a battery power sensor under Optional energy sources first.",
       "grid_source_required": "Select a grid source for PV accounting.",
       "tariff_required": "Choose a fixed price or a current price-per-kWh sensor.",
       "invalid_grid_sign": "Confirm whether positive means import or export.",
@@ -277,6 +284,14 @@
         "pv": "PV without battery",
         "pv_battery": "PV with battery",
         "grohome_load_first": "GroHome: household → battery → EVSE → GroBoost"
+      }
+    },
+    "site_auto_stop_mode": {
+      "options": {
+        "off": "Off",
+        "battery": "On battery discharge",
+        "grid": "On grid import",
+        "battery_or_grid": "On battery discharge or grid import"
       }
     },
     "site_grid_source": {
