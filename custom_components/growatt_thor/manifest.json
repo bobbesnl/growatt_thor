@@ -5,6 +5,11 @@
     "@bobbesnl"
   ],
   "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http",
+    "websocket_api"
+  ],
   "documentation": "https://github.com/bobbesnl/growatt_thor",
   "integration_type": "device",
   "iot_class": "local_push",
@@ -15,10 +20,5 @@
   "requirements": [
     "ocpp>=2.0.0"
   ],
-  "version": "2.0.0-dev.6",
-  "dependencies": [
-    "frontend",
-    "http",
-    "websocket_api"
-  ]
+  "version": "2.0.0-dev.6"
 }
