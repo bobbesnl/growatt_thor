@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## 2.0.0-dev.4
+
+### Added
+
+- Allocate EV energy by source and calculate effective grid cost with data coverage.
+- Provide localized source selection, tariff validation and persistent accounting.
+
 ## 2.0.0-dev.3
 
 ### Added
