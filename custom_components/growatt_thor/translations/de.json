@@ -97,12 +97,14 @@
         "menu_options": {
           "general": "Allgemeine Einstellungen",
           "energy_sources": "Optionale Energiequellen",
+          "site_accounting": "Standortweite EV-Abrechnung",
           "authorization": "Lokale Zugriffskontrolle",
           "confirm_ap_mode": "Wartung: AP-Modus"
         },
         "menu_option_descriptions": {
           "general": "Abfrageintervall und Installationsort konfigurieren.",
           "energy_sources": "Optionalen Batteriefluss für Karten und Diagramme konfigurieren.",
+          "site_accounting": "EV-Energie anhand von Standortleistung und Tarif verbuchen, ohne Geräte zu steuern.",
           "authorization": "RFID-Zugriff und Starts durch Home Assistant getrennt verwalten.",
           "confirm_ap_mode": "Einrichtungs-WLAN der Wallbox aktivieren; Home Assistant wird dabei getrennt."
         }
@@ -129,6 +131,20 @@
         "data_description": {
           "battery_power_entity": "Einen Leistungssensor mit W, kW oder MW auswählen, um den Batteriefluss in der Karte anzuzeigen.",
           "battery_power_sign": "Festlegen, ob ein positiver Sensorwert Laden oder Entladen bedeutet."
+        }
+      },
+      "site_accounting": {
+        "title": "Standortweite EV-Abrechnung",
+        "description": "Rein beobachtendes Modell. Netzbezug ist positiv, sofern kein anderes Vorzeichen gewählt wird. GroHome Load First ist eine deklarierte Buchungsregel und kein gemessener Energiefluss. Änderungen gelten für künftige Zählerdeltas; beim erstmaligen Aktivieren für neue Standortentitäten einmal neu laden.",
+        "data": {
+          "site_accounting_profile": "Standortprofil",
+          "site_grid_source": "Netzquelle",
+          "site_grid_power_entity": "Netzleistungssensor (optional)",
+          "site_grid_power_sign": "Vorzeichen des Netzsensors",
+          "site_solar_power_entity": "PV-Leistungssensor (optional)",
+          "site_house_power_entity": "Hausleistung ohne EV (optional)",
+          "site_tariff_entity": "Aktueller Preis-pro-kWh-Sensor (optional)",
+          "site_fixed_price": "Fester Preis pro kWh (ohne Preissensor)"
         }
       },
       "authorization": {
@@ -162,7 +178,16 @@
     },
     "error": {
       "invalid_authorization": "Höchstens 100 Kennungen mit je 1–20 druckbaren ASCII-Zeichen ohne Leerzeichen eingeben.",
+      "duplicate_power_source": "Für Netz, Solar, Haushalt und Batterie jeweils unterschiedliche Sensoren wählen.",
+      "profile_requires_battery": "Vor diesem Profil unter Optionale Energiequellen einen Batterieleistungssensor auswählen.",
+      "invalid_grid_source": "Eine unterstützte Netzquelle auswählen.",
+      "invalid_fixed_price": "Einen endlichen Preis pro kWh eingeben; negative Preise sind erlaubt.",
       "invalid_power_sensor": "Bitte einen Sensor mit der Einheit W, kW oder MW auswählen.",
+      "invalid_site_profile": "Bitte ein unterstütztes Standortprofil auswählen.",
+      "grid_source_required": "Für die PV-Abrechnung bitte eine Netzquelle auswählen.",
+      "tariff_required": "Bitte einen festen Preis oder einen Preis-pro-kWh-Sensor wählen.",
+      "invalid_grid_sign": "Bitte bestätigen, ob ein positiver Wert Netzbezug oder Einspeisung bedeutet.",
+      "invalid_tariff_sensor": "Bitte einen Preissensor mit einer Währung pro kWh als Einheit auswählen.",
       "invalid_battery_power_sign": "Bitte festlegen, ob ein positiver Sensorwert Laden oder Entladen bedeutet.",
       "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen",
       "invalid_poll_interval": "Das Abfrageintervall muss eine endliche ganze Anzahl Sekunden sein"
@@ -245,6 +270,28 @@
     }
   },
   "selector": {
+    "site_accounting_profile": {
+      "options": {
+        "disabled": "Deaktiviert",
+        "grid_only": "Netz ohne PV",
+        "pv": "PV ohne Batterie",
+        "pv_battery": "PV mit Batterie",
+        "grohome_load_first": "GroHome: Haushalt → Batterie → Wallbox → GroBoost"
+      }
+    },
+    "site_grid_source": {
+      "options": {
+        "none": "Keine",
+        "thor_external": "THOR External Meter",
+        "ha_sensor": "HA-Sensor"
+      }
+    },
+    "site_grid_power_sign": {
+      "options": {
+        "positive_import": "Positiv = Bezug",
+        "positive_export": "Positiv = Einspeisung"
+      }
+    },
     "charger_mode": {
       "options": {
         "1": "Home Assistant / RFID",
@@ -334,6 +381,13 @@
       "charging_power": { "name": "Ladeleistung" },
       "energy_charged": { "name": "Geladene Energie" },
       "total_energy_charged": { "name": "Gesamte Ladeenergie" },
+      "site_energy_kwh": { "name": "Abgerechnete EV-Energie am Standort" },
+      "site_direct_solar_kwh": { "name": "Direkte PV-Energie für EV am Standort" },
+      "site_direct_grid_kwh": { "name": "Direkte Netzenergie für EV am Standort" },
+      "site_battery_unknown_kwh": { "name": "EV-Batterieenergie unbekannter Herkunft" },
+      "site_unknown_kwh": { "name": "Nicht zugeordnete EV-Energie am Standort" },
+      "site_effective_grid_cost": { "name": "Bekannte effektive EV-Netzkosten am Standort" },
+      "site_coverage": { "name": "Standortweite EV-Abdeckungsquote" },
       "electricity_price": { "name": "Strompreis" },
       "last_session_energy": { "name": "Energie der letzten Sitzung" },
       "last_session_cost": { "name": "Kosten der letzten Sitzung" },

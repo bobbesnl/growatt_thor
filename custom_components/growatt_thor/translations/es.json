@@ -94,8 +94,8 @@
       "init": {
         "title": "Opciones de Growatt THOR",
         "description": "Elige el área que quieres configurar. Las fuentes de energía opcionales solo se usan para la visualización.",
-        "menu_options": {"general": "Ajustes generales", "energy_sources": "Fuentes de energía opcionales", "authorization": "Control de acceso local", "confirm_ap_mode": "Mantenimiento: modo AP"},
-        "menu_option_descriptions": {"general": "Configura el intervalo de consulta y la ubicación.", "energy_sources": "Configura el flujo opcional de la batería para tarjetas y gráficos.", "authorization": "Gestiona por separado el acceso RFID y los inicios desde Home Assistant.", "confirm_ap_mode": "Activa la Wi-Fi de configuración del cargador; Home Assistant se desconectará."}
+        "menu_options": {"general": "Ajustes generales", "energy_sources": "Fuentes de energía opcionales", "site_accounting": "Site EV accounting", "authorization": "Control de acceso local", "confirm_ap_mode": "Mantenimiento: modo AP"},
+        "menu_option_descriptions": {"general": "Configura el intervalo de consulta y la ubicación.", "energy_sources": "Configura el flujo opcional de la batería para tarjetas y gráficos.", "site_accounting": "Book EV energy against site power and tariffs without controlling devices.", "authorization": "Gestiona por separado el acceso RFID y los inicios desde Home Assistant.", "confirm_ap_mode": "Activa la Wi-Fi de configuración del cargador; Home Assistant se desconectará."}
       },
       "general": {
         "title": "Ajustes generales",
@@ -119,6 +119,20 @@
         "data_description": {
           "battery_power_entity": "Selecciona un sensor de potencia en W, kW o MW para mostrar el flujo de la batería en la tarjeta.",
           "battery_power_sign": "Indica si un valor positivo representa carga o descarga."
+        }
+      },
+      "site_accounting": {
+        "title": "Site EV accounting",
+        "description": "Read-only model. Grid import is positive unless you select the opposite sign. GroHome Load First is a declared booking order, not a measured flow. Changes apply to future meter deltas; reload once to add site sensors when first enabling accounting.",
+        "data": {
+          "site_accounting_profile": "Site profile",
+          "site_grid_source": "Grid source",
+          "site_grid_power_entity": "Grid power sensor (optional)",
+          "site_grid_power_sign": "Grid sensor sign",
+          "site_solar_power_entity": "Solar power sensor (optional)",
+          "site_house_power_entity": "Non-EV household power sensor (optional)",
+          "site_tariff_entity": "Current price per kWh sensor (optional)",
+          "site_fixed_price": "Fixed price per kWh (used without price sensor)"
         }
       },
       "authorization": {
@@ -152,7 +166,16 @@
     },
     "error": {
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "duplicate_power_source": "Seleccione sensores distintos para la red, la energía solar, el hogar y la batería.",
+      "profile_requires_battery": "Seleccione un sensor de potencia de batería en las fuentes de energía opcionales antes de elegir este perfil.",
+      "invalid_grid_source": "Seleccione una fuente de red compatible.",
+      "invalid_fixed_price": "Introduzca un precio finito por kWh; se permiten precios negativos.",
       "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
+      "invalid_site_profile": "Choose a supported site profile.",
+      "grid_source_required": "Select a grid source for PV accounting.",
+      "tariff_required": "Choose a fixed price or a current price-per-kWh sensor.",
+      "invalid_grid_sign": "Confirm whether positive means import or export.",
+      "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
       "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "El intervalo de consulta debe ser de al menos {min_interval} segundos",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
@@ -189,6 +212,28 @@
     "command_failed": { "message": "Command {command_name} ({command_id}) failed: {status} ({details})." }
   },
   "selector": {
+    "site_accounting_profile": {
+      "options": {
+        "disabled": "Desactivado",
+        "grid_only": "Red sin fotovoltaica",
+        "pv": "Fotovoltaica sin batería",
+        "pv_battery": "Fotovoltaica con batería",
+        "grohome_load_first": "GroHome: hogar → batería → cargador → GroBoost"
+      }
+    },
+    "site_grid_source": {
+      "options": {
+        "none": "Ninguna",
+        "thor_external": "THOR External Meter",
+        "ha_sensor": "Sensor de HA"
+      }
+    },
+    "site_grid_power_sign": {
+      "options": {
+        "positive_import": "Positivo = importación",
+        "positive_export": "Positivo = exportación"
+      }
+    },
     "charger_mode": {
       "options": {
         "1": "Home Assistant / RFID",
@@ -253,6 +298,13 @@
           "charger_result": { "name": "Charger result" }
         }
       },
+      "site_energy_kwh": { "name": "Site EV energy accounted" },
+      "site_direct_solar_kwh": { "name": "Site EV direct solar energy" },
+      "site_direct_grid_kwh": { "name": "Site EV direct grid energy" },
+      "site_battery_unknown_kwh": { "name": "Site EV battery energy of unknown origin" },
+      "site_unknown_kwh": { "name": "Site EV unallocated energy" },
+      "site_effective_grid_cost": { "name": "Site EV known effective grid cost" },
+      "site_coverage": { "name": "Site EV accounting coverage" },
       "charge_point_id": {
         "name": "ID del punto de carga"
       },

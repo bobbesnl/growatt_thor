@@ -378,6 +378,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             CONF_BATTERY_POWER_SIGN,
             BATTERY_POSITIVE_DISCHARGE,
         )
+        coordinator.site_accounting_options = dict(entry.data)
         await coordinator.async_load_storage()
         runtime_data["coordinator"] = coordinator
         runtime_data["skip_polling_until"] = 0.0
@@ -389,6 +390,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 hass, session_id, events
             )
         )
+        # Replay checkpointed completions before loading the dashboard summary.
+        # Otherwise a restart could show history from before a recovered CSV append.
+        await coordinator.sessions.async_flush_pending()
         session_log_path = _get_session_log_path(hass)
 
         def _load_retained_dashboard():

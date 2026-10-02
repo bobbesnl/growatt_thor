@@ -11,6 +11,7 @@ from ..configuration.validation import (
     format_decimal,
     validate_number,
 )
+from .controls import ChargingControl, encode_control_value, encode_working_mode
 
 
 class PvBoostMode(str, Enum):
@@ -122,6 +123,15 @@ class PvLinkageDraft:
 
 
 @dataclass(frozen=True, slots=True)
+class PvLinkageProfile:
+    """Complete user intent behind the guided PV Linkage dialog."""
+
+    working_mode: str
+    grid_import_limit_kw: float | None
+    boost: PvLinkageDraft
+
+
+@dataclass(frozen=True, slots=True)
 class ConfigurationWrite:
     """One ChangeConfiguration operation in a compound update."""
 
@@ -191,6 +201,27 @@ def draft_validation_errors(draft: PvLinkageDraft) -> tuple[str, ...]:
                 # Keep the validation code stable and independent from the
                 # Python float failure that happened to expose the bad input.
                 errors.append("smart_target_energy_invalid")
+    return tuple(errors)
+
+
+def profile_validation_errors(profile: PvLinkageProfile) -> tuple[str, ...]:
+    """Validate one complete PV profile before any physical write is sent."""
+    errors = list(draft_validation_errors(profile.boost))
+    if profile.working_mode not in {"pv_linkage", "pv_linkage_plus"}:
+        errors.append("working_mode_invalid")
+    if profile.working_mode == "pv_linkage":
+        if profile.grid_import_limit_kw is None:
+            errors.append("grid_import_limit_required")
+        else:
+            try:
+                validate_number(
+                    profile.grid_import_limit_kw,
+                    minimum=0,
+                    maximum=22,
+                    step=0.1,
+                )
+            except NumericValidationError:
+                errors.append("grid_import_limit_invalid")
     return tuple(errors)
 
 
@@ -275,3 +306,36 @@ def build_pv_linkage_writes(
         ConfigurationWrite("G_SolarBoost", "1&SmartBoost"),
         DataTransferWrite("Growatt", "solar_target_data", data),
     )
+
+
+def build_pv_linkage_profile_writes(
+    profile: PvLinkageProfile,
+    *,
+    now: datetime,
+    connector_id: int = 1,
+) -> tuple[PvLinkageWrite, ...]:
+    """Build the ordered physical writes for a complete PV profile."""
+    errors = profile_validation_errors(profile)
+    if errors:
+        raise ValueError(", ".join(errors))
+
+    mode_key, mode_value = encode_working_mode(profile.working_mode)
+    writes: list[PvLinkageWrite] = [ConfigurationWrite(mode_key, mode_value)]
+    if profile.working_mode == "pv_linkage":
+        writes.append(
+            ConfigurationWrite(
+                "G_SolarLimitPower",
+                encode_control_value(
+                    ChargingControl.SOLAR_GRID_IMPORT_LIMIT,
+                    profile.grid_import_limit_kw,
+                ),
+            )
+        )
+    writes.extend(
+        build_pv_linkage_writes(
+            profile.boost,
+            now=now,
+            connector_id=connector_id,
+        )
+    )
+    return tuple(writes)

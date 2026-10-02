@@ -896,6 +896,18 @@ class EntityTranslationTest(unittest.TestCase):
 
         self.assertEqual(hardcoded_names, [])
 
+    def test_pv_boost_select_imports_its_applicability_guard(self):
+        tree = ast.parse(SELECT_PATH.read_text(encoding="utf-8"))
+        charging_control_imports = {
+            alias.name
+            for node in tree.body
+            if isinstance(node, ast.ImportFrom)
+            and node.module == "charging.controls"
+            for alias in node.names
+        }
+
+        self.assertIn("control_is_applicable", charging_control_imports)
+
     def test_pv_mode_translations_explain_grid_import(self):
         expected = {
             "en": (

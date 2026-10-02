@@ -40,6 +40,7 @@ from .configuration.writes import (
 )
 from .const import DEFAULT_POLL_INTERVAL, DOMAIN
 from .energy.sources import BATTERY_POSITIVE_DISCHARGE
+from .energy.accounting_runtime import SessionAccumulator, parse_at, site_inputs
 from .ocpp.external_meter import (
     external_meter_health,
     parse_external_meter_data,
@@ -124,6 +125,17 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._session_event_tracker: SessionEventTracker | None = None
         self._pending_plugged_event: dict[str, str] | None = None
         self._restored_active_session = False
+        self.site_accounting_options = {}
+        self.site_accounting: SessionAccumulator | None = None
+        self.last_site_accounting: SessionAccumulator | None = None
+        self.site_accounting_totals = {
+            "energy_kwh": 0.0,
+            "direct_solar_kwh": 0.0,
+            "direct_grid_kwh": 0.0,
+            "battery_unknown_kwh": 0.0,
+            "unknown_kwh": 0.0,
+            "effective_grid_cost": 0.0,
+        }
 
         # ── Totaal ─────────────────────────
         self.power = None        # W
@@ -236,6 +248,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """Load persistent statistics from HA storage."""
         data = await self._store.async_load()
         if data:
+            self.sessions.outbox.restore(data.get("pending_session_rows"))
             self.total_energy_charged = float(data.get("total_energy_charged", 0.0))
             self._transaction_id_allocator.restore(
                 data.get("next_transaction_id", 1)
@@ -261,6 +274,21 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     energy_wh=self.effective_charging.last_energy_wh,
                 )
             self._restore_active_session_state(active_session)
+            self.site_accounting = SessionAccumulator.from_dict(
+                data.get("active_site_accounting")
+            )
+            self.last_site_accounting = SessionAccumulator.from_dict(
+                data.get("pending_site_accounting")
+            )
+            stored_totals = data.get("site_accounting_totals")
+            if isinstance(stored_totals, dict):
+                for key in self.site_accounting_totals:
+                    try:
+                        value = float(stored_totals.get(key, 0))
+                    except (TypeError, ValueError):
+                        continue
+                    if value == value and (value >= 0 or key == "effective_grid_cost"):
+                        self.site_accounting_totals[key] = value
             pending_effective = data.get("pending_effective_charging_minutes")
             if isinstance(pending_effective, dict):
                 for key, value in pending_effective.items():
@@ -294,6 +322,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """Build the current JSON-safe persistent payload."""
         active_session = self._active_session_state()
         return {
+            "pending_session_rows": self.sessions.outbox.snapshot(),
             "total_energy_charged": self.total_energy_charged,
             "next_transaction_id": self._transaction_id_allocator.next_transaction_id,
             "last_session": self._last_session_state().as_dict(),
@@ -308,6 +337,13 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 if active_session is not None
                 else None
             ),
+            "active_site_accounting": (
+                self.site_accounting.as_dict() if self.site_accounting else None
+            ),
+            "pending_site_accounting": (
+                self.last_site_accounting.as_dict() if self.last_site_accounting else None
+            ),
+            "site_accounting_totals": dict(self.site_accounting_totals),
             "pending_effective_charging_minutes": dict(
                 self._pending_effective_charging_minutes
             ),
@@ -422,6 +458,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 "Configuration key and generation must be queued together"
             )
 
+        # Queue lifetimes use the monotonic loop clock: correcting the wall clock
+        # must not extend an old intent. UTC timestamps below are for diagnostics.
         enqueued_at = self.hass.loop.time()
         handle = create_command_handle()
         write_item = {
@@ -1076,6 +1114,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         result: object,
     ) -> bool:
         """Retain a current OCPP result; ignore a superseded response."""
+        # Example: 10 A was sent, then 16 A was requested before its reply.
+        # The 10 A acknowledgement is real, but cannot confirm the newer 16 A intent.
         outcome_is_current = self.configuration_write_is_current(key, generation)
         if not outcome_is_current:
             _LOGGER.info(
@@ -1379,6 +1419,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         # Flush the live-session snapshot before a config-entry reload or a
         # Core restart tears down the coordinator.
         if hasattr(self, "_store"):
+            await self.sessions.async_flush_pending()
             await self.async_save_storage()
 
     def set_status(self, status):
@@ -1551,7 +1592,40 @@ class GrowattCoordinator(DataUpdateCoordinator):
             "transaction_id": transaction_id,
             "meter_values": [entry.as_dict() for entry in parsed_values],
         }
+        received_at = parse_at(self.last_meter_values["received_at"])
         updated = False
+        if self.site_accounting is not None and str(transaction_id or self.transaction_id) == self.site_accounting.transaction_id:
+            accounting_updated = False
+            for entry in parsed_values:
+                at = parse_at(entry.timestamp)
+                if at is None or received_at is None or at > received_at:
+                    continue
+                power_point = charging_power_curve_point(entry)
+                if power_point is not None:
+                    accounting_updated = self.site_accounting.observe_power_fallback(power_point[1], at) or accounting_updated
+                for sample in entry.samples:
+                    if sample.measurand != "Energy.Active.Import.Register" or sample.numeric_value is None or sample.phase is not None:
+                        continue
+                    # A long telemetry gap cannot be priced/classified from
+                    # just the current site snapshot (including after upgrade).
+                    previous_at = self.site_accounting.last_meter_at
+                    max_gap = self._effective_meter_gap_seconds()
+                    current_interval = (
+                        previous_at is not None
+                        and 0 <= (at - previous_at).total_seconds() <= max_gap
+                        and 0 <= (received_at - at).total_seconds() <= max_gap
+                    )
+                    accounting_updated = self.site_accounting.observe(
+                        meter_wh=sample.numeric_value,
+                        at=at,
+                        site_id=self.source_instance_id or "site",
+                        charger_id=self.charge_point_id or "charger",
+                        inputs=site_inputs(self, at) if current_interval else None,
+                        context=sample.context,
+                        unit=sample.unit,
+                    ) or accounting_updated
+            if accounting_updated:
+                self.hass.async_create_task(self.async_save_storage())
         effective_transaction_id = (
             transaction_id
             if transaction_id is not None

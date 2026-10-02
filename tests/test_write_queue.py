@@ -144,7 +144,7 @@ class ActiveSessionPersistenceTest(unittest.TestCase):
         restored.sessions = coordinator_module.SessionLifecycle(restored)
         restored._restore_active_session_state(stored)
 
-        self.assertEqual(restored.transaction_id, "27")
+        self.assertEqual(restored.transaction_id, 27)
         self.assertEqual(restored.id_tag, "RFID-LIVE")
         self.assertEqual(restored.energy, 2450)
         self.assertEqual(restored._active_power_curve, source._active_power_curve)

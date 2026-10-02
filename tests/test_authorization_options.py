@@ -124,7 +124,7 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['step_id'], 'init')
         self.assertEqual(
             result['menu_options'],
-            ['general', 'energy_sources', 'authorization', 'confirm_ap_mode'],
+            ['general', 'energy_sources', 'site_accounting', 'authorization', 'confirm_ap_mode'],
         )
         general = await self.flow.async_step_general()
         field_names = {marker.schema for marker in general['data_schema'].schema}
@@ -148,6 +148,153 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIs(fields['poll_interval'], int)
         self.assertIs(fields['location'], str)
+
+    def site_draft(self, **changes):
+        self.entry.data['battery_power_entity'] = 'sensor.battery'
+        self.flow.hass.states = {
+            name: SimpleNamespace(state='100', attributes={
+                'unit_of_measurement': unit, 'friendly_name': 'Same friendly name',
+            })
+            for name, unit in (
+                ('sensor.battery', 'W'), ('sensor.solar', 'W'),
+                ('sensor.house', 'kW'), ('sensor.grid', 'W'),
+                ('sensor.price', '€/kWh'), ('sensor.cents', 'ct/kWh'),
+                ('sensor.energy', 'kWh'),
+            )
+        }
+        return {
+            'site_accounting_profile': 'pv_battery', 
+            'site_grid_source': 'ha_sensor', 'site_grid_power_entity': 'sensor.grid',
+            'site_grid_power_sign': 'positive_import', 'site_solar_power_entity': 'sensor.solar',
+            'site_house_power_entity': 'sensor.house', 'site_tariff_entity': 'sensor.price',
+            **changes,
+        }
+
+    async def test_duplicate_sources_are_rejected_without_losing_the_draft(self):
+        draft = self.site_draft(site_solar_power_entity='sensor.battery')
+        form = await self.flow.async_step_site_accounting(draft)
+        self.assertEqual(form['errors'], {'site_solar_power_entity': 'duplicate_power_source'})
+        fields = {key.schema: key for key in form['data_schema'].schema}
+        self.assertEqual(fields['site_solar_power_entity'].description['suggested_value'], 'sensor.battery')
+        self.assertEqual(self.updates, [])
+        draft['site_solar_power_entity'] = 'sensor.grid'
+        form = await self.flow.async_step_site_accounting(draft)
+        self.assertEqual(set(form['errors']), {'site_solar_power_entity', 'site_grid_power_entity'})
+
+    async def test_searchable_source_choices_show_ids_and_filter_units_and_roles(self):
+        self.entry.data.update(self.site_draft())
+        form = await self.flow.async_step_site_accounting()
+        fields = {key.schema: value for key, value in form['data_schema'].schema.items()}
+        for field in ('site_grid_power_entity', 'site_solar_power_entity', 'site_house_power_entity', 'site_tariff_entity'):
+            config = fields[field].config
+            self.assertEqual(config['mode'], 'dropdown')
+            self.assertTrue(config['custom_value'])
+            for option in config['options']:
+                self.assertIn(option['value'], option['label'])
+        solar = {item['value'] for item in fields['site_solar_power_entity'].config['options']}
+        self.assertEqual(solar, {'sensor.solar'})
+        prices = [item['value'] for item in fields['site_tariff_entity'].config['options']]
+        self.assertEqual(prices, ['sensor.price'])
+        battery = await self.flow.async_step_energy_sources()
+        fields = {key.schema: value for key, value in battery['data_schema'].schema.items()}
+        self.assertTrue(fields['battery_power_entity'].config['custom_value'])
+        self.assertEqual(fields['battery_power_entity'].config['mode'], 'dropdown')
+        self.assertEqual(
+            [item['value'] for item in fields['battery_power_entity'].config['options']],
+            ['sensor.battery'],
+        )
+
+    async def test_missing_price_selection_remains_visible_for_repair(self):
+        self.entry.data.update(self.site_draft(site_tariff_entity='sensor.removed_price'))
+        form = await self.flow.async_step_site_accounting()
+        fields = {key.schema: value for key, value in form['data_schema'].schema.items()}
+        options = fields['site_tariff_entity'].config['options']
+        self.assertIn('sensor.removed_price', [item['value'] for item in options])
+
+    async def test_typed_sensor_ids_cannot_bypass_validation(self):
+        for field, entity, error in (
+            ('site_solar_power_entity', 'sensor.missing', 'invalid_power_sensor'),
+            ('site_house_power_entity', 'sensor.energy', 'invalid_power_sensor'),
+            ('site_tariff_entity', 'sensor.cents', 'invalid_tariff_sensor'),
+            ('site_solar_power_entity', 'sensor.battery', 'duplicate_power_source'),
+        ):
+            with self.subTest(field=field, entity=entity):
+                form = await self.flow.async_step_site_accounting(self.site_draft(**{field: entity}))
+                self.assertEqual(form['errors'][field], error)
+        self.assertEqual(self.updates, [])
+
+    async def test_optional_sources_can_be_cleared_without_reinserting_defaults(self):
+        self.entry.data.update(self.site_draft())
+        form = await self.flow.async_step_site_accounting()
+        draft = self.site_draft()
+        draft.pop('site_house_power_entity')
+        draft.pop('site_tariff_entity')
+        draft['site_fixed_price'] = -.1
+        validated = form['data_schema'](draft)
+        self.assertNotIn('site_house_power_entity', validated)
+        self.assertNotIn('site_tariff_entity', validated)
+        result = await self.flow.async_step_site_accounting(validated)
+        self.assertEqual(result['data'], {})
+        self.assertNotIn('site_house_power_entity', self.entry.data)
+        self.assertNotIn('site_tariff_entity', self.entry.data)
+        self.assertEqual(self.entry.data['site_fixed_price'], -.1)
+
+    async def test_invalid_fixed_price_grid_source_and_missing_battery(self):
+        for price in (float('nan'), float('inf')):
+            form = await self.flow.async_step_site_accounting(self.site_draft(site_fixed_price=price))
+            self.assertEqual(form['errors']['site_fixed_price'], 'invalid_fixed_price')
+        form = await self.flow.async_step_site_accounting(self.site_draft(site_grid_source='bogus'))
+        self.assertEqual(form['errors']['site_grid_source'], 'invalid_grid_source')
+        draft = self.site_draft()
+        self.entry.data.pop('battery_power_entity')
+        form = await self.flow.async_step_site_accounting(draft)
+        self.assertEqual(form['errors']['site_accounting_profile'], 'profile_requires_battery')
+        self.assertEqual(self.updates, [])
+
+    async def test_battery_edit_cannot_introduce_conflicts_or_remove_required_source(self):
+        self.entry.data.update(self.site_draft())
+        for value, error in (('sensor.solar', 'duplicate_power_source'), ('', 'profile_requires_battery')):
+            form = await self.flow.async_step_energy_sources({
+                'battery_power_entity': value, 'battery_power_sign': 'positive_charge',
+            })
+            self.assertEqual(form['errors']['battery_power_entity'], error)
+        self.assertEqual(self.updates, [])
+
+    async def test_site_selectors_use_user_translations_not_server_language(self):
+        """HA must localize choices per browser, even on a German server."""
+        translation_dir = (
+            Path(__file__).parents[1]
+            / 'custom_components/growatt_thor/translations'
+        )
+        expected = {
+            'site_accounting_profile': list(self.module.PROFILES),
+            'site_grid_source': ['none', 'thor_external', 'ha_sensor'],
+            'site_grid_power_sign': list(self.module.GRID_SIGNS),
+        }
+        for server_language in ('de', 'en', 'fr'):
+            self.flow.hass.config = SimpleNamespace(language=server_language)
+            form = await self.flow.async_step_site_accounting()
+            fields = {
+                marker.schema: validator
+                for marker, validator in form['data_schema'].schema.items()
+            }
+            for field, options in expected.items():
+                with self.subTest(server_language=server_language, field=field):
+                    self.assertEqual(fields[field].config['options'], options)
+                    self.assertEqual(fields[field].config['translation_key'], field)
+            for path in sorted(translation_dir.glob('*.json')):
+                payload = json.loads(path.read_text(encoding='utf-8'))
+                with self.subTest(language=path.stem):
+                    labels = payload['options']['step']['site_accounting']['data']
+                    self.assertEqual(set(labels), set(fields))
+                    for error in ('duplicate_power_source', 'profile_requires_battery',
+                                  'invalid_grid_source', 'invalid_fixed_price'):
+                        self.assertTrue(payload['options']['error'][error])
+                    for field, options in expected.items():
+                        translated = payload['selector'][field]['options']
+                        self.assertEqual(set(translated), set(options))
+                        self.assertTrue(all(translated.values()))
+        self.assertEqual(self.updates, [])
 
     async def test_save_preserves_existing_data_and_applies_live(self):
         result = await self.flow.async_step_authorization({
@@ -286,7 +433,7 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
         options = fields['battery_power_entity'].config['options']
         self.assertEqual(
             [option['value'] for option in options],
-            ['', 'sensor.battery_power', 'sensor.pv_power'],
+            ['sensor.battery_power', 'sensor.pv_power'],
         )
 
     async def test_battery_sensor_requires_a_power_unit(self):

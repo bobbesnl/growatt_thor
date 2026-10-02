@@ -19,6 +19,7 @@ from .charging.controls import (
     PV_LINKAGE_WORKING_MODES,
     ChargingControl,
     available_working_mode_options,
+    control_is_applicable,
     control_write_block_reason,
     encode_control_value,
     encode_working_mode,

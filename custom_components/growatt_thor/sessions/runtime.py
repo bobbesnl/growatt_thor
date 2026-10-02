@@ -9,10 +9,12 @@ import logging
 
 import json
 from collections.abc import Mapping
+from .outbox import SessionOutbox
 from .active_state import ActiveSessionState
 from .duration import EffectiveChargingTracker
 from .correlation import CORRELATION_MATCHED, build_unified_session
 from ..const import DOMAIN
+from ..energy.accounting_runtime import SessionAccumulator, parse_at
 from ..ocpp.diagnostics import create_ocpp_snapshot
 from .records import GrowattSessionRecord
 from .events import SessionEventTracker, merge_growatt_record_events
@@ -25,6 +27,18 @@ class SessionLifecycle:
 
     def __init__(self, coordinator):
         self.coordinator = coordinator
+        self.outbox = SessionOutbox()
+
+    async def async_flush_pending(self):
+        coordinator = self.coordinator
+        append_fn = coordinator.hass.data.get(DOMAIN, {}).get("append_session_to_csv")
+        if append_fn is None:
+            return
+        try:
+            await self.outbox.flush(coordinator.async_save_storage, append_fn)
+        except Exception:
+            _LOGGER.exception("Session delivery deferred; checkpoint retained for retry")
+
 
     def _active_session_state(self) -> ActiveSessionState | None:
         """Build the bounded persistent representation of the live session."""
@@ -91,7 +105,13 @@ class SessionLifecycle:
             )
             if value is not None
         }
-        coordinator.transaction_id = state.transaction_id
+        # JSON session identities are stored as text; OCPP and the stop guard
+        # compare integer transaction IDs received from the charger.
+        coordinator.transaction_id = (
+            int(state.transaction_id)
+            if state.transaction_id.isascii() and state.transaction_id.isdecimal()
+            else state.transaction_id
+        )
         coordinator.id_tag = state.id_tag
         coordinator.energy = state.energy_wh
         coordinator._active_power_curve = list(state.power_curve)
@@ -103,7 +123,7 @@ class SessionLifecycle:
             "start": {
                 "received_at": state.start_received_at,
                 "request": request,
-                "response": {"transaction_id": state.transaction_id},
+                "response": {"transaction_id": coordinator.transaction_id},
             },
             "events": coordinator._session_event_tracker.events,
         }
@@ -134,6 +154,7 @@ class SessionLifecycle:
         coordinator.id_tag = None
         coordinator.energy = None
         coordinator.active_transaction = None
+        coordinator.site_accounting = None
         coordinator._active_power_curve = []
         coordinator._session_event_tracker = None
         coordinator.effective_charging = EffectiveChargingTracker()
@@ -172,6 +193,20 @@ class SessionLifecycle:
             "start": start_snapshot,
             "events": coordinator._session_event_tracker.events,
         }
+        try:
+            baseline = float(meter_start) if meter_start is not None else None
+        except (TypeError, ValueError):
+            baseline = None
+        coordinator.site_accounting = (
+            SessionAccumulator(
+                str(transaction_id),
+                meter_start_wh=baseline,
+                last_meter_wh=baseline,
+                last_meter_at=parse_at(start_snapshot["received_at"]),
+            )
+            if coordinator.site_accounting_options.get("site_accounting_profile", "disabled") != "disabled"
+            else None
+        )
         coordinator._active_power_curve = []
         coordinator._restored_active_session = False
         coordinator.effective_charging.start(transaction_id)
@@ -228,6 +263,16 @@ class SessionLifecycle:
             effective_minutes = coordinator.effective_charging.effective_minutes
         completed["effective_charging_duration_minutes"] = effective_minutes
         completed["power_curve"] = list(coordinator._active_power_curve)
+        if coordinator.site_accounting is not None:
+            start_wh = coordinator.site_accounting.meter_start_wh
+            try:
+                stop_wh = float(meter_stop) if meter_stop is not None else None
+            except (TypeError, ValueError):
+                stop_wh = None
+            if start_wh is not None and stop_wh is not None and stop_wh >= start_wh:
+                coordinator.site_accounting.reconcile((stop_wh - start_wh) / 1000)
+            coordinator.last_site_accounting = coordinator.site_accounting
+            coordinator.site_accounting = None
         coordinator._active_power_curve = []
         coordinator._session_event_tracker = None
         if normalized_transaction_id is not None and effective_minutes is not None:
@@ -352,6 +397,9 @@ class SessionLifecycle:
                 if matched
                 else None
             )
+            # A late vendor record may belong to a different transaction.
+            # Keep its own identity; attaching the latest OCPP metadata would invent
+            # an RFID identifier, event history or accounting allocation for it.
             if not matched:
                 session = build_unified_session(
                     None,
@@ -396,6 +444,14 @@ class SessionLifecycle:
             coordinator.last_session_work_mode = record.work_mode
 
             coordinator.total_energy_charged += energy_kwh
+            accounting = coordinator.last_site_accounting if matched and coordinator.last_site_accounting and str(record.transaction_id) == coordinator.last_site_accounting.transaction_id else None
+            if accounting is not None:
+                accounting.reconcile(energy_kwh)
+                coordinator.site_accounting_totals["energy_kwh"] += energy_kwh
+                for key in ("direct_solar", "direct_grid", "battery_unknown", "unknown"):
+                    coordinator.site_accounting_totals[f"{key}_kwh"] += accounting.buckets[key]
+                if accounting.cost_covered:
+                    coordinator.site_accounting_totals["effective_grid_cost"] += accounting.effective_grid_cost
 
             _LOGGER.info(
                 "%s: energy=%.3f kWh, cost=%.2f, duration=%s min, total=%.3f kWh",
@@ -425,8 +481,7 @@ class SessionLifecycle:
                     "session_id": coordinator.last_session_id,
                     "session_source": coordinator.last_session_source,
                     "authorized_identifier": authorized_identifier or "",
-                    # Reserved until session-scoped source allocation exists.
-                    "green_energy_kwh": "",
+                    **(accounting.as_session_dict() if accounting else {"green_energy_kwh": ""}),
                     "power_curve": json.dumps(
                         (coordinator.last_completed_transaction or {}).get("power_curve", [])
                         if matched else [],
@@ -434,7 +489,10 @@ class SessionLifecycle:
                     ),
                     "events": json.dumps(events, separators=(",", ":")),
                 }
-                coordinator.hass.async_create_task(append_fn(session_row))
+                self.outbox.enqueue(session_row)
+                coordinator.hass.async_create_task(self.async_flush_pending())
+                if accounting is not None:
+                    coordinator.last_site_accounting = None
 
             coordinator.hass.async_create_task(coordinator.async_save_storage())
             coordinator.async_set_updated_data(True)

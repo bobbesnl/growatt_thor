@@ -53,3 +53,14 @@ class SiteObservationTest(unittest.TestCase):
         self.assertEqual(result["power_w"], 0)
         self.assertEqual(result["currents_a"], [None, None, None])
         self.assertEqual(result["sample_at"], AT.isoformat())
+
+    def test_malformed_latest_packet_stays_unknown_without_reusing_old_values(self):
+        old = {"timestamp": "old", "sampled_values": [{"numeric_value": 7000,
+               "measurand": "Power.Active.Import", "unit": "W"}]}
+        for latest in [None, {}, {"sampled_values": None},
+                       {"timestamp": 123, "sampled_values": [None, {}, {"phase": []}]}]:
+            with self.subTest(latest=latest):
+                values = meter.charging_meter_values({"meter_values": [old, latest]})
+                self.assertIsNone(values["power_w"])
+                self.assertIsNone(values["sample_at"])
+                self.assertEqual(values["currents_a"], [None, None, None])

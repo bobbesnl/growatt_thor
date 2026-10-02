@@ -29,6 +29,7 @@ from .energy.currency import configured_currency, electricity_price_unit
 from .ocpp.external_meter import EXTERNAL_METER_HEALTH_OPTIONS
 from .ocpp.diagnostics import boot_notification_field
 from .ocpp.status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
+from .energy.accounting_runtime import CONF_SITE_PROFILE, coverage_percent
 from .sessions.records import (
     SESSION_CHARGE_MODE_OPTIONS,
     SESSION_WORK_MODE_OPTIONS,
@@ -363,6 +364,15 @@ async def async_setup_entry(hass, entry, async_add_entities):
         GrowattConfigurationSensor(coordinator, entry, description)
         for description in CONFIGURATION_SENSOR_DESCRIPTIONS
     ]
+    site_sensors = (
+        [SiteAccountingSensor(coordinator, entry, key) for key in (
+            "energy_kwh", "direct_solar_kwh", "direct_grid_kwh",
+            "battery_unknown_kwh", "unknown_kwh", "effective_grid_cost",
+            "coverage",
+        )]
+        if entry.data.get(CONF_SITE_PROFILE, "disabled") != "disabled"
+        else []
+    )
 
     async_add_entities(
         [
@@ -391,6 +401,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
             # ── Cumulatief totaal (Energy Dashboard) ──
             TotalEnergyChargedSensor(coordinator, entry),
+            *site_sensors,
 
             # ── Fase-specifiek (diagnostics tijdens laden) ──
             CurrentSensor(coordinator, entry, "L1"),
@@ -442,6 +453,36 @@ class BaseSensor(CoordinatorEntity, SensorEntity):
             "manufacturer": "Growatt",
             "model": "THOR",
         }
+
+
+class SiteAccountingSensor(BaseSensor):
+    """Cumulative observed accounting since this feature was enabled."""
+
+    def __init__(self, coordinator, entry, key):
+        super().__init__(coordinator, entry, f"site_{key}")
+        self.key = key
+        self._attr_translation_key = f"site_{key}"
+        self._attr_device_class = (
+            SensorDeviceClass.MONETARY if key == "effective_grid_cost"
+            else SensorDeviceClass.ENERGY if key != "coverage" else None
+        )
+        self._attr_state_class = (
+            SensorStateClass.TOTAL if key == "effective_grid_cost"
+            else SensorStateClass.MEASUREMENT if key == "coverage"
+            else SensorStateClass.TOTAL_INCREASING
+        )
+        if key in ("battery_unknown_kwh", "unknown_kwh"):
+            self._attr_entity_registry_enabled_default = False
+        self._attr_native_unit_of_measurement = (
+            configured_currency(coordinator.hass) if key == "effective_grid_cost"
+            else "%" if key == "coverage" else UnitOfEnergy.KILO_WATT_HOUR
+        )
+
+    @property
+    def native_value(self):
+        if self.key == "coverage":
+            return coverage_percent(self.coordinator.site_accounting_totals)
+        return round(self.coordinator.site_accounting_totals[self.key], 6)
 
 
 class LastChargerFaultSensor(BaseSensor):
@@ -677,6 +718,7 @@ class StatusSensor(BaseSensor):
             "last_message_action": self.coordinator.last_message_action,
             "last_heartbeat_at": self.coordinator.last_heartbeat_at,
         }
+
 
 
 # ─────────────────────────────

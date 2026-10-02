@@ -94,8 +94,8 @@
       "init": {
         "title": "Growatt THOR Opties",
         "description": "Kies welk onderdeel je wilt configureren. Optionele energiebronnen worden alleen voor visualisatie gebruikt.",
-        "menu_options": {"general": "Algemene instellingen", "energy_sources": "Optionele energiebronnen", "authorization": "Lokale toegangscontrole", "confirm_ap_mode": "Onderhoud: AP-modus"},
-        "menu_option_descriptions": {"general": "Configureer het pollinginterval en de locatie.", "energy_sources": "Configureer optionele batterijstroom voor kaarten en grafieken.", "authorization": "Beheer RFID-toegang en starts vanuit Home Assistant afzonderlijk.", "confirm_ap_mode": "Schakel de configuratie-wifi van de lader in; Home Assistant wordt hierbij losgekoppeld."}
+        "menu_options": {"general": "Algemene instellingen", "energy_sources": "Optionele energiebronnen", "site_accounting": "Site EV accounting", "authorization": "Lokale toegangscontrole", "confirm_ap_mode": "Onderhoud: AP-modus"},
+        "menu_option_descriptions": {"general": "Configureer het pollinginterval en de locatie.", "energy_sources": "Configureer optionele batterijstroom voor kaarten en grafieken.", "site_accounting": "Book EV energy against site power and tariffs without controlling devices.", "authorization": "Beheer RFID-toegang en starts vanuit Home Assistant afzonderlijk.", "confirm_ap_mode": "Schakel de configuratie-wifi van de lader in; Home Assistant wordt hierbij losgekoppeld."}
       },
       "general": {
         "title": "Algemene instellingen",
@@ -119,6 +119,20 @@
         "data_description": {
           "battery_power_entity": "Selecteer een vermogenssensor in W, kW of MW om de batterijstroom op de kaart weer te geven.",
           "battery_power_sign": "Geef aan of een positieve waarde laden of ontladen betekent."
+        }
+      },
+      "site_accounting": {
+        "title": "Site EV accounting",
+        "description": "Read-only model. Grid import is positive unless you select the opposite sign. GroHome Load First is a declared booking order, not a measured flow. Changes apply to future meter deltas; reload once to add site sensors when first enabling accounting.",
+        "data": {
+          "site_accounting_profile": "Site profile",
+          "site_grid_source": "Grid source",
+          "site_grid_power_entity": "Grid power sensor (optional)",
+          "site_grid_power_sign": "Grid sensor sign",
+          "site_solar_power_entity": "Solar power sensor (optional)",
+          "site_house_power_entity": "Non-EV household power sensor (optional)",
+          "site_tariff_entity": "Current price per kWh sensor (optional)",
+          "site_fixed_price": "Fixed price per kWh (used without price sensor)"
         }
       },
       "authorization": {
@@ -152,7 +166,16 @@
     },
     "error": {
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "duplicate_power_source": "Kies verschillende sensoren voor net-, zonne-, huishoudelijk en batterijvermogen.",
+      "profile_requires_battery": "Selecteer eerst een batterijvermogenssensor onder Optionele energiebronnen.",
+      "invalid_grid_source": "Kies een ondersteunde netbron.",
+      "invalid_fixed_price": "Voer een eindige prijs per kWh in; negatieve prijzen zijn toegestaan.",
       "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
+      "invalid_site_profile": "Choose a supported site profile.",
+      "grid_source_required": "Select a grid source for PV accounting.",
+      "tariff_required": "Choose a fixed price or a current price-per-kWh sensor.",
+      "invalid_grid_sign": "Confirm whether positive means import or export.",
+      "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
       "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn",
       "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn"
@@ -235,6 +258,28 @@
     }
   },
   "selector": {
+    "site_accounting_profile": {
+      "options": {
+        "disabled": "Uitgeschakeld",
+        "grid_only": "Net zonder PV",
+        "pv": "PV zonder batterij",
+        "pv_battery": "PV met batterij",
+        "grohome_load_first": "GroHome: huishouden → batterij → laadpaal → GroBoost"
+      }
+    },
+    "site_grid_source": {
+      "options": {
+        "none": "Geen",
+        "thor_external": "THOR External Meter",
+        "ha_sensor": "HA-sensor"
+      }
+    },
+    "site_grid_power_sign": {
+      "options": {
+        "positive_import": "Positief = afname",
+        "positive_export": "Positief = teruglevering"
+      }
+    },
     "charger_mode": {
       "options": {
         "1": "Home Assistant / RFID",
@@ -324,6 +369,13 @@
       "charging_power": { "name": "Laadvermogen" },
       "energy_charged": { "name": "Geladen energie" },
       "total_energy_charged": { "name": "Totaal geladen energie" },
+      "site_energy_kwh": { "name": "Site EV energy accounted" },
+      "site_direct_solar_kwh": { "name": "Site EV direct solar energy" },
+      "site_direct_grid_kwh": { "name": "Site EV direct grid energy" },
+      "site_battery_unknown_kwh": { "name": "Site EV battery energy of unknown origin" },
+      "site_unknown_kwh": { "name": "Site EV unallocated energy" },
+      "site_effective_grid_cost": { "name": "Site EV known effective grid cost" },
+      "site_coverage": { "name": "Site EV accounting coverage" },
       "electricity_price": { "name": "Elektriciteitsprijs" },
       "last_session_energy": { "name": "Energie laatste sessie" },
       "last_session_cost": { "name": "Kosten laatste sessie" },

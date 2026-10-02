@@ -8,6 +8,7 @@ from homeassistant.helpers.selector import (
 )
 import voluptuous as vol
 import logging
+from math import isfinite
 
 from .charging.authorization import (
     AuthorizationPolicy,
@@ -28,6 +29,7 @@ from .const import (
     DEFAULT_POLL_INTERVAL,
     MIN_POLL_INTERVAL,
 )
+from .energy.currency import configured_currency, normalized_price_unit
 from .energy.sources import (
     BATTERY_POSITIVE_DISCHARGE,
     BATTERY_POWER_SIGNS,
@@ -35,6 +37,13 @@ from .energy.sources import (
     CONF_BATTERY_POWER_SIGN,
     is_power_sensor,
     power_sensor_options,
+    tariff_sensor_options,
+    duplicate_source_fields,
+)
+from .energy.accounting_runtime import (
+    CONF_FIXED_PRICE, CONF_GRID_ENTITY, CONF_GRID_SIGN, CONF_HOUSE_ENTITY,
+    CONF_SITE_PROFILE, CONF_SOLAR_ENTITY, CONF_TARIFF_ENTITY, GRID_SIGNS,
+    PROFILES,
 )
 from .configuration.validation import (
     NumericValidationError,
@@ -140,6 +149,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             menu_options=[
                 "general",
                 "energy_sources",
+                "site_accounting",
                 "authorization",
                 "confirm_ap_mode",
             ],
@@ -233,6 +243,20 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             if battery_entity and battery_sign not in BATTERY_POWER_SIGNS:
                 errors[CONF_BATTERY_POWER_SIGN] = "invalid_battery_power_sign"
 
+            if battery_entity:
+                assignments = {
+                    CONF_BATTERY_POWER_ENTITY: battery_entity,
+                    CONF_SOLAR_ENTITY: self.config_entry.data.get(CONF_SOLAR_ENTITY),
+                    CONF_HOUSE_ENTITY: self.config_entry.data.get(CONF_HOUSE_ENTITY),
+                    CONF_GRID_ENTITY: self.config_entry.data.get(CONF_GRID_ENTITY)
+                    if self.config_entry.data.get("site_grid_source") == "ha_sensor" else None,
+                }
+                if (self.config_entry.data.get(CONF_SITE_PROFILE, "disabled") != "disabled"
+                        and CONF_BATTERY_POWER_ENTITY in duplicate_source_fields(assignments)):
+                    errors[CONF_BATTERY_POWER_ENTITY] = "duplicate_power_source"
+            elif self.config_entry.data.get(CONF_SITE_PROFILE) in ("pv_battery", "grohome_load_first"):
+                errors[CONF_BATTERY_POWER_ENTITY] = "profile_requires_battery"
+
             if not errors:
                 updated_data = dict(self.config_entry.data)
                 if battery_entity:
@@ -253,33 +277,40 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                         if battery_entity
                         else BATTERY_POSITIVE_DISCHARGE
                     )
+                    coordinator.site_accounting_options = dict(updated_data)
                     coordinator.async_set_updated_data(True)
                 return self.async_create_entry(title="", data={})
 
         current_battery_entity = (
-            (user_input or {}).get(
-                CONF_BATTERY_POWER_ENTITY,
-                configured_entity,
-            )
-            or ""
-        )
+            user_input.get(CONF_BATTERY_POWER_ENTITY, "")
+            if user_input is not None else configured_entity
+        ) or ""
         current_battery_sign = (user_input or {}).get(
             CONF_BATTERY_POWER_SIGN,
             configured_sign,
         )
+        excluded = set()
+        if self.config_entry.data.get(CONF_SITE_PROFILE, "disabled") != "disabled":
+            source_keys = [CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY]
+            if self.config_entry.data.get("site_grid_source") == "ha_sensor":
+                source_keys.append(CONF_GRID_ENTITY)
+            excluded = {self.config_entry.data.get(key) for key in source_keys} - {None, ""}
         return self.async_show_form(
             step_id="energy_sources",
             data_schema=vol.Schema(
                 {
                     vol.Optional(
                         CONF_BATTERY_POWER_ENTITY,
-                        default=current_battery_entity,
+                        description={"suggested_value": current_battery_entity},
                     ): SelectSelector(
                         SelectSelectorConfig(
-                            options=power_sensor_options(
+                            options=[option for option in power_sensor_options(
                                 getattr(self.hass, "states", {}),
                                 current_battery_entity or None,
-                            ),
+                                exclude=excluded,
+                            ) if option["value"]],
+                            mode="dropdown",
+                            custom_value=True,
                         )
                     ),
                     vol.Required(
@@ -289,10 +320,122 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                         SelectSelectorConfig(
                             options=list(BATTERY_POWER_SIGNS),
                             translation_key="battery_power_sign",
+                            mode="dropdown",
                         )
                     ),
                 }
             ),
+            errors=errors,
+        )
+
+    async def async_step_site_accounting(self, user_input=None):
+        """Configure read-only site bookkeeping; changes apply to future deltas."""
+        current = dict(self.config_entry.data)
+        errors = {}
+        if user_input is not None:
+            states = getattr(self.hass, "states", {})
+            profile = user_input.get(CONF_SITE_PROFILE, "disabled")
+            if profile not in PROFILES:
+                errors[CONF_SITE_PROFILE] = "invalid_site_profile"
+            grid_source = user_input.get("site_grid_source", "none")
+            if profile in ("pv", "pv_battery", "grohome_load_first") and grid_source == "none":
+                errors["site_grid_source"] = "grid_source_required"
+            if grid_source == "ha_sensor" and not user_input.get(CONF_GRID_ENTITY):
+                errors[CONF_GRID_ENTITY] = "grid_source_required"
+            for key in (CONF_GRID_ENTITY, CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY):
+                entity = user_input.get(key)
+                if entity and not is_power_sensor(entity, states.get(entity)):
+                    errors[key] = "invalid_power_sensor"
+            if user_input.get(CONF_GRID_SIGN) not in GRID_SIGNS:
+                errors[CONF_GRID_SIGN] = "invalid_grid_sign"
+            tariff_entity = user_input.get(CONF_TARIFF_ENTITY)
+            if profile != "disabled" and not tariff_entity and user_input.get(CONF_FIXED_PRICE) is None:
+                errors[CONF_FIXED_PRICE] = "tariff_required"
+            if tariff_entity:
+                state = states.get(tariff_entity)
+                unit = getattr(state, "attributes", {}).get("unit_of_measurement") if state else None
+                if not tariff_entity.startswith("sensor.") or normalized_price_unit(unit, configured_currency(self.hass)) is None:
+                    errors[CONF_TARIFF_ENTITY] = "invalid_tariff_sensor"
+            if grid_source not in ("none", "thor_external", "ha_sensor"):
+                errors["site_grid_source"] = "invalid_grid_source"
+            if profile in ("pv_battery", "grohome_load_first") and not current.get(CONF_BATTERY_POWER_ENTITY):
+                errors[CONF_SITE_PROFILE] = "profile_requires_battery"
+            if profile != "disabled":
+                assignments = {
+                    CONF_BATTERY_POWER_ENTITY: current.get(CONF_BATTERY_POWER_ENTITY),
+                    CONF_GRID_ENTITY: user_input.get(CONF_GRID_ENTITY) if grid_source == "ha_sensor" else None,
+                    CONF_SOLAR_ENTITY: user_input.get(CONF_SOLAR_ENTITY),
+                    CONF_HOUSE_ENTITY: user_input.get(CONF_HOUSE_ENTITY),
+                }
+                for key in duplicate_source_fields(assignments) - {CONF_BATTERY_POWER_ENTITY}:
+                    errors[key] = "duplicate_power_source"
+            price = user_input.get(CONF_FIXED_PRICE)
+            if price is not None:
+                try:
+                    if not isfinite(float(price)):
+                        errors[CONF_FIXED_PRICE] = "invalid_fixed_price"
+                except (ValueError, TypeError):
+                    errors[CONF_FIXED_PRICE] = "invalid_fixed_price"
+            if not errors:
+                updated = dict(current)
+                keys = (CONF_SITE_PROFILE, CONF_GRID_ENTITY, CONF_GRID_SIGN,
+                        CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY, CONF_TARIFF_ENTITY,
+                        CONF_FIXED_PRICE, "site_grid_source")
+                for key in keys:
+                    value = user_input.get(key)
+                    if value in (None, ""):
+                        updated.pop(key, None)
+                    else:
+                        updated[key] = value
+                self.hass.config_entries.async_update_entry(self.config_entry, data=updated)
+                coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
+                if coordinator:
+                    coordinator.site_accounting_options = dict(updated)
+                    coordinator.async_set_updated_data(True)
+                return self.async_create_entry(title="", data={})
+
+        # Redisplay the submitted draft on validation errors, including cleared fields.
+        if user_input is not None:
+            for key in (CONF_GRID_ENTITY, CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY, CONF_TARIFF_ENTITY, CONF_FIXED_PRICE):
+                current.pop(key, None)
+            current.update(user_input)
+        states = getattr(self.hass, "states", {})
+
+        def power_selector(key: str, role: str) -> SelectSelector:
+            other_keys = {CONF_BATTERY_POWER_ENTITY, CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY}
+            if current.get("site_grid_source") == "ha_sensor":
+                other_keys.add(CONF_GRID_ENTITY)
+            excluded = {current.get(other) for other in other_keys - {key}} - {None, ""}
+            options = power_sensor_options(states, current.get(key), role=role, exclude=excluded)
+            # custom_value enables HA's searchable picker; server validation still
+            # rejects unknown entities, incompatible units and conflicting roles.
+            return SelectSelector(SelectSelectorConfig(
+                options=[item for item in options if item["value"]],
+                mode="dropdown", custom_value=True,
+            ))
+
+        def source_field(key: str):
+            return vol.Optional(key, description={"suggested_value": current.get(key, "")})
+
+        price_key = (
+            vol.Optional(CONF_FIXED_PRICE, description={"suggested_value": current[CONF_FIXED_PRICE]})
+            if current.get(CONF_FIXED_PRICE) is not None else vol.Optional(CONF_FIXED_PRICE)
+        )
+        return self.async_show_form(
+            step_id="site_accounting",
+            data_schema=vol.Schema({
+                vol.Required(CONF_SITE_PROFILE, default=current.get(CONF_SITE_PROFILE, "disabled")): SelectSelector(SelectSelectorConfig(options=list(PROFILES), translation_key=CONF_SITE_PROFILE, mode="dropdown")),
+                vol.Required("site_grid_source", default=current.get("site_grid_source", "none")): SelectSelector(SelectSelectorConfig(options=["none", "thor_external", "ha_sensor"], translation_key="site_grid_source", mode="dropdown")),
+                source_field(CONF_GRID_ENTITY): power_selector(CONF_GRID_ENTITY, "grid"),
+                vol.Required(CONF_GRID_SIGN, default=current.get(CONF_GRID_SIGN, "positive_import")): SelectSelector(SelectSelectorConfig(options=list(GRID_SIGNS), translation_key=CONF_GRID_SIGN, mode="dropdown")),
+                source_field(CONF_SOLAR_ENTITY): power_selector(CONF_SOLAR_ENTITY, "solar"),
+                source_field(CONF_HOUSE_ENTITY): power_selector(CONF_HOUSE_ENTITY, "household"),
+                source_field(CONF_TARIFF_ENTITY): SelectSelector(SelectSelectorConfig(
+                    options=tariff_sensor_options(states, configured_currency(self.hass), current.get(CONF_TARIFF_ENTITY)),
+                    mode="dropdown", custom_value=True,
+                )),
+                price_key: float,
+            }),
             errors=errors,
         )
 

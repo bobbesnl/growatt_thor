@@ -48,6 +48,64 @@ class PvLinkageControlTest(unittest.TestCase):
             (pv.ConfigurationWrite("G_SolarBoost", "1&Disable"),),
         )
 
+    def test_complete_profile_orders_mode_limit_and_boost(self):
+        profile = pv.PvLinkageProfile(
+            working_mode="pv_linkage",
+            grid_import_limit_kw=2.4,
+            boost=pv.PvLinkageDraft(pv.PvBoostMode.DISABLED),
+        )
+        self.assertEqual(
+            pv.build_pv_linkage_profile_writes(
+                profile,
+                now=datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc),
+            ),
+            (
+                pv.ConfigurationWrite("G_SolarMode", "1&1"),
+                pv.ConfigurationWrite("G_SolarLimitPower", "2.4"),
+                pv.ConfigurationWrite("G_SolarBoost", "1&Disable"),
+            ),
+        )
+
+    def test_surplus_only_profile_does_not_rewrite_grid_allowance(self):
+        profile = pv.PvLinkageProfile(
+            working_mode="pv_linkage_plus",
+            grid_import_limit_kw=None,
+            boost=pv.PvLinkageDraft(pv.PvBoostMode.DISABLED),
+        )
+        writes = pv.build_pv_linkage_profile_writes(
+            profile,
+            now=datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc),
+        )
+        self.assertEqual(
+            writes,
+            (
+                pv.ConfigurationWrite("G_SolarMode", "1&2"),
+                pv.ConfigurationWrite("G_SolarBoost", "1&Disable"),
+            ),
+        )
+
+    def test_complete_profile_rejects_bad_mode_and_grid_allowance(self):
+        self.assertEqual(
+            pv.profile_validation_errors(
+                pv.PvLinkageProfile(
+                    working_mode="fast",
+                    grid_import_limit_kw=2.45,
+                    boost=pv.PvLinkageDraft(pv.PvBoostMode.DISABLED),
+                )
+            ),
+            ("working_mode_invalid",),
+        )
+        self.assertEqual(
+            pv.profile_validation_errors(
+                pv.PvLinkageProfile(
+                    working_mode="pv_linkage",
+                    grid_import_limit_kw=2.45,
+                    boost=pv.PvLinkageDraft(pv.PvBoostMode.DISABLED),
+                )
+            ),
+            ("grid_import_limit_invalid",),
+        )
+
     def test_manual_boost_writes_mode_then_period(self):
         writes = pv.build_pv_linkage_writes(
             pv.PvLinkageDraft(

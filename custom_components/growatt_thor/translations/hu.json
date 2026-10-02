@@ -94,8 +94,8 @@
       "init": {
         "title": "Growatt THOR beállítások",
         "description": "Válaszd ki a beállítandó területet. Az opcionális energiaforrások csak a megjelenítést szolgálják.",
-        "menu_options": {"general": "Általános beállítások", "energy_sources": "Opcionális energiaforrások", "authorization": "Helyi hozzáférés-vezérlés", "confirm_ap_mode": "Karbantartás: AP mód"},
-        "menu_option_descriptions": {"general": "A lekérdezési időköz és a hely beállítása.", "energy_sources": "Opcionális akkumulátoráramlás beállítása a kártyákhoz és diagramokhoz.", "authorization": "Az RFID-hozzáférés és a Home Assistant-indítások külön kezelése.", "confirm_ap_mode": "A töltő beállítási Wi-Fi-jének engedélyezése; a Home Assistant kapcsolata megszakad."}
+        "menu_options": {"general": "Általános beállítások", "energy_sources": "Opcionális energiaforrások", "site_accounting": "Site EV accounting", "authorization": "Helyi hozzáférés-vezérlés", "confirm_ap_mode": "Karbantartás: AP mód"},
+        "menu_option_descriptions": {"general": "A lekérdezési időköz és a hely beállítása.", "energy_sources": "Opcionális akkumulátoráramlás beállítása a kártyákhoz és diagramokhoz.", "site_accounting": "Book EV energy against site power and tariffs without controlling devices.", "authorization": "Az RFID-hozzáférés és a Home Assistant-indítások külön kezelése.", "confirm_ap_mode": "A töltő beállítási Wi-Fi-jének engedélyezése; a Home Assistant kapcsolata megszakad."}
       },
       "general": {
         "title": "Általános beállítások",
@@ -119,6 +119,20 @@
         "data_description": {
           "battery_power_entity": "Válassz W, kW vagy MW mértékegységű teljesítményérzékelőt az akkumulátoráramlás megjelenítéséhez.",
           "battery_power_sign": "Add meg, hogy a pozitív érték töltést vagy kisütést jelent-e."
+        }
+      },
+      "site_accounting": {
+        "title": "Site EV accounting",
+        "description": "Read-only model. Grid import is positive unless you select the opposite sign. GroHome Load First is a declared booking order, not a measured flow. Changes apply to future meter deltas; reload once to add site sensors when first enabling accounting.",
+        "data": {
+          "site_accounting_profile": "Site profile",
+          "site_grid_source": "Grid source",
+          "site_grid_power_entity": "Grid power sensor (optional)",
+          "site_grid_power_sign": "Grid sensor sign",
+          "site_solar_power_entity": "Solar power sensor (optional)",
+          "site_house_power_entity": "Non-EV household power sensor (optional)",
+          "site_tariff_entity": "Current price per kWh sensor (optional)",
+          "site_fixed_price": "Fixed price per kWh (used without price sensor)"
         }
       },
       "authorization": {
@@ -152,7 +166,16 @@
     },
     "error": {
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "duplicate_power_source": "A hálózat, a napelem, a háztartás és az akkumulátor teljesítményéhez külön érzékelőt válasszon.",
+      "profile_requires_battery": "A profil kiválasztása előtt válasszon akkumulátorteljesítmény-érzékelőt az opcionális energiaforrásoknál.",
+      "invalid_grid_source": "Válasszon támogatott hálózati forrást.",
+      "invalid_fixed_price": "Véges kWh-árat adjon meg; negatív ár is megengedett.",
       "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
+      "invalid_site_profile": "Choose a supported site profile.",
+      "grid_source_required": "Select a grid source for PV accounting.",
+      "tariff_required": "Choose a fixed price or a current price-per-kWh sensor.",
+      "invalid_grid_sign": "Confirm whether positive means import or export.",
+      "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
       "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "A lekérdezési időköz legalább {min_interval} másodperc legyen",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
@@ -189,6 +212,28 @@
     "command_failed": { "message": "Command {command_name} ({command_id}) failed: {status} ({details})." }
   },
   "selector": {
+    "site_accounting_profile": {
+      "options": {
+        "disabled": "Letiltva",
+        "grid_only": "Hálózat napelem nélkül",
+        "pv": "Napelem akkumulátor nélkül",
+        "pv_battery": "Napelem akkumulátorral",
+        "grohome_load_first": "GroHome: háztartás → akkumulátor → töltő → GroBoost"
+      }
+    },
+    "site_grid_source": {
+      "options": {
+        "none": "Nincs",
+        "thor_external": "THOR External Meter",
+        "ha_sensor": "HA-érzékelő"
+      }
+    },
+    "site_grid_power_sign": {
+      "options": {
+        "positive_import": "Pozitív = vételezés",
+        "positive_export": "Pozitív = betáplálás"
+      }
+    },
     "charger_mode": {
       "options": {
         "1": "Home Assistant / RFID",
@@ -253,6 +298,13 @@
           "charger_result": { "name": "Charger result" }
         }
       },
+      "site_energy_kwh": { "name": "Site EV energy accounted" },
+      "site_direct_solar_kwh": { "name": "Site EV direct solar energy" },
+      "site_direct_grid_kwh": { "name": "Site EV direct grid energy" },
+      "site_battery_unknown_kwh": { "name": "Site EV battery energy of unknown origin" },
+      "site_unknown_kwh": { "name": "Site EV unallocated energy" },
+      "site_effective_grid_cost": { "name": "Site EV known effective grid cost" },
+      "site_coverage": { "name": "Site EV accounting coverage" },
       "charge_point_id": {
         "name": "A töltési pont azonosítója"
       },

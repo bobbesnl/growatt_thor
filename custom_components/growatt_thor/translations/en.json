@@ -97,12 +97,14 @@
         "menu_options": {
           "general": "General settings",
           "energy_sources": "Optional energy sources",
+          "site_accounting": "Site EV accounting",
           "authorization": "Local access control",
           "confirm_ap_mode": "Maintenance: AP mode"
         },
         "menu_option_descriptions": {
           "general": "Configure polling and location.",
           "energy_sources": "Configure optional battery flow for cards and charts.",
+          "site_accounting": "Book EV energy against site power and tariffs without controlling devices.",
           "authorization": "Manage RFID access and Home Assistant remote starts separately.",
           "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant."
         }
@@ -129,6 +131,20 @@
         "data_description": {
           "battery_power_entity": "Select a W, kW, or MW power sensor to add battery flow to the card.",
           "battery_power_sign": "Define whether a positive sensor value represents charging or discharging."
+        }
+      },
+      "site_accounting": {
+        "title": "Site EV accounting",
+        "description": "Read-only model. Grid import is positive unless you select the opposite sign. GroHome Load First is a declared booking order, not a measured flow. Changes apply to future meter deltas; reload once to add site sensors when first enabling accounting.",
+        "data": {
+          "site_accounting_profile": "Site profile",
+          "site_grid_source": "Grid source",
+          "site_grid_power_entity": "Grid power sensor (optional)",
+          "site_grid_power_sign": "Grid sensor sign",
+          "site_solar_power_entity": "Solar power sensor (optional)",
+          "site_house_power_entity": "Non-EV household power sensor (optional)",
+          "site_tariff_entity": "Current price per kWh sensor (optional)",
+          "site_fixed_price": "Fixed price per kWh (used without price sensor)"
         }
       },
       "authorization": {
@@ -162,7 +178,16 @@
     },
     "error": {
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "duplicate_power_source": "Choose different sensors for grid, solar, household and battery power.",
+      "profile_requires_battery": "Select a battery power sensor under Optional energy sources before choosing this profile.",
+      "invalid_grid_source": "Choose a supported grid source.",
+      "invalid_fixed_price": "Enter a finite price per kWh; negative prices are allowed.",
       "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
+      "invalid_site_profile": "Choose a supported site profile.",
+      "grid_source_required": "Select a grid source for PV accounting.",
+      "tariff_required": "Choose a fixed price or a current price-per-kWh sensor.",
+      "invalid_grid_sign": "Confirm whether positive means import or export.",
+      "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
       "invalid_battery_power_sign": "Choose whether a positive sensor value means battery charging or discharging.",
       "poll_interval_too_low": "Poll interval must be at least {min_interval} seconds",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
@@ -245,6 +270,28 @@
     }
   },
   "selector": {
+    "site_accounting_profile": {
+      "options": {
+        "disabled": "Disabled",
+        "grid_only": "Grid without PV",
+        "pv": "PV without battery",
+        "pv_battery": "PV with battery",
+        "grohome_load_first": "GroHome: household → battery → EVSE → GroBoost"
+      }
+    },
+    "site_grid_source": {
+      "options": {
+        "none": "None",
+        "thor_external": "THOR External Meter",
+        "ha_sensor": "HA sensor"
+      }
+    },
+    "site_grid_power_sign": {
+      "options": {
+        "positive_import": "Positive = import",
+        "positive_export": "Positive = export"
+      }
+    },
     "charger_mode": {
       "options": {
         "1": "Home Assistant / RFID",
@@ -334,6 +381,13 @@
       "charging_power": { "name": "Charging Power" },
       "energy_charged": { "name": "Energy Charged" },
       "total_energy_charged": { "name": "Total Energy Charged" },
+      "site_energy_kwh": { "name": "Site EV energy accounted" },
+      "site_direct_solar_kwh": { "name": "Site EV direct solar energy" },
+      "site_direct_grid_kwh": { "name": "Site EV direct grid energy" },
+      "site_battery_unknown_kwh": { "name": "Site EV battery energy of unknown origin" },
+      "site_unknown_kwh": { "name": "Site EV unallocated energy" },
+      "site_effective_grid_cost": { "name": "Site EV known effective grid cost" },
+      "site_coverage": { "name": "Site EV accounting coverage" },
       "electricity_price": { "name": "Electricity Price" },
       "last_session_energy": { "name": "Last Session Energy" },
       "last_session_cost": { "name": "Last Session Cost" },
