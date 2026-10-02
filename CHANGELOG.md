@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## 2.0.0-dev.6
+
+### Added
+
+- Add optional automatic stopping on sustained grid import, battery discharge or either.
+- Revalidate transaction identity and current measurements before issuing the shared Stop command.
+- Keep automatic restart and battery control outside the feature scope.
+
 ## 2.0.0-dev.5
 
 ### Added
