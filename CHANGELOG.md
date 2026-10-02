@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## 2.0.0-dev.1
+
+### Added
+
+- Install native charging targets and scheduling through Home Assistant services.
+- Introduce feature packages and typed target runtime ownership.
+
 ## [Unreleased]
 
 _Target version: 1.7.0_
