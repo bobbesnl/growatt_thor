@@ -61,7 +61,7 @@ def load_flow():
         'homeassistant.helpers.selector': selectors,
     }):
         flow = importlib.import_module(package.__name__ + '.config_flow')
-    return flow, importlib.import_module(package.__name__ + '.authorization')
+    return flow, importlib.import_module(package.__name__ + '.charging.authorization')
 
 
 @unittest.skipUnless(HAS_VOL, 'Install tests/requirements-auth.txt for options-flow tests')

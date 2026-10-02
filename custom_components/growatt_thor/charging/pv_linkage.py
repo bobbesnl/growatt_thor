@@ -6,7 +6,7 @@ from datetime import datetime, time, timedelta
 from enum import Enum
 import re
 
-from .value_validation import (
+from ..configuration.validation import (
     NumericValidationError,
     format_decimal,
     validate_number,

@@ -1,7 +1,7 @@
 """One-time Home Assistant entity-registry migrations."""
 from __future__ import annotations
 
-from .const import DOMAIN
+from ..const import DOMAIN
 
 LEGACY_SESSION_DURATION_UNIT_MIGRATION = "_migrate_session_duration_unit"
 PENDING_EXTERNAL_METER_READBACK_MIGRATION = (

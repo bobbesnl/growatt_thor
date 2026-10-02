@@ -10,7 +10,7 @@ MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
     / "growatt_thor"
-    / "charging_limits.py"
+    / "charging/limits.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_charging_limits_test_target",

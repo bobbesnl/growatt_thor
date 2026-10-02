@@ -12,7 +12,7 @@ MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
     / "growatt_thor"
-    / "service_runtime.py"
+    / "runtime/services.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_service_runtime_test_target",

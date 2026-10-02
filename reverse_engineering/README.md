@@ -12,6 +12,7 @@ extensions.
 Focused evidence and implementation boundaries are maintained separately:
 
 - [Local OCPP authorization](local_authorization.md)
+- [Native charging targets](charging_targets.md)
 - [THOR 22AS capture findings](thor_22as_capture_findings.md)
 - [Hardware and firmware variants](hardware_firmware_variants.md)
 

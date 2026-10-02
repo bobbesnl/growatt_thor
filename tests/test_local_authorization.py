@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 import unittest
 
-MODULE = Path(__file__).parents[1] / 'custom_components/growatt_thor/authorization.py'
+MODULE = Path(__file__).parents[1] / 'custom_components/growatt_thor/charging/authorization.py'
 spec = importlib.util.spec_from_file_location('thor_authorization_unit', MODULE)
 auth = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = auth

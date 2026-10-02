@@ -4,7 +4,7 @@ from homeassistant.helpers.selector import TextSelector, TextSelectorConfig
 import voluptuous as vol
 import logging
 
-from .authorization import (
+from .charging.authorization import (
     AuthorizationPolicy,
     CONF_ALLOW_HA_REMOTE_START,
     CONF_AUTHORIZATION,
@@ -12,7 +12,7 @@ from .authorization import (
     CONF_RESTRICT_AUTHORIZATION,
     policy_from_input,
 )
-from .action_errors import async_require_command_completion
+from .runtime.action_errors import async_require_command_completion
 from .const import (
     CONFIG_ENTRY_VERSION,
     DOMAIN,
@@ -23,13 +23,13 @@ from .const import (
     DEFAULT_POLL_INTERVAL,
     MIN_POLL_INTERVAL,
 )
-from .value_validation import (
+from .configuration.validation import (
     NumericValidationError,
     NumericValidationReason,
     validate_poll_interval,
     validate_tcp_port,
 )
-from .write_queue import (
+from .runtime.write_queue import (
     VOLATILE_CONTROL_WRITE_POLICY,
     ChargerWriteResult,
 )

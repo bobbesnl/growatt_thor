@@ -12,7 +12,7 @@ MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
     / "growatt_thor"
-    / "polling.py"
+    / "runtime/polling.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_polling_test_target",
@@ -65,7 +65,7 @@ class PollIntervalWiringTest(unittest.TestCase):
     """Keep config-entry updates connected to the running poll schedule."""
 
     def test_setup_and_options_flow_share_the_wakeable_schedule(self):
-        package_path = MODULE_PATH.parent
+        package_path = MODULE_PATH.parents[1]
         setup_source = (package_path / "__init__.py").read_text(
             encoding="utf-8"
         )

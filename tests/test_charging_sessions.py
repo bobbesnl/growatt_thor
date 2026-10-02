@@ -27,16 +27,16 @@ def _load_module(name: str, filename: str):
 
 
 session_records = _load_module(
-    f"{PACKAGE_NAME}.session_records",
-    "session_records.py",
+    f"{PACKAGE_NAME}.sessions.records",
+    "sessions/records.py",
 )
 _load_module(
-    f"{PACKAGE_NAME}.session_identity",
-    "session_identity.py",
+    f"{PACKAGE_NAME}.sessions.identity",
+    "sessions/identity.py",
 )
 charging_sessions = _load_module(
-    f"{PACKAGE_NAME}.charging_sessions",
-    "charging_sessions.py",
+    f"{PACKAGE_NAME}.sessions.correlation",
+    "sessions/correlation.py",
 )
 
 

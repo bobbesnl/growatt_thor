@@ -9,24 +9,24 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .action_errors import (
+from .runtime.action_errors import (
     async_require_command_completion,
     raise_action_validation,
     raise_charger_disconnected,
     raise_write_blocked,
 )
-from .charging_controls import (
+from .charging.controls import (
     ChargingControl,
     charger_write_block_reason,
     control_write_block_reason,
 )
 from .const import DOMAIN
-from .pv_linkage import (
+from .charging.pv_linkage import (
     build_pv_linkage_writes,
     draft_validation_errors,
 )
-from .pv_linkage_apply import apply_pv_linkage_writes
-from .session_controls import (
+from .charging.pv_apply import apply_pv_linkage_writes
+from .charging.session_controls import (
     REMOTE_START_COMMAND,
     REMOTE_STOP_COMMAND,
     SESSION_CONTROL_DEDUPE_KEY,
@@ -34,7 +34,7 @@ from .session_controls import (
     start_revalidation_failure,
     stop_revalidation_failure,
 )
-from .write_queue import (
+from .runtime.write_queue import (
     CONFIGURATION_WRITE_POLICY,
     TRANSACTION_CONTROL_WRITE_POLICY,
     VOLATILE_CONTROL_WRITE_POLICY,
@@ -83,6 +83,8 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 
     @property
     def _write_block_reason(self) -> str | None:
+        if getattr(self.coordinator, "charging_target_request", None):
+            return "native_target_requires_reconciliation"
         return charger_write_block_reason(
             connected=self.coordinator.connected,
             charger_faulted=self.coordinator.charger_is_faulted,

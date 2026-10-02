@@ -29,8 +29,8 @@ def _load_module(name: str, filename: str):
 
 _load_module(f"{PACKAGE_NAME}.const", "const.py")
 entity_migrations = _load_module(
-    f"{PACKAGE_NAME}.entity_migrations",
-    "entity_migrations.py",
+    f"{PACKAGE_NAME}.runtime.entity_migrations",
+    "runtime/entity_migrations.py",
 )
 
 

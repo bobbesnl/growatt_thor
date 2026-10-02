@@ -18,7 +18,7 @@ sys.modules[PACKAGE_NAME] = package
 
 
 def _load_module(name: str):
-    path = PACKAGE_PATH / f"{name}.py"
+    path = PACKAGE_PATH / (name.replace(".", "/") + ".py")
     spec = importlib.util.spec_from_file_location(f"{PACKAGE_NAME}.{name}", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -27,8 +27,8 @@ def _load_module(name: str):
     return module
 
 
-configuration = _load_module("configuration")
-controls = _load_module("charging_controls")
+configuration = _load_module('configuration.values')
+controls = _load_module('charging.controls')
 
 
 def _values(**raw_values):

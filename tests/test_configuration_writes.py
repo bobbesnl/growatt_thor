@@ -11,7 +11,7 @@ MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
     / "growatt_thor"
-    / "configuration_writes.py"
+    / "configuration/writes.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_configuration_writes_test_target",

@@ -14,17 +14,17 @@ MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
     / "growatt_thor"
-    / "configuration.py"
+    / "configuration/values.py"
 )
-TRANSLATIONS_PATH = MODULE_PATH.parent / "translations"
+TRANSLATIONS_PATH = MODULE_PATH.parents[1] / "translations"
 TRANSLATION_LANGUAGES = ("en", "de", "nl", "it", "hu", "sl", "fr", "es")
 TRANSLATION_PLACEHOLDER_PATTERN = re.compile(r"\{[^{}]+\}")
-SENSOR_PATH = MODULE_PATH.parent / "sensor.py"
-DIAGNOSTICS_PATH = MODULE_PATH.parent / "diagnostics.py"
-CONFIGURATION_CONTROL_PATH = MODULE_PATH.parent / "configuration_control.py"
-SELECT_PATH = MODULE_PATH.parent / "select.py"
+SENSOR_PATH = MODULE_PATH.parents[1] / "sensor.py"
+DIAGNOSTICS_PATH = MODULE_PATH.parents[1] / "diagnostics.py"
+CONFIGURATION_CONTROL_PATH = MODULE_PATH.parents[1] / "configuration/controls.py"
+SELECT_PATH = MODULE_PATH.parents[1] / "select.py"
 CONTROL_PATHS = tuple(
-    MODULE_PATH.parent / f"{platform}.py"
+    MODULE_PATH.parents[1] / f"{platform}.py"
     for platform in ("button", "number", "select", "switch", "time")
 )
 SPEC = importlib.util.spec_from_file_location(

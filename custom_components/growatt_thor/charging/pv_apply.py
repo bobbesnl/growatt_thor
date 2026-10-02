@@ -11,14 +11,14 @@ import logging
 
 from ocpp.v16.enums import ConfigurationStatus, DataTransferStatus
 
-from .configuration_writes import ConfigurationWriteStatus
+from ..configuration.writes import ConfigurationWriteStatus
 from .pv_linkage import (
     ConfigurationWrite,
     DataTransferWrite,
     PvLinkageApplyResult,
     PvLinkageApplyStatus,
 )
-from .write_queue import (
+from ..runtime.write_queue import (
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,

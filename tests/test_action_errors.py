@@ -55,8 +55,8 @@ def _load_action_errors():
         },
     ):
         spec = importlib.util.spec_from_file_location(
-            f"{package_name}.action_errors",
-            PACKAGE_PATH / "action_errors.py",
+            f"{package_name}.runtime.action_errors",
+            PACKAGE_PATH / "runtime/action_errors.py",
         )
         assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
@@ -235,7 +235,7 @@ class PublicActionWiringTest(unittest.TestCase):
     """Keep the immediate HA action guards connected to the shared helpers."""
 
     EXPECTED_HELPERS = {
-        ("configuration_control.py", "GrowattConfigurationControlMixin", "_async_write_configuration"): {
+        ("configuration/controls.py", "GrowattConfigurationControlMixin", "_async_write_configuration"): {
             "async_require_command_completion",
             "raise_write_blocked",
             "raise_charger_disconnected",

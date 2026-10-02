@@ -16,7 +16,7 @@ from ocpp.v16.enums import (
 
 from ocpp.routing import on
 
-from .configuration import (
+from ..configuration.values import (
     INFORMATIONAL_CONFIGURATION_KEYS,
     OPERATIONAL_CONFIGURATION_KEYS,
     normalize_unknown_configuration_keys,
@@ -27,16 +27,16 @@ from .connection import (
     OCPP_HEARTBEAT_INTERVAL_SECONDS,
     OcppConnectionActivity,
 )
-from .session_records import parse_growatt_session_record
-from .ocpp_logging import OcppMetadataLogger
-from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
-from .ocpp_requests import REQUEST_SKIPPED, SerializedOcppRequestGate
-from .runtime_ownership import (
+from ..sessions.records import parse_growatt_session_record
+from .logging import OcppMetadataLogger
+from ..const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
+from .requests import REQUEST_SKIPPED, SerializedOcppRequestGate
+from ..runtime.ownership import (
     ChargePointConnectionDecision,
     decide_charge_point_connection,
     release_active_charge_point,
 )
-from .write_queue import (
+from ..runtime.write_queue import (
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
 )

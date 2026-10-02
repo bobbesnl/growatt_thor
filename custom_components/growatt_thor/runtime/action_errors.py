@@ -12,7 +12,7 @@ from collections.abc import Mapping
 
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
-from .const import DOMAIN
+from ..const import DOMAIN
 from .write_queue import (
     ChargerCommandHandle,
     ChargerCommandResult,

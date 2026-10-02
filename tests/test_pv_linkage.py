@@ -13,14 +13,14 @@ MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
     / "growatt_thor"
-    / "pv_linkage.py"
+    / "charging/pv_linkage.py"
 )
 PACKAGE_NAME = "growatt_thor_pv_linkage_test_target"
 package = ModuleType(PACKAGE_NAME)
-package.__path__ = [str(MODULE_PATH.parent)]
+package.__path__ = [str(MODULE_PATH.parents[1])]
 sys.modules[PACKAGE_NAME] = package
 SPEC = importlib.util.spec_from_file_location(
-    f"{PACKAGE_NAME}.pv_linkage",
+    f"{PACKAGE_NAME}.charging.pv_linkage",
     MODULE_PATH,
 )
 assert SPEC is not None and SPEC.loader is not None

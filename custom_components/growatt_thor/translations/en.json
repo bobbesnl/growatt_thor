@@ -1,4 +1,71 @@
 {
+  "services": {
+    "prepare_plug_charging_target": {"name":"Prepare native target for Plug & Charge","description":"Unplugged only. Sends duration, energy or budget without remote start. Wait for acceptance before plugging in."},
+    "schedule_charging_target": {"name":"Reserve or repeat a native charging target","description":"One-time uses target + ReserveNow now and target + remote start at the selected time. Daily is managed and rearmed by Home Assistant."},
+    "cancel_scheduled_charging_target": {"name":"Cancel scheduled charging target","description":"Cancels a daily HA timer locally or sends CancelReservation for a one-time reservation. A native target already written to the charger is not cleared."},
+    "preview_charging_target": {
+      "name": "Preview native charging target",
+      "description": "Read-only capture coverage and wire plan. Sends no commands.",
+      "fields": {
+        "kind": {
+          "name": "Target type",
+          "description": "Duration, energy or budget."
+        },
+        "value": {
+          "name": "Target value",
+          "description": "Whole minutes, kWh or numeric charger-tariff units."
+        },
+        "start": {
+          "name": "Start type",
+          "description": "Now, one-time reservation or recurrence. Unverified combinations remain blocked."
+        }
+      }
+    },
+    "start_charging_target": {
+      "name": "Start native charging target (experimental)",
+      "description": "Sends duration, energy or budget followed by remote start on captured firmware in Fast mode. Duration and energy stopping are verified; budget remains experimental. No automatic retries.",
+      "fields": {
+        "kind": {
+          "name": "Target type",
+          "description": "Duration, energy or budget."
+        },
+        "value": {
+          "name": "Target value",
+          "description": "Guardrails: 1–1440 whole minutes, 0.01–100 kWh or 1–1000 tariff units."
+        },
+        "confirm_experimental": {
+          "name": "Confirm supervised pilot",
+          "description": "Accepted does not prove charging or target enforcement. Stay available to stop charging."
+        }
+      }
+    },
+    "acknowledge_target_reset": {
+      "name": "Acknowledge independent native target reset",
+      "description": "Clears only the retained HA request, NOT the charger target. Does not send Cancel or Stop.",
+      "fields": {
+        "confirm_native_target_reset": {
+          "name": "Native target independently cleared",
+          "description": "Confirm the charger target is cleared and the next start is safe. A completed session alone does not prove a reset."
+        }
+      }
+    },
+    "prepare_rfid_charging_target": {
+      "name": "Prepare native target for RFID",
+      "description": "Sets duration, energy or budget, never a remote start. Wait for target_accepted_waiting_for_rfid before presenting the card.",
+      "fields": {
+        "value": {
+          "name": "Energy (kWh)"
+        },
+        "confirm_experimental": {
+          "name": "Confirm supervised experiment"
+        }
+      }
+    },
+    "charging_target_status": {
+      "name": "Read charging target pilot status",
+      "description": "Read-only. Acceptance does not prove enforcement of the target."
+    }
+  },
   "config": {
     "step": {
       "user": {

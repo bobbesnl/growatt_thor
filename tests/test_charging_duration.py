@@ -17,7 +17,7 @@ sys.modules[PACKAGE_NAME] = package
 
 def _load(name: str):
     spec = importlib.util.spec_from_file_location(
-        f"{PACKAGE_NAME}.{name}", COMPONENT_PATH / f"{name}.py"
+        f"{PACKAGE_NAME}.{name}", COMPONENT_PATH / (name.replace(".", "/") + ".py")
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -26,8 +26,8 @@ def _load(name: str):
     return module
 
 
-meter_samples = _load("meter_samples")
-duration = _load("charging_duration")
+meter_samples = _load('ocpp.meter_samples')
+duration = _load('sessions.duration')
 
 
 def _entry(timestamp: str, *, power_w=None, energy_wh=None):

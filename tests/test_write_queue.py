@@ -56,7 +56,7 @@ assert SPEC is not None and SPEC.loader is not None
 coordinator_module = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = coordinator_module
 SPEC.loader.exec_module(coordinator_module)
-write_queue_module = sys.modules["custom_components.growatt_thor.write_queue"]
+write_queue_module = sys.modules["custom_components.growatt_thor.runtime.write_queue"]
 
 
 class _FakeHass:
@@ -1254,7 +1254,7 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
     PRODUCTION_FILES = (
         "button.py",
         "config_flow.py",
-        "configuration_control.py",
+        "configuration/controls.py",
         "number.py",
         "select.py",
         "switch.py",

@@ -9,7 +9,7 @@ import stat
 import tempfile
 from typing import Any
 
-from .session_identity import (
+from .identity import (
     SOURCE_LEGACY_UNKNOWN,
     build_session_id,
 )

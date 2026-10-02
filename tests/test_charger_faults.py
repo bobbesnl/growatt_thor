@@ -11,7 +11,7 @@ MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
     / "growatt_thor"
-    / "charger_faults.py"
+    / "charging/faults.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_charger_faults_test_target",

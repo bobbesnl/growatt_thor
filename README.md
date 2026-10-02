@@ -150,6 +150,24 @@ and downloaded diagnostics. See the
 [authorization evidence and limits](reverse_engineering/local_authorization.md)
 for the exact behavior and remaining validation scope.
 
+### Native charging targets
+
+The 1.8 development line adds guarded Home Assistant actions for duration,
+energy, and experimental budget targets. Immediate starts, one-time
+reservations, and Home Assistant-owned daily schedules reproduce command
+sequences observed on the tested THOR 22AS firmware.
+
+Target acceptance is not reported as physical completion. Intent and uncertain
+outcomes are persisted, automatic retries are avoided, and ordinary starts are
+blocked until an unresolved native target has been reconciled. Budget targets
+remain experimental because monetary enforcement and currency semantics are not
+verified.
+
+The action descriptions in Home Assistant document their required confirmation
+fields. See the [capture evidence, guardrails, and open
+questions](reverse_engineering/charging_targets.md) before using mutating target
+actions with a charger.
+
 ### Exporting Session Data
 
 Use the built-in action to export sessions for a specific date range:

@@ -11,7 +11,7 @@ MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
     / "growatt_thor"
-    / "external_meter.py"
+    / "ocpp/external_meter.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_external_meter_test_target",

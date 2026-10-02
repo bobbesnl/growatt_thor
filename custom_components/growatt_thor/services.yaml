@@ -2,6 +2,162 @@ refresh:
   name: Refresh data
   description: Manually refresh all data from the charger
 
+preview_charging_target:
+  name: Preview native charging target
+  description: Read-only capture coverage and wire plan. Does not send commands or reserve a charger.
+  fields:
+    kind:
+      required: true
+      selector:
+        select:
+          options: [duration, energy, budget]
+    value:
+      required: true
+      description: Whole minutes, kWh, or numeric charger-tariff units. Pilot limits apply.
+      selector:
+        text:
+    start:
+      default: now
+      selector:
+        select:
+          options: [now, once, recurring]
+
+start_charging_target:
+  name: Start native charging target (experimental)
+  description: Sends a native duration, energy or budget target followed by RemoteStartTransaction. Requires captured firmware, Fast mode and APP/server or Plug & Charge authorization. Duration and energy stopping are capture-verified; budget stopping remains experimental. Unknown outcomes are never retried.
+  fields:
+    kind:
+      required: true
+      selector:
+        select:
+          options: [duration, energy, budget]
+    value:
+      required: true
+      description: Duration 1–1440 whole minutes, energy 0.01–100 kWh, or budget 1–1000 tariff units. These are integration guardrails, not published device limits.
+      selector:
+        text:
+    confirm_experimental:
+      required: true
+      description: Confirm a supervised pilot; Accepted does not prove charging or limit enforcement.
+      selector:
+        boolean:
+
+acknowledge_target_reset:
+  name: Acknowledge independent native target reset
+  description: Clears only the integration's retained pilot request after you independently clear the wallbox target. Does NOT cancel a target or stop charging. Unavailable during a queued request or active transaction.
+  fields:
+    confirm_native_target_reset:
+      required: true
+      description: Confirm the native target has been independently cleared and the charger is safe for another start.
+      selector:
+        boolean:
+
+prepare_rfid_charging_target:
+  name: Prepare native target for RFID
+  description: Sends only the native duration, energy or budget target. Wait for target_accepted_waiting_for_rfid before presenting the card. Duration and energy stopping are capture-verified; budget remains experimental.
+  fields:
+    kind:
+      required: true
+      default: energy
+      selector:
+        select:
+          options: [duration, energy, budget]
+    value:
+      name: Target value
+      required: true
+      example: "1"
+      selector:
+        text:
+    confirm_experimental:
+      required: true
+      selector:
+        boolean:
+
+charging_target_status:
+  name: Read charging target pilot status
+  description: Read-only request status. Queued is not acceptance; target_accepted_waiting_for_rfid confirms target acceptance, not limit enforcement.
+
+prepare_plug_charging_target:
+  name: Prepare native target for Plug & Charge
+  description: Vehicle must be unplugged. Sends only the native duration, energy or budget target, never a remote start. Wait for acceptance before plugging in. An identical accepted target may be explicitly refreshed by its request ID.
+  fields:
+    entry_id:
+      required: true
+      selector:
+        text:
+    kind:
+      required: true
+      default: energy
+      selector:
+        select:
+          options: [duration, energy, budget]
+    value:
+      required: true
+      description: Duration 1–1440 whole minutes, energy 0.01–100 kWh, or budget 1–1000 tariff units.
+      selector:
+        text:
+    confirm_experimental:
+      required: true
+      selector:
+        boolean:
+    replace_request_id:
+      description: Explicitly refresh this exact accepted energy request with the same value. Never use for unknown outcomes.
+      selector:
+        text:
+
+schedule_charging_target:
+  name: Reserve or repeat a native charging target
+  description: A one-time start immediately sends the target and ReserveNow, then refreshes the target and sends RemoteStartTransaction at the selected time. A daily start is stored by Home Assistant and sends target plus RemoteStartTransaction each day. Requires Fast mode and APP/server or Plug & Charge authorization. One-time reservations require an unplugged connector. Missed one-time starts are never executed late.
+  fields:
+    entry_id:
+      required: true
+      selector:
+        text:
+    kind:
+      required: true
+      default: energy
+      selector:
+        select:
+          options: [duration, energy, budget]
+    value:
+      required: true
+      description: Duration 1–1440 whole minutes, energy 0.01–100 kWh, or budget 1–1000 tariff units.
+      selector:
+        text:
+    start_at:
+      required: true
+      description: Future timezone-aware ISO timestamp, at most 30 days ahead.
+      selector:
+        datetime:
+    recurrence:
+      required: true
+      default: once
+      description: once uses charger-side ReserveNow; daily is rearmed by Home Assistant at the same local wall-clock time.
+      selector:
+        select:
+          options: [once, daily]
+    confirm_experimental:
+      required: true
+      selector:
+        boolean:
+    replace_request_id:
+      description: Exact retained request being replaced or rescheduled.
+      selector:
+        text:
+
+cancel_scheduled_charging_target:
+  name: Cancel scheduled charging target
+  description: Cancels a daily HA timer locally. For an accepted one-time reservation it sends CancelReservation to the wallbox; rejection or an unknown response remains visible for reconciliation. This does not clear a native target already written to the charger.
+  fields:
+    request_id:
+      required: true
+      selector:
+        text:
+    confirm_cancel:
+      required: true
+      selector:
+        boolean:
+
 export_sessions:
   name: Export charging sessions
   description: Export charging sessions within a date range to a CSV file

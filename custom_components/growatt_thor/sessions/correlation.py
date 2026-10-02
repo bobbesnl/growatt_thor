@@ -5,7 +5,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
-from .session_identity import (
+from .identity import (
     SOURCE_EXTERNAL_OR_UNKNOWN,
     SOURCE_HOME_ASSISTANT,
     build_session_id,

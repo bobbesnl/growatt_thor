@@ -13,7 +13,7 @@ from homeassistant.helpers import entity_registry as er
 import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 
-from .action_errors import (
+from .runtime.action_errors import (
     raise_action_validation,
     raise_charger_disconnected,
     raise_communication_error,
@@ -29,28 +29,28 @@ from .const import (
     MIN_POLL_INTERVAL,
 )
 from .coordinator import GrowattCoordinator
-from .entity_migrations import (
+from .runtime.entity_migrations import (
     LEGACY_SESSION_DURATION_UNIT_MIGRATION,
     PENDING_EXTERNAL_METER_READBACK_MIGRATION,
     disable_redundant_external_meter_readbacks,
     migrate_session_duration_unit,
 )
-from .ocpp_server import start_ocpp_server
-from .polling import PollIntervalSchedule
-from .runtime_ownership import (
+from .ocpp.server import start_ocpp_server
+from .runtime.polling import PollIntervalSchedule
+from .runtime.ownership import (
     claim_runtime_entry,
     runtime_entry_is_owner,
 )
-from .service_runtime import (
+from .runtime.services import (
     ChargerServiceUnavailable,
     IntegrationServiceOperations,
     ManualRefreshFailed,
 )
-from .session_csv import (
+from .sessions.csv import (
     append_session_row,
     export_session_rows,
 )
-from .value_validation import (
+from .configuration.validation import (
     DateRangeValidationError,
     DateRangeValidationReason,
     parse_export_date_range,
@@ -304,6 +304,9 @@ def _register_services(hass: HomeAssistant) -> None:
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register integration-level services independently from config entries."""
     _register_services(hass)
+    from .targets.services import async_register_target_services
+
+    async_register_target_services(hass)
     return True
 
 
@@ -323,7 +326,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await _recover_pending_entity_migrations(hass, entry)
 
-        from .authorization import CONF_AUTHORIZATION, LocalAuthorization
+        from .charging.authorization import CONF_AUTHORIZATION, LocalAuthorization
 
         coordinator = GrowattCoordinator(hass, source_instance_id=entry.entry_id)
         coordinator.authorization = LocalAuthorization(
@@ -440,6 +443,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         name="growatt_thor_external_meter_poll"
     )
 
+    from .targets.services import async_setup_target_services
+
+    await async_setup_target_services(hass, entry, coordinator)
     return True
 
 
@@ -478,6 +484,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         server.close()
         await server.wait_closed()
 
+    from .targets.services import async_unload_target_services
+
+    async_unload_target_services(hass)
     if unload_ok:
         runtime_data.clear()
 

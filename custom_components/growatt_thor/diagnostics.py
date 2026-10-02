@@ -6,17 +6,17 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .charging_sessions import build_unified_session
-from .configuration import (
+from .sessions.correlation import build_unified_session
+from .configuration.values import (
     INFORMATIONAL_CONFIGURATION_KEYS,
     OPERATIONAL_CONFIGURATION_KEYS,
     redact_configuration_value,
     serialize_configuration_values,
 )
-from .configuration_writes import serialize_configuration_writes
+from .configuration.writes import serialize_configuration_writes
 from .const import DOMAIN
-from .ocpp_diagnostics import redact_ocpp_data
-from .session_records import session_record_diagnostics
+from .ocpp.diagnostics import redact_ocpp_data
+from .sessions.records import session_record_diagnostics
 
 
 async def async_get_config_entry_diagnostics(
@@ -115,6 +115,9 @@ async def async_get_config_entry_diagnostics(
             }
         ),
         "growatt": {
+            "charging_target_request": getattr(
+                coordinator, "charging_target_request", None
+            ),
             "last_charger_fault": (
                 coordinator.last_charger_fault.as_dict()
                 if coordinator.last_charger_fault is not None

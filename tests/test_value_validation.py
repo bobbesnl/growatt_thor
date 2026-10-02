@@ -11,7 +11,7 @@ MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
     / "growatt_thor"
-    / "value_validation.py"
+    / "configuration/validation.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_value_validation_test_target",

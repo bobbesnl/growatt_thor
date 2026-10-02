@@ -15,8 +15,8 @@ if HAS_OCPP:
     package = ModuleType('thor_auth_wire_target')
     package.__path__ = [str(Path(__file__).parents[1] / 'custom_components/growatt_thor')]
     sys.modules[package.__name__] = package
-    server = importlib.import_module(package.__name__ + '.ocpp_server')
-    auth = importlib.import_module(package.__name__ + '.authorization')
+    server = importlib.import_module(package.__name__ + '.ocpp.server')
+    auth = importlib.import_module(package.__name__ + '.charging.authorization')
 
 
 class Websocket:

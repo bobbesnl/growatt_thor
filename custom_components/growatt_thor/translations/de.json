@@ -1,4 +1,71 @@
 {
+  "services": {
+    "prepare_plug_charging_target": {"name":"Natives Ziel für Plug’n’Charge vorbereiten","description":"Nur ausgesteckt. Sendet Dauer, Energie oder Budget ohne Fernstart. Vor dem Einstecken auf Annahme warten."},
+    "schedule_charging_target": {"name":"Natives Ladeziel reservieren oder wiederholen","description":"Einmalig sendet jetzt Ziel + ReserveNow und zum Termin Ziel + Fernstart. Täglich wird von Home Assistant verwaltet und neu eingeplant."},
+    "cancel_scheduled_charging_target": {"name":"Geplantes Ladeziel abbrechen","description":"Bricht einen täglichen HA-Zeitplan lokal ab oder sendet CancelReservation für eine einmalige Reservierung. Ein bereits geschriebenes natives Ziel wird nicht gelöscht."},
+    "preview_charging_target": {
+      "name": "Natives Ladeziel prüfen",
+      "description": "Zeigt Capture-Abdeckung und Protokollplan. Sendet keine Befehle.",
+      "fields": {
+        "kind": {
+          "name": "Zielart",
+          "description": "Dauer, Energie oder Budget."
+        },
+        "value": {
+          "name": "Zielwert",
+          "description": "Ganze Minuten, kWh oder numerische Einheiten des Wallbox-Tarifs."
+        },
+        "start": {
+          "name": "Startart",
+          "description": "Sofort, einmalige Reservierung oder Wiederholung. Nicht belegte Kombinationen bleiben gesperrt."
+        }
+      }
+    },
+    "start_charging_target": {
+      "name": "Natives Ladeziel starten (experimentell)",
+      "description": "Sendet Dauer, Energie oder Budget gefolgt von Fernstart auf erfasster Firmware im Schnellmodus. Stopp nach Dauer und Energie ist bestätigt; Budget bleibt experimentell. Keine automatische Wiederholung.",
+      "fields": {
+        "kind": {
+          "name": "Zielart",
+          "description": "Dauer, Energie oder Budget."
+        },
+        "value": {
+          "name": "Zielwert",
+          "description": "Grenzen: 1–1440 ganze Minuten, 0,01–100 kWh oder 1–1000 Tarifeinheiten."
+        },
+        "confirm_experimental": {
+          "name": "Beaufsichtigten Pilot bestätigen",
+          "description": "Accepted bestätigt weder einen Ladevorgang noch die Ziel-Einhaltung. Zum Stoppen verfügbar bleiben."
+        }
+      }
+    },
+    "acknowledge_target_reset": {
+      "name": "Unabhängiges Zurücksetzen des Ladeziels bestätigen",
+      "description": "Löscht nur die gespeicherte HA-Anforderung, NICHT das Wallbox-Ziel. Sendet weder Abbruch noch Stopp.",
+      "fields": {
+        "confirm_native_target_reset": {
+          "name": "Natives Ziel unabhängig gelöscht",
+          "description": "Bestätigen, dass das Wallbox-Ziel gelöscht und der nächste Start sicher ist. Ein Sitzungsende allein beweist keinen Reset."
+        }
+      }
+    },
+    "prepare_rfid_charging_target": {
+      "name": "Natives Ladeziel für RFID vorbereiten",
+      "description": "Setzt Dauer, Energie oder Budget, ohne Fernstart. Vor dem Vorhalten der Karte auf target_accepted_waiting_for_rfid warten.",
+      "fields": {
+        "value": {
+          "name": "Energie (kWh)"
+        },
+        "confirm_experimental": {
+          "name": "Beaufsichtigten Versuch bestätigen"
+        }
+      }
+    },
+    "charging_target_status": {
+      "name": "Ladeziel-Pilotstatus lesen",
+      "description": "Nur lesend. Annahme bestätigt nicht die Einhaltung des Ziels."
+    }
+  },
   "config": {
     "step": {
       "user": {

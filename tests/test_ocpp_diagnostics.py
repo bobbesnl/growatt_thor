@@ -13,7 +13,7 @@ MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
     / "growatt_thor"
-    / "ocpp_diagnostics.py"
+    / "ocpp/diagnostics.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_ocpp_diagnostics_test_target",

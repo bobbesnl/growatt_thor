@@ -6,8 +6,8 @@ from enum import Enum
 from types import MappingProxyType
 from typing import Final, Mapping
 
-from .configuration import ConfigurationValue, configuration_entity_state
-from .value_validation import format_decimal, validate_number
+from ..configuration.values import ConfigurationValue, configuration_entity_state
+from ..configuration.validation import format_decimal, validate_number
 
 
 WORKING_MODE_OPTIONS = ("fast", "pv_linkage", "pv_linkage_plus", "off_peak")

@@ -11,9 +11,9 @@ MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
     / "growatt_thor"
-    / "connection.py"
+    / "ocpp/connection.py"
 )
-OCPP_SERVER_PATH = MODULE_PATH.with_name("ocpp_server.py")
+OCPP_SERVER_PATH = MODULE_PATH.with_name("server.py")
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_connection_test_target",
     MODULE_PATH,

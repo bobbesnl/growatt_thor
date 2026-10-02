@@ -7,16 +7,16 @@ import asyncio
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.storage import Store
 
-from .authorization import LocalAuthorization
-from .charging_duration import EffectiveChargingTracker
-from .charging_sessions import CORRELATION_MATCHED, build_unified_session
-from .charging_controls import transaction_state_is_active
-from .charger_faults import (
+from .charging.authorization import LocalAuthorization
+from .sessions.duration import EffectiveChargingTracker
+from .sessions.correlation import CORRELATION_MATCHED, build_unified_session
+from .charging.controls import transaction_state_is_active
+from .charging.faults import (
     ChargerFault,
     fault_from_data_transfer,
     fault_from_status_notification,
 )
-from .configuration import (
+from .configuration.values import (
     ConfigurationValue,
     configuration_entity_state,
     configuration_numeric_value,
@@ -25,7 +25,7 @@ from .configuration import (
     normalize_unknown_configuration_keys,
     parse_time_sharing_price,
 )
-from .configuration_writes import (
+from .configuration.writes import (
     ConfigurationWriteStatus,
     ConfigurationWriteState,
     acknowledge_configuration_write,
@@ -35,26 +35,26 @@ from .configuration_writes import (
     mark_configuration_write,
 )
 from .const import DOMAIN
-from .external_meter import (
+from .ocpp.external_meter import (
     external_meter_health,
     parse_external_meter_data,
     status_clears_external_meter_fault,
     status_reports_external_meter_fault,
 )
-from .meter_samples import parse_meter_values
-from .ocpp_diagnostics import create_ocpp_snapshot
-from .ocpp_status import normalize_ocpp_status
-from .pv_linkage import (
+from .ocpp.meter_samples import parse_meter_values
+from .ocpp.diagnostics import create_ocpp_snapshot
+from .ocpp.status import normalize_ocpp_status
+from .charging.pv_linkage import (
     PvBoostMode,
     PvLinkageApplyResult,
     PvLinkageDraft,
     draft_matches_reported,
     parse_manual_period,
 )
-from .session_records import GrowattSessionRecord
-from .session_state import LastSessionState
-from .transaction_ids import TransactionIdAllocator
-from .write_queue import (
+from .sessions.records import GrowattSessionRecord
+from .sessions.state import LastSessionState
+from .sessions.transaction_ids import TransactionIdAllocator
+from .runtime.write_queue import (
     ChargerCommandHandle,
     ChargerCommandResult,
     ChargerConnectionUnavailable,
@@ -92,6 +92,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_message_action = None
         self.last_heartbeat_at = None
         self.transaction_id = None
+        self.charging_target_request = None
         self.id_tag = None
         self.authorization = LocalAuthorization()
 
@@ -1434,6 +1435,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         _LOGGER.info("Transaction started: %s", transaction_id)
         self.async_set_updated_data(True)
+        callback = getattr(self, "_charging_target_transaction_started", None)
+        if callback is not None:
+            self.hass.async_create_task(callback(transaction_id=transaction_id))
 
     def stop_transaction(
         self,
@@ -1491,6 +1495,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.status = "Idle"
         self.hass.async_create_task(self.async_save_storage())
         self.async_set_updated_data(True)
+        callback = getattr(self, "_charging_target_transaction_stopped", None)
+        if callback is not None:
+            self.hass.async_create_task(
+                callback(transaction_id=stopped_transaction_id, reason=reason)
+            )
 
     # ─────────────────────────────
     # MeterValues

@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
 
-from .meter_samples import MeterValue
+from ..ocpp.meter_samples import MeterValue
 
 
 ACTIVE_POWER_THRESHOLD_W = 100.0

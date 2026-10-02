@@ -11,7 +11,7 @@ MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
     / "growatt_thor"
-    / "session_state.py"
+    / "sessions/state.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_session_state_test_target",

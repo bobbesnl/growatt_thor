@@ -17,7 +17,7 @@ sys.modules[PACKAGE_NAME] = package
 
 
 def _load_module(name: str):
-    path = PACKAGE_PATH / f"{name}.py"
+    path = PACKAGE_PATH / (name.replace(".", "/") + ".py")
     spec = importlib.util.spec_from_file_location(f"{PACKAGE_NAME}.{name}", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -26,8 +26,8 @@ def _load_module(name: str):
     return module
 
 
-write_queue = _load_module("write_queue")
-requests = _load_module("ocpp_requests")
+write_queue = _load_module('runtime.write_queue')
+requests = _load_module('ocpp.requests')
 
 
 class TransportClosed(RuntimeError):

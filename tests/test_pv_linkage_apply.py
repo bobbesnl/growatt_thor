@@ -50,7 +50,7 @@ def _load_module(name):
     qualified_name = f"{PACKAGE_NAME}.{name}"
     spec = importlib.util.spec_from_file_location(
         qualified_name,
-        PACKAGE_PATH / f"{name}.py",
+        PACKAGE_PATH / (name.replace(".", "/") + ".py"),
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -59,10 +59,10 @@ def _load_module(name):
     return module
 
 
-configuration_writes = _load_module("configuration_writes")
-pv_linkage = _load_module("pv_linkage")
-write_queue = _load_module("write_queue")
-pv_linkage_apply = _load_module("pv_linkage_apply")
+configuration_writes = _load_module('configuration.writes')
+pv_linkage = _load_module('charging.pv_linkage')
+write_queue = _load_module('runtime.write_queue')
+pv_linkage_apply = _load_module('charging.pv_apply')
 
 
 class _FakeCoordinator:

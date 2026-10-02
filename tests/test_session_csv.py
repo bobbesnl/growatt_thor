@@ -31,10 +31,10 @@ def _load_module(name: str, filename: str):
     return module
 
 
-_load_module(f"{PACKAGE_NAME}.session_identity", "session_identity.py")
+_load_module(f"{PACKAGE_NAME}.sessions.identity", "sessions/identity.py")
 session_csv = _load_module(
-    f"{PACKAGE_NAME}.session_csv",
-    "session_csv.py",
+    f"{PACKAGE_NAME}.sessions.csv",
+    "sessions/csv.py",
 )
 
 
