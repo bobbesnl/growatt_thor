@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## 2.0.0-dev.3
+
+### Added
+
+- Persist session lifecycle, bounded power curves and qualified events.
+- Provide recoverable history, CSV export and dashboard session APIs.
+
 ## 2.0.0-dev.2
 
 ### Added
