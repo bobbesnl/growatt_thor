@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## 2.0.0-dev.5
+
+### Added
+
+- Install localized charging and history cards with responsive charts, source shares and guarded dialogs.
+- Include the realistic simulator, annotated handbook and screenshot workflow.
+- Automatic charging stop follows as a separate opt-in feature in dev.6.
+
 ## 2.0.0-dev.4
 
 ### Added
