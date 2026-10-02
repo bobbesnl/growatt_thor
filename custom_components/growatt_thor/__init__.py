@@ -68,6 +68,9 @@ from .configuration.validation import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# async_setup registers shared services and assets; configuration uses the UI flow.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
 PLATFORMS = [
     Platform.SENSOR,
     Platform.NUMBER,
