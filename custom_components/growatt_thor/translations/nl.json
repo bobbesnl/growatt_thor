@@ -93,16 +93,32 @@
     "step": {
       "init": {
         "title": "Growatt THOR Opties",
-        "description": "Choose what you want to configure. Charging strategy and authorization mode are dedicated device controls.",
-        "menu_options": {"general": "General settings", "authorization": "Local access control", "confirm_ap_mode": "Maintenance: AP mode"},
-        "menu_option_descriptions": {"general": "Configure polling and location.", "authorization": "Manage RFID access and Home Assistant remote starts separately.", "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant."}
+        "description": "Kies welk onderdeel je wilt configureren. Optionele energiebronnen worden alleen voor visualisatie gebruikt.",
+        "menu_options": {"general": "Algemene instellingen", "energy_sources": "Optionele energiebronnen", "authorization": "Lokale toegangscontrole", "confirm_ap_mode": "Onderhoud: AP-modus"},
+        "menu_option_descriptions": {"general": "Configureer het pollinginterval en de locatie.", "energy_sources": "Configureer optionele batterijstroom voor kaarten en grafieken.", "authorization": "Beheer RFID-toegang en starts vanuit Home Assistant afzonderlijk.", "confirm_ap_mode": "Schakel de configuratie-wifi van de lader in; Home Assistant wordt hierbij losgekoppeld."}
       },
       "general": {
-        "title": "General settings",
-        "description": "These settings affect Home Assistant. Charging strategy and authorization mode are dedicated device controls.",
+        "title": "Algemene instellingen",
+        "description": "Deze instellingen beïnvloeden de verbinding tussen Home Assistant en de lader.",
         "data": {
           "poll_interval": "Grid poll interval (seconden, nu: {current_interval})",
           "location": "Installatielocatie"
+        },
+        "data_description": {
+          "poll_interval": "How often Home Assistant refreshes external power values.",
+          "location": "Label shown for this installation."
+        }
+      },
+      "energy_sources": {
+        "title": "Optionele energiebronnen",
+        "description": "Alleen voor woningen met een compatibele thuisbatterij. De waarden worden uitsluitend gevisualiseerd en sturen de lader of batterij nooit aan. Laat de sensor leeg om deze functie uit te schakelen.",
+        "data": {
+          "battery_power_entity": "Batterijvermogenssensor (optioneel)",
+          "battery_power_sign": "Tekenconventie van de batterijsensor"
+        },
+        "data_description": {
+          "battery_power_entity": "Selecteer een vermogenssensor in W, kW of MW om de batterijstroom op de kaart weer te geven.",
+          "battery_power_sign": "Geef aan of een positieve waarde laden of ontladen betekent."
         }
       },
       "authorization": {
@@ -136,6 +152,8 @@
     },
     "error": {
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
+      "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn",
       "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn"
     },
@@ -222,6 +240,12 @@
         "1": "Home Assistant / RFID",
         "2": "Alleen RFID",
         "3": "Aansluiten en laden"
+      }
+    },
+    "battery_power_sign": {
+      "options": {
+        "positive_discharge": "Positive = battery discharging",
+        "positive_charge": "Positive = battery charging"
       }
     }
   },

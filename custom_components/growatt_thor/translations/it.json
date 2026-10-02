@@ -93,16 +93,32 @@
     "step": {
       "init": {
         "title": "Opzioni Growatt THOR",
-        "description": "Choose what you want to configure. Charging strategy and authorization mode are dedicated device controls.",
-        "menu_options": {"general": "General settings", "authorization": "Local access control", "confirm_ap_mode": "Maintenance: AP mode"},
-        "menu_option_descriptions": {"general": "Configure polling and location.", "authorization": "Manage RFID access and Home Assistant remote starts separately.", "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant."}
+        "description": "Scegli l’area da configurare. Le fonti di energia opzionali vengono usate solo per la visualizzazione.",
+        "menu_options": {"general": "Impostazioni generali", "energy_sources": "Fonti di energia opzionali", "authorization": "Controllo accessi locale", "confirm_ap_mode": "Manutenzione: modalità AP"},
+        "menu_option_descriptions": {"general": "Configura l’intervallo di polling e la posizione.", "energy_sources": "Configura il flusso batteria opzionale per schede e grafici.", "authorization": "Gestisci separatamente l’accesso RFID e gli avvii da Home Assistant.", "confirm_ap_mode": "Abilita il Wi-Fi di configurazione della wallbox; Home Assistant verrà disconnesso."}
       },
       "general": {
-        "title": "General settings",
-        "description": "These settings affect Home Assistant. Charging strategy and authorization mode are dedicated device controls.",
+        "title": "Impostazioni generali",
+        "description": "Queste impostazioni riguardano la connessione tra Home Assistant e la wallbox.",
         "data": {
           "poll_interval": "Intervallo di polling della rete (secondi, attualmente: {current_interval})",
           "location": "Luogo di installazione"
+        },
+        "data_description": {
+          "poll_interval": "How often Home Assistant refreshes external power values.",
+          "location": "Label shown for this installation."
+        }
+      },
+      "energy_sources": {
+        "title": "Fonti di energia opzionali",
+        "description": "Solo per abitazioni con una batteria compatibile. I valori vengono usati esclusivamente per la visualizzazione e non controllano mai la wallbox o la batteria. Lascia il sensore non selezionato per disabilitare la funzione.",
+        "data": {
+          "battery_power_entity": "Sensore di potenza della batteria (opzionale)",
+          "battery_power_sign": "Convenzione del segno del sensore batteria"
+        },
+        "data_description": {
+          "battery_power_entity": "Seleziona un sensore di potenza in W, kW o MW per mostrare il flusso della batteria nella scheda.",
+          "battery_power_sign": "Indica se un valore positivo rappresenta la carica o la scarica."
         }
       },
       "authorization": {
@@ -136,6 +152,8 @@
     },
     "error": {
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
+      "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "L'intervallo di polling deve essere di almeno {min_interval} secondi",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
     },
@@ -176,6 +194,12 @@
         "1": "Home Assistant / RFID",
         "2": "Solo RFID",
         "3": "Collega e ricarica"
+      }
+    },
+    "battery_power_sign": {
+      "options": {
+        "positive_discharge": "Positive = battery discharging",
+        "positive_charge": "Positive = battery charging"
       }
     }
   },

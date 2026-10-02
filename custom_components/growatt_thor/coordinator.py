@@ -34,7 +34,7 @@ from .configuration.writes import (
     confirm_configuration_writes,
     mark_configuration_write,
 )
-from .const import DOMAIN
+from .const import DEFAULT_POLL_INTERVAL, DOMAIN
 from .ocpp.external_meter import (
     external_meter_health,
     parse_external_meter_data,
@@ -127,6 +127,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.server_url = None
         self.lcd_close_enable = None
         self.location = ""
+        self.battery_power_entity = None
+        self.battery_power_sign = "positive_discharge"
+        self.external_meter_poll_interval = DEFAULT_POLL_INTERVAL
 
         # Auto charge times (Thor values)
         self.auto_charge_start_time = None
@@ -1513,7 +1516,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
         transaction_id=None,
     ):
         """Retain all MeterValues samples and update known live sensors."""
-        parsed_values = parse_meter_values(meter_values)
+        parsed_values = parse_meter_values(
+            meter_values,
+            time_zone=getattr(getattr(self.hass, "config", None), "time_zone", None),
+        )
         self.last_meter_values = {
             "received_at": self.now(),
             "connector_id": connector_id,

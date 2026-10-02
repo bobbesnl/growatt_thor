@@ -768,3 +768,10 @@ MIT License - see LICENSE file for details
 
 - **Issues**: [GitHub Issues](https://github.com/bobbesnl/growatt_thor/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/bobbesnl/growatt_thor/discussions)
+
+### Optional site observations
+
+Under **Configure → Optional energy sources**, select an optional W, kW or MW
+battery power sensor and explicitly choose its sign convention. Missing,
+non-finite and unavailable readings remain unknown. The source is disabled
+when no sensor is selected; general settings preserve its configuration.

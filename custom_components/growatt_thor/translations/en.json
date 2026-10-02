@@ -93,24 +93,42 @@
     "step": {
       "init": {
         "title": "Growatt THOR Options",
-        "description": "Choose what you want to configure. Charging strategy and authorization mode are dedicated device controls and are not duplicated here.",
+        "description": "Choose what you want to configure. Optional energy sources are used only for visualization.",
         "menu_options": {
           "general": "General settings",
+          "energy_sources": "Optional energy sources",
           "authorization": "Local access control",
           "confirm_ap_mode": "Maintenance: AP mode"
         },
         "menu_option_descriptions": {
           "general": "Configure polling and location.",
+          "energy_sources": "Configure optional battery flow for cards and charts.",
           "authorization": "Manage RFID access and Home Assistant remote starts separately.",
           "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant."
         }
       },
       "general": {
         "title": "General settings",
-        "description": "These settings affect Home Assistant. Charging strategy and authorization mode are dedicated select entities on the device.",
+        "description": "These settings affect the connection between Home Assistant and the charger.",
         "data": {
           "poll_interval": "Grid poll interval (seconds, currently: {current_interval})",
           "location": "Installation location"
+        },
+        "data_description": {
+          "poll_interval": "How often Home Assistant refreshes external power values.",
+          "location": "Label shown for this installation."
+        }
+      },
+      "energy_sources": {
+        "title": "Optional energy sources",
+        "description": "For homes with a compatible battery system only. Values are used exclusively for visualization and never control the charger or battery. Leave the sensor unselected to disable this feature.",
+        "data": {
+          "battery_power_entity": "Battery power sensor (optional)",
+          "battery_power_sign": "Battery sensor sign convention"
+        },
+        "data_description": {
+          "battery_power_entity": "Select a W, kW, or MW power sensor to add battery flow to the card.",
+          "battery_power_sign": "Define whether a positive sensor value represents charging or discharging."
         }
       },
       "authorization": {
@@ -144,6 +162,8 @@
     },
     "error": {
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
+      "invalid_battery_power_sign": "Choose whether a positive sensor value means battery charging or discharging.",
       "poll_interval_too_low": "Poll interval must be at least {min_interval} seconds",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
     },
@@ -230,6 +250,12 @@
         "1": "Home Assistant / RFID",
         "2": "RFID only",
         "3": "Plug & charge"
+      }
+    },
+    "battery_power_sign": {
+      "options": {
+        "positive_discharge": "Positive = battery discharging",
+        "positive_charge": "Positive = battery charging"
       }
     }
   },

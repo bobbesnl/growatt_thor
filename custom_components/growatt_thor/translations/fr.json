@@ -93,16 +93,32 @@
     "step": {
       "init": {
         "title": "Options Growatt THOR",
-        "description": "Choose what you want to configure. Charging strategy and authorization mode are dedicated device controls.",
-        "menu_options": {"general": "General settings", "authorization": "Local access control", "confirm_ap_mode": "Maintenance: AP mode"},
-        "menu_option_descriptions": {"general": "Configure polling and location.", "authorization": "Manage RFID access and Home Assistant remote starts separately.", "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant."}
+        "description": "Choisissez la zone à configurer. Les sources d’énergie facultatives servent uniquement à la visualisation.",
+        "menu_options": {"general": "Paramètres généraux", "energy_sources": "Sources d’énergie facultatives", "authorization": "Contrôle d’accès local", "confirm_ap_mode": "Maintenance : mode AP"},
+        "menu_option_descriptions": {"general": "Configurer l’intervalle d’interrogation et l’emplacement.", "energy_sources": "Configurer le flux de batterie facultatif pour les cartes et graphiques.", "authorization": "Gérer séparément l’accès RFID et les démarrages Home Assistant.", "confirm_ap_mode": "Activer le Wi-Fi de configuration de la borne ; Home Assistant sera déconnecté."}
       },
       "general": {
-        "title": "General settings",
-        "description": "These settings affect Home Assistant. Charging strategy and authorization mode are dedicated device controls.",
+        "title": "Paramètres généraux",
+        "description": "Ces paramètres concernent la connexion entre Home Assistant et la borne.",
         "data": {
           "poll_interval": "Intervalle d'interrogation du réseau (secondes, actuellement : {current_interval})",
           "location": "Lieu d'installation"
+        },
+        "data_description": {
+          "poll_interval": "How often Home Assistant refreshes external power values.",
+          "location": "Label shown for this installation."
+        }
+      },
+      "energy_sources": {
+        "title": "Sources d’énergie facultatives",
+        "description": "Uniquement pour les logements équipés d’une batterie compatible. Les valeurs servent exclusivement à la visualisation et ne commandent jamais la borne ni la batterie. Ne sélectionnez aucun capteur pour désactiver cette fonction.",
+        "data": {
+          "battery_power_entity": "Capteur de puissance de la batterie (facultatif)",
+          "battery_power_sign": "Convention de signe du capteur de batterie"
+        },
+        "data_description": {
+          "battery_power_entity": "Sélectionnez un capteur de puissance en W, kW ou MW pour afficher le flux de la batterie sur la carte.",
+          "battery_power_sign": "Indiquez si une valeur positive correspond à la charge ou à la décharge."
         }
       },
       "authorization": {
@@ -136,6 +152,8 @@
     },
     "error": {
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
+      "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "L'intervalle d'interrogation doit être d'au moins {min_interval} secondes",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
     },
@@ -176,6 +194,12 @@
         "1": "Home Assistant / RFID",
         "2": "RFID uniquement",
         "3": "Brancher et charger"
+      }
+    },
+    "battery_power_sign": {
+      "options": {
+        "positive_discharge": "Positive = battery discharging",
+        "positive_charge": "Positive = battery charging"
       }
     }
   },

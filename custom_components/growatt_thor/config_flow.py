@@ -1,6 +1,11 @@
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.helpers.selector import TextSelector, TextSelectorConfig
+from homeassistant.helpers.selector import (
+    SelectSelector,
+    SelectSelectorConfig,
+    TextSelector,
+    TextSelectorConfig,
+)
 import voluptuous as vol
 import logging
 
@@ -23,6 +28,14 @@ from .const import (
     DEFAULT_POLL_INTERVAL,
     MIN_POLL_INTERVAL,
 )
+from .energy.sources import (
+    BATTERY_POSITIVE_DISCHARGE,
+    BATTERY_POWER_SIGNS,
+    CONF_BATTERY_POWER_ENTITY,
+    CONF_BATTERY_POWER_SIGN,
+    is_power_sensor,
+    power_sensor_options,
+)
 from .configuration.validation import (
     NumericValidationError,
     NumericValidationReason,
@@ -35,22 +48,6 @@ from .runtime.write_queue import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _port_schema_value(value):
-    """Apply the protocol port range in the HA form and direct flow calls."""
-    try:
-        return validate_tcp_port(value)
-    except NumericValidationError as exc:
-        raise vol.Invalid("invalid_port") from exc
-
-
-def _poll_interval_schema_value(value):
-    """Reject fractional and non-finite intervals instead of coercing them."""
-    try:
-        return validate_poll_interval(value, minimum=MIN_POLL_INTERVAL)
-    except NumericValidationError as exc:
-        raise vol.Invalid("invalid_poll_interval") from exc
 
 
 def _poll_interval_error(exc: NumericValidationError) -> str:
@@ -108,7 +105,7 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(
                         CONF_PORT,
                         default=DEFAULT_PORT,
-                    ): _port_schema_value,
+                    ): int,
                     vol.Required(CONF_LOCATION, default=""): str,
                     vol.Required(
                         CONF_POLL_INTERVAL,
@@ -116,7 +113,7 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         description={
                             "suggested_value": DEFAULT_POLL_INTERVAL
                         }
-                    ): _poll_interval_schema_value,
+                    ): int,
                 }
             ),
             errors=errors,
@@ -140,7 +137,12 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         """Show purpose-based options instead of action checkboxes."""
         return self.async_show_menu(
             step_id="init",
-            menu_options=["general", "authorization", "confirm_ap_mode"],
+            menu_options=[
+                "general",
+                "energy_sources",
+                "authorization",
+                "confirm_ap_mode",
+            ],
         )
 
     async def async_step_general(self, user_input=None):
@@ -155,20 +157,23 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 )
             except NumericValidationError as exc:
                 errors[CONF_POLL_INTERVAL] = _poll_interval_error(exc)
-            else:
+
+            if not errors:
                 new_location = user_input.get(CONF_LOCATION, "")
+                updated_data = {
+                    **self.config_entry.data,
+                    CONF_POLL_INTERVAL: poll_interval,
+                    CONF_LOCATION: new_location,
+                }
                 self.hass.config_entries.async_update_entry(
                     self.config_entry,
-                    data={
-                        **self.config_entry.data,
-                        CONF_POLL_INTERVAL: poll_interval,
-                        CONF_LOCATION: new_location,
-                    }
+                    data=updated_data,
                 )
-                # Update coordinator location live
                 coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
                 if coordinator:
                     coordinator.location = new_location
+                    coordinator.external_meter_poll_interval = poll_interval
+                    coordinator.async_set_updated_data(True)
                 runtime_data = self.hass.data.get(DOMAIN, {})
                 runtime_data["poll_interval"] = poll_interval
                 schedule = runtime_data.get("poll_interval_schedule")
@@ -182,7 +187,6 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL
         )
         current_location = self.config_entry.data.get(CONF_LOCATION, "")
-
         return self.async_show_form(
             step_id="general",
             data_schema=vol.Schema(
@@ -190,7 +194,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(
                         CONF_POLL_INTERVAL,
                         default=current_poll_interval,
-                    ): _poll_interval_schema_value,
+                    ): int,
                     vol.Required(
                         CONF_LOCATION,
                         default=current_location,
@@ -202,6 +206,94 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 "min_interval": str(MIN_POLL_INTERVAL),
                 "current_interval": str(current_poll_interval),
             },
+        )
+
+    async def async_step_energy_sources(self, user_input=None):
+        """Configure optional display-only household energy observations."""
+        errors = {}
+        configured_entity = self.config_entry.data.get(
+            CONF_BATTERY_POWER_ENTITY, ""
+        )
+        configured_sign = self.config_entry.data.get(
+            CONF_BATTERY_POWER_SIGN, BATTERY_POSITIVE_DISCHARGE
+        )
+
+        if user_input is not None:
+            battery_entity = user_input.get(CONF_BATTERY_POWER_ENTITY) or None
+            battery_sign = user_input.get(
+                CONF_BATTERY_POWER_SIGN,
+                BATTERY_POSITIVE_DISCHARGE,
+            )
+            states = getattr(self.hass, "states", {})
+            if battery_entity and not is_power_sensor(
+                battery_entity,
+                states.get(battery_entity),
+            ):
+                errors[CONF_BATTERY_POWER_ENTITY] = "invalid_power_sensor"
+            if battery_entity and battery_sign not in BATTERY_POWER_SIGNS:
+                errors[CONF_BATTERY_POWER_SIGN] = "invalid_battery_power_sign"
+
+            if not errors:
+                updated_data = dict(self.config_entry.data)
+                if battery_entity:
+                    updated_data[CONF_BATTERY_POWER_ENTITY] = battery_entity
+                    updated_data[CONF_BATTERY_POWER_SIGN] = battery_sign
+                else:
+                    updated_data.pop(CONF_BATTERY_POWER_ENTITY, None)
+                    updated_data.pop(CONF_BATTERY_POWER_SIGN, None)
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    data=updated_data,
+                )
+                coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
+                if coordinator:
+                    coordinator.battery_power_entity = battery_entity
+                    coordinator.battery_power_sign = (
+                        battery_sign
+                        if battery_entity
+                        else BATTERY_POSITIVE_DISCHARGE
+                    )
+                    coordinator.async_set_updated_data(True)
+                return self.async_create_entry(title="", data={})
+
+        current_battery_entity = (
+            (user_input or {}).get(
+                CONF_BATTERY_POWER_ENTITY,
+                configured_entity,
+            )
+            or ""
+        )
+        current_battery_sign = (user_input or {}).get(
+            CONF_BATTERY_POWER_SIGN,
+            configured_sign,
+        )
+        return self.async_show_form(
+            step_id="energy_sources",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_BATTERY_POWER_ENTITY,
+                        default=current_battery_entity,
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=power_sensor_options(
+                                getattr(self.hass, "states", {}),
+                                current_battery_entity or None,
+                            ),
+                        )
+                    ),
+                    vol.Required(
+                        CONF_BATTERY_POWER_SIGN,
+                        default=current_battery_sign,
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=list(BATTERY_POWER_SIGNS),
+                            translation_key="battery_power_sign",
+                        )
+                    ),
+                }
+            ),
+            errors=errors,
         )
 
     async def async_step_authorization(self, user_input=None):

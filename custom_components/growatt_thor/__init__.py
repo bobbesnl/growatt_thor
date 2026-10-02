@@ -35,6 +35,11 @@ from .runtime.entity_migrations import (
     disable_redundant_external_meter_readbacks,
     migrate_session_duration_unit,
 )
+from .energy.sources import (
+    BATTERY_POSITIVE_DISCHARGE,
+    CONF_BATTERY_POWER_ENTITY,
+    CONF_BATTERY_POWER_SIGN,
+)
 from .ocpp.server import start_ocpp_server
 from .runtime.polling import PollIntervalSchedule
 from .runtime.ownership import (
@@ -332,6 +337,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator.authorization = LocalAuthorization(
             entry.data.get(CONF_AUTHORIZATION)
         )
+        coordinator.battery_power_entity = entry.data.get(CONF_BATTERY_POWER_ENTITY)
+        coordinator.battery_power_sign = entry.data.get(
+            CONF_BATTERY_POWER_SIGN, BATTERY_POSITIVE_DISCHARGE
+        )
         await coordinator.async_load_storage()
         runtime_data["coordinator"] = coordinator
         runtime_data["skip_polling_until"] = 0.0
@@ -349,6 +358,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry.data.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
             minimum=MIN_POLL_INTERVAL,
         )
+        coordinator.external_meter_poll_interval = poll_interval
         runtime_data["poll_interval"] = poll_interval
         poll_interval_schedule = PollIntervalSchedule(poll_interval)
         runtime_data["poll_interval_schedule"] = poll_interval_schedule

@@ -3,9 +3,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, is_dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
+from math import isfinite
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 DEFAULT_MEASURAND = "Energy.Active.Import.Register"
@@ -147,7 +149,40 @@ def _parse_sample(sample: Any) -> MeterSample:
     )
 
 
-def parse_meter_values(payload: Any) -> tuple[MeterValue, ...]:
+def normalize_meter_timestamp(value: str | None, time_zone: str | None = None) -> str | None:
+    """Convert THOR local wall-clock timestamps to UTC without guessing DST folds.
+
+    Some firmware omits the UTC offset. Only HA's configured installation zone
+    can resolve those values; the process/browser timezone and receipt time
+    must never turn an old or ambiguous sample into a current observation.
+    """
+    if not value or not isinstance(value, str) or "T" not in value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    if not time_zone:
+        return None
+    try:
+        zone = ZoneInfo(time_zone)
+    except (ValueError, ZoneInfoNotFoundError):
+        return None
+    # Round trips reject nonexistent spring times; two distinct UTC candidates
+    # identify an ambiguous autumn time. Explicit offsets above need no guess.
+    candidates = set()
+    for fold in (0, 1):
+        utc = parsed.replace(tzinfo=zone, fold=fold).astimezone(timezone.utc)
+        if utc.astimezone(zone).replace(tzinfo=None) == parsed:
+            candidates.add(utc)
+    if len(candidates) != 1:
+        return None
+    return candidates.pop().isoformat().replace("+00:00", "Z")
+
+
+def parse_meter_values(payload: Any, *, time_zone: str | None = None) -> tuple[MeterValue, ...]:
     """Parse OCPP MeterValues entries without dropping unknown fields."""
     meter_values = []
     for entry in _as_sequence(payload):
@@ -158,7 +193,7 @@ def parse_meter_values(payload: Any) -> tuple[MeterValue, ...]:
 
         meter_values.append(
             MeterValue(
-                timestamp=_text(_field(entry, "timestamp")),
+                timestamp=normalize_meter_timestamp(_text(_field(entry, "timestamp")), time_zone),
                 samples=tuple(
                     _parse_sample(sample)
                     for sample in _as_sequence(sampled_values)
@@ -168,3 +203,28 @@ def parse_meter_values(payload: Any) -> tuple[MeterValue, ...]:
         )
 
     return tuple(meter_values)
+
+
+def charging_power_curve_point(entry: MeterValue) -> list[Any] | None:
+    """Return one total charging-power point without filling missing phases."""
+    if not entry.timestamp:
+        return None
+    total = None
+    phases = []
+    for sample in entry.samples:
+        if sample.measurand != "Power.Active.Import" or sample.numeric_value is None:
+            continue
+        if (
+            sample.unit not in (None, "W", "kW")
+            or sample.numeric_value < 0
+            or not isfinite(sample.numeric_value)
+        ):
+            continue
+        watts = sample.numeric_value * (1000 if sample.unit == "kW" else 1)
+        if sample.phase is None:
+            total = watts
+        else:
+            phases.append(watts)
+    if total is None:
+        total = sum(phases) if phases else None
+    return [entry.timestamp, round(total, 1)] if total is not None else None

@@ -93,24 +93,42 @@
     "step": {
       "init": {
         "title": "Optionen für Growatt THOR",
-        "description": "Wähle den zu konfigurierenden Bereich. Ladestrategie und Autorisierungsmodus sind eigene Gerätesteuerungen.",
+        "description": "Wähle den zu konfigurierenden Bereich. Optionale Energiequellen werden nur für die Visualisierung ausgewertet.",
         "menu_options": {
           "general": "Allgemeine Einstellungen",
+          "energy_sources": "Optionale Energiequellen",
           "authorization": "Lokale Zugriffskontrolle",
           "confirm_ap_mode": "Wartung: AP-Modus"
         },
         "menu_option_descriptions": {
           "general": "Abfrageintervall und Installationsort konfigurieren.",
+          "energy_sources": "Optionalen Batteriefluss für Karten und Diagramme konfigurieren.",
           "authorization": "RFID-Zugriff und Starts durch Home Assistant getrennt verwalten.",
           "confirm_ap_mode": "Einrichtungs-WLAN der Wallbox aktivieren; Home Assistant wird dabei getrennt."
         }
       },
       "general": {
         "title": "Allgemeine Einstellungen",
-        "description": "Diese Einstellungen betreffen Home Assistant. Ladestrategie und Autorisierungsmodus sind eigene Select-Entitäten am Gerät.",
+        "description": "Diese Einstellungen betreffen die Verbindung zwischen Home Assistant und der Wallbox.",
         "data": {
           "poll_interval": "Netzdaten-Abfrageintervall (Sekunden, aktuell: {current_interval})",
           "location": "Installationsort"
+        },
+        "data_description": {
+          "poll_interval": "Wie oft Home Assistant externe Leistungswerte aktualisiert.",
+          "location": "Bezeichnung für diese Installation."
+        }
+      },
+      "energy_sources": {
+        "title": "Optionale Energiequellen",
+        "description": "Nur für Haushalte mit einem passenden Batteriespeicher. Die Werte dienen ausschließlich der Visualisierung und steuern weder Wallbox noch Batterie. Ohne Auswahl bleibt die Funktion deaktiviert.",
+        "data": {
+          "battery_power_entity": "Batterie-Leistungssensor (optional)",
+          "battery_power_sign": "Vorzeichen des Batteriesensors"
+        },
+        "data_description": {
+          "battery_power_entity": "Einen Leistungssensor mit W, kW oder MW auswählen, um den Batteriefluss in der Karte anzuzeigen.",
+          "battery_power_sign": "Festlegen, ob ein positiver Sensorwert Laden oder Entladen bedeutet."
         }
       },
       "authorization": {
@@ -144,6 +162,8 @@
     },
     "error": {
       "invalid_authorization": "Höchstens 100 Kennungen mit je 1–20 druckbaren ASCII-Zeichen ohne Leerzeichen eingeben.",
+      "invalid_power_sensor": "Bitte einen Sensor mit der Einheit W, kW oder MW auswählen.",
+      "invalid_battery_power_sign": "Bitte festlegen, ob ein positiver Sensorwert Laden oder Entladen bedeutet.",
       "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen",
       "invalid_poll_interval": "Das Abfrageintervall muss eine endliche ganze Anzahl Sekunden sein"
     },
@@ -230,6 +250,12 @@
         "1": "Home Assistant / RFID",
         "2": "Nur RFID",
         "3": "Einstecken und laden"
+      }
+    },
+    "battery_power_sign": {
+      "options": {
+        "positive_discharge": "Positiv = Batterie entlädt",
+        "positive_charge": "Positiv = Batterie lädt"
       }
     }
   },

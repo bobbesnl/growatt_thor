@@ -1,6 +1,7 @@
 """Exercise the real options flow with a minimal HA form/storage harness."""
 import importlib
 import importlib.util
+import json
 from pathlib import Path
 import sys
 from types import ModuleType, SimpleNamespace
@@ -8,6 +9,34 @@ import unittest
 from unittest.mock import patch
 
 HAS_VOL = importlib.util.find_spec('voluptuous') is not None
+
+
+class EnergySourceTranslationTest(unittest.TestCase):
+    def test_optional_energy_source_step_is_complete_in_every_language(self):
+        translation_dir = (
+            Path(__file__).parents[1]
+            / 'custom_components'
+            / 'growatt_thor'
+            / 'translations'
+        )
+        for path in sorted(translation_dir.glob('*.json')):
+            payload = json.loads(path.read_text(encoding='utf-8'))
+            steps = payload['options']['step']
+            with self.subTest(language=path.stem):
+                self.assertTrue(
+                    steps['init']['menu_options']['energy_sources']
+                )
+                self.assertTrue(
+                    steps['init']['menu_option_descriptions']['energy_sources']
+                )
+                self.assertEqual(
+                    set(steps['energy_sources']['data']),
+                    {'battery_power_entity', 'battery_power_sign'},
+                )
+                self.assertNotIn(
+                    'battery_power_entity',
+                    steps['general']['data'],
+                )
 
 
 class FlowBase:
@@ -76,6 +105,7 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
         self.flow.config_entry = self.entry
         self.coordinator = SimpleNamespace(
             authorization=self.auth.LocalAuthorization(),
+            async_set_updated_data=lambda _: None,
         )
         self.updates = []
 
@@ -85,6 +115,7 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
 
         self.flow.hass = SimpleNamespace(
             data={'growatt_thor': {'coordinator': self.coordinator}},
+            states={},
             config_entries=SimpleNamespace(async_update_entry=update),
         )
 
@@ -93,11 +124,30 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['step_id'], 'init')
         self.assertEqual(
             result['menu_options'],
-            ['general', 'authorization', 'confirm_ap_mode'],
+            ['general', 'energy_sources', 'authorization', 'confirm_ap_mode'],
         )
         general = await self.flow.async_step_general()
         field_names = {marker.schema for marker in general['data_schema'].schema}
         self.assertNotIn('charger_mode', field_names)
+        self.assertNotIn('battery_power_entity', field_names)
+        energy_sources = await self.flow.async_step_energy_sources()
+        energy_fields = {
+            marker.schema for marker in energy_sources['data_schema'].schema
+        }
+        self.assertEqual(
+            energy_fields,
+            {'battery_power_entity', 'battery_power_sign'},
+        )
+
+    async def test_general_form_uses_frontend_serializable_validators(self):
+        form = await self.flow.async_step_general()
+        fields = {
+            marker.schema: validator
+            for marker, validator in form['data_schema'].schema.items()
+        }
+
+        self.assertIs(fields['poll_interval'], int)
+        self.assertIs(fields['location'], str)
 
     async def test_save_preserves_existing_data_and_applies_live(self):
         result = await self.flow.async_step_authorization({
@@ -184,6 +234,116 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
         })
         self.assertEqual(self.coordinator.authorization.policy.status('TEST-CARD'), 'Invalid')
 
+    async def test_optional_battery_power_sensor_is_saved_and_applied_live(self):
+        self.flow.hass.states = {
+            'sensor.home_battery_power': SimpleNamespace(
+                state='1.5',
+                attributes={
+                    'friendly_name': 'Home battery power',
+                    'unit_of_measurement': 'kW',
+                },
+            )
+        }
+        result = await self.flow.async_step_energy_sources({
+            'battery_power_entity': 'sensor.home_battery_power',
+            'battery_power_sign': 'positive_charge',
+        })
+        self.assertEqual(result['data'], {})
+        self.assertEqual(
+            self.entry.data['battery_power_entity'], 'sensor.home_battery_power'
+        )
+        self.assertEqual(self.entry.data['battery_power_sign'], 'positive_charge')
+        self.assertEqual(
+            self.coordinator.battery_power_entity, 'sensor.home_battery_power'
+        )
+
+    async def test_battery_selector_filters_and_orders_candidates(self):
+        self.flow.hass.states = {
+            'sensor.pv_power': SimpleNamespace(
+                state='4000',
+                attributes={'friendly_name': 'PV power', 'unit_of_measurement': 'W'},
+            ),
+            'sensor.battery_power': SimpleNamespace(
+                state='1000',
+                attributes={
+                    'friendly_name': 'Battery combined power',
+                    'unit_of_measurement': 'W',
+                },
+            ),
+            'sensor.battery_energy': SimpleNamespace(
+                state='8',
+                attributes={
+                    'friendly_name': 'Battery energy',
+                    'unit_of_measurement': 'kWh',
+                },
+            ),
+        }
+        form = await self.flow.async_step_energy_sources()
+        fields = {
+            marker.schema: validator
+            for marker, validator in form['data_schema'].schema.items()
+        }
+        options = fields['battery_power_entity'].config['options']
+        self.assertEqual(
+            [option['value'] for option in options],
+            ['', 'sensor.battery_power', 'sensor.pv_power'],
+        )
+
+    async def test_battery_sensor_requires_a_power_unit(self):
+        self.flow.hass.states = {
+            'sensor.battery_energy': SimpleNamespace(
+                state='8',
+                attributes={'unit_of_measurement': 'kWh'},
+            )
+        }
+        result = await self.flow.async_step_energy_sources({
+            'battery_power_entity': 'sensor.battery_energy',
+            'battery_power_sign': 'positive_discharge',
+        })
+        self.assertEqual(
+            result['errors'], {'battery_power_entity': 'invalid_power_sensor'}
+        )
+        self.assertEqual(self.updates, [])
+
+    async def test_general_save_preserves_optional_energy_source(self):
+        self.entry.data.update({
+            'battery_power_entity': 'sensor.battery_power',
+            'battery_power_sign': 'positive_charge',
+        })
+
+        await self.flow.async_step_general({
+            'poll_interval': 30,
+            'location': 'Garage',
+        })
+
+        self.assertEqual(
+            self.entry.data['battery_power_entity'],
+            'sensor.battery_power',
+        )
+        self.assertEqual(self.entry.data['battery_power_sign'], 'positive_charge')
+
+    async def test_blank_energy_source_disables_battery_flow_live(self):
+        self.entry.data.update({
+            'battery_power_entity': 'sensor.battery_power',
+            'battery_power_sign': 'positive_charge',
+        })
+        self.coordinator.battery_power_entity = 'sensor.battery_power'
+        self.coordinator.battery_power_sign = 'positive_charge'
+
+        result = await self.flow.async_step_energy_sources({
+            'battery_power_entity': '',
+            'battery_power_sign': 'invalid-but-irrelevant',
+        })
+
+        self.assertEqual(result['data'], {})
+        self.assertNotIn('battery_power_entity', self.entry.data)
+        self.assertNotIn('battery_power_sign', self.entry.data)
+        self.assertIsNone(self.coordinator.battery_power_entity)
+        self.assertEqual(
+            self.coordinator.battery_power_sign,
+            'positive_discharge',
+        )
+
 
 @unittest.skipUnless(HAS_VOL, 'Install tests/requirements-auth.txt for config-flow tests')
 class SingleInstanceConfigFlowTest(unittest.IsolatedAsyncioTestCase):
@@ -209,6 +369,12 @@ class SingleInstanceConfigFlowTest(unittest.IsolatedAsyncioTestCase):
         result = await flow.async_step_user()
 
         self.assertEqual(result["step_id"], "user")
+        fields = {
+            marker.schema: validator
+            for marker, validator in result['data_schema'].schema.items()
+        }
+        self.assertIs(fields['port'], int)
+        self.assertIs(fields['poll_interval'], int)
 
     async def test_port_must_be_an_exact_protocol_port(self):
         for invalid in (0, 65536, 9000.5, float('nan')):

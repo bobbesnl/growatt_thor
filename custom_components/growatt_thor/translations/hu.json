@@ -93,16 +93,32 @@
     "step": {
       "init": {
         "title": "Growatt THOR beállítások",
-        "description": "Choose what you want to configure. Charging strategy and authorization mode are dedicated device controls.",
-        "menu_options": {"general": "General settings", "authorization": "Local access control", "confirm_ap_mode": "Maintenance: AP mode"},
-        "menu_option_descriptions": {"general": "Configure polling and location.", "authorization": "Manage RFID access and Home Assistant remote starts separately.", "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant."}
+        "description": "Válaszd ki a beállítandó területet. Az opcionális energiaforrások csak a megjelenítést szolgálják.",
+        "menu_options": {"general": "Általános beállítások", "energy_sources": "Opcionális energiaforrások", "authorization": "Helyi hozzáférés-vezérlés", "confirm_ap_mode": "Karbantartás: AP mód"},
+        "menu_option_descriptions": {"general": "A lekérdezési időköz és a hely beállítása.", "energy_sources": "Opcionális akkumulátoráramlás beállítása a kártyákhoz és diagramokhoz.", "authorization": "Az RFID-hozzáférés és a Home Assistant-indítások külön kezelése.", "confirm_ap_mode": "A töltő beállítási Wi-Fi-jének engedélyezése; a Home Assistant kapcsolata megszakad."}
       },
       "general": {
-        "title": "General settings",
-        "description": "These settings affect Home Assistant. Charging strategy and authorization mode are dedicated device controls.",
+        "title": "Általános beállítások",
+        "description": "Ezek a beállítások a Home Assistant és a töltő közötti kapcsolatot érintik.",
         "data": {
           "poll_interval": "Hálózati lekérdezési időköz (másodperc, jelenleg: {current_interval})",
           "location": "Telepítés helye"
+        },
+        "data_description": {
+          "poll_interval": "How often Home Assistant refreshes external power values.",
+          "location": "Label shown for this installation."
+        }
+      },
+      "energy_sources": {
+        "title": "Opcionális energiaforrások",
+        "description": "Csak kompatibilis otthoni akkumulátorral rendelkező háztartásokhoz. Az értékek kizárólag megjelenítésre szolgálnak, és soha nem vezérlik a töltőt vagy az akkumulátort. Hagyd üresen az érzékelőt a funkció kikapcsolásához.",
+        "data": {
+          "battery_power_entity": "Akkumulátor-teljesítmény érzékelő (opcionális)",
+          "battery_power_sign": "Az akkumulátorérzékelő előjel-konvenciója"
+        },
+        "data_description": {
+          "battery_power_entity": "Válassz W, kW vagy MW mértékegységű teljesítményérzékelőt az akkumulátoráramlás megjelenítéséhez.",
+          "battery_power_sign": "Add meg, hogy a pozitív érték töltést vagy kisütést jelent-e."
         }
       },
       "authorization": {
@@ -136,6 +152,8 @@
     },
     "error": {
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
+      "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "A lekérdezési időköz legalább {min_interval} másodperc legyen",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
     },
@@ -176,6 +194,12 @@
         "1": "Home Assistant / RFID",
         "2": "Csak RFID",
         "3": "Csatlakoztatás és töltés"
+      }
+    },
+    "battery_power_sign": {
+      "options": {
+        "positive_discharge": "Positive = battery discharging",
+        "positive_charge": "Positive = battery charging"
       }
     }
   },

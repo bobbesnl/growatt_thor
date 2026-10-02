@@ -93,16 +93,32 @@
     "step": {
       "init": {
         "title": "Možnosti Growatt THOR",
-        "description": "Choose what you want to configure. Charging strategy and authorization mode are dedicated device controls.",
-        "menu_options": {"general": "General settings", "authorization": "Local access control", "confirm_ap_mode": "Maintenance: AP mode"},
-        "menu_option_descriptions": {"general": "Configure polling and location.", "authorization": "Manage RFID access and Home Assistant remote starts separately.", "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant."}
+        "description": "Izberite področje, ki ga želite nastaviti. Izbirni viri energije se uporabljajo samo za prikaz.",
+        "menu_options": {"general": "Splošne nastavitve", "energy_sources": "Izbirni viri energije", "authorization": "Lokalni nadzor dostopa", "confirm_ap_mode": "Vzdrževanje: način AP"},
+        "menu_option_descriptions": {"general": "Nastavite interval preverjanja in lokacijo.", "energy_sources": "Nastavite izbirni pretok baterije za kartice in grafikone.", "authorization": "Ločeno upravljajte dostop RFID in zagone iz Home Assistanta.", "confirm_ap_mode": "Vklopite nastavitveni Wi-Fi polnilnice; povezava s Home Assistantom bo prekinjena."}
       },
       "general": {
-        "title": "General settings",
-        "description": "These settings affect Home Assistant. Charging strategy and authorization mode are dedicated device controls.",
+        "title": "Splošne nastavitve",
+        "description": "Te nastavitve vplivajo na povezavo med Home Assistantom in polnilnico.",
         "data": {
           "poll_interval": "Interval preverjanja omrežja (sekunde, trenutno: {current_interval})",
           "location": "Lokacija namestitve"
+        },
+        "data_description": {
+          "poll_interval": "How often Home Assistant refreshes external power values.",
+          "location": "Label shown for this installation."
+        }
+      },
+      "energy_sources": {
+        "title": "Izbirni viri energije",
+        "description": "Samo za domove z združljivo baterijo. Vrednosti se uporabljajo izključno za prikaz in nikoli ne krmilijo polnilnice ali baterije. Če želite funkcijo izklopiti, ne izberite senzorja.",
+        "data": {
+          "battery_power_entity": "Senzor moči baterije (izbirno)",
+          "battery_power_sign": "Predznak senzorja baterije"
+        },
+        "data_description": {
+          "battery_power_entity": "Izberite senzor moči v W, kW ali MW za prikaz pretoka baterije na kartici.",
+          "battery_power_sign": "Določite, ali pozitivna vrednost pomeni polnjenje ali praznjenje."
         }
       },
       "authorization": {
@@ -136,6 +152,8 @@
     },
     "error": {
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
+      "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "Interval preverjanja mora biti vsaj {min_interval} sekund",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
     },
@@ -176,6 +194,12 @@
         "1": "Home Assistant / RFID",
         "2": "Samo RFID",
         "3": "Priklopi in polni"
+      }
+    },
+    "battery_power_sign": {
+      "options": {
+        "positive_discharge": "Positive = battery discharging",
+        "positive_charge": "Positive = battery charging"
       }
     }
   },

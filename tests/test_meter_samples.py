@@ -53,6 +53,35 @@ class Entry:
 class MeterSamplesTest(unittest.TestCase):
     """Verify lossless parsing and normalized accessors."""
 
+    def test_local_wallbox_timestamps_use_installation_zone_and_preserve_raw(self):
+        for raw, expected in (
+            ("2026-10-02T16:52:49", "2026-10-02T14:52:49Z"),
+            ("2026-01-02T16:52:49", "2026-01-02T15:52:49Z"),
+            ("2026-10-02T16:52:49+02:00", "2026-10-02T14:52:49Z"),
+            ("2026-10-02T14:52:49Z", "2026-10-02T14:52:49Z"),
+            ("2026-10-25T02:30:00+02:00", "2026-10-25T00:30:00Z"),
+            ("2026-10-25T02:30:00+01:00", "2026-10-25T01:30:00Z"),
+        ):
+            with self.subTest(raw=raw):
+                entry = meter_samples.parse_meter_values(
+                    {"timestamp": raw, "sampledValue": []}, time_zone="Europe/Berlin",
+                )[0]
+                self.assertEqual(entry.timestamp, expected)
+                self.assertEqual(entry.raw["timestamp"], raw)
+
+    def test_ambiguous_nonexistent_and_invalid_times_are_not_guessed(self):
+        for raw, zone in (
+            ("2026-10-25T02:30:00", "Europe/Berlin"),
+            ("2026-03-29T02:30:00", "Europe/Berlin"),
+            ("2026-10-02T16:52:49", None),
+            ("2026-10-02T16:52:49", "Invalid/Zone"),
+            ("2026-10-02", "Europe/Berlin"),
+            ("bad", "Europe/Berlin"),
+            (None, "Europe/Berlin"),
+        ):
+            with self.subTest(raw=raw, zone=zone):
+                self.assertIsNone(meter_samples.normalize_meter_timestamp(raw, zone))
+
     def test_parses_object_models_and_preserves_extensions(self):
         parsed = meter_samples.parse_meter_values(
             [
@@ -127,6 +156,26 @@ class MeterSamplesTest(unittest.TestCase):
         self.assertEqual(parsed[0].timestamp, "2026-08-24T10:02:00Z")
         self.assertEqual(parsed[0].samples, ())
         self.assertEqual(parsed[0].raw["sampledValue"], [])
+
+    def test_builds_total_power_curve_point_with_unit_conversion(self):
+        entry = meter_samples.parse_meter_values({
+            "timestamp": "2026-09-12T10:00:00Z",
+            "sampledValue": [
+                {"value": "3.2", "measurand": "Power.Active.Import", "unit": "kW", "phase": "L1"},
+                {"value": "3100", "measurand": "Power.Active.Import", "unit": "W", "phase": "L2"},
+            ],
+        })[0]
+        self.assertEqual(
+            meter_samples.charging_power_curve_point(entry),
+            ["2026-09-12T10:00:00Z", 6300.0],
+        )
+
+    def test_curve_point_does_not_invent_missing_power(self):
+        entry = meter_samples.parse_meter_values({
+            "timestamp": "2026-09-12T10:00:00Z",
+            "sampledValue": [{"value": "12", "measurand": "Current.Import", "unit": "A"}],
+        })[0]
+        self.assertIsNone(meter_samples.charging_power_curve_point(entry))
 
 
 if __name__ == "__main__":
