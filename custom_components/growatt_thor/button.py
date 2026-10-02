@@ -285,6 +285,7 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
         ) is not None:
             _LOGGER.warning("Skipping stale stop charging command: %s", reason)
             return ChargerWriteResult.skipped(reason)
+        self.coordinator.record_stop_requested()
         try:
             result = await charge_point.remote_stop_transaction(
                 transaction_id=transaction_id

@@ -53,7 +53,10 @@ from .runtime.services import (
 )
 from .sessions.csv import (
     append_session_row,
+    dashboard_session_data,
+    enforce_session_retention,
     export_session_rows,
+    update_session_events,
 )
 from .configuration.validation import (
     DateRangeValidationError,
@@ -200,7 +203,36 @@ async def _append_session_to_csv(hass, session: dict):
         append_session_row(path, session)
 
     await hass.async_add_executor_job(_write)
+    coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
+    if coordinator is not None:
+        coordinator.dashboard_sessions = await hass.async_add_executor_job(
+            dashboard_session_data, path
+        )
+        coordinator.async_set_updated_data(True)
     _LOGGER.debug("📝 Session appended to CSV: %s", path)
+
+
+async def _update_session_events_in_csv(
+    hass,
+    session_id: str,
+    events: list[dict[str, str]],
+) -> None:
+    """Persist late session events such as unplugging after transaction stop."""
+    path = _get_session_log_path(hass)
+    updated = await hass.async_add_executor_job(
+        update_session_events,
+        path,
+        session_id,
+        events,
+    )
+    if not updated:
+        return
+    coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
+    if coordinator is not None:
+        coordinator.dashboard_sessions = await hass.async_add_executor_job(
+            dashboard_session_data, path
+        )
+        coordinator.async_set_updated_data(True)
 
 
 def _register_services(hass: HomeAssistant) -> None:
@@ -310,8 +342,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register integration-level services independently from config entries."""
     _register_services(hass)
     from .targets.services import async_register_target_services
+    from .sessions.websocket import async_register_session_websocket
 
     async_register_target_services(hass)
+    async_register_session_websocket(hass)
     return True
 
 
@@ -337,15 +371,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator.authorization = LocalAuthorization(
             entry.data.get(CONF_AUTHORIZATION)
         )
-        coordinator.battery_power_entity = entry.data.get(CONF_BATTERY_POWER_ENTITY)
+        coordinator.battery_power_entity = entry.data.get(
+            CONF_BATTERY_POWER_ENTITY
+        )
         coordinator.battery_power_sign = entry.data.get(
-            CONF_BATTERY_POWER_SIGN, BATTERY_POSITIVE_DISCHARGE
+            CONF_BATTERY_POWER_SIGN,
+            BATTERY_POSITIVE_DISCHARGE,
         )
         await coordinator.async_load_storage()
         runtime_data["coordinator"] = coordinator
         runtime_data["skip_polling_until"] = 0.0
         runtime_data["append_session_to_csv"] = (
             lambda session: _append_session_to_csv(hass, session)
+        )
+        runtime_data["update_session_events_in_csv"] = (
+            lambda session_id, events: _update_session_events_in_csv(
+                hass, session_id, events
+            )
+        )
+        session_log_path = _get_session_log_path(hass)
+
+        def _load_retained_dashboard():
+            enforce_session_retention(session_log_path)
+            return dashboard_session_data(session_log_path)
+
+        coordinator.dashboard_sessions = await hass.async_add_executor_job(
+            _load_retained_dashboard
         )
 
         # Revalidate persisted entries as well as form submissions.  This

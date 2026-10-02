@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import csv
-from datetime import datetime
+from datetime import date, datetime
 import importlib.util
 from pathlib import Path
 import stat
@@ -46,6 +46,15 @@ LEGACY_HEADERS = [
         "effective_charging_minutes",
         "session_id",
         "session_source",
+        "authorized_identifier",
+        "green_energy_kwh",
+        "power_curve",
+        "events",
+        "source_energy_kwh",
+        "effective_grid_cost",
+        "accounting_coverage",
+        "accounting_quality",
+        "accounting_policy",
     )
 ]
 
@@ -74,6 +83,48 @@ def _legacy_row(**overrides):
 
 
 class SessionCsvTest(unittest.TestCase):
+    def test_interrupted_retention_replays_result_without_double_counting(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sessions.csv"
+            session_csv.append_session_row(path, _row(start_time="2099-01-01 10:00:00", session_id="one"))
+            with patch.object(session_csv, "_rewrite_rows", side_effect=OSError("interrupted")):
+                with self.assertRaises(OSError):
+                    session_csv.enforce_session_retention(path, today=date(2101, 1, 1))
+            self.assertTrue(session_csv._journal_path(path).exists())
+            data = session_csv.dashboard_session_data(path)
+            self.assertEqual(data["total_count"], 1)
+            self.assertEqual(data["total_energy_kwh"], 0.412)
+            self.assertEqual(data["items"], [])
+            self.assertFalse(session_csv._journal_path(path).exists())
+
+    def test_replayed_append_remains_unique_after_retention(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sessions.csv"
+            row = _row(start_time="2000-01-01 10:00:00", session_id="one")
+            session_csv.append_session_row(path, row)
+            session_csv.append_session_row(path, row)
+            data = session_csv.dashboard_session_data(path)
+            self.assertEqual(data["total_count"], 1)
+            self.assertEqual(data["total_energy_kwh"], 0.412)
+
+    def test_accounting_columns_round_trip_and_old_row_stays_unknown(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sessions.csv"
+            session_csv.append_session_row(path, _row(
+                source_energy_kwh={"direct_solar": 0.2, "direct_grid": 0.1,
+                                   "battery_unknown": 0.0, "unknown": 0.112},
+                effective_grid_cost=-0.03,
+                accounting_coverage=0.728,
+                accounting_quality="derived",
+                accounting_policy={"id": "grid_first", "version": 1},
+            ))
+            item = session_csv.dashboard_session_data(path)["items"][0]
+            self.assertEqual(item["source_energy_kwh"]["direct_solar"], 0.2)
+            self.assertEqual(item["effective_grid_cost"], -0.03)
+            self.assertEqual(item["accounting_policy"], {"id": "grid_first", "version": 1})
+            detail = session_csv.session_detail_data(path, item["session_id"])
+            self.assertEqual(detail["source_energy_kwh"], item["source_energy_kwh"])
+            self.assertIsNone(session_csv._session_item(_row(), details=False)["source_energy_kwh"])
     """Verify new files and in-place migration of historical logs."""
 
     def test_new_log_keeps_supplied_source_aware_identity(self):
@@ -95,6 +146,152 @@ class SessionCsvTest(unittest.TestCase):
             self.assertEqual(rows[0]["session_id"], "ha-0123456789abcdef")
             self.assertEqual(rows[0]["session_source"], "home_assistant")
             self.assertEqual(rows[0]["effective_charging_minutes"], "24.5")
+
+    def test_event_json_round_trips_through_dashboard_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sessions.csv"
+            session_csv.append_session_row(
+                path,
+                _row(
+                    events='[{"type":"transaction_started",'
+                    '"at":"2026-09-17T10:00:00Z","source":"ocpp",'
+                    '"certainty":"observed"},'
+                    '{"type":"invalid","at":"now","source":"ocpp",'
+                    '"certainty":"observed"}]'
+                ),
+            )
+
+            item = session_csv.dashboard_session_data(path)["items"][0]
+
+        self.assertEqual(
+            item["events"],
+            [
+                {
+                    "type": "transaction_started",
+                    "at": "2026-09-17T10:00:00Z",
+                    "source": "ocpp",
+                    "certainty": "observed",
+                }
+            ],
+        )
+
+    def test_late_unplug_event_updates_only_the_matching_session(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sessions.csv"
+            session_csv.append_session_row(
+                path,
+                _row(
+                    transaction_id="7",
+                    session_id="ha-first",
+                    session_source="home_assistant",
+                ),
+            )
+            session_csv.append_session_row(
+                path,
+                _row(
+                    transaction_id="8",
+                    session_id="ha-second",
+                    session_source="home_assistant",
+                ),
+            )
+
+            updated = session_csv.update_session_events(
+                path,
+                "ha-first",
+                [
+                    {
+                        "type": "unplugged",
+                        "at": "2026-09-17T10:31:00Z",
+                        "source": "ocpp",
+                        "certainty": "derived",
+                    }
+                ],
+            )
+            data = session_csv.dashboard_session_data(path)
+            second_detail = session_csv.session_detail_data(path, "ha-second")
+
+        self.assertTrue(updated)
+        by_id = {item["session_id"]: item for item in data["items"]}
+        self.assertEqual(by_id["ha-first"]["events"][0]["type"], "unplugged")
+        self.assertNotIn("events", by_id["ha-second"])
+        self.assertEqual(second_detail["events"], [])
+
+    def test_retention_prunes_details_but_carries_kpi_totals_forward(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sessions.csv"
+            with path.open("w", newline="", encoding="utf-8") as target:
+                writer = csv.DictWriter(
+                    target,
+                    fieldnames=session_csv.SESSION_LOG_HEADERS,
+                )
+                writer.writeheader()
+                writer.writerow(
+                    _row(
+                        start_time="2024-01-01 10:00:00",
+                        energy_kwh="5.5",
+                        cost="1.25",
+                        green_energy_kwh="4.0",
+                        session_id="old",
+                        session_source="home_assistant",
+                    )
+                )
+                writer.writerow(
+                    _row(
+                        start_time="2026-09-01 10:00:00",
+                        energy_kwh="2.5",
+                        cost="0.75",
+                        session_id="recent",
+                        session_source="home_assistant",
+                    )
+                )
+
+            removed = session_csv.enforce_session_retention(
+                path,
+                today=date(2026, 9, 21),
+            )
+            data = session_csv.dashboard_session_data(path)
+
+            with path.open(newline="", encoding="utf-8") as source:
+                retained = list(csv.DictReader(source))
+
+        self.assertEqual(removed, 1)
+        self.assertEqual([row["session_id"] for row in retained], ["recent"])
+        self.assertEqual(data["total_count"], 2)
+        self.assertEqual(data["total_energy_kwh"], 8.0)
+        self.assertEqual(data["total_cost"], 2.0)
+        self.assertEqual(data["total_green_energy_kwh"], 4.0)
+
+    def test_dashboard_sends_only_latest_detail_and_loads_older_on_demand(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sessions.csv"
+            session_csv.append_session_row(
+                path,
+                _row(
+                    start_time="2026-09-20 10:00:00",
+                    session_id="older",
+                    session_source="home_assistant",
+                    power_curve='[["2026-09-20T10:00:00Z",4000]]',
+                ),
+            )
+            session_csv.append_session_row(
+                path,
+                _row(
+                    start_time="2026-09-21 10:00:00",
+                    session_id="latest",
+                    session_source="home_assistant",
+                    power_curve='[["2026-09-21T10:00:00Z",7000]]',
+                ),
+            )
+
+            dashboard = session_csv.dashboard_session_data(path)
+            detail = session_csv.session_detail_data(path, "older")
+
+        self.assertEqual(dashboard["items"][0]["session_id"], "latest")
+        self.assertIn("power_curve", dashboard["items"][0])
+        self.assertEqual(dashboard["items"][1]["session_id"], "older")
+        self.assertNotIn("power_curve", dashboard["items"][1])
+        self.assertTrue(dashboard["items"][1]["detail_available"])
+        self.assertEqual(detail["power_curve"][0][1], 4000.0)
 
     def test_legacy_log_is_migrated_before_new_row_is_appended(self):
         with tempfile.TemporaryDirectory() as directory:

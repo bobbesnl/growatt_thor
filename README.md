@@ -775,3 +775,13 @@ Under **Configure → Optional energy sources**, select an optional W, kW or MW
 battery power sensor and explicitly choose its sign convention. Missing,
 non-finite and unavailable readings remain unknown. The source is disabled
 when no sensor is selected; general settings preserve its configuration.
+
+### Session recovery and history retention
+
+Active sessions retain their identity, measured power curve and qualified
+events across reloads and restarts. Completed sessions keep at most 365 days
+and 1,000 detailed rows. Pruned energy, cost and count totals carry forward in
+`growatt_thor_sessions.summary.json`. Authenticated clients can request one
+retained session through the `growatt_thor/session_detail` websocket command.
+The bounded projection contains at most 20 recent rows, 24 events and 96
+shape-preserving curve points per session. Historical unknowns remain unknown.
