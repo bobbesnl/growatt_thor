@@ -1,0 +1,247 @@
+import type { en } from './en';
+type Key = keyof typeof en;
+
+export const de: Record<Key, string> = {
+  goalLivePilot: 'Ladeziel',
+  goalLiveWarning:
+    'Energie, Dauer oder Budget werden als natives Ziel an die THOR übertragen. Je nach Freigabemodus startet sie per Fernstart, Einstecken oder RFID.',
+  goalScheduleWarning:
+    'Einmaliger Start: Home Assistant setzt das Ziel und reserviert die THOR sofort. Zum Termin werden Ziel und Fernstart erneut gesendet.',
+  goalScheduleDailyWarning:
+    'Täglicher Start: Home Assistant speichert den Zeitplan lokal. Zum Termin werden Ziel und Fernstart gesendet; für Plug’n’Charge muss das Fahrzeug dann verbunden sein.',
+  goalBudgetWarning:
+    'Budget ist experimentell: Beträge unter 1 werden wegen eines bestätigten Firmwarefehlers blockiert. Währung und Tarif werden nicht mit dem Ziel übertragen.',
+  goalBudgetEvidence:
+    'Der automatische Budget-Stopp ist noch nicht vollständig verifiziert. Angezeigte HA-Währung und Wallbox-Tarif müssen fachlich zusammenpassen.',
+  goalSchedulePlugWarning:
+    'Experimentelles Plug’n’Charge-Scharfstellen: Fahrzeug ausgesteckt lassen. Zum gewählten Zeitpunkt sendet Home Assistant nur das Energieziel. Annahme abwarten und danach zum Ladestart einstecken.',
+  goalLiveNoTarget: 'Noch keine Zielanforderung.',
+  goalLiveQueued: 'Ziel wird übertragen – noch nicht bestätigt. Nicht einstecken.',
+  goalLiveAccepted: 'Ziel von der Wallbox angenommen. Warte auf den Ladestart.',
+  goalLiveCharging: 'Ladevorgang aktiv. Einhaltung des Ziels noch unbestätigt.',
+  goalLiveChargingVerified: 'Ladevorgang aktiv. Die Wallbox überwacht dieses native Ziel.',
+  goalLiveRetained:
+    'Frühere Zielanforderung gespeichert; auf der aktuellen Verbindung / in diesem Modus nicht bestätigt.',
+  goalLiveUncertain:
+    'Ziel nicht bestätigt oder Ausgang unklar. Nicht erneut senden; zuerst prüfen.',
+  goalLiveScheduled: 'Einmalige Reservierung von der Wallbox angenommen.',
+  goalLiveScheduledDaily: 'Täglicher Start in Home Assistant eingeplant.',
+  goalLiveScheduleCancelled:
+    'Geplanter Start abgebrochen. Ein zuvor geschriebenes natives Ziel kann auf der Wallbox verbleiben.',
+  goalLiveScheduleMissed:
+    'Startzeit während einer Home-Assistant-Unterbrechung verpasst. Kein verspäteter Start.',
+  goalLiveScheduleBlocked:
+    'Geplanter Start blockiert, weil die Wallbox nicht mehr bereit war. Ziel und Start wurden nicht gesendet; eine neue Planung ist sicher.',
+  goalLiveCompleted: 'Ladevorgang beendet. Das Ziel kann ersetzt werden.',
+  goalLiveAcceptedRfid: 'Ziel angenommen. Zum Starten RFID-Karte vorhalten.',
+  goalLiveStartAccepted: 'Ziel und Start angenommen. Warte auf den Ladevorgang.',
+  goalLiveReservationRejected:
+    'Reservierung abgelehnt; das Ziel kann auf der Wallbox verblieben sein. Vor einem neuen Versuch prüfen.',
+  goalLiveCancellationRejected:
+    'Reservierung konnte nicht aufgehoben werden. Sie kann bis zum Termin aktiv bleiben.',
+  goalLiveUnavailable:
+    'Benötigt Schnellmodus, eine verbundene und bereite Wallbox sowie keine aktive Sitzung.',
+  goalScheduleUnavailable:
+    'Eine einmalige Reservierung benötigt Schnellmodus, Plug’n’Charge oder APP-/Serverfreigabe, eine ausgesteckte Wallbox und keine aktive Sitzung. Ein täglicher Zeitplan kann auch bei wartendem Fahrzeug angelegt werden.',
+  goalSchedulePlugUnavailable:
+    'Geplantes Plug’n’Charge-Scharfstellen benötigt Schnellmodus, eine verbundene Wallbox und ein ausgestecktes Fahrzeug. Keine aktive Sitzung.',
+  goalLiveOnlyEnergy:
+    'Live unterstützt: Energie, Dauer und Budget; sofort, einmalig reserviert oder täglich.',
+  goalLiveConflict:
+    'Die vorherige Anforderung ist noch aktiv oder unklar. Zeitplan zuerst abbrechen beziehungsweise den Zustand prüfen.',
+  goalLiveConfirm: 'Ich bestätige das Ladeziel und beaufsichtige den ersten Einsatz.',
+  goalLiveRefreshConfirm:
+    'Vorheriges, abgeschlossenes oder identisches Ziel ausdrücklich ersetzen. Verlauf bleibt dokumentiert.',
+  goalScheduleConfirm:
+    'Ich bestätige den Zeitplan und stelle sicher, dass das Fahrzeug zum gewählten Zeitpunkt bereit ist.',
+  goalScheduleReplaceConfirm:
+    'Das gespeicherte Ziel durch diesen einmaligen experimentellen Start ersetzen. Ich beaufsichtige den Versuch.',
+  goalSchedulePlugConfirm:
+    'Das Fahrzeug ist ausgesteckt. Dieses Energieziel zum gewählten Zeitpunkt ohne Fernstart scharfstellen; ich warte vor dem Einstecken auf die Annahme.',
+  goalSchedulePlugReplaceConfirm:
+    'Das Fahrzeug ist ausgesteckt. Das gespeicherte Ziel durch dieses geplante Plug’n’Charge-Scharfstellen ersetzen; ich beaufsichtige den Versuch.',
+  goalScheduleCancel: 'Geplanten Start abbrechen',
+  goalScheduleCancelled:
+    'Geplanter Start abgebrochen. Ein zuvor geschriebenes natives Ziel kann verbleiben.',
+  goalScheduleSet: 'Einmalig reservieren',
+  goalScheduleDailySet: 'Täglich einplanen',
+  goalScheduleSubmitted: 'Ziel und einmalige Reservierung werden an die Wallbox übertragen.',
+  goalScheduleDailySubmitted: 'Täglicher Zeitplan in Home Assistant gespeichert.',
+  goalSchedulePlugSubmitted:
+    'Plug’n’Charge-Scharfstellen geplant. Zum gewählten Zeitpunkt vor dem Einstecken die Zielannahme abwarten.',
+  goalLiveSet: 'Ladeziel setzen',
+  goalLiveSubmitted:
+    'Anforderung eingereiht. Oben auf die Annahme durch die Wallbox warten; erst dann einstecken.',
+  goalLiveError:
+    'Anforderung fehlgeschlagen. Status prüfen, nicht blind wiederholen. Modus, Verbindung oder vorheriges Ziel können den Versuch sperren.',
+  goalLiveStartSummary:
+    'Das Ziel wird jetzt gesendet. Der Start erfolgt je nach Freigabemodus per Fernstart, Einstecken oder RFID.',
+  authChangeWarning:
+    'Der Wechsel kann die Wallbox neu starten. Plug’n’Charge kann bei angeschlossenem Fahrzeug sofort laden. Bestehende Ladeziele werden nicht gelöscht. Bestätigen reiht die Änderung ein; die Wallbox muss sie noch annehmen.',
+  authControlUnavailable:
+    'Autorisierungssteuerung nicht verfügbar. Es wird keine Änderung gesendet.',
+  authCancel: 'Abbrechen',
+  authConfirm: 'Änderung bestätigen',
+  goalTitle: 'Ladeziel',
+  goalSimulationNote:
+    'Nur Simulation: Übernehmen zeigt dein Ziel in den Vorschaukarten. Keine Speicherung, kein Zeitplan und keine Befehle an die Wallbox. Neuladen setzt alles zurück.',
+  goalSimulate: 'Im Simulator übernehmen',
+  goalSimulation: 'Simulation',
+  goalState_planned: 'Geplant',
+  goalState_active: 'Aktiv',
+  goalState_reached: 'Erreicht',
+  goalState_cancelled: 'Abgebrochen',
+  goalProgress: 'Zielfortschritt',
+  goalOf: 'von',
+  goalRemaining: 'verbleibend',
+  goalReachedReason: 'Zielwert erreicht (simuliert).',
+  goalCancelledReason: 'Im Simulator aufgehoben. Kein Stoppbefehl gesendet.',
+  goalSimulationHint: 'Beispieldaten · Keine Steuerung der Wallbox',
+  goalEdit: 'Bearbeiten',
+  goalCancel: 'Aufheben',
+  goalNew: 'Neues Ziel',
+  goalPreview: 'Vorschau',
+  goalClose: 'Schließen',
+  goalEntry: 'Energie · Dauer · Budget',
+  goalPreviewNote:
+    'UI-Vorschau mit Beispielwerten. Es wird nichts gespeichert oder an die Wallbox gesendet. Beim Schließen werden deine Änderungen verworfen.',
+  goalType: 'Was ist dein Ziel?',
+  goalKind_energy: 'Energie',
+  goalKind_duration: 'Dauer',
+  goalKind_budget: 'Budget',
+  goalValue_energy: 'Zu ladende Energiemenge',
+  goalValue_duration: 'Ladedauer',
+  goalValue_budget: 'Kostenlimit',
+  goalExample: 'Beispielwert – für diese Vorschau frei anpassbar.',
+  goalInvalidValue: 'Bitte eine Zahl größer als null eingeben.',
+  goalInvalidDuration: 'Bitte eine ganze Minutenzahl größer als null eingeben.',
+  goalInvalidBudget: 'Bitte mindestens 1 eingeben; höchstens zwei Nachkommastellen.',
+  goalCurrencyMissing:
+    'Keine Währung gemeldet. Ein Budget lässt sich noch nicht eindeutig festlegen.',
+  goalStart: 'Start',
+  goalStart_now: 'Jetzt',
+  goalStart_later: 'Zu einem Zeitpunkt',
+  goalEveryday: 'Jeden Tag',
+  goalEverydayHint: 'Wiederholt sich täglich zur gewählten lokalen Uhrzeit.',
+  goalAt: 'Startdatum und Uhrzeit',
+  goalLocalTime: 'Lokale Zeit dieses Geräts. Optional täglich wiederholen.',
+  goalInvalidTime: 'Bitte einen zukünftigen Startzeitpunkt wählen (lokale Gerätezeit).',
+  goalSummary: 'Vorschau deiner Auswahl',
+  goalSummary_energy: '{value} kWh laden',
+  goalSummary_duration: '{value} min laden',
+  goalSummary_budget: 'Für bis zu {value} {currency} laden',
+  goalIncomplete: 'Zielwert vervollständigen',
+  goalStartNowSummary: 'Start jetzt',
+  goalPvNote:
+    'Der Zeitpunkt ist eine Startzeit, keine Fertig-bis-Zeit. Ladeziele bleiben von PV Smart Boost getrennt.',
+  goalNotConnected: 'Ziel übernehmen – noch nicht angebunden',
+  durationShort: 'Dauer',
+  standby: 'Standby',
+  noCharging: 'Keine aktive Sitzung',
+  noData: 'Keine Daten',
+  scaleUnknown: 'Skala unbekannt',
+  phasesAtStart: 'Messwerte beim Laden',
+  cost: 'Kosten',
+  autoScaleHint:
+    'Auto: gemeldetes Modell und eingestelltes Stromlimit, berechnet mit nominal 230 V pro Phase. Nur die Anzeigeskala, kein dynamisches Leistungslimit.',
+  manualScaleHint: 'Manuelle Anzeigeskala; ändert kein Ladelimit.',
+  authUnknown: 'Freigabe unbekannt',
+  home_assistant_rfidHint:
+    'Start über Home Assistant oder RFID. Die lokale OCPP-Zugangsregel ist eine separate Einstellung.',
+  rfid_onlyHint:
+    'Zum Starten die RFID-Karte an die Wallbox halten. Im reinen RFID-Modus wird kein Fernstart angeboten.',
+  plug_and_chargeHint:
+    'Automatische Freigabe beim Anstecken; Ladestrategie und Limits gelten weiterhin.',
+  authUnknownHint: 'Warte auf die von der Wallbox gemeldete Freigabeart.',
+  presentCard: 'RFID-Karte vorhalten',
+  automaticStart: 'Automatische Freigabe',
+  vehicleConnected: 'Fahrzeug verbunden',
+  vehicleDisconnected: 'Fahrzeug nicht verbunden',
+  vehicleUnknown: 'Fahrzeugverbindung unbekannt',
+  offline: 'Offline',
+  unknown: 'Status unbekannt',
+  paused: 'Pausiert',
+  vehiclePauseMeterHint: 'Fahrzeug fordert keine Energie an',
+  stationPauseMeterHint: 'Von der Wallbox pausiert',
+  waitingToCharge: 'Wartet',
+  pv_wait: 'Wartet auf Überschuss',
+  pv_standby: 'Wartet auf Ladefreigabe',
+  chargingHint: 'Dein Fahrzeug wird mit Energie versorgt.',
+  availableHint: 'Fahrzeug anschließen und laden.',
+  idleHint: 'Aktuell läuft kein Ladevorgang.',
+  preparingHint: 'Wartet auf den Ladestart.',
+  vehicleWaitHint:
+    'Das Fahrzeug fordert keine Energie an. Möglicherweise ist es voll oder wartet auf seinen Zeitplan.',
+  stationWaitHint: 'Die Wallbox pausiert das Laden. Modus und Limits prüfen.',
+  finishingHint: 'Der Ladevorgang ist beendet. Du kannst das Fahrzeug trennen.',
+  reservedHint: 'Der Ladepunkt ist reserviert.',
+  unavailableHint: 'Die Wallbox meldet sich als nicht verfügbar.',
+  offlineHint: 'Keine Verbindung. Live-Werte und Bedienung sind nicht verfügbar.',
+  unknownHint: 'Warte auf eine Statusmeldung der Wallbox.',
+  faultHint: 'Die Wallbox meldet eine Störung. Vor dem Neustart die Details prüfen.',
+  pvWaitHint: 'Die Wallbox meldet, dass sie auf Solarüberschuss wartet.',
+  pvStandbyHint:
+    'PV-Modus aktiv. Die Wallbox wartet möglicherweise auf Überschuss; der genaue Pausengrund wird nicht gemeldet.',
+  pvPauseMeterHint: 'Wartet auf ausreichenden PV-Überschuss.',
+  modeUnknown: 'Modus unbekannt',
+  of: 'von',
+  live: 'Live',
+  phases: 'Phasen',
+  active: 'aktiv',
+  phaseUnknown: 'Phasenwerte unvollständig',
+  phaseScale: 'Ladestrom · Gerätemaximum',
+  inactive: 'Inaktiv',
+  missing: 'Kein Messwert',
+  stale: 'Warte auf aktuelle Messwerte',
+  details: 'Details',
+  energy: 'Geladen',
+  duration: 'Sitzungsdauer',
+  lastSession: 'Letzte Sitzung',
+  currentSession: 'Aktuelle Sitzung',
+  noSession: 'Noch keine Sitzungsdaten',
+  telemetry: 'Messwerte',
+  commandQueued: 'Befehl vorgemerkt – warte auf die Wallbox.',
+  commandAccepted: 'Anfrage angenommen – warte auf den Zustandswechsel.',
+  commandUnconfirmed: 'Noch keine Statusbestätigung. Vor einem neuen Versuch die Wallbox prüfen.',
+  commandRejected: 'Die Wallbox hat die Anfrage abgelehnt oder war nicht erreichbar.',
+  callError: 'Anfrage fehlgeschlagen. Verbindung und Berechtigungen prüfen.',
+  localPending: 'Anfrage wird gesendet…',
+  over: 'Oberhalb der eingestellten Skala',
+  faultDetails: 'Störungsdetails',
+  pastFault: 'Zuletzt gespeicherte Störung (Historie)',
+  externalMeter: 'Externen Zähler prüfen. Die PV-Regelung kann beeinträchtigt sein.',
+  gridImport: 'Netzbezug',
+  gridExport: 'Überschuss',
+  gridBalanced: 'Netz ausgeglichen',
+  gridPowerUnavailable: 'Netzleistung unbekannt',
+  zeroGridPoint: 'Netz-Nullpunkt',
+  zeroGridPointHint:
+    'Geschätzte Ladeleistung für 0 W am Netzanschluss, wenn die übrigen Hauslasten unverändert bleiben.',
+  pvControlPoint: 'Regelziel',
+  pvControlPointHint:
+    'Geschätzter Netz-Nullpunkt plus der bei PV-Kopplung erlaubte Netzbezug, begrenzt durch das Gauge-Maximum.',
+  sourceMix: 'Ladequellen',
+  sourceSolar: 'PV',
+  sourceBattery: 'Batterie',
+  sourceGrid: 'Netz',
+  sourceUnknown: 'Unbekannt',
+  selectCharger: 'Wähle im Karteneditor eine THOR-Wallbox aus.',
+  oldIntegration: 'Diese Karte benötigt das passende Update der THOR-Integration.',
+  statusEntity: 'Wallbox',
+  name: 'Kartenname',
+  maximum: 'Gauge-Maximum (kW)',
+  maximumHint:
+    'Leer lassen für Auto: Modell und Stromlimit. Überschreiben bei anderer Installation oder unbekanntem Modell; nur Anzeige.',
+  theme: 'Darstellung',
+  auto: 'Home-Assistant-Theme',
+  light: 'Hell',
+  dark: 'Dunkel',
+  image: 'Wallbox-Bild anzeigen',
+  phaseOption: 'Phasen anzeigen',
+  sessionOption: 'Sitzung anzeigen',
+  noChargers: 'Keine THOR-Statusentität gefunden. Zuerst die Integration einrichten.',
+  unknownDuration: 'Dauer nicht verfügbar',
+  deviceIllustration: 'THOR-Produktabbildung; das Display ist nicht live.',
+  settingHint: 'Zum Ändern des Limits die Home-Assistant-Steuerung öffnen.',
+  viewEntity: 'Entitätsdetails öffnen',
+};

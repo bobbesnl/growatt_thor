@@ -48,6 +48,16 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_ID_TAG = "12345678"  # Growatt handshake key
 
 
+def _command_state(coordinator, action, state):
+    """Report command acceptance separately from physical charger state."""
+    coordinator.dashboard_command = {
+        "action": action,
+        "state": state,
+        "updated_at": coordinator.now(),
+    }
+    coordinator.async_set_updated_data(True)
+
+
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Growatt THOR button entities."""
     coordinator = hass.data[DOMAIN]["coordinator"]
@@ -119,6 +129,7 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             raise_action_validation("charging_already_active")
 
         _LOGGER.info("🔘 Queueing priority start charging command")
+        _command_state(self.coordinator, "start", "queued")
         handle = await self.coordinator.queue_write(
             self._start_charging,
             charge_point,
@@ -140,7 +151,9 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
         """Start charging command (runs inside write-queue)."""
         if (reason := self._start_revalidation_failure()) is not None:
             _LOGGER.warning("Skipping queued start charging: %s", reason)
+            _command_state(self.coordinator, "start", "rejected")
             return ChargerWriteResult.skipped(reason)
+        _command_state(self.coordinator, "start", "sending")
         try:
             result = await charge_point.remote_start_transaction(
                 connector_id=1,
@@ -148,11 +161,13 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             )
 
             if result.get("status") == "Accepted":
+                _command_state(self.coordinator, "start", "accepted")
                 _LOGGER.info("✅ Charging session started successfully")
                 self.hass.async_create_task(self._post_status_update())
                 self.coordinator.async_set_updated_data(True)
                 return ChargerWriteResult.success(result.get("status"))
             else:
+                _command_state(self.coordinator, "start", "rejected")
                 _LOGGER.error("❌ Start charging rejected: %s", result.get("status"))
                 return ChargerWriteResult.failed(
                     "charger_rejected",
@@ -160,10 +175,13 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
                 )
 
         except ChargerConnectionUnavailable:
+            _command_state(self.coordinator, "start", "error")
             raise
         except ChargerRequestOutcomeUncertain as exc:
+            _command_state(self.coordinator, "start", "uncertain")
             return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
+            _command_state(self.coordinator, "start", "error")
             _LOGGER.error("❌ Failed to start charging: %s", exc, exc_info=True)
             return ChargerWriteResult.failed("unexpected_error")
 
@@ -215,7 +233,7 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
             transaction_active=self.coordinator.transaction_is_active,
         )
 
-    async def async_press(self) -> None:
+    async def async_press(self, *, auto_guard=None) -> None:
         """Stop a charging session via queue."""
         # A Stop pressed before a queued Start reaches OCPP means "do not
         # start".  Cancelling that local intent is useful even if the charger
@@ -255,6 +273,7 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
             transaction_id,
         )
 
+        _command_state(self.coordinator, "stop", "queued")
         handle = await self.coordinator.queue_write(
             self._stop_charging,
             charge_point,
@@ -268,8 +287,9 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
             command_name=REMOTE_STOP_COMMAND,
             requires_connection=True,
             policy=TRANSACTION_CONTROL_WRITE_POLICY,
-            revalidate=lambda: self._stop_revalidation_failure(
-                transaction_id
+            revalidate=lambda: (
+                self._stop_revalidation_failure(transaction_id)
+                or (auto_guard() if auto_guard is not None else None)
             ),
         )
         await async_require_command_completion(handle)
@@ -284,7 +304,9 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
             reason := self._stop_revalidation_failure(transaction_id)
         ) is not None:
             _LOGGER.warning("Skipping stale stop charging command: %s", reason)
+            _command_state(self.coordinator, "stop", "rejected")
             return ChargerWriteResult.skipped(reason)
+        _command_state(self.coordinator, "stop", "sending")
         self.coordinator.record_stop_requested()
         try:
             result = await charge_point.remote_stop_transaction(
@@ -292,11 +314,13 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
             )
 
             if result.get("status") == "Accepted":
+                _command_state(self.coordinator, "stop", "accepted")
                 _LOGGER.info("✅ Charging session stopped successfully")
                 self.hass.async_create_task(self._post_status_update())
                 self.coordinator.async_set_updated_data(True)
                 return ChargerWriteResult.success(result.get("status"))
             else:
+                _command_state(self.coordinator, "stop", "rejected")
                 _LOGGER.error("❌ Stop charging rejected: %s", result.get("status"))
                 return ChargerWriteResult.failed(
                     "charger_rejected",
@@ -304,10 +328,13 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
                 )
 
         except ChargerConnectionUnavailable:
+            _command_state(self.coordinator, "stop", "error")
             raise
         except ChargerRequestOutcomeUncertain as exc:
+            _command_state(self.coordinator, "stop", "uncertain")
             return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
+            _command_state(self.coordinator, "stop", "error")
             _LOGGER.error("❌ Failed to stop charging: %s", exc, exc_info=True)
             return ChargerWriteResult.failed("unexpected_error")
 

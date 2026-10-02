@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>THOR Card · Evaluation</title>
+    <link rel="stylesheet" href="./preview.css" />
+  </head>
+  <body>
+    <header>
+      <div class="caption">Development preview · Simulated data only</div>
+      <h1>THOR — charge, at a glance.</h1>
+      <p><a href="./accounting-comparison.html">Compare energy breakdown designs →</a></p>
+      <p>A2 · Growatt green · Semantic states · No connection to a real charger</p>
+      <nav>
+        <label
+          >Authorization
+          <select id="auth">
+            <option>home_assistant_rfid</option>
+            <option>rfid_only</option>
+            <option>plug_and_charge</option>
+            <option value="">unknown</option>
+          </select></label
+        ><label
+          >Charging strategy
+          <select id="working-mode">
+            <option value="pv_linkage_plus">PV Linkage+ · surplus only</option>
+            <option value="pv_linkage">PV Linkage · grid allowed</option>
+            <option value="fast">Fast</option>
+          </select></label
+        ><label
+          >Grid balance
+          <select id="grid-balance">
+            <option value="export">1.2 kW surplus</option>
+            <option value="balanced">Balanced</option>
+            <option value="import">0.8 kW import</option>
+            <option value="missing">Unavailable</option>
+          </select></label
+        ><label
+          >Charging sources
+          <select id="source-mix">
+            <option value="none">Not reported</option>
+            <option value="solar">PV only</option>
+            <option value="solar_battery">PV + battery</option>
+            <option value="solar_grid">PV + grid</option>
+            <option value="mixed">PV + battery + grid</option>
+            <option value="incomplete">Incomplete + unknown</option>
+          </select></label
+        ><label
+          >Session profile
+          <select id="session-profile">
+            <option value="documentation">Documentation · realistic example history</option>
+            <option value="cloudy_no_battery" selected>Cloudy PV · no battery</option>
+            <option value="cloudy_battery">Cloudy PV · with battery</option>
+            <option value="multi_day_idle">Multi-day · late transaction stop</option>
+          </select></label
+        ><label
+          >Session energy sources
+          <select id="session-accounting">
+            <option value="mixed">Solar + battery + grid</option>
+            <option value="unknown">Sources not identified</option>
+            <option value="partial">Partly identified</option>
+            <option value="solar">Solar only</option>
+            <option value="none">No accounting data</option>
+          </select></label
+        ><label
+          >State
+          <select id="scenario">
+            <option>charging</option>
+            <option>available</option>
+            <option>idle</option>
+            <option>preparing</option>
+            <option>pv_wait</option>
+            <option>pv_standby</option>
+            <option>suspended_ev</option>
+            <option>suspended_evse</option>
+            <option value="suspended_ev_no_meter">Suspended by vehicle · no new readings</option>
+            <option>finishing</option>
+            <option>reserved</option>
+            <option>unavailable</option>
+            <option>offline</option>
+            <option>faulted</option>
+            <option>stale</option>
+            <option>missing_phase</option>
+            <option>single_phase</option>
+            <option>command_rejected</option>
+          </select></label
+        ><label
+          >Width
+          <select id="width">
+            <option>390</option>
+            <option>320</option>
+            <option>280</option>
+            <option>520</option>
+            <option>900</option>
+          </select></label
+        ><label
+          >Language
+          <select id="language">
+            <option>de</option>
+            <option>en</option>
+            <option>nl</option>
+            <option>fr</option>
+            <option>es</option>
+            <option>it</option>
+            <option>hu</option>
+            <option>sl</option>
+            <option>de-CH</option>
+            <option>ja</option>
+          </select></label
+        ><label
+          >Command
+          <select id="result">
+            <option>accepted</option>
+            <option>rejected</option>
+            <option>network_error</option>
+          </select></label
+        >
+      </nav>
+      <nav class="goal-controls" aria-label="Ladeziel-Simulation">
+        <label
+          >Ladeziel
+          <select id="goal-state">
+            <option value="none">Kein Ziel</option>
+            <option value="planned">Geplant</option>
+            <option value="active">Aktiv</option>
+            <option value="reached">Erreicht</option>
+            <option value="cancelled">Abgebrochen</option>
+          </select></label
+        >
+        <label
+          >Zielart
+          <select id="goal-kind">
+            <option value="energy">Energie</option>
+            <option value="duration">Dauer</option>
+            <option value="budget">Budget</option>
+          </select></label
+        >
+        <label
+          >Backend-Hinweis
+          <select id="target-notice">
+            <option value="none">Kein Hinweis</option>
+            <option value="blocked">Kürzlich blockiert</option>
+            <option value="expired">Blockiert · abgelaufen</option>
+            <option value="scheduled">Täglich geplant</option>
+            <option value="uncertain">Ausgang unklar</option>
+          </select></label
+        >
+        <span>Statische Beispieldaten, unabhängig vom Charger-State. Kein echter Start/Stopp.</span>
+      </nav>
+    </header>
+    <main id="cards"></main>
+    <main id="session-cards"></main>
+    <pre id="events">Interactions appear here. All actions are simulated.</pre>
+    <section class="editor">
+      <h3>Visual editor</h3>
+      <growatt-thor-card-editor></growatt-thor-card-editor>
+      <h3>Session card editor</h3>
+      <growatt-thor-session-card-editor></growatt-thor-session-card-editor>
+    </section>
+    <script type="module">
+      import(`./preview.js?preview=${Date.now()}`);
+    </script>
+  </body>
+</html>

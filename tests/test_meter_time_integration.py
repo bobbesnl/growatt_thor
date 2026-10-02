@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import unittest
 
 from test_write_queue import coordinator_module
+from custom_components.growatt_thor.presentation.card_data import dashboard_attributes
 
 AT = datetime(2026, 10, 2, 14, 52, 49, tzinfo=timezone.utc)
 
@@ -93,9 +94,30 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         packet = self.c.last_meter_values["meter_values"][0]
         self.assertEqual(packet["timestamp"], "2026-10-02T14:52:49Z")
         self.assertEqual(packet["raw"]["timestamp"], "2026-10-02T16:52:49")
+        sources = dashboard_attributes(self.c)["power_flow"]["charging_sources"]
+        self.assertAlmostEqual(sources["battery_w"], 2000)
+        self.assertAlmostEqual(sources["solar_w"], 5000)
+        self.assertAlmostEqual(sum(sources.values()), 7000)
         self.assertGreater(self.c.site_accounting.buckets["battery_unknown"], 0)
         self.assertAlmostEqual(sum(self.c.site_accounting.buckets.values()), .05)
         self.assertEqual(self.c._active_power_curve[-1][0], "2026-10-02T14:52:49Z")
+
+    def test_newer_site_updates_are_usable_for_live_gauge(self):
+        self.receive()
+        self.at += timedelta(seconds=10)
+        self.c.hass.states["sensor.battery"].last_updated = self.at
+        sources = dashboard_attributes(self.c)["power_flow"]["charging_sources"]
+        self.assertAlmostEqual(sources["battery_w"], 2000)
+
+    def test_stale_future_invalid_and_dst_ambiguous_samples_are_not_displayed(self):
+        for raw in ("2026-10-02T16:40:00", "2026-10-02T17:52:49", "bad",
+                    "2026-10-25T02:30:00", "2026-03-29T02:30:00"):
+            with self.subTest(raw=raw):
+                self.receive(raw)
+                self.assertNotIn("charging_sources", dashboard_attributes(self.c)["power_flow"])
+        self.receive()
+        self.c.last_meter_values["received_at"] = (AT - timedelta(hours=1)).isoformat()
+        self.assertNotIn("charging_sources", dashboard_attributes(self.c)["power_flow"])
 
     def test_future_timestamp_does_not_advance_accounting_checkpoint(self):
         previous_at = self.c.site_accounting.last_meter_at

@@ -1,0 +1,130 @@
+:host {
+  display: block;
+  margin-top: 12px;
+  color: var(--ink);
+  font-family: inherit;
+}
+* {
+  box-sizing: border-box;
+}
+section {
+  --goal-tone: var(--green);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px 14px 6px;
+}
+section[data-state='planned'] {
+  --goal-tone: var(--blue);
+}
+section[data-state='cancelled'] {
+  --goal-tone: var(--muted);
+}
+.head,
+.head strong,
+.state,
+.amount,
+.bottom,
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.head {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.head strong {
+  font-size: 14px;
+}
+.badge {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.2px;
+}
+ha-icon {
+  --mdc-icon-size: 18px;
+  flex-shrink: 0;
+}
+.state {
+  color: var(--goal-tone);
+  font-size: 12px;
+  font-weight: 650;
+  flex-wrap: wrap;
+}
+.amount {
+  margin-top: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+.amount strong {
+  font-size: 24px;
+  letter-spacing: -0.7px;
+}
+.amount span {
+  color: var(--muted);
+}
+progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border: none;
+  border-radius: 99px;
+  overflow: hidden;
+  appearance: none;
+  margin-top: 8px;
+  background: var(--line);
+}
+progress::-webkit-progress-bar {
+  background: var(--line);
+}
+progress::-webkit-progress-value {
+  background: var(--goal-tone);
+  border-radius: 99px;
+}
+progress::-moz-progress-bar {
+  background: var(--goal-tone);
+  border-radius: 99px;
+}
+p {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.bottom {
+  justify-content: space-between;
+  gap: 4px;
+  margin-top: 2px;
+}
+.actions {
+  gap: 2px;
+  flex-wrap: wrap;
+}
+button {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--green);
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+}
+button.secondary {
+  color: var(--muted);
+  background: transparent;
+}
+button:hover {
+  background: var(--surface);
+}
+button:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}

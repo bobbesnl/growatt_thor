@@ -1,0 +1,52 @@
+dialog {
+  color: var(--primary-text-color, #17231c);
+  background: var(--card-background-color, white);
+  border: 1px solid var(--divider-color, #ddd);
+  border-radius: 24px;
+  padding: 24px;
+  width: min(420px, calc(100vw - 64px));
+  box-sizing: border-box;
+}
+dialog::backdrop {
+  background: #0009;
+}
+h2 {
+  margin-top: 0;
+}
+p {
+  line-height: 1.5;
+}
+label {
+  display: block;
+  margin-bottom: 8px;
+}
+select,
+button {
+  font: inherit;
+  min-height: 44px;
+  border-radius: 12px;
+  padding: 10px;
+  color: inherit;
+  background: var(--secondary-background-color, #f1f5ef);
+  border: 1px solid var(--divider-color, #ccc);
+}
+select {
+  width: 100%;
+}
+footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+.confirm {
+  background: #456b18;
+  color: white;
+}
+:disabled {
+  opacity: 0.5;
+}
+button {
+  cursor: pointer;
+}

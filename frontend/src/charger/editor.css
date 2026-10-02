@@ -1,0 +1,45 @@
+:host {
+  display: block;
+  color: var(--primary-text-color);
+  padding: 8px 0;
+}
+* {
+  box-sizing: border-box;
+}
+label {
+  display: block;
+  margin: 0 0 16px;
+  font: inherit;
+  font-size: 14px;
+}
+input:not([type='checkbox']),
+select {
+  display: block;
+  width: 100%;
+  margin-top: 7px;
+  padding: 12px;
+  min-height: 44px;
+  border: 1px solid var(--divider-color, #ccc);
+  border-radius: 8px;
+  background: var(--card-background-color, white);
+  color: inherit;
+  font: inherit;
+}
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #78af35;
+  outline-offset: 2px;
+}
+small {
+  display: block;
+  opacity: 0.7;
+  margin: 8px 0 18px;
+  line-height: 1.4;
+}
+input[type='checkbox'] {
+  accent-color: #6f9f2d;
+  margin-right: 8px;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+}

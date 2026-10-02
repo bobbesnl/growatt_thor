@@ -341,9 +341,13 @@ def _register_services(hass: HomeAssistant) -> None:
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register integration-level services independently from config entries."""
     _register_services(hass)
+    from .presentation.frontend import async_register_frontend
+    from .charging.pv_service import async_register_pv_linkage_service
     from .targets.services import async_register_target_services
     from .sessions.websocket import async_register_session_websocket
 
+    await async_register_frontend(hass)
+    async_register_pv_linkage_service(hass)
     async_register_target_services(hass)
     async_register_session_websocket(hass)
     return True
@@ -508,8 +512,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         name="growatt_thor_external_meter_poll"
     )
 
+    from .charging.pv_service import async_setup_pv_linkage_service
     from .targets.services import async_setup_target_services
 
+    await async_setup_pv_linkage_service(hass, entry, coordinator)
     await async_setup_target_services(hass, entry, coordinator)
     return True
 
@@ -549,8 +555,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         server.close()
         await server.wait_closed()
 
+    from .charging.pv_service import async_unload_pv_linkage_service
     from .targets.services import async_unload_target_services
 
+    async_unload_pv_linkage_service(hass)
     async_unload_target_services(hass)
     if unload_ok:
         runtime_data.clear()

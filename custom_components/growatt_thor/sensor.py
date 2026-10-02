@@ -717,8 +717,37 @@ class StatusSensor(BaseSensor):
             "last_message_at": self.coordinator.last_message_at,
             "last_message_action": self.coordinator.last_message_action,
             "last_heartbeat_at": self.coordinator.last_heartbeat_at,
+            "thor_card": self._dashboard_attributes(),
         }
 
+    def _dashboard_attributes(self):
+        from .presentation.card_data import dashboard_attributes
+        from homeassistant.helpers import entity_registry as er
+
+        data = dashboard_attributes(self.coordinator)
+        prefix = f"{self.coordinator.source_instance_id}_"
+        wanted = {
+            "start_charging",
+            "stop_charging",
+            "max_current",
+            "working_mode_control",
+            "authorization_mode_control",
+            "last_charger_fault",
+            "last_session_energy",
+            "last_session_duration",
+            "last_session_cost",
+        }
+        data["entities"] = {
+            item.unique_id[len(prefix):]: item.entity_id
+            for item in er.async_entries_for_config_entry(
+                er.async_get(self.hass), self.coordinator.source_instance_id
+            )
+            if item.platform == "growatt_thor"
+            and item.unique_id.startswith(prefix)
+            and item.unique_id[len(prefix):] in wanted
+            and not item.disabled_by
+        }
+        return data
 
 
 # ─────────────────────────────

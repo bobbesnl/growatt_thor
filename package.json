@@ -1,0 +1,26 @@
+{
+  "name": "growatt-thor-card",
+  "version": "2.0.0-dev.4",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node frontend/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test frontend/test/*.test.ts",
+    "check": "npm run format:check && npm run typecheck && npm test && npm run build",
+    "format": "prettier --write \"frontend/src/**/*.{ts,css}\" \"frontend/test/**/*.ts\" \"frontend/preview/*.{ts,css,html}\" frontend/preview/preview.js frontend/build.mjs",
+    "format:check": "prettier --check \"frontend/src/**/*.{ts,css}\" \"frontend/test/**/*.ts\" \"frontend/preview/*.{ts,css,html}\" frontend/preview/preview.js frontend/build.mjs"
+  },
+  "dependencies": {
+    "echarts": "^6.1.0",
+    "lit": "^3.3.1"
+  },
+  "devDependencies": {
+    "@mdi/js": "7.4.47",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.25.0",
+    "prettier": "3.6.2",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

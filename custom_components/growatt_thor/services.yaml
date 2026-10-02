@@ -2,6 +2,48 @@ refresh:
   name: Refresh data
   description: Manually refresh all data from the charger
 
+apply_pv_linkage_profile:
+  name: Apply PV Linkage profile
+  description: Applies PV mode, permitted grid import and optional boost as one supervised logical operation. The charger still receives multiple physical OCPP writes.
+  fields:
+    entry_id:
+      required: true
+      selector:
+        text:
+    working_mode:
+      required: true
+      selector:
+        select:
+          options: [pv_linkage, pv_linkage_plus]
+    grid_import_limit_kw:
+      selector:
+        number:
+          min: 0
+          max: 22
+          step: 0.1
+          unit_of_measurement: kW
+    boost_mode:
+      required: true
+      selector:
+        select:
+          options: [disabled, manual, smart]
+    manual_start:
+      selector:
+        time:
+    manual_end:
+      selector:
+        time:
+    smart_finish:
+      selector:
+        time:
+    smart_target_energy_kwh:
+      selector:
+        number:
+          min: 0.1
+          max: 200
+          step: 0.1
+          unit_of_measurement: kWh
+
 preview_charging_target:
   name: Preview native charging target
   description: Read-only capture coverage and wire plan. Does not send commands or reserve a charger.
