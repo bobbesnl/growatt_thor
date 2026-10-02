@@ -1,5 +1,14 @@
 # Growatt THOR -- OCPP Reverse Engineering & Home Assistant Integration
 
+[Documentation](../README.md#documentation) · [Current architecture](../docs/architecture.md)
+
+> **Historical discovery notes.** The setup, initial plans and “next steps” below
+> describe the original investigation. Configuration writes, entity controls and
+> periodic polling are now implemented. Use the [usage guide](../docs/usage.md)
+> for current behavior and the linked capture findings for firmware-specific
+> evidence. A finding from one captured setup is not a claim about every THOR.
+
+
 ## Overview
 
 This document describes how the Growatt THOR EV charger was reverse
@@ -255,7 +264,7 @@ G_ServerURL
 
 ------------------------------------------------------------------------
 
-## Home Assistant Integration Design
+## Initial Home Assistant integration design
 
 ### Initial Discovery Flow
 
@@ -305,7 +314,7 @@ Initial focus:
 
 ------------------------------------------------------------------------
 
-## Changing Configuration (Future)
+## Changing configuration (initial plan)
 
 OCPP supports:
 
@@ -317,11 +326,12 @@ Preliminary conclusions: - THOR accepts changes while connected - AP
 mode is NOT required for most settings - Server URL *may* require
 reconnect/reboot
 
-This will be implemented incrementally.
+Historical plan: implementation was incremental. Current controls are documented
+in the [entity and automation reference](../docs/entities.md); this section preserves the initial evidence.
 
 ------------------------------------------------------------------------
 
-## Goal State
+## Original goal state
 
 ✔ Fully local OCPP server\
 ✔ No Growatt Cloud dependency\
@@ -331,12 +341,12 @@ This will be implemented incrementally.
 
 ------------------------------------------------------------------------
 
-## Status
+## Status at initial discovery
 
-Current state: - Live data working - Configuration readable - Trigger
+At that point: - Live data working - Configuration readable - Trigger
 logic confirmed - Architecture validated
 
-Next steps: - Periodic task scheduler - ChangeConfiguration support -
+The then-planned next steps were: - Periodic task scheduler - ChangeConfiguration support -
 Config entities (numbers/switches)
 
 ------------------------------------------------------------------------

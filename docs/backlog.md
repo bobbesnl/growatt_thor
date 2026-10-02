@@ -1,12 +1,27 @@
 # Future backlog
 
-Status: proposals for discussion, not a release commitment.
-Baseline: `development`, `1.7.0-dev.26`, reviewed on 2026-09-04.
+Status: remaining work and extensions, not a release commitment.
+Reviewed against the rebuilt 2.0 development line on 2026-09-30.
+
+Implemented: guarded command results, native energy/duration/experimental
+budget targets, optional site observations, session recovery and history,
+source/cost accounting, localized dashboard cards, and opt-in automatic Stop.
+The entries below retain the original design goals and identify extensions;
+they must not be read as a list of entirely missing features.
 
 This backlog records ideas from a comparison with evcc. The integration should
 provide reliable local THOR control, understandable feedback, and useful Home
 Assistant automation interfaces. House-wide energy optimisation can build on
 those interfaces.
+
+The 2.0 integration also owns **observing and accounting for site-wide EV
+energy and effective grid costs**. The first slice uses authoritative THOR
+energy, optional site sensors and an explicit booking rule. Battery provenance,
+durable monthly/yearly rollups and multi-charger allocation remain future
+accounting work described in [site energy accounting](site-energy-accounting.md).
+An opt-in charging stop guard is a narrow, transaction-bound use of the
+existing OCPP Stop command when measured battery discharge or grid import
+persists. It does not allocate power or coordinate batteries and GroBoost.
 
 Existing capabilities include native charging strategies, External Meter
 controls, PV/Boost settings, charging periods, configuration readback tracking,
@@ -31,7 +46,9 @@ limits. The items below extend that foundation; they are not all missing feature
 
 ### F01 — Track commands through to their observed effect
 
-Priority: high; suggested first development package.
+Status: guarded queue results and command identities are implemented. Remaining
+work concerns consistent confirmation of the observed physical effect across
+operations. Priority: high.
 
 - Show queued, sent, accepted, confirmed, rejected, timed-out, or superseded
   outcomes as appropriate for the operation.
@@ -84,7 +101,8 @@ Priority: high; dependent on protocol and firmware validation.
 
 ### F05 — Improve access to existing native charging targets
 
-Priority: medium; refinement of existing Scheduled/native functionality.
+Status: native targets, HA-owned schedules and the target dialog are implemented.
+Remaining work concerns broader firmware evidence and refinements.
 
 - Reuse wallbox-supported targets and the existing Scheduled variants rather
   than implementing a second HA-side stop controller.
@@ -111,7 +129,9 @@ Priority: high to medium.
 
 ### F07 — Make charging sessions more understandable
 
-Priority: medium.
+Status: bounded history, restart recovery, events, power curves, source allocation
+and coverage are implemented. Further end-reason evidence, continuous site/current
+curves and monthly/yearly reporting remain extensions.
 
 - Extend existing history with supported end reasons, interruptions, and data
   completeness information.
@@ -121,12 +141,12 @@ Priority: medium.
 
 ### F08 — Explicit local RFID authorisation and optional session assignment
 
-Priority: local OCPP policy MVP implemented on the feature branch; physical
-card validation and optional assignment remain pending.
+Status: local OCPP policy is implemented. Physical card validation and optional
+assignment remain separate work.
 
-- The feature-branch MVP provides an opt-in local allowlist, checks Authorize
-  and StartTransaction, and preserves open access by default. See the README
-  for configuration and limits; this is not a completed card-provisioning flow.
+- The integration provides an opt-in local allowlist, checks Authorize
+  and StartTransaction, and preserves open access by default. See the
+  [authorization guide](usage.md#local-charging-authorization) for configuration and limits; this is not a completed card-provisioning flow.
 - Consider local card permissions and optional named vehicle/user assignment.
 - Keep local authorisation, Growatt cloud binding, and physical card programming
   separate. No RFID write implementation is authorised by this backlog.
@@ -156,6 +176,10 @@ Priority: demand-driven.
 
 ## Features better handled above the device integration
 
+- Active site dispatch and optimisation: a controller above the device layer
+  must own coordinated wallbox, home-battery and GroBoost decisions. A
+  declared GroHome priority is an accounting rule, not authorization to write
+  device settings.
 - Dynamic-tariff optimisation, PV forecasts, and departure-time/SoC planning:
   provide reliable controls for evcc or HA orchestration. Vehicle SoC requires
   an additional trustworthy source; it is not inferred from delivered energy.
@@ -184,9 +208,9 @@ Priority: demand-driven.
 
 Local evidence and implementation baseline:
 
-- [Current release scope](CHANGELOG.md)
-- [THOR capture findings](reverse_engineering/thor_22as_capture_findings.md)
-- [Hardware and firmware variants](reverse_engineering/hardware_firmware_variants.md)
+- [Current release scope](../CHANGELOG.md)
+- [THOR capture findings](../reverse_engineering/thor_22as_capture_findings.md)
+- [Hardware and firmware variants](../reverse_engineering/hardware_firmware_variants.md)
 
 evcc comparison sources, consulted on 2026-09-04; these describe evcc, not
 confirmed THOR capabilities:

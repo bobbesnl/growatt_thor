@@ -1,0 +1,444 @@
+{
+  "style": "Red hand-drawn margin brackets and numbered circles; original screenshot pixels unchanged",
+  "figures": [
+    {
+      "id": "ha-menu",
+      "title": "H1 · Home Assistant options menu",
+      "source": "30-ha-options-menu.png",
+      "source_size": [
+        1160,
+        1040
+      ],
+      "callouts": [
+        {
+          "top": 0.29,
+          "bottom": 0.4,
+          "title": "General settings"
+        },
+        {
+          "top": 0.42,
+          "bottom": 0.53,
+          "title": "Optional energy sources"
+        },
+        {
+          "top": 0.55,
+          "bottom": 0.66,
+          "title": "Site EV accounting"
+        },
+        {
+          "top": 0.68,
+          "bottom": 0.79,
+          "title": "Local access control"
+        },
+        {
+          "top": 0.81,
+          "bottom": 0.92,
+          "title": "Maintenance: AP mode"
+        }
+      ],
+      "manual": "installation.md#ha-menu"
+    },
+    {
+      "id": "ha-general",
+      "title": "H2 · General settings",
+      "source": "31-ha-general-settings.png",
+      "source_size": [
+        1160,
+        812
+      ],
+      "callouts": [
+        {
+          "top": 0.31,
+          "bottom": 0.49,
+          "title": "Polling interval"
+        },
+        {
+          "top": 0.51,
+          "bottom": 0.68,
+          "title": "Installation location"
+        },
+        {
+          "top": 0.85,
+          "bottom": 0.97,
+          "title": "Submit"
+        }
+      ],
+      "manual": "installation.md#ha-general"
+    },
+    {
+      "id": "ha-battery",
+      "title": "H3 · Optional energy sources",
+      "source": "32-ha-optional-energy-sources.png",
+      "source_size": [
+        1160,
+        904
+      ],
+      "callouts": [
+        {
+          "top": 0.37,
+          "bottom": 0.58,
+          "title": "Battery power sensor"
+        },
+        {
+          "top": 0.61,
+          "bottom": 0.8,
+          "title": "Sign convention"
+        },
+        {
+          "top": 0.88,
+          "bottom": 0.98,
+          "title": "Save the source"
+        }
+      ],
+      "manual": "energy.md#ha-battery"
+    },
+    {
+      "id": "ha-accounting",
+      "title": "H4 · Site EV accounting",
+      "source": "33-ha-site-ev-accounting.png",
+      "source_size": [
+        1160,
+        2112
+      ],
+      "callouts": [
+        {
+          "top": 0.211,
+          "bottom": 0.264,
+          "title": "Site profile"
+        },
+        {
+          "top": 0.287,
+          "bottom": 0.374,
+          "title": "Automatic charging stop"
+        },
+        {
+          "top": 0.395,
+          "bottom": 0.605,
+          "title": "Grid source and sign"
+        },
+        {
+          "top": 0.626,
+          "bottom": 0.756,
+          "title": "Solar and household power"
+        },
+        {
+          "top": 0.778,
+          "bottom": 0.912,
+          "title": "Tariff"
+        },
+        {
+          "top": 0.946,
+          "bottom": 0.99,
+          "title": "Submit"
+        }
+      ],
+      "manual": "energy.md#ha-accounting"
+    },
+    {
+      "id": "ha-authorization",
+      "title": "H5 · Local charging authorisation",
+      "source": "34-ha-local-authorization.png",
+      "source_size": [
+        1160,
+        1224
+      ],
+      "callouts": [
+        {
+          "top": 0.296,
+          "bottom": 0.382,
+          "title": "Restrict RFID access"
+        },
+        {
+          "top": 0.433,
+          "bottom": 0.53,
+          "title": "Allow Home Assistant starts"
+        },
+        {
+          "top": 0.552,
+          "bottom": 0.856,
+          "title": "RFID allowlist"
+        },
+        {
+          "top": 0.901,
+          "bottom": 0.984,
+          "title": "Submit"
+        }
+      ],
+      "manual": "usage.md#ha-authorization"
+    },
+    {
+      "id": "ha-ap-mode",
+      "title": "H6 · AP mode confirmation",
+      "source": "35-ha-ap-mode-confirmation.png",
+      "source_size": [
+        1160,
+        612
+      ],
+      "callouts": [
+        {
+          "top": 0.265,
+          "bottom": 0.466,
+          "title": "Read the warning"
+        },
+        {
+          "top": 0.54,
+          "bottom": 0.667,
+          "title": "Explicit confirmation"
+        },
+        {
+          "top": 0.821,
+          "bottom": 0.974,
+          "title": "Activate or cancel"
+        }
+      ],
+      "manual": "installation.md#ha-ap-mode"
+    },
+    {
+      "id": "charging-card",
+      "title": "C1 · Charging card",
+      "source": "06-sources-mixed.png",
+      "source_size": [
+        1040,
+        1734
+      ],
+      "callouts": [
+        {
+          "top": 0.049,
+          "bottom": 0.099,
+          "title": "Charging and authorization modes"
+        },
+        {
+          "top": 0.111,
+          "bottom": 0.155,
+          "title": "Status and grid balance"
+        },
+        {
+          "top": 0.18,
+          "bottom": 0.44,
+          "title": "Power and charging sources"
+        },
+        {
+          "top": 0.448,
+          "bottom": 0.53,
+          "title": "Phase currents"
+        },
+        {
+          "top": 0.616,
+          "bottom": 0.716,
+          "title": "Current session"
+        },
+        {
+          "top": 0.73,
+          "bottom": 0.793,
+          "title": "Charging controls"
+        },
+        {
+          "top": 0.83,
+          "bottom": 0.905,
+          "title": "Charging target"
+        }
+      ],
+      "manual": "usage.md#charging-card"
+    },
+    {
+      "id": "session-desktop",
+      "title": "C2 · Session card on desktop",
+      "source": "27-history-light.png",
+      "source_size": [
+        2000,
+        1630
+      ],
+      "callouts": [
+        {
+          "top": 0.072,
+          "bottom": 0.146,
+          "title": "History totals"
+        },
+        {
+          "top": 0.166,
+          "bottom": 0.205,
+          "title": "Filter"
+        },
+        {
+          "top": 0.225,
+          "bottom": 0.546,
+          "title": "Selected session curve"
+        },
+        {
+          "top": 0.568,
+          "bottom": 0.708,
+          "title": "Charging energy breakdown"
+        },
+        {
+          "top": 0.728,
+          "bottom": 0.936,
+          "title": "Session table"
+        }
+      ],
+      "manual": "sessions.md#session-desktop"
+    },
+    {
+      "id": "session-mobile",
+      "title": "C3 · Session card on mobile",
+      "source": "29-history-mobile.png",
+      "source_size": [
+        780,
+        2742
+      ],
+      "callouts": [
+        {
+          "top": 0.037,
+          "bottom": 0.14,
+          "title": "History totals"
+        },
+        {
+          "top": 0.172,
+          "bottom": 0.347,
+          "title": "Charging curve and zoom"
+        },
+        {
+          "top": 0.354,
+          "bottom": 0.485,
+          "title": "Event timeline"
+        },
+        {
+          "top": 0.505,
+          "bottom": 0.624,
+          "title": "Energy sources"
+        },
+        {
+          "top": 0.67,
+          "bottom": 0.945,
+          "title": "Session items"
+        }
+      ],
+      "manual": "sessions.md#session-mobile"
+    },
+    {
+      "id": "target-energy",
+      "title": "T1 · Energy target — now",
+      "source": "07-goal-energy-now.png",
+      "source_size": [
+        1040,
+        1816
+      ],
+      "callouts": [
+        {
+          "top": 0.194,
+          "bottom": 0.307,
+          "title": "Target type"
+        },
+        {
+          "top": 0.322,
+          "bottom": 0.427,
+          "title": "Energy to add"
+        },
+        {
+          "top": 0.47,
+          "bottom": 0.554,
+          "title": "Start now"
+        },
+        {
+          "top": 0.576,
+          "bottom": 0.71,
+          "title": "Selection preview"
+        },
+        {
+          "top": 0.78,
+          "bottom": 0.91,
+          "title": "Confirmation and action"
+        }
+      ],
+      "manual": "usage.md#target-energy"
+    },
+    {
+      "id": "target-duration",
+      "title": "T2 · Duration target — scheduled once",
+      "source": "11-goal-duration-once.png",
+      "source_size": [
+        1040,
+        2184
+      ],
+      "callouts": [
+        {
+          "top": 0.161,
+          "bottom": 0.257,
+          "title": "Duration target"
+        },
+        {
+          "top": 0.268,
+          "bottom": 0.355,
+          "title": "Charging duration"
+        },
+        {
+          "top": 0.39,
+          "bottom": 0.466,
+          "title": "At a set time"
+        },
+        {
+          "top": 0.481,
+          "bottom": 0.565,
+          "title": "Start date and time"
+        },
+        {
+          "top": 0.578,
+          "bottom": 0.64,
+          "title": "Every day unchecked"
+        },
+        {
+          "top": 0.652,
+          "bottom": 0.759,
+          "title": "Review the reservation"
+        },
+        {
+          "top": 0.828,
+          "bottom": 0.927,
+          "title": "Confirm and reserve"
+        }
+      ],
+      "manual": "usage.md#target-duration"
+    },
+    {
+      "id": "target-budget",
+      "title": "T3 · Budget target — every day",
+      "source": "15-goal-budget-daily.png",
+      "source_size": [
+        1040,
+        2316
+      ],
+      "callouts": [
+        {
+          "top": 0.165,
+          "bottom": 0.253,
+          "title": "Budget target"
+        },
+        {
+          "top": 0.269,
+          "bottom": 0.369,
+          "title": "Cost limit"
+        },
+        {
+          "top": 0.39,
+          "bottom": 0.555,
+          "title": "Scheduled start"
+        },
+        {
+          "top": 0.567,
+          "bottom": 0.619,
+          "title": "Every day enabled"
+        },
+        {
+          "top": 0.634,
+          "bottom": 0.719,
+          "title": "Selection preview"
+        },
+        {
+          "top": 0.8,
+          "bottom": 0.93,
+          "title": "Experimental behavior and confirmation"
+        }
+      ],
+      "manual": "usage.md#target-budget"
+    }
+  ]
+}

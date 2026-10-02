@@ -1,0 +1,210 @@
+{
+  "locale": "en-GB",
+  "scale": 2,
+  "source": "Local simulator; illustrative data, not a Home Assistant export",
+  "captures": [
+    {
+      "number": 1,
+      "file": "01-charger-light.png",
+      "title": "Charging card · light",
+      "width": 520,
+      "height": 890
+    },
+    {
+      "number": 2,
+      "file": "02-charger-dark.png",
+      "title": "Charging card · dark",
+      "width": 520,
+      "height": 890
+    },
+    {
+      "number": 3,
+      "file": "03-sources-solar.png",
+      "title": "Charging sources · Solar only",
+      "width": 520,
+      "height": 906
+    },
+    {
+      "number": 4,
+      "file": "04-sources-solar-battery.png",
+      "title": "Charging sources · Solar + battery",
+      "width": 520,
+      "height": 906
+    },
+    {
+      "number": 5,
+      "file": "05-sources-solar-grid.png",
+      "title": "Charging sources · Solar + grid",
+      "width": 520,
+      "height": 866
+    },
+    {
+      "number": 6,
+      "file": "06-sources-mixed.png",
+      "title": "Charging sources · Solar + battery + grid",
+      "width": 520,
+      "height": 866
+    },
+    {
+      "number": 7,
+      "file": "07-goal-energy-now.png",
+      "title": "Energy target · now",
+      "width": 520,
+      "height": 907
+    },
+    {
+      "number": 8,
+      "file": "08-goal-energy-once.png",
+      "title": "Energy target · scheduled once",
+      "width": 520,
+      "height": 1091
+    },
+    {
+      "number": 9,
+      "file": "09-goal-energy-daily.png",
+      "title": "Energy target · every day",
+      "width": 520,
+      "height": 1110
+    },
+    {
+      "number": 10,
+      "file": "10-goal-duration-now.png",
+      "title": "Duration target · now",
+      "width": 520,
+      "height": 907
+    },
+    {
+      "number": 11,
+      "file": "11-goal-duration-once.png",
+      "title": "Duration target · scheduled once",
+      "width": 520,
+      "height": 1091
+    },
+    {
+      "number": 12,
+      "file": "12-goal-duration-daily.png",
+      "title": "Duration target · every day",
+      "width": 520,
+      "height": 1110
+    },
+    {
+      "number": 13,
+      "file": "13-goal-budget-now.png",
+      "title": "Budget target · now",
+      "width": 520,
+      "height": 953
+    },
+    {
+      "number": 14,
+      "file": "14-goal-budget-once.png",
+      "title": "Budget target · scheduled once",
+      "width": 520,
+      "height": 1137
+    },
+    {
+      "number": 15,
+      "file": "15-goal-budget-daily.png",
+      "title": "Budget target · every day",
+      "width": 520,
+      "height": 1156
+    },
+    {
+      "number": 16,
+      "file": "16-authorization-home-assistant-rfid.png",
+      "title": "Authorization · home assistant rfid",
+      "width": 420,
+      "height": 325
+    },
+    {
+      "number": 17,
+      "file": "17-authorization-rfid-only.png",
+      "title": "Authorization · rfid only",
+      "width": 420,
+      "height": 325
+    },
+    {
+      "number": 18,
+      "file": "18-authorization-plug-and-charge.png",
+      "title": "Authorization · plug and charge",
+      "width": 420,
+      "height": 325
+    },
+    {
+      "number": 19,
+      "file": "19-charging-mode-prerequisites.png",
+      "title": "Charging mode · prerequisites",
+      "width": 680,
+      "height": 370
+    },
+    {
+      "number": 20,
+      "file": "20-charging-mode-solar-only-disabled.png",
+      "title": "PV Linkage+ · no boost",
+      "width": 680,
+      "height": 454
+    },
+    {
+      "number": 21,
+      "file": "21-charging-mode-solar-only-manual.png",
+      "title": "PV Linkage+ · time-window boost",
+      "width": 680,
+      "height": 593
+    },
+    {
+      "number": 22,
+      "file": "22-charging-mode-solar-only-smart.png",
+      "title": "PV Linkage+ · ready-by-time boost",
+      "width": 680,
+      "height": 679
+    },
+    {
+      "number": 23,
+      "file": "23-charging-mode-grid-allowed-disabled.png",
+      "title": "PV Linkage · no boost",
+      "width": 680,
+      "height": 555
+    },
+    {
+      "number": 24,
+      "file": "24-charging-mode-grid-allowed-manual.png",
+      "title": "PV Linkage · time-window boost",
+      "width": 680,
+      "height": 694
+    },
+    {
+      "number": 25,
+      "file": "25-charging-mode-grid-allowed-smart.png",
+      "title": "PV Linkage · ready-by-time boost",
+      "width": 680,
+      "height": 781
+    },
+    {
+      "number": 26,
+      "file": "26-charging-mode-review.png",
+      "title": "Charging mode · review before applying",
+      "width": 680,
+      "height": 479
+    },
+    {
+      "number": 27,
+      "file": "27-history-light.png",
+      "title": "Charging history · desktop light",
+      "width": 1000,
+      "height": 814
+    },
+    {
+      "number": 28,
+      "file": "28-history-dark.png",
+      "title": "Charging history · desktop dark",
+      "width": 1000,
+      "height": 814
+    },
+    {
+      "number": 29,
+      "file": "29-history-mobile.png",
+      "title": "Charging history · mobile",
+      "width": 390,
+      "height": 1370
+    }
+  ]
+}

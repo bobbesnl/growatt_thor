@@ -1,5 +1,7 @@
 # Home Assistant Automation Resilience
 
+[Documentation](../README.md#documentation) · [Code reading paths](CONTRIBUTING.md)
+
 ## Purpose of this document
 
 Home Assistant makes it easy to combine many actions in automations. As a result, a charger can receive commands much faster, in a different order, or in states that would rarely occur when a person operates it manually from a dashboard.
@@ -36,7 +38,7 @@ This document describes the identified failure scenarios and the safeguards impl
 6. Invalid or ambiguous input must be rejected explicitly instead of being silently rounded, truncated, guessed, or ignored.
 7. Non-obvious timing, queue, and reconnect rules must be documented next to the code and protected by regression tests.
 
-## Implementation status
+## Historical implementation references
 
 | # | Priority | Work item | Implementation commit | Status |
 |---|---|---|---|---|
@@ -52,7 +54,9 @@ This document describes the identified failure scenarios and the safeguards impl
 
 `P0` identifies cases in which the wrong state, transaction, or charger could otherwise be affected. `P1` primarily prevents misleading results, unnecessary protocol traffic, and ambiguous intermediate states.
 
-The implementation links use permanent commit URLs in the upstream `bobbesnl/growatt_thor` repository. They become reachable on GitHub as soon as this branch history is pushed to that repository.
+These commit references record the original 1.7 implementation. The safeguards
+remain part of the rebuilt 2.0 line; current module locations are listed in the
+[architecture reference](architecture.md) and [contributor guide](CONTRIBUTING.md).
 
 ## 1. Return blocked Home Assistant actions as errors
 
@@ -180,7 +184,7 @@ Another edge case occurs when the same physical charger reconnects before its ol
 
 An action such as “stop charging” must unambiguously target one charger and one current connection. After a reconnect, an old socket must neither publish state nor remove the replacement connection during its own cleanup.
 
-### Current behavior in the 1.7 line
+### Current ownership behavior
 
 - Exactly one configuration entry is permitted. A second setup attempt is aborted with a translated, explicit reason.
 - Runtime ownership is enforced independently of the config-flow guard, so duplicate legacy entries or concurrent setup calls cannot replace the active coordinator.
@@ -330,7 +334,7 @@ The paired Auto Charge time values deliberately wait 500 ms for each other. By t
 - A 30-second action timeout ends only the Home Assistant caller's wait, not the physical command.
 - An optimistic entity value represents the latest desired value. Automations that require physical confirmation must use the command outcome rather than optimistic state alone.
 - Rapid changes to the same value may replace older changes that are definitely still unsent. This is intentional: the integration should apply the latest meaningful intent instead of replaying an obsolete sequence of slider movements.
-- The 1.7 line deliberately does not support multiple physical chargers in one shared runtime context.
+- The integration deliberately supports only one active physical charger in its shared runtime context.
 
 ## Test and documentation expectations
 
