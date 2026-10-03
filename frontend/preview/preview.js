@@ -83,6 +83,7 @@ function update() {
     solar_grid: { solar_w: 6500, grid_w: 1800 },
     mixed: { solar_w: 5000, battery_w: 1800, grid_w: 1500 },
     incomplete: { solar_w: 5000, battery_w: 1000 },
+    unknown: { unknown_w: 8300 },
   }[document.querySelector('#source-mix').value];
   const sessionProfileSelection = document.querySelector('#session-profile').value;
   const sessionHasBattery = sessionProfileSelection === 'cloudy_battery';

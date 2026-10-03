@@ -225,6 +225,7 @@ export const de: Record<Key, string> = {
   sourceBattery: 'Batterie',
   sourceGrid: 'Netz',
   sourceUnknown: 'Unbekannt',
+  sourcesUnassigned: 'Ladequellen nicht verfügbar',
   selectCharger: 'Wähle im Karteneditor eine THOR-Wallbox aus.',
   oldIntegration: 'Diese Karte benötigt das passende Update der THOR-Integration.',
   statusEntity: 'Wallbox',

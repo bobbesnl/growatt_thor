@@ -47,6 +47,18 @@ The integration keeps that part **unknown** instead of treating it as zero or
 applying today's source mix to an earlier gap. Older sessions are not filled
 in retrospectively.
 
+An unchanged Home Assistant sensor value can still be valid: for example, a
+battery may report 0 W for hours. For display and accounting, available numeric
+HA states remain usable until their integration marks them unavailable or
+unknown. This relies on the source integration reporting connection failures.
+THOR meter readings keep their own freshness limits. Automatic charging stops
+also require recent source reports.
+
+If no charging source can be assigned, the live card keeps its usual green
+charging animation and shows “Charging sources unavailable”. Green then indicates
+active charging, not a confirmed solar share. Partial source mixes still show
+their unassigned remainder.
+
 After a restart, saved session data allows accounting to continue. If a saved
 meter reading has no usable timestamp, the integration starts a new comparison
 point; it does not guess how energy was supplied during the gap. At session

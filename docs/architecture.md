@@ -84,8 +84,10 @@ flowchart LR
   requires a registered button. It cannot automatically restart charging.
 - Target services retain their public names and charging-target storage key.
   Wallbox-native energy/time limits and HA-owned repeat scheduling stay separate.
-- Freshness and unit/sign normalization happen before consumers use a value.
-  Missing, unavailable and stale values are not zero.
+- Unit/sign normalization is shared. Automatic controls require recent source
+  reports; display and accounting accept available, unchanged HA sensor states.
+  THOR meter freshness is checked in both cases. Missing and unavailable values
+  are not zero.
 - The view contract is bounded: at most 20 recent rows, 24 events and 96 curve
   points per session, with a 12 KiB target. Historical detail is loaded on demand.
   Pagination covers those recent rows, not the full archive.

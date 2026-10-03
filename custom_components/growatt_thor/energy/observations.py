@@ -15,7 +15,7 @@ BucketQuality = Literal["measured", "derived", "declared", "unknown"]
 class PowerObservation:
     watts: float | None
     observed_at: datetime | None
-    max_age_s: int = 120
+    max_age_s: int | None = 120
     quality: BucketQuality = "measured"
 
     def value_at(self, at: datetime) -> float | None:
@@ -24,7 +24,7 @@ class PowerObservation:
         if self.observed_at.tzinfo is None or at.tzinfo is None:
             return None
         age = (at - self.observed_at).total_seconds()
-        return self.watts if 0 <= age <= self.max_age_s else None
+        return self.watts if age >= 0 and (self.max_age_s is None or age <= self.max_age_s) else None
 
 
 @dataclass(frozen=True)
@@ -51,18 +51,31 @@ def parse_at(value: Any) -> datetime | None:
     return parsed.astimezone(timezone.utc) if parsed.tzinfo else None
 
 
-def read_site_observations(coordinator) -> SiteObservations:
-    """Read configured site sources; each consumer checks freshness at its clock."""
+def read_site_observations(coordinator, *, require_recent_report: bool = True) -> SiteObservations:
+    """Read site sources, retaining strict report ages for automatic controls.
+
+    HA integrations can suppress writes for unchanged values (often battery 0 W).
+    Display/accounting may use those available states until the provider marks
+    them unavailable. This does not turn their timestamps into fresh measurements
+    or relax the independent THOR meter timeout.
+    """
     options = getattr(coordinator, "site_accounting_options", {}) or {}
     hass = getattr(coordinator, "hass", None)
     states = getattr(hass, "states", None)
 
+    def observation(state, *, sign: int = 1) -> PowerObservation:
+        watts = power_w(state)
+        attributes = getattr(state, "attributes", {})
+        if isinstance(attributes, dict) and attributes.get("restored"):
+            watts = None
+        observed = parse_at(getattr(state, "last_reported", None)) or parse_at(getattr(state, "last_updated", None))
+        return PowerObservation(watts * sign if watts is not None else None, observed,
+                                max_age_s=120 if require_recent_report else None)
+
     def sensor(key: str, *, sign: int = 1) -> PowerObservation | None:
         entity_id = options.get(key)
         state = states.get(entity_id) if entity_id and states else None
-        watts = power_w(state)
-        observed = parse_at(getattr(state, "last_updated", None))
-        return PowerObservation(watts * sign if watts is not None else None, observed) if entity_id else None
+        return observation(state, sign=sign) if entity_id else None
 
     grid = sensor("site_grid_power_entity", sign=-1 if options.get("site_grid_power_sign") == "positive_export" else 1) if options.get("site_grid_source") == "ha_sensor" else None
     if options.get("site_grid_source") == "thor_external":
@@ -74,10 +87,7 @@ def read_site_observations(coordinator) -> SiteObservations:
     battery = None
     if battery_entity:
         state = states.get(battery_entity) if states else None
-        watts = power_w(state)
-        if watts is not None and getattr(coordinator, "battery_power_sign", None) == "positive_charge":
-            watts = -watts
-        battery = PowerObservation(watts, parse_at(getattr(state, "last_updated", None)))
+        battery = observation(state, sign=-1 if getattr(coordinator, "battery_power_sign", None) == "positive_charge" else 1)
     return SiteObservations(
         grid=grid,
         solar=sensor("site_solar_power_entity"),

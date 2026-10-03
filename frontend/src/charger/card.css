@@ -497,6 +497,12 @@ ha-icon {
   background: var(--flow-target);
   flex: 0 0 auto;
 }
+.source-note {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
 .source-mix {
   display: flex;
   align-items: center;

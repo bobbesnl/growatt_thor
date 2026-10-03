@@ -38,6 +38,7 @@ export interface PowerFlowView {
   target: GaugeTarget | null;
   overflow: GaugeOverflow | null;
   sources: GaugeSourceSegment[];
+  sourcesUnassigned: boolean;
   gridImportLimitKw: number | null;
 }
 
@@ -149,6 +150,9 @@ export function powerFlowView(
 
   const measuredPowerKw = chargerPowerKw ?? (!data.transaction_active && available ? 0 : null);
   const sources = sourceSegments(data, measuredPowerKw, maximumKw, available);
+  // A known charging power with no known sources still uses the normal gauge.
+  // Keep partial mixes explicit, but do not cover the entire charge animation in grey.
+  const sourcesUnassigned = sources.length === 1 && sources[0].source === 'unknown';
   const configuredAllowance = signedNumeric(snapshot?.grid_import_limit_kw);
   const gridImportLimitKw =
     data.working_mode === 'pv_linkage' && configuredAllowance !== null
@@ -198,7 +202,8 @@ export function powerFlowView(
     label,
     target,
     overflow,
-    sources,
+    sources: sourcesUnassigned ? [] : sources,
+    sourcesUnassigned,
     gridImportLimitKw,
   };
 }

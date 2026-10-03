@@ -71,8 +71,10 @@ conflicts introduced while editing are checked when saving.
 Choose either a fixed price per kWh (negative prices are allowed) or a current
 price-per-kWh sensor. In an EUR Home Assistant installation, both `EUR/kWh`
 and `€/kWh` are accepted without changing the numeric price; `ct/kWh` is not
-treated as euros. Power readings must be fresh; missing or stale readings are
-booked as unknown, never as zero. An unchanged current price remains usable even
+treated as euros. Missing power readings and stale THOR meter samples are
+booked as unknown, never as zero. Available HA power sensors can retain an
+unchanged value; their integration is responsible for reporting unavailability.
+An unchanged current price remains usable even
 if its HA update timestamp is older than an hour. Unavailable, restored or
 non-finite prices and prices outside an explicitly declared validity period
 are unknown. A declared active tariff timeslot takes precedence over an overall
@@ -121,7 +123,7 @@ ambiguous autumn-transition times without an offset are rejected. The original
 timestamp remains in the raw diagnostic payload. Receipt time never replaces
 a missing or stale measurement time. Existing historical rows are not rewritten.
 
-The live gauge uses fresh site readings at the current time, since the wallbox,
+The live gauge evaluates current site readings, since the wallbox,
 inverter and battery sensors update independently. Historical accounting still
 uses the measurement time. Energy across a long telemetry gap remains unknown
 instead of being attributed to today's power split or price.

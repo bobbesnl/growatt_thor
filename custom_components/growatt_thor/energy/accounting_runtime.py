@@ -45,7 +45,7 @@ def site_inputs(coordinator, at: datetime) -> tuple[SiteObservations, Tariff, Ac
     hass = getattr(coordinator, "hass", None)
     states = getattr(hass, "states", None)
 
-    site = read_site_observations(coordinator)
+    site = read_site_observations(coordinator, require_recent_report=False)
     price = options.get(CONF_FIXED_PRICE)
     if options.get(CONF_TARIFF_ENTITY):
         state = states.get(options[CONF_TARIFF_ENTITY]) if states else None

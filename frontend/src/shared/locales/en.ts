@@ -216,6 +216,7 @@ export const en = {
   sourceBattery: 'Battery',
   sourceGrid: 'Grid',
   sourceUnknown: 'Unknown',
+  sourcesUnassigned: 'Charging sources unavailable',
   selectCharger: 'Select a THOR charger in the card editor.',
   oldIntegration: 'This card needs the matching THOR integration update.',
   statusEntity: 'Charger',

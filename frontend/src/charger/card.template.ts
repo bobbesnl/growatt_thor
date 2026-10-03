@@ -257,6 +257,9 @@ function renderHero({
                 ><strong>${format(powerFlow.target.kw)} kW</strong>
               </div>`
             : nothing}
+          ${powerFlow.sourcesUnassigned
+            ? html`<div class="source-note">${t('sourcesUnassigned')}</div>`
+            : nothing}
           ${powerFlow.sources.length
             ? html`<div class="source-mix" aria-label=${t('sourceMix')}>
                 ${powerFlow.sources.map(

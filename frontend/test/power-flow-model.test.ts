@@ -120,6 +120,7 @@ test('Incomplete source allocation labels the remainder unknown and stale data h
   });
   const current = powerFlowView(data, 8.3, 11, true, now);
   assert.equal(current.sources.at(-1)?.source, 'unknown');
+  assert.equal(current.sourcesUnassigned, false);
   assert.ok(Math.abs((current.sources.at(-1)?.kw ?? 0) - 2.3) < 0.001);
 
   const stale = powerFlowView(
@@ -142,6 +143,20 @@ test('Incomplete source allocation labels the remainder unknown and stale data h
     now,
   );
   assert.deepEqual(unhealthy.sources, []);
+});
+
+test('Wholly unassigned charging uses the normal gauge with an explanatory hint', () => {
+  const data = makeData({
+    power_flow: {
+      ...makeData().power_flow!,
+      charging_sources: { solar_w: 0, battery_w: 0, grid_w: 0, unknown_w: 8300 },
+    },
+  });
+  const current = powerFlowView(data, 8.3, 11, true, now);
+  assert.deepEqual(current.sources, []);
+  assert.equal(current.sourcesUnassigned, true);
+  assert.equal(powerFlowView(data, 0, 11, true, now).sourcesUnassigned, false);
+  assert.equal(powerFlowView(data, 8.3, 11, false, now).sourcesUnassigned, false);
 });
 
 test('Idle export still yields a possible zero-grid point, capped by the gauge', () => {

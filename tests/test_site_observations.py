@@ -42,6 +42,30 @@ class SiteObservationTest(unittest.TestCase):
                                       external_meter_last_updated_at=AT)
         self.assertIsNone(site.read_site_observations(coordinator).grid)
 
+    def test_current_ha_states_and_recent_reports_have_distinct_validity(self):
+        battery = SimpleNamespace(state="500", last_updated=AT - timedelta(hours=2),
+                                  attributes={"unit_of_measurement": "W"})
+        coordinator = SimpleNamespace(hass=SimpleNamespace(states={"sensor.battery": battery}),
+                                      battery_power_entity="sensor.battery")
+        def read(recent):
+            return site.read_site_observations(coordinator, require_recent_report=recent).battery.value_at(AT)
+        self.assertEqual(read(False), 500)
+        self.assertIsNone(read(True))
+        battery.last_reported = AT
+        self.assertEqual(read(True), 500)
+        battery.attributes["restored"] = True
+        self.assertIsNone(read(False))
+        del battery.attributes["restored"]
+        for value in ("unknown", "unavailable", "nan"):
+            battery.state = value
+            self.assertIsNone(read(False))
+        battery.state = "0"
+        battery.last_reported = AT + timedelta(minutes=1)
+        self.assertIsNone(read(False))
+        battery.last_reported = None
+        battery.last_updated = None
+        self.assertIsNone(read(False))
+
     def test_meter_uses_only_latest_packet_and_preserves_missing_phases(self):
         snapshot = {"meter_values": [
             {"timestamp": "old", "sampled_values": [{"numeric_value": 7000,

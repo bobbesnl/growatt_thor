@@ -119,6 +119,29 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         sources = dashboard_attributes(self.c)["power_flow"]["charging_sources"]
         self.assertAlmostEqual(sources["battery_w"], 2000)
 
+    def test_unchanged_zero_battery_does_not_hide_solar_or_enable_stop(self):
+        battery = self.c.hass.states["sensor.battery"]
+        battery.state = "0"
+        battery.last_updated = AT - timedelta(hours=2)
+        battery.last_reported = battery.last_updated
+        self.c.hass.states["sensor.pv"].state = "10320"
+        self.c.grid_power = -2146
+        self.receive()
+        sources = dashboard_attributes(self.c)["power_flow"]["charging_sources"]
+        self.assertAlmostEqual(sources["solar_w"], 7000)
+        self.assertAlmostEqual(sources["unknown_w"], 0)
+        self.assertAlmostEqual(self.c.site_accounting.buckets["direct_solar"], .05)
+        self.assertIsNone(self.guard._observation(AT).battery_discharge_w)
+        self.assertIsNone(self.guard.tracker.evaluate(AT, "battery", self.guard._observation(AT)))
+
+    def test_unavailable_battery_cannot_be_assumed_zero_for_solar(self):
+        self.c.hass.states["sensor.battery"].state = "unavailable"
+        self.receive()
+        sources = dashboard_attributes(self.c)["power_flow"]["charging_sources"]
+        self.assertAlmostEqual(sources["solar_w"], 0)
+        self.assertAlmostEqual(sources["unknown_w"], 7000)
+        self.assertAlmostEqual(self.c.site_accounting.buckets["unknown"], .05)
+
     def test_stale_future_invalid_and_dst_ambiguous_samples_cannot_trigger_stop(self):
         for raw in ("2026-10-02T16:40:00", "2026-10-02T17:52:49", "bad",
                     "2026-10-25T02:30:00", "2026-03-29T02:30:00"):
