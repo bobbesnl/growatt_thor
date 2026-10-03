@@ -125,6 +125,11 @@ function renderHero({
   powerFlow,
 }: CardViewModel) {
   const suspended = ['suspended_ev', 'suspended_evse'].includes(status.key);
+  // Source segments cover the base arc. Paint the wave last, limited to the PV
+  // share so battery/grid colours remain visible. Without a mix, animate all power.
+  const animatedFraction = powerFlow.sources.length
+    ? (powerFlow.sources.find((segment) => segment.source === 'solar')?.fraction ?? 0)
+    : fraction;
   const pauseLabel = suspended
     ? 'paused'
     : status.key === 'pv_wait'
@@ -188,9 +193,6 @@ function renderHero({
               stroke-dasharray="${fraction} 100"
               opacity=${kw !== null && fraction > 0 ? 1 : 0}
             />
-            ${animate
-              ? svg`<path class="charge-wave" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100" stroke-dasharray="${fraction} 100" />`
-              : nothing}
             ${[...powerFlow.sources].reverse().map(
               (segment) => svg`<path
                 class="source-segment source-${segment.source}"
@@ -199,6 +201,9 @@ function renderHero({
                 stroke-dasharray="${segment.startFraction + segment.fraction} 100"
               />`,
             )}
+            ${animate && animatedFraction > 0
+              ? svg`<path class="charge-wave" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100" stroke-dasharray="${animatedFraction} 100" />`
+              : nothing}
             ${powerFlow.overflow
               ? svg`<path
                   class="over-target ${powerFlow.overflow.severity}"

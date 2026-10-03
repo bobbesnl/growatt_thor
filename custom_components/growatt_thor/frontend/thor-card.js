@@ -1182,7 +1182,7 @@ ${a}`:a}function ND(r){let e=ws(r);if(e===null)return"\u2014";let t=Math.floor(e
           <ha-icon .icon=${t.icon}></ha-icon><span>${e(t.label)}</span
           ><strong>${t.valueKw===null?"\u2014":`${i(t.valueKw)} kW`}</strong>
         </div>`:V}
-  </div>`}function aM({config:r,connected:e,t,kw:i,maxPower:a,fraction:n,animate:o,format:s,resting:l,expectedTelemetryPause:u,status:c,complete:p,active:d,data:f,currents:h,powerFlow:v}){let g=["suspended_ev","suspended_evse"].includes(c.key)?"paused":c.key==="pv_wait"?c.key:"waitingToCharge",y=c.key==="suspended_ev"?"vehiclePauseMeterHint":c.key==="suspended_evse"?"stationPauseMeterHint":c.key==="pv_wait"?"pvPauseMeterHint":"preparingHint";return R`
+  </div>`}function aM({config:r,connected:e,t,kw:i,maxPower:a,fraction:n,animate:o,format:s,resting:l,expectedTelemetryPause:u,status:c,complete:p,active:d,data:f,currents:h,powerFlow:v}){let m=["suspended_ev","suspended_evse"].includes(c.key),g=v.sources.length?v.sources.find(x=>x.source==="solar")?.fraction??0:n,y=m?"paused":c.key==="pv_wait"?c.key:"waitingToCharge",_=c.key==="suspended_ev"?"vehiclePauseMeterHint":c.key==="suspended_evse"?"stationPauseMeterHint":c.key==="pv_wait"?"pvPauseMeterHint":"preparingHint";return R`
     <div class="hero ${r.show_image===!1?"no-image":""}">
       ${r.show_image===!1?V:R`<div class="device ${e?"":"offline"}" title=${t("deviceIllustration")}>
             <svg class="device-art" viewBox="135 98 755 1314" role="img" aria-label="Growatt THOR">
@@ -1204,10 +1204,10 @@ ${a}`:a}function ND(r){let e=ws(r);if(e===null)return"\u2014";let t=Math.floor(e
           aria-valuemin=${i===null?V:0}
           aria-valuemax=${i===null?V:a??V}
           aria-valuenow=${i===null?V:i}
-          aria-valuetext=${i===null?t(u?y:"missing"):`${s(i)} kW`}
+          aria-valuetext=${i===null?t(u?_:"missing"):`${s(i)} kW`}
         >
           <svg viewBox="0 0 200 112" aria-hidden="true">
-            ${o?zi`<defs><linearGradient class="charge-gradient" id="charge-gradient" gradientUnits="userSpaceOnUse" x1="10" y1="100" x2="190" y2="100">${[0,20,40,60,80,100].map(_=>zi`<stop offset="${_}%" />`)}</linearGradient></defs>`:V}
+            ${o?zi`<defs><linearGradient class="charge-gradient" id="charge-gradient" gradientUnits="userSpaceOnUse" x1="10" y1="100" x2="190" y2="100">${[0,20,40,60,80,100].map(x=>zi`<stop offset="${x}%" />`)}</linearGradient></defs>`:V}
             <path class="track" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100" />
             ${v.target&&v.target.fraction>0?zi`<path
                   class="target-range"
@@ -1222,13 +1222,13 @@ ${a}`:a}function ND(r){let e=ws(r);if(e===null)return"\u2014";let t=Math.floor(e
               stroke-dasharray="${n} 100"
               opacity=${i!==null&&n>0?1:0}
             />
-            ${o?zi`<path class="charge-wave" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100" stroke-dasharray="${n} 100" />`:V}
-            ${[...v.sources].reverse().map(_=>zi`<path
-                class="source-segment source-${_.source}"
+            ${[...v.sources].reverse().map(x=>zi`<path
+                class="source-segment source-${x.source}"
                 d="M 10 100 A 90 90 0 0 1 190 100"
                 pathLength="100"
-                stroke-dasharray="${_.startFraction+_.fraction} 100"
+                stroke-dasharray="${x.startFraction+x.fraction} 100"
               />`)}
+            ${o&&g>0?zi`<path class="charge-wave" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100" stroke-dasharray="${g} 100" />`:V}
             ${v.overflow?zi`<path
                   class="over-target ${v.overflow.severity}"
                   d="M 4 100 A 96 96 0 0 1 196 100"
@@ -1250,9 +1250,9 @@ ${a}`:a}function ND(r){let e=ws(r);if(e===null)return"\u2014";let t=Math.floor(e
                     .icon=${u?c.icon:l?"mdi:power-sleep":"mdi:cloud-question-outline"}
                   ></ha-icon
                   ><strong class="rest-label"
-                    >${t(u?g:l?"standby":"noData")}</strong
+                    >${t(u?y:l?"standby":"noData")}</strong
                   ><small
-                    >${t(u?y:l?"noCharging":"missing")}</small
+                    >${t(u?_:l?"noCharging":"missing")}</small
                   >`:R`<strong>${s(i)}</strong><span class="unit">kW</span
                   ><small>${t("power")}</small>`}
           </div>
@@ -1271,11 +1271,11 @@ ${a}`:a}function ND(r){let e=ws(r);if(e===null)return"\u2014";let t=Math.floor(e
               </div>`:V}
           ${v.sourcesUnassigned?R`<div class="source-note">${t("sourcesUnassigned")}</div>`:V}
           ${v.sources.length?R`<div class="source-mix" aria-label=${t("sourceMix")}>
-                ${v.sources.map(_=>R`<span
+                ${v.sources.map(x=>R`<span
                       class="source-item"
-                      title="${t(_.label)}: ${s(_.kw)} kW"
-                      ><i class="source-key source-${_.source}"></i
-                      ><span>${t(_.label)}</span><strong>${s(_.kw)}</strong></span
+                      title="${t(x.label)}: ${s(x.kw)} kW"
+                      ><i class="source-key source-${x.source}"></i
+                      ><span>${t(x.label)}</span><strong>${s(x.kw)}</strong></span
                     >`)}
               </div>`:V}
         </div>
@@ -1286,27 +1286,27 @@ ${a}`:a}function ND(r){let e=ws(r);if(e===null)return"\u2014";let t=Math.floor(e
                 ><span>max. ${f.max_current_a} A</span>
               </div>
               <div class="phase-columns">
-                ${h.map((_,x)=>R`<div
-                      class="phase-row ${_===null?"missing":""} ${_!==null&&_>f.max_current_a?"over":""}"
-                      title=${_===null?t("missing"):_<=.3?t("inactive"):t("phaseScale")}
+                ${h.map((x,b)=>R`<div
+                      class="phase-row ${x===null?"missing":""} ${x!==null&&x>f.max_current_a?"over":""}"
+                      title=${x===null?t("missing"):x<=.3?t("inactive"):t("phaseScale")}
                     >
-                      <span class="phase-label">L${x+1}</span>
+                      <span class="phase-label">L${b+1}</span>
                       <div
                         class="phase-track"
                         role="meter"
-                        aria-label=${`L${x+1}`}
+                        aria-label=${`L${b+1}`}
                         aria-valuemin="0"
                         aria-valuemax=${f.max_current_a}
-                        aria-valuenow=${_??V}
-                        aria-valuetext=${_===null?t("missing"):`${s(_)} A`}
+                        aria-valuenow=${x??V}
+                        aria-valuetext=${x===null?t("missing"):`${s(x)} A`}
                       >
                         <div
                           class="phase-fill"
-                          style="width:${La((_||0)/f.max_current_a*100)}%"
+                          style="width:${La((x||0)/f.max_current_a*100)}%"
                         ></div>
                       </div>
                       <span class="phase-value"
-                        >${s(_)}${_===null?"":" A"}</span
+                        >${s(x)}${x===null?"":" A"}</span
                       >
                     </div>`)}
               </div>
