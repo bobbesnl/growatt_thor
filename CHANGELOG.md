@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## 2.0.0-dev.7
+
+### Fixed
+
+- Declare the config-entry-only setup schema and HTTP dependency, and sort manifest keys for Hassfest.
+- Keep available, unchanged Home Assistant power readings usable for source allocation while retaining recent-report checks for automatic charging stops.
+- Show the normal green charging gauge with an explanatory hint when all charging sources are unassigned.
+- Keep the animated gradient visible over the PV share without covering battery and grid colours.
+
 ## 2.0.0-dev.6
 
 ### Added
