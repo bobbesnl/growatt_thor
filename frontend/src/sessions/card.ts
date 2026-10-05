@@ -1,4 +1,6 @@
 import { renderSessionAccounting } from './accounting.template';
+import { cardInitialization } from '../shared/card-initialization';
+import { cardNoticeStyles, renderCardNotice } from '../shared/card-notice';
 import { sessionMetricViews } from './metrics.template';
 import { LitElement, html, nothing, unsafeCSS } from 'lit';
 import { createRef, ref, type Ref } from 'lit/directives/ref.js';
@@ -62,7 +64,7 @@ echarts.use([
 ]);
 
 export class ThorSessionCard extends LitElement {
-  static styles = unsafeCSS(cssText);
+  static styles = [unsafeCSS(cssText), cardNoticeStyles];
   static properties = {
     hass: { attribute: false },
     _config: { state: true },
@@ -610,10 +612,15 @@ export class ThorSessionCard extends LitElement {
     const dark =
       this._config.theme === 'dark' ||
       (this._config.theme !== 'light' && !!this.hass?.themes?.darkMode);
-    if (!data || data.schema !== 1)
-      return html`<ha-card class="card ${dark ? 'dark' : ''}"
-        ><div class="empty">${t('unavailable')}</div></ha-card
-      >`;
+    const initialization = cardInitialization(this.hass, this._config, true);
+    if (initialization !== 'ready' || !data)
+      return renderCardNotice(
+        initialization,
+        language,
+        dark,
+        this._config.name || t('title'),
+        true,
+      );
     const page = sessionPage(
       sessionRows(data, this._query, this._sort, this._ascending),
       this._page,

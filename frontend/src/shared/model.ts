@@ -4,14 +4,14 @@ export const clamp = (value: number, max = 100) => Math.min(max, Math.max(0, val
 export const numeric = (v: unknown): number | null =>
   typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null;
 export function statusEntities(hass: Hass): ThorStatusEntity[] {
-  return Object.values(hass.states).filter(
+  return Object.values(hass.states ?? {}).filter(
     (entity): entity is ThorStatusEntity => entity?.attributes.thor_card?.schema === 1,
   );
 }
 export function resolveEntity(hass: Hass, config: CardConfig): Entity | undefined {
   if (config.entry_id)
     return statusEntities(hass).find((e) => e.attributes.thor_card.entry_id === config.entry_id);
-  if (config.entity) return hass.states[config.entity];
+  if (config.entity) return hass.states?.[config.entity];
   const candidates = statusEntities(hass);
   return candidates.length === 1 ? candidates[0] : undefined;
 }

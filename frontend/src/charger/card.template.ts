@@ -1,7 +1,6 @@
 import { html, svg, nothing } from 'lit';
 import { clamp } from '../shared/model';
 import type { CardViewModel } from './card-view-model';
-import type { Translator } from '../shared/strings';
 import {
   liveGoalAvailable,
   liveTargetStatus,
@@ -599,10 +598,4 @@ export function renderCard(view: CardViewModel, actions: CardActions, feedback: 
     ></growatt-thor-goal-dialog
     ><growatt-thor-auth-dialog .hass=${hass}></growatt-thor-auth-dialog
     ><growatt-thor-pv-linkage-dialog .hass=${hass}></growatt-thor-pv-linkage-dialog>`;
-}
-export function renderEmptyCard(t: Translator, dark: boolean, hasEntity: boolean) {
-  return html`<div class="card empty ${dark ? 'dark' : ''}">
-    <strong>Growatt THOR</strong>
-    <p>${t(hasEntity ? 'oldIntegration' : 'selectCharger')}</p>
-  </div>`;
 }

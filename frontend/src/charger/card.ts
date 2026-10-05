@@ -2,8 +2,9 @@ import { LitElement } from 'lit';
 import { styles } from './styles';
 import { capabilities, commandInfo, resolveEntity, statusEntities } from '../shared/model';
 import { buildCardViewModel } from './card-view-model';
-import { renderCard, renderEmptyCard, type CardActions } from './card.template';
-import { translate } from '../shared/strings';
+import { renderCard, type CardActions } from './card.template';
+import { cardInitialization } from '../shared/card-initialization';
+import { cardNoticeStyles, renderCardNotice } from '../shared/card-notice';
 import {
   liveGoalAvailable,
   oneTimeGoalAvailable,
@@ -23,7 +24,7 @@ import type { ThorGoalDialog } from '../targets/dialog';
 import '../sessions/card';
 
 export class ThorCard extends LitElement {
-  static styles = styles;
+  static styles = [styles, cardNoticeStyles];
   static properties = {
     hass: { attribute: false },
     _config: { state: true },
@@ -190,11 +191,13 @@ export class ThorCard extends LitElement {
   render() {
     const hass = this.hass;
     const config = this._config;
-    const t = translate(hass?.language || hass?.locale?.language);
+    const language = hass?.language || hass?.locale?.language || 'en';
     const dark = config.theme === 'dark' || (config.theme !== 'light' && !!hass?.themes?.darkMode);
     const entity = hass && resolveEntity(hass, config);
     const data = entity?.attributes.thor_card;
-    if (!hass || !entity || !data || data.schema !== 1) return renderEmptyCard(t, dark, !!entity);
+    const initialization = cardInitialization(hass, config);
+    if (initialization !== 'ready' || !hass || !entity || !data)
+      return renderCardNotice(initialization, language, dark, config.name || 'Growatt THOR');
     const view = buildCardViewModel(hass, config, entity, data, this._now, {
       issuedAt: this._issuedAt,
       sending: this._sending,
