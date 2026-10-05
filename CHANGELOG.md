@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## 2.0.0-dev.8
+
+### Changed
+
+- Default automatic charging protection to 500 W sustained for three minutes, with up to two additional minutes when fresh PV readings cover the charging power.
+- Show the last automatic protection stop and its reason in the charging card.
+
+### Fixed
+
+- Align source accounting with live meter reports and update green energy and grid costs during active sessions.
+- Prefer site accounting costs for completed sessions, show missing tariff data explicitly, and accept daily tariff time windows.
+- Show session IDs in the history table and responsive session cards.
+- Show loading states while Home Assistant and the integration initialize, and remove stray dots at the gauge endpoint.
+- Allow manual starts after a Plug & Charge stop, including PV Linkage+, without changing the charging mode or adding automatic restart.
+- Respect explicitly allowed Home Assistant starts even with legacy RFID storage, and distinguish local access denials from charger rejection.
+
 ## 2.0.0-dev.7
 
 ### Fixed
