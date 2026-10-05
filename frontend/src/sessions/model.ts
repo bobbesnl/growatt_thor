@@ -99,6 +99,26 @@ export function sessionEnergyBreakdown(row: SessionItem) {
   };
 }
 
+/** Live rows use the recorded source buckets; completed costs remain charger-reported. */
+export function sessionRowMetrics(row: SessionItem) {
+  const breakdown = sessionEnergyBreakdown(row);
+  const useGridCost = !!row.active && breakdown !== null;
+  const reportedGreen = row.green_energy_kwh;
+  const validGreen = reportedGreen !== null && Number.isFinite(reportedGreen) && reportedGreen >= 0;
+  const knownSources = !!breakdown && !breakdown.fullyUnknown && row.energy_kwh! > 0;
+  const solar = knownSources
+    ? (breakdown.parts.find((part) => part.label === 'solar')?.kwh ?? 0)
+    : null;
+  return {
+    green: validGreen ? reportedGreen : solar,
+    greenPartial: !validGreen && knownSources && breakdown!.unknown > 0,
+    unknown: breakdown?.unknown ?? 0,
+    cost: useGridCost ? breakdown.cost : row.cost,
+    costIsGrid: useGridCost,
+    costPartial: useGridCost && breakdown.unknown > 0,
+  };
+}
+
 export function sessionChartPoints(points: [string, number][]): [number, number][] {
   return sessionNumericPoints(points, 1000);
 }
@@ -338,8 +358,8 @@ export function sessionRows(
       start: row.start_time || '',
       end: row.end_time || '',
       energy: row.energy_kwh ?? -1,
-      green: row.green_energy_kwh ?? -1,
-      cost: row.cost ?? -1,
+      green: sessionRowMetrics(row).green ?? -1,
+      cost: sessionRowMetrics(row).cost ?? -1,
       identifier: row.authorized_identifier || '',
     })[sort];
   return filtered.sort((a, b) => {

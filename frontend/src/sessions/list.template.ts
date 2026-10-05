@@ -2,6 +2,7 @@ import { html, nothing } from 'lit';
 import type { SessionItem } from '../shared/types';
 import { formatSessionPeriod, formatSessionNumber, type SessionSort } from './model';
 import { sessionTranslate } from './locales';
+import { sessionMetricViews } from './metrics.template';
 
 interface SessionListView {
   rows: SessionItem[];
@@ -50,6 +51,7 @@ export function renderSessionList(view: SessionListView) {
       ? html`<ul class="session-list" aria-label=${t('sessions')}>
           ${view.rows.map((row) => {
             const period = formatSessionPeriod(row.start_time, row.end_time, view.language);
+            const metrics = sessionMetricViews(row, view.language, view.currency);
             return html`<li>
               <button
                 type="button"
@@ -66,7 +68,7 @@ export function renderSessionList(view: SessionListView) {
                   ${metric(t('end'), row.active ? t('active') : period.end)}
                 </span>
                 <span class="session-metrics">
-                  ${metric(t('cost'), `${fmt(row.cost)} ${view.currency}`)}
+                  ${metric(metrics.costLabel ?? t('cost'), metrics.cost)}
                   <span class="session-energy-metrics">
                     ${metric(
                       t('energy'),
@@ -75,7 +77,7 @@ export function renderSessionList(view: SessionListView) {
                       )}
                       kWh`,
                     )}
-                    ${metric(t('green'), `${fmt(row.green_energy_kwh)} kWh`)}
+                    ${metric(t('green'), metrics.green)}
                   </span>
                   ${view.showIdentifier
                     ? metric(

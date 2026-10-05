@@ -1,4 +1,5 @@
 import { renderSessionAccounting } from './accounting.template';
+import { sessionMetricViews } from './metrics.template';
 import { LitElement, html, nothing, unsafeCSS } from 'lit';
 import { createRef, ref, type Ref } from 'lit/directives/ref.js';
 import * as echarts from 'echarts/core';
@@ -699,43 +700,43 @@ export class ThorSessionCard extends LitElement {
           </thead>
           <tbody>
             ${rows.length
-              ? rows.map(
-                  (row) =>
-                    html`<tr
-                      class=${[
-                        row.session_id === selected?.session_id ? 'selected' : '',
-                        row.active ? 'active-session' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      tabindex="0"
-                      aria-selected=${row.session_id === selected?.session_id}
-                      @click=${() => this.selectSession(row.session_id)}
-                      @keydown=${(event: KeyboardEvent) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          this.selectSession(row.session_id);
-                        }
-                      }}
-                    >
-                      <td>
-                        ${fmtDate(row.start_time)}
-                        ${row.active
-                          ? html`<span class="active-badge">${t('active')}</span>`
-                          : nothing}
-                      </td>
-                      <td class="optional">${row.active ? t('active') : fmtDate(row.end_time)}</td>
-                      <td class="num">
-                        ${row.energy_source === 'power_fallback' ? '≈ ' : ''}${fmt(row.energy_kwh)}
-                        kWh
-                      </td>
-                      <td class="num optional">${fmt(row.green_energy_kwh)} kWh</td>
-                      <td class="num">${fmt(row.cost)} ${currency}</td>
-                      ${this._config.show_identifier === false
-                        ? nothing
-                        : html`<td>${row.authorized_identifier || '—'}</td>`}
-                    </tr>`,
-                )
+              ? rows.map((row) => {
+                  const metrics = sessionMetricViews(row, language, currency);
+                  return html`<tr
+                    class=${[
+                      row.session_id === selected?.session_id ? 'selected' : '',
+                      row.active ? 'active-session' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    tabindex="0"
+                    aria-selected=${row.session_id === selected?.session_id}
+                    @click=${() => this.selectSession(row.session_id)}
+                    @keydown=${(event: KeyboardEvent) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        this.selectSession(row.session_id);
+                      }
+                    }}
+                  >
+                    <td>
+                      ${fmtDate(row.start_time)}
+                      ${row.active
+                        ? html`<span class="active-badge">${t('active')}</span>`
+                        : nothing}
+                    </td>
+                    <td class="optional">${row.active ? t('active') : fmtDate(row.end_time)}</td>
+                    <td class="num">
+                      ${row.energy_source === 'power_fallback' ? '≈ ' : ''}${fmt(row.energy_kwh)}
+                      kWh
+                    </td>
+                    <td class="num optional">${metrics.green}</td>
+                    <td class="num">${metrics.cost}${metrics.costBasis}</td>
+                    ${this._config.show_identifier === false
+                      ? nothing
+                      : html`<td>${row.authorized_identifier || '—'}</td>`}
+                  </tr>`;
+                })
               : html`<tr>
                   <td class="empty" colspan="6">${t('noData')}</td>
                 </tr>`}

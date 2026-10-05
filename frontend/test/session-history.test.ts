@@ -17,6 +17,7 @@ import {
   sessionPage,
   sessionAccountingSummary,
   sessionEnergyBreakdown,
+  sessionRowMetrics,
 } from '../src/sessions/model';
 import type { SessionEvent, SessionHistoryData } from '../src/shared/types';
 
@@ -74,6 +75,60 @@ const history: SessionHistoryData = {
     },
   ],
 };
+
+test('Live row metrics advance known solar and grid cost despite incomplete coverage', () => {
+  const row = {
+    ...history.items[0],
+    energy_kwh: 3,
+    source_energy_kwh: { direct_solar: 2, direct_grid: 0.5, battery_unknown: 0, unknown: 0.5 },
+    effective_grid_cost: 0.15,
+  };
+  const before = JSON.stringify(row);
+  assert.deepEqual(sessionRowMetrics(row), {
+    green: 2,
+    greenPartial: true,
+    unknown: 0.5,
+    cost: 0.15,
+    costIsGrid: true,
+    costPartial: true,
+  });
+  const next = {
+    ...row,
+    energy_kwh: 5,
+    source_energy_kwh: { ...row.source_energy_kwh, direct_solar: 3, direct_grid: 1.5 },
+    effective_grid_cost: 0.45,
+  };
+  assert.equal(sessionRowMetrics(next).green, 3);
+  assert.equal(sessionRowMetrics(next).cost, 0.45);
+  assert.equal(JSON.stringify(row), before);
+  assert.equal(sessionRowMetrics({ ...next, active: false, cost: 1.23 }).cost, 1.23);
+  assert.equal(sessionRowMetrics({ ...next, active: false }).costIsGrid, false);
+});
+
+test('Row metrics preserve unknown data, valid zero and negative tariffs', () => {
+  assert.equal(sessionRowMetrics(history.items[0]).green, null);
+  assert.equal(sessionRowMetrics(history.items[0]).cost, null);
+  const row = {
+    ...history.items[0],
+    energy_kwh: 3,
+    source_energy_kwh: { direct_solar: 3, direct_grid: 0, battery_unknown: 0, unknown: 0 },
+    effective_grid_cost: 0,
+  };
+  assert.equal(sessionRowMetrics(row).green, 3);
+  assert.equal(sessionRowMetrics(row).greenPartial, false);
+  assert.equal(sessionRowMetrics(row).cost, 0);
+  assert.equal(sessionRowMetrics({ ...row, effective_grid_cost: -0.2 }).cost, -0.2);
+  assert.equal(sessionRowMetrics({ ...row, effective_grid_cost: NaN }).cost, null);
+  const unknown = {
+    ...row,
+    source_energy_kwh: { direct_solar: 0, direct_grid: 0, battery_unknown: 0, unknown: 3 },
+  };
+  assert.equal(sessionRowMetrics(unknown).green, null);
+  assert.equal(sessionRowMetrics(unknown).cost, null);
+  const invalid = { ...row, energy_kwh: 4 };
+  assert.equal(sessionRowMetrics(invalid).green, null);
+  assert.equal(sessionRowMetrics(invalid).cost, null);
+});
 
 test('session accounting accepts balanced negative-cost data and rejects legacy or malformed rows', () => {
   const row = {

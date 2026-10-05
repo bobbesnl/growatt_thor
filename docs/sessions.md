@@ -36,6 +36,14 @@ are available in the image index.
 4. **Charging energy breakdown.** Source shares and kWh for the selected session. Grid cost is separate from the wallbox-reported total cost. Open “About this breakdown” for allocation details.
 5. **Session table.** Select a row to inspect that session. RFID identifiers shown here are fictitious. The same information becomes a card list at narrow widths.
 
+During charging, both row layouts update the recorded energy, assigned solar
+energy and calculated grid cost. If some energy remains unassigned, `≥` marks
+the known minimum solar amount and the cost label reads **Known grid cost**.
+With solar-only charging, grid cost can stay at zero while energy increases.
+The wallbox reports its own total cost when the session ends; completed rows
+show that value. It can differ from the calculated grid cost in the breakdown.
+The history totals above the chart cover completed sessions only.
+
 Totals include archived completed-session totals. Green energy adds only known
 values: direct solar energy from fully allocated sessions. Unknown battery
 origin is not classified as green, and missing historical values are not
