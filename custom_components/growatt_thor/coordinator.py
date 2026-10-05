@@ -1620,7 +1620,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         at=at,
                         site_id=self.source_instance_id or "site",
                         charger_id=self.charge_point_id or "charger",
-                        inputs=site_inputs(self, at) if current_interval else None,
+                        inputs=site_inputs(self, at, received_at=received_at) if current_interval else None,
                         context=sample.context,
                         unit=sample.unit,
                     ) or accounting_updated

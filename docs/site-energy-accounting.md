@@ -54,6 +54,12 @@ unknown. This relies on the source integration reporting connection failures.
 THOR meter readings keep their own freshness limits. Automatic charging stops
 also require recent source reports.
 
+The wallbox and site sensors report independently. For a live meter interval,
+accounting accepts source reports up to five seconds after the wallbox sample,
+but only if they were already available when that packet arrived. This handles
+small delivery offsets and the wallbox's whole-second timestamps. It does not
+fill older gaps or change tariff validity or automatic-stop checks.
+
 If no charging source can be assigned, the live card keeps its usual green
 charging animation and shows “Charging sources unavailable”. Green then indicates
 active charging, not a confirmed solar share. Partial source mixes still show

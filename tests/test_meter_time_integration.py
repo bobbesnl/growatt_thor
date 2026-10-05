@@ -134,6 +134,45 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         self.assertIsNone(self.guard._observation(AT).battery_discharge_w)
         self.assertIsNone(self.guard.tracker.evaluate(AT, "battery", self.guard._observation(AT)))
 
+    def test_site_report_during_packet_transit_does_not_create_unknown_energy(self):
+        self.at = AT + timedelta(seconds=2)
+        for state in self.c.hass.states.values():
+            state.last_updated = AT + timedelta(milliseconds=200)
+        self.c.external_meter_last_updated_at = (AT + timedelta(seconds=1)).isoformat()
+        self.receive()
+        self.assertAlmostEqual(self.c.site_accounting.buckets["unknown"], 0)
+        self.assertAlmostEqual(self.c.site_accounting.buckets["battery_unknown"], 2 * 30 / 3600)
+        self.assertAlmostEqual(sum(self.c.site_accounting.buckets.values()), .05)
+
+    def test_future_site_report_beyond_receipt_is_not_used_for_accounting(self):
+        self.at = AT + timedelta(seconds=1)
+        self.c.hass.states["sensor.pv"].last_updated = AT + timedelta(seconds=2)
+        self.c.hass.states["sensor.battery"].state = "0"
+        self.receive()
+        self.assertAlmostEqual(self.c.site_accounting.buckets["unknown"], .05)
+
+    def test_repeated_sensor_poll_offsets_keep_solar_and_total_energy_in_step(self):
+        self.c.hass.states["sensor.battery"].state = "0"
+        self.c.hass.states["sensor.pv"].state = "10390"
+        self.c.grid_power = -1344
+        self.c.site_accounting.last_meter_at = AT - timedelta(seconds=5)
+        for index in range(9):
+            sample_at = AT + timedelta(seconds=5 * index)
+            self.at = sample_at + timedelta(seconds=1)
+            if index % 3 == 0:
+                self.c.hass.states["sensor.pv"].last_reported = sample_at + timedelta(milliseconds=200)
+            self.receive(sample_at.isoformat(), 1010 + 10 * index)
+        self.assertAlmostEqual(self.c.site_accounting.buckets["direct_solar"], .09)
+        self.assertAlmostEqual(self.c.site_accounting.buckets["unknown"], 0)
+        self.assertAlmostEqual(sum(self.c.site_accounting.buckets.values()), .09)
+
+    def test_larger_source_offset_remains_unknown_despite_late_packet_receipt(self):
+        self.at = AT + timedelta(seconds=20)
+        self.c.hass.states["sensor.pv"].last_updated = AT + timedelta(seconds=10)
+        self.c.hass.states["sensor.battery"].state = "0"
+        self.receive()
+        self.assertAlmostEqual(self.c.site_accounting.buckets["unknown"], .05)
+
     def test_unavailable_battery_cannot_be_assumed_zero_for_solar(self):
         self.c.hass.states["sensor.battery"].state = "unavailable"
         self.receive()

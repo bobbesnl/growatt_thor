@@ -15,6 +15,20 @@ AT = datetime(2026, 9, 30, 12, tzinfo=timezone.utc)
 
 
 class SiteObservationTest(unittest.TestCase):
+    def test_accounting_alignment_is_bounded_and_preserves_raw_observations(self):
+        report = AT + timedelta(milliseconds=200)
+        original = site.SiteObservations(grid=site.PowerObservation(1000, report))
+        aligned = site.align_accounting_observations(original, AT, AT + timedelta(seconds=1))
+        self.assertEqual(aligned.grid.value_at(AT), 1000)
+        self.assertEqual(aligned.grid.observed_at, report)
+        self.assertIsNone(original.grid.value_at(AT))
+        self.assertIsNone(aligned.grid.value_at(AT - timedelta(seconds=1)))
+        self.assertIsNone(aligned.grid.value_at(AT + timedelta(seconds=121)))
+        for offset, delay in ((.2, 0), (2, 1), (6, 10)):
+            observation = site.SiteObservations(solar=site.PowerObservation(1000, AT + timedelta(seconds=offset)))
+            aligned = site.align_accounting_observations(observation, AT, AT + timedelta(seconds=delay))
+            self.assertIsNone(aligned.solar.value_at(AT))
+
     def test_configured_signs_and_units_are_shared(self):
         def state(value, unit):
             return SimpleNamespace(state=str(value), last_updated=AT,

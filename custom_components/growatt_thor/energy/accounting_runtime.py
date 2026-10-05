@@ -6,7 +6,7 @@ from math import isfinite
 
 from .currency import configured_currency
 from .tariffs import tariff_from_state
-from .observations import SiteObservations, parse_at, read_site_observations
+from .observations import SiteObservations, align_accounting_observations, parse_at, read_site_observations
 from .accounting import AccountingPolicy, Tariff
 from .session_accounting import SessionAccumulator
 
@@ -36,7 +36,7 @@ def site_policy(profile: str) -> AccountingPolicy:
     return AccountingPolicy(topology=profile if profile in ("grid_only", "pv", "pv_battery") else "grid_only")
 
 
-def site_inputs(coordinator, at: datetime) -> tuple[SiteObservations, Tariff, AccountingPolicy] | None:
+def site_inputs(coordinator, at: datetime, *, received_at: datetime | None = None) -> tuple[SiteObservations, Tariff, AccountingPolicy] | None:
     """Read configured power observations and the current valid tariff."""
     options = getattr(coordinator, "site_accounting_options", {}) or {}
     profile = options.get(CONF_SITE_PROFILE, "disabled")
@@ -46,6 +46,8 @@ def site_inputs(coordinator, at: datetime) -> tuple[SiteObservations, Tariff, Ac
     states = getattr(hass, "states", None)
 
     site = read_site_observations(coordinator, require_recent_report=False)
+    if received_at is not None:
+        site = align_accounting_observations(site, at, received_at)
     price = options.get(CONF_FIXED_PRICE)
     if options.get(CONF_TARIFF_ENTITY):
         state = states.get(options[CONF_TARIFF_ENTITY]) if states else None

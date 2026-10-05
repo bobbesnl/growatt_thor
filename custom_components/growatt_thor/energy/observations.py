@@ -1,7 +1,7 @@
 """Shared normalized site observations for display, accounting and controls."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, replace
 from datetime import datetime, timezone
 from math import isfinite
 from typing import Any, Literal
@@ -17,6 +17,7 @@ class PowerObservation:
     observed_at: datetime | None
     max_age_s: int | None = 120
     quality: BucketQuality = "measured"
+    future_tolerance_s: float = 0
 
     def value_at(self, at: datetime) -> float | None:
         if self.watts is None or not isfinite(self.watts) or self.observed_at is None:
@@ -24,7 +25,7 @@ class PowerObservation:
         if self.observed_at.tzinfo is None or at.tzinfo is None:
             return None
         age = (at - self.observed_at).total_seconds()
-        return self.watts if age >= 0 and (self.max_age_s is None or age <= self.max_age_s) else None
+        return self.watts if age >= -self.future_tolerance_s and (self.max_age_s is None or age <= self.max_age_s) else None
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,33 @@ class SiteObservations:
     thermal: PowerObservation | None = None  # positive load
     direct_grid: PowerObservation | None = None
     direct_solar: PowerObservation | None = None
+
+
+def align_accounting_observations(
+    site: SiteObservations, sample_at: datetime, received_at: datetime,
+) -> SiteObservations:
+    """Allow small reporting offsets only within a live meter packet's transit.
+
+    THOR timestamps have whole-second precision; independent HA sensors may be
+    reported a fraction of a second later, before the THOR packet arrives. That
+    must not discard an otherwise usable source. Keep the original timestamps,
+    cap the tolerance at five seconds, and never admit a report beyond receipt.
+    Automatic controls and tariff validity do not use this tolerance.
+    """
+    if sample_at.tzinfo is None or received_at.tzinfo is None:
+        return site
+    tolerance = min(5.0, (received_at - sample_at).total_seconds())
+    if tolerance <= 0:
+        return site
+    aligned = {}
+    for field in fields(site):
+        observation = getattr(site, field.name)
+        if observation is None or observation.observed_at is None or observation.observed_at.tzinfo is None:
+            continue
+        offset = (observation.observed_at - sample_at).total_seconds()
+        if 0 < offset <= tolerance:
+            aligned[field.name] = replace(observation, future_tolerance_s=offset)
+    return replace(site, **aligned) if aligned else site
 
 
 def parse_at(value: Any) -> datetime | None:
