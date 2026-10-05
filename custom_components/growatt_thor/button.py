@@ -159,10 +159,15 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
                 self.coordinator.async_set_updated_data(True)
                 return ChargerWriteResult.success(result.get("status"))
             else:
-                _command_state(self.coordinator, "start", "rejected")
-                _LOGGER.error("❌ Start charging rejected: %s", result.get("status"))
+                reason = (
+                    "local_authorization_denied"
+                    if result.get("reason") == "local_authorization_denied"
+                    else "charger_rejected"
+                )
+                _command_state(self.coordinator, "start", "rejected", reason=reason)
+                _LOGGER.warning("Start charging rejected: %s", reason)
                 return ChargerWriteResult.failed(
-                    "charger_rejected",
+                    reason,
                     result.get("status"),
                 )
 

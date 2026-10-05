@@ -199,6 +199,9 @@
     }
   },
   "exceptions": {
+    "local_authorization_denied": {
+      "message": "Démarrage bloqué par le contrôle d’accès local. Vérifiez « Autoriser les démarrages depuis Home Assistant » dans les paramètres THOR."
+    },
     "action_not_allowed": { "message": "The requested action is not allowed ({reason})." },
     "charger_disconnected": { "message": "The charger is not connected, so the requested action cannot be performed." },
     "charger_faulted": { "message": "The requested action is blocked while the charger reports a fault." },

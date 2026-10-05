@@ -148,7 +148,10 @@ export function commandInfo(data: CardData, state: string, now: number) {
   const age = now - Date.parse(command.updated_at);
   if (!Number.isFinite(age) || age > 180000 || age < -60000) return { pending: false, key: '' };
   if (command.state === 'error' || command.state === 'rejected')
-    return { pending: false, key: 'commandRejected' };
+    return {
+      pending: false,
+      key: command.reason === 'local_authorization_denied' ? 'localStartDenied' : 'commandRejected',
+    };
   const complete =
     command.action === 'start'
       ? state === 'charging'

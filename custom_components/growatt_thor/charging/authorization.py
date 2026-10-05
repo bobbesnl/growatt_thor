@@ -26,12 +26,13 @@ def _digest(id_tag: str) -> str:
 
 @dataclass(frozen=True)
 class AuthorizationPolicy:
-    """Missing configuration preserves open access; corrupt data denies."""
+    """Missing configuration preserves open access; invalid card data denies cards."""
 
     restricted: bool = False
     id_tags: frozenset[str] = field(default_factory=frozenset, repr=False)
     allow_ha_remote_start: bool = True
     valid: bool = True
+    independent_ha_permission: bool = False
 
     @classmethod
     def from_config(cls, data: object) -> AuthorizationPolicy:
@@ -58,6 +59,12 @@ class AuthorizationPolicy:
                     else False
                 ),
                 valid=False,
+                # An obsolete RFID list must not revoke an explicitly saved,
+                # independent HA permission. Missing/malformed flags grant nothing.
+                independent_ha_permission=(
+                    type(restricted) is bool
+                    and data.get(CONF_ALLOW_HA_REMOTE_START) is True
+                ),
             )
         return cls(
             restricted=restricted,
@@ -82,7 +89,7 @@ class AuthorizationPolicy:
 
     def allows_ha_remote_start(self) -> bool:
         """HA authentication, not a card identifier, controls remote starts."""
-        return self.valid and self.allow_ha_remote_start
+        return (self.valid or self.independent_ha_permission) and self.allow_ha_remote_start
 
 
 def policy_from_input(

@@ -820,7 +820,7 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             if not authorization.begin_ha_remote_start(id_tag):
                 _LOGGER.warning("Remote start denied by local authorisation policy")
-                return {"status": "Rejected"}
+                return {"status": "Rejected", "reason": "local_authorization_denied"}
             _LOGGER.info("RemoteStartTransaction: connector_id=%d", connector_id)
             result = await self._run_serialized_request(
                 "RemoteStartTransaction",

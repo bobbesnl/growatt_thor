@@ -145,7 +145,8 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_remote_start_denied_without_network_call_when_disabled(self):
         self.restrict(allow_ha_remote_start=False)
-        self.assertEqual(await self.cp.remote_start_transaction(1, '12345678'), {'status': 'Rejected'})
+        self.assertEqual(await self.cp.remote_start_transaction(1, '12345678'),
+                         {'status': 'Rejected', 'reason': 'local_authorization_denied'})
         self.assertEqual(self.ws.sent, [])
 
     async def test_remote_start_is_allowed_without_adding_technical_tag_to_cards(self):
@@ -167,6 +168,19 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
             (await self.start('12345678'))['idTagInfo']['status'],
             'Invalid',
         )
+
+    async def test_legacy_card_storage_does_not_block_explicit_ha_start(self):
+        self.coordinator.authorization = auth.LocalAuthorization({
+            'restricted': True, 'tag_hashes': ['0' * 64],
+            'allow_ha_remote_start': True,
+        })
+        with patch.object(self.cp, 'call', return_value=SimpleNamespace(status='Accepted')) as call:
+            self.assertEqual(await self.cp.remote_start_transaction(1, '12345678'),
+                             {'status': 'Accepted'})
+            call.assert_awaited_once()
+        self.assertEqual((await self.request('Authorize', {'idTag': '12345678'}))['idTagInfo']['status'], 'Invalid')
+        self.assertEqual((await self.start('12345678'))['idTagInfo']['status'], 'Accepted')
+        self.assertEqual((await self.start('12345678'))['idTagInfo']['status'], 'Invalid')
 
     async def test_remote_start_timeout_keeps_one_shot_authorization(self):
         """A lost response must not make an accepted charger start fail locally."""

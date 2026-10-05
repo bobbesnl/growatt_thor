@@ -211,6 +211,9 @@
     }
   },
   "exceptions": {
+    "local_authorization_denied": {
+      "message": "Start durch die lokale Zugangsregel blockiert. Prüfe „Starts aus Home Assistant erlauben“ in den THOR-Einstellungen."
+    },
     "action_not_allowed": {
       "message": "Die angeforderte Aktion ist nicht zulässig ({reason})."
     },

@@ -214,6 +214,14 @@ class ActionCommandCompletionTest(unittest.IsolatedAsyncioTestCase):
                     translation_key,
                 )
 
+    async def test_local_denial_explains_the_permission_instead_of_charger_rejection(self):
+        with self.assertRaises(_ServiceValidationError) as raised:
+            await action_errors.async_require_command_completion(
+                self._completed_handle(action_errors.ChargerCommandStatus.FAILED,
+                                       reason="local_authorization_denied")
+            )
+        self.assertEqual(raised.exception.translation_key, "local_authorization_denied")
+
     async def test_wait_timeout_keeps_completion_future_alive(self):
         future = asyncio.get_running_loop().create_future()
         handle = action_errors.ChargerCommandHandle("command-2", future)

@@ -472,17 +472,25 @@ function renderWarnings({
 }
 
 function renderCommandFeedback({ info, t }: CardViewModel, feedback: CardFeedback) {
+  // HA also rejects the service promise for a local policy denial. Keep the
+  // specific explanation instead of masking it with the generic call error.
+  const localDenial = info.key === 'localStartDenied';
+  const messageKey = localDenial
+    ? info.key
+    : feedback.error || (feedback.sending ? 'localPending' : info.key);
   return html`
     ${feedback.error || feedback.sending || info.key
       ? html`<div
-          class="notice ${feedback.error || info.key === 'commandRejected' ? 'error' : 'warning'}"
+          class="notice ${feedback.error || localDenial || info.key === 'commandRejected'
+            ? 'error'
+            : 'warning'}"
           role="status"
         >
           <ha-icon
             class=${info.pending || feedback.sending ? 'spinner' : ''}
             icon="mdi:information-outline"
           ></ha-icon
-          >${t(feedback.error || (feedback.sending ? 'localPending' : info.key))}
+          >${t(messageKey)}
         </div>`
       : nothing}
   `;

@@ -211,6 +211,9 @@
     }
   },
   "exceptions": {
+    "local_authorization_denied": {
+      "message": "Start blocked by local access control. Check “Allow starts from Home Assistant” in the THOR settings."
+    },
     "action_not_allowed": {
       "message": "The requested action is not allowed ({reason})."
     },

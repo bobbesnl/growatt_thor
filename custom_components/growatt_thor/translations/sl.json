@@ -199,6 +199,9 @@
     }
   },
   "exceptions": {
+    "local_authorization_denied": {
+      "message": "Začetek polnjenja je blokiran zaradi lokalnega nadzora dostopa. V nastavitvah THOR preverite možnost »Dovoli zagone iz Home Assistant«."
+    },
     "action_not_allowed": { "message": "The requested action is not allowed ({reason})." },
     "charger_disconnected": { "message": "The charger is not connected, so the requested action cannot be performed." },
     "charger_faulted": { "message": "The requested action is blocked while the charger reports a fault." },

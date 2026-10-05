@@ -170,7 +170,7 @@ export interface CardData {
   external_meter_health: string;
   power_flow?: PowerFlowData;
   pv_linkage?: PvLinkageData;
-  command?: { action: 'start' | 'stop'; state: string; updated_at: string };
+  command?: { action: 'start' | 'stop'; state: string; updated_at: string; reason?: string };
   sessions?: SessionHistoryData;
 }
 export interface PvLinkageData {

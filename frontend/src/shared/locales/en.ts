@@ -194,6 +194,8 @@ export const en = {
   commandQueued: 'Command queued — waiting for the wallbox.',
   commandAccepted: 'Request accepted — waiting for the status change.',
   commandUnconfirmed: 'No status confirmation yet. Check the wallbox before trying again.',
+  localStartDenied:
+    'Start blocked by local access control. Check “Allow starts from Home Assistant” in the THOR settings.',
   commandRejected: 'The wallbox rejected the request or could not be reached.',
   callError: 'Request failed. Check your connection and permissions.',
   localPending: 'Sending request…',

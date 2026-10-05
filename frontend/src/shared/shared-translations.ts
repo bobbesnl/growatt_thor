@@ -1,5 +1,6 @@
 // Select only reusable labels for the bundle; integration JSON remains the source.
 export const sharedPaths: Record<string, string> = {
+  localStartDenied: 'exceptions.local_authorization_denied.message',
   ...Object.fromEntries(
     [
       'available',

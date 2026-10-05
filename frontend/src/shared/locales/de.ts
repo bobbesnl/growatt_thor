@@ -203,6 +203,8 @@ export const de: Record<Key, string> = {
   commandQueued: 'Befehl vorgemerkt – warte auf die Wallbox.',
   commandAccepted: 'Anfrage angenommen – warte auf den Zustandswechsel.',
   commandUnconfirmed: 'Noch keine Statusbestätigung. Vor einem neuen Versuch die Wallbox prüfen.',
+  localStartDenied:
+    'Start durch die lokale Zugangsregel blockiert. Prüfe „Starts aus Home Assistant erlauben“ in den THOR-Einstellungen.',
   commandRejected: 'Die Wallbox hat die Anfrage abgelehnt oder war nicht erreichbar.',
   callError: 'Anfrage fehlgeschlagen. Verbindung und Berechtigungen prüfen.',
   localPending: 'Anfrage wird gesendet…',

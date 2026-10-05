@@ -204,6 +204,17 @@ test('Queue and acceptance are not physical completion; reject and timeout are v
     'commandRejected',
   );
 });
+test('Local permission denial is distinct from a charger rejection', () => {
+  const data = makeData({
+    command: {
+      action: 'start',
+      state: 'rejected',
+      reason: 'local_authorization_denied',
+      updated_at: new Date(now).toISOString(),
+    },
+  });
+  assert.equal(commandInfo(data, 'preparing', now).key, 'localStartDenied');
+});
 test('Stable entry selection survives rename and does not pick another charger', () => {
   const e = entity('charging');
   assert.equal(

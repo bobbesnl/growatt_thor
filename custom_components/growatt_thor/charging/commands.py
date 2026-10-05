@@ -17,12 +17,13 @@ from ..runtime.write_queue import (
 _LOGGER = logging.getLogger(__name__)
 
 
-def _command_state(coordinator, action, state):
+def _command_state(coordinator, action, state, *, reason=None):
     """Report command acceptance separately from physical charger state."""
     coordinator.dashboard_command = {
         "action": action,
         "state": state,
         "updated_at": coordinator.now(),
+        **({"reason": reason} if reason else {}),
     }
     coordinator.async_set_updated_data(True)
 

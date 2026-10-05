@@ -199,6 +199,9 @@
     }
   },
   "exceptions": {
+    "local_authorization_denied": {
+      "message": "Az indítást a helyi hozzáférés-vezérlés blokkolta. Ellenőrizze az „Indítás engedélyezése a Home Assistantból” beállítást a THOR beállításaiban."
+    },
     "action_not_allowed": { "message": "The requested action is not allowed ({reason})." },
     "charger_disconnected": { "message": "The charger is not connected, so the requested action cannot be performed." },
     "charger_faulted": { "message": "The requested action is blocked while the charger reports a fault." },

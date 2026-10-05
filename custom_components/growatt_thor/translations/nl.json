@@ -199,6 +199,9 @@
     }
   },
   "exceptions": {
+    "local_authorization_denied": {
+      "message": "Start geblokkeerd door lokale toegangscontrole. Controleer “Starten vanuit Home Assistant toestaan” in de THOR-instellingen."
+    },
     "action_not_allowed": {
       "message": "De gevraagde actie is niet toegestaan ({reason})."
     },

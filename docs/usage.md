@@ -84,6 +84,10 @@ Existing installations remain open until restriction is enabled.
 3. **RFID allowlist.** Enter one exact OCPP identifier per line. These are sensitive access identifiers; the screenshot intentionally contains none.
 4. **Submit.** Saves the local policy. This does not change the wallbox’s authorization mode or cloud bindings and does not stop an active session.
 
+An explicitly enabled HA start permission also works when an older installation
+still has an obsolete RFID list. That list remains unchanged; physical cards
+remain blocked until a valid allowlist is saved.
+
 The editable allowlist is stored in the integration's configuration and included
 in Home Assistant backups. Identifiers are omitted from normal logs and
 downloaded diagnostics. See the [authorization evidence and limits](../reverse_engineering/local_authorization.md)

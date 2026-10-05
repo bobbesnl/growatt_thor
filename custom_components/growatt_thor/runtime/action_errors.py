@@ -112,6 +112,9 @@ async def async_require_command_completion(
     if result.status == ChargerCommandStatus.CONFIRMED:
         return result
 
+    if result.reason == "local_authorization_denied":
+        raise_action_validation("local_authorization_denied")
+
     details = result.reason or result.charger_result or "unknown"
     placeholders = {
         "command_id": result.command_id,

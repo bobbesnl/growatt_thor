@@ -87,8 +87,28 @@ class AuthorizationPolicyTest(unittest.TestCase):
         })
         self.assertFalse(policy.valid)
         self.assertTrue(policy.allow_ha_remote_start)
-        self.assertFalse(policy.allows_ha_remote_start())
+        self.assertTrue(policy.allows_ha_remote_start())
         self.assertFalse(policy.id_tags)
+
+    def test_legacy_cards_keep_only_explicit_ha_grants(self):
+        config = {'restricted': True, 'tag_hashes': ['0' * 64],
+                  auth.CONF_ALLOW_HA_REMOTE_START: True}
+        original = json.dumps(config)
+        runtime = auth.LocalAuthorization(config)
+        self.assertTrue(runtime.begin_ha_remote_start('12345678'))
+        self.assertEqual(runtime.decide('12345678', 'Authorize', 'now'), 'Invalid')
+        self.assertEqual(runtime.decide('12345678', 'StartTransaction', 'now'), 'Accepted')
+        self.assertEqual(runtime.decide('12345678', 'StartTransaction', 'later'), 'Invalid')
+        self.assertEqual(json.dumps(config), original)
+        for flag in (False, None, 'true', 1):
+            data = {**config, auth.CONF_ALLOW_HA_REMOTE_START: flag}
+            self.assertFalse(auth.LocalAuthorization(data).begin_ha_remote_start('12345678'))
+        for data in (
+            {'restricted': True, 'tag_hashes': []},
+            {**config, 'restricted': 'true'},
+            [],
+        ):
+            self.assertFalse(auth.LocalAuthorization(data).begin_ha_remote_start('12345678'))
 
     def test_omitted_list_preserves_and_supplied_list_replaces(self):
         policy = restricted('OLD-CARD')
