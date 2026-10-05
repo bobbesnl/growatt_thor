@@ -99,10 +99,10 @@ export function sessionEnergyBreakdown(row: SessionItem) {
   };
 }
 
-/** Live rows use the recorded source buckets; completed costs remain charger-reported. */
+/** Accounting remains authoritative after stop; missing prices never become flat-rate costs. */
 export function sessionRowMetrics(row: SessionItem) {
   const breakdown = sessionEnergyBreakdown(row);
-  const useGridCost = !!row.active && breakdown !== null;
+  const useGridCost = row.source_energy_kwh != null;
   const reportedGreen = row.green_energy_kwh;
   const validGreen = reportedGreen !== null && Number.isFinite(reportedGreen) && reportedGreen >= 0;
   const knownSources = !!breakdown && !breakdown.fullyUnknown && row.energy_kwh! > 0;
@@ -113,9 +113,9 @@ export function sessionRowMetrics(row: SessionItem) {
     green: validGreen ? reportedGreen : solar,
     greenPartial: !validGreen && knownSources && breakdown!.unknown > 0,
     unknown: breakdown?.unknown ?? 0,
-    cost: useGridCost ? breakdown.cost : row.cost,
+    cost: useGridCost ? (breakdown?.cost ?? null) : row.cost,
     costIsGrid: useGridCost,
-    costPartial: useGridCost && breakdown.unknown > 0,
+    costPartial: useGridCost && (breakdown?.unknown ?? 0) > 0,
   };
 }
 
@@ -349,7 +349,7 @@ export function sessionRows(
   const filtered = data.items.filter(
     (row) =>
       !needle ||
-      [row.start_time, row.end_time, row.authorized_identifier].some((value) =>
+      [row.start_time, row.end_time, row.session_id, row.authorized_identifier].some((value) =>
         value?.toLocaleLowerCase().includes(needle),
       ),
   );

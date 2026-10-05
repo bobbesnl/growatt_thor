@@ -101,8 +101,36 @@ test('Live row metrics advance known solar and grid cost despite incomplete cove
   assert.equal(sessionRowMetrics(next).green, 3);
   assert.equal(sessionRowMetrics(next).cost, 0.45);
   assert.equal(JSON.stringify(row), before);
-  assert.equal(sessionRowMetrics({ ...next, active: false, cost: 1.23 }).cost, 1.23);
-  assert.equal(sessionRowMetrics({ ...next, active: false }).costIsGrid, false);
+  assert.equal(sessionRowMetrics({ ...next, active: false, cost: 1.23 }).cost, 0.45);
+  assert.equal(sessionRowMetrics({ ...next, active: false }).costIsGrid, true);
+});
+
+test('Completed accounting never falls back to the charger flat-rate price', () => {
+  const row = {
+    ...history.items[1],
+    energy_kwh: 9.655,
+    cost: 2.22,
+    source_energy_kwh: {
+      direct_solar: 9.521389,
+      direct_grid: 0.031605,
+      battery_unknown: 0.000006,
+      unknown: 0.102,
+    },
+    effective_grid_cost: null,
+  };
+  assert.equal(sessionRowMetrics(row).cost, null);
+  assert.equal(sessionRowMetrics(row).costIsGrid, true);
+  assert.equal(sessionRowMetrics({ ...row, effective_grid_cost: 0.009922 }).cost, 0.009922);
+  assert.equal(sessionRowMetrics({ ...row, energy_kwh: 20 }).cost, null);
+  assert.equal(sessionRowMetrics({ ...row, source_energy_kwh: null }).cost, 2.22);
+  assert.equal(sessionRowMetrics({ ...row, source_energy_kwh: null }).costIsGrid, false);
+});
+
+test('Session IDs can be used to find the same item in either layout', () => {
+  assert.deepEqual(
+    sessionRows(history, 'ACTIVE', 'start', false).map((row) => row.session_id),
+    ['active'],
+  );
 });
 
 test('Row metrics preserve unknown data, valid zero and negative tariffs', () => {

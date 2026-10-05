@@ -61,6 +61,9 @@ export function renderSessionList(view: SessionListView) {
               >
                 <span class="session-tile-heading">
                   ${period.day ? html`<strong class="session-day">${period.day}</strong>` : nothing}
+                  ${row.session_id
+                    ? html`<small class="session-id">ID: ${row.session_id}</small>`
+                    : nothing}
                   ${row.active ? html`<span class="active-badge">${t('active')}</span>` : nothing}
                 </span>
                 <span class="session-times">

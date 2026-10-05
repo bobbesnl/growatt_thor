@@ -1,6 +1,7 @@
 import { html, nothing } from 'lit';
 import type { SessionItem } from '../shared/types';
 import { accountingTranslate } from './accounting.locales';
+import { sessionTranslate } from './locales';
 import { formatSessionNumber, sessionRowMetrics } from './model';
 
 /** Shared values and explanations keep the table and mobile tiles in sync. */
@@ -10,7 +11,7 @@ export function sessionMetricViews(row: SessionItem, language: string, currency:
   const fmt = (value: number | null) => formatSessionNumber(value, language);
   const costLabel = metrics.costIsGrid
     ? t(metrics.costPartial ? 'knownGridCost' : 'gridCost')
-    : null;
+    : sessionTranslate(language)('chargerCost');
   return {
     costLabel,
     green: html`<span

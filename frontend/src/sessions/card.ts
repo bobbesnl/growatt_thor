@@ -650,7 +650,7 @@ export class ThorSessionCard extends LitElement {
           <span>${t('green')}</span><strong>${fmt(data.total_green_energy_kwh)} kWh</strong>
         </div>
         <div class="kpi">
-          <span>${t('cost')}</span><strong>${fmt(data.total_cost)} ${currency}</strong>
+          <span>${t('chargerCost')}</span><strong>${fmt(data.total_cost)} ${currency}</strong>
         </div>
         <div class="kpi"><span>${t('sessions')}</span><strong>${data.total_count}</strong></div>
       </section>
@@ -728,6 +728,9 @@ export class ThorSessionCard extends LitElement {
                   >
                     <td>
                       ${fmtDate(row.start_time)}
+                      ${row.session_id
+                        ? html`<small class="session-id">ID: ${row.session_id}</small>`
+                        : nothing}
                       ${row.active
                         ? html`<span class="active-badge">${t('active')}</span>`
                         : nothing}

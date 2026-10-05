@@ -384,10 +384,21 @@ th.num {
 }
 .session-tile-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: start;
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 12px;
+}
+.session-id {
+  display: inline-block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: normal;
+  overflow-wrap: anywhere;
+}
+.session-table .session-id {
+  margin-inline-start: 6px;
 }
 .session-tile-heading:empty {
   display: none;

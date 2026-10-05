@@ -40,9 +40,12 @@ During charging, both row layouts update the recorded energy, assigned solar
 energy and calculated grid cost. If some energy remains unassigned, `≥` marks
 the known minimum solar amount and the cost label reads **Known grid cost**.
 With solar-only charging, grid cost can stay at zero while energy increases.
-The wallbox reports its own total cost when the session ends; completed rows
-show that value. It can differ from the calculated grid cost in the breakdown.
-The history totals above the chart cover completed sessions only.
+Completed rows keep using the accounting grid cost. If its price is missing,
+the cost stays unavailable (`—`), rather than switching to the wallbox’s flat
+rate. Sessions without accounting retain their **Charger-reported cost**.
+The history totals above the chart cover completed sessions only. The cost
+total is labelled **Charger-reported cost**: it includes older and archived
+wallbox amounts, so it is not an accounting grid-cost total.
 
 Totals include archived completed-session totals. Green energy adds only known
 values: direct solar energy from fully allocated sessions. Unknown battery
@@ -64,7 +67,7 @@ and expanded gaps in multi-day sessions.
 2. **Charging curve and zoom.** Time labels adapt to the available width. The zoom control selects the part of the curve to inspect.
 3. **Event timeline.** Connected colored dots show event order. The pills identify the event, while reasons such as “Suspended by vehicle” or “Remote” sit beside them. This list covers the whole selected session.
 4. **Energy sources.** The split bar and legend show source shares and absolute energy. Empty categories are omitted; unidentified energy is shown explicitly when present.
-5. **Session items.** On the same day, one date heading covers start and end. Overnight sessions keep both dates. Cost is on the left; total and green energy are aligned on the right. Tap an item to select it.
+5. **Session items.** On the same day, one date heading covers start and end. Overnight sessions keep both dates. Cost is on the left; total and green energy are aligned on the right. Tap an item to select it. The grey session ID beside the date identifies the same session in both layouts and can be entered in the filter.
 
 The event list covers the whole selected session even when the plot is zoomed;
 longer lists scroll independently. Exact timestamps and provisional labels remain
