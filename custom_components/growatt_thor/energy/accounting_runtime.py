@@ -51,7 +51,10 @@ def site_inputs(coordinator, at: datetime, *, received_at: datetime | None = Non
     price = options.get(CONF_FIXED_PRICE)
     if options.get(CONF_TARIFF_ENTITY):
         state = states.get(options[CONF_TARIFF_ENTITY]) if states else None
-        return site, tariff_from_state(state, configured_currency(hass)), site_policy(profile)
+        return site, tariff_from_state(
+            state, configured_currency(hass), at=at,
+            time_zone=getattr(getattr(hass, "config", None), "time_zone", "UTC"),
+        ), site_policy(profile)
     try:
         price = float(price) if price is not None else None
     except (TypeError, ValueError):

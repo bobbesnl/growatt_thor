@@ -78,7 +78,9 @@ An unchanged current price remains usable even
 if its HA update timestamp is older than an hour. Unavailable, restored or
 non-finite prices and prices outside an explicitly declared validity period
 are unknown. A declared active tariff timeslot takes precedence over an overall
-contract period. A newly observed price is not applied retroactively to earlier
+contract period. Daily slots such as `05:00–00:00` use Home Assistant's configured
+time zone, including overnight periods and seasonal clock changes; contract
+start and end dates still apply. A newly observed price is not applied retroactively to earlier
 energy deltas. If a price sensor is selected, its missing price does not fall
 back to the fixed-price field.
 

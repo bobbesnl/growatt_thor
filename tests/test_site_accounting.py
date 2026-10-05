@@ -37,18 +37,46 @@ def delta(kwh=1, start=None, end=AT):
 
 
 class SiteAccountingTest(unittest.TestCase):
-    def price_from_sensor(self, value="0.313922", *, attributes=None, updated=None, fixed=None):
+    def price_from_sensor(self, value="0.313922", *, attributes=None, updated=None, fixed=None, at=AT):
         state = types.SimpleNamespace(
             state=value,
             attributes={"unit_of_measurement": "€/kWh", **(attributes or {})},
             last_updated=updated or AT - timedelta(days=3),
         )
         coordinator = types.SimpleNamespace(
-            hass=types.SimpleNamespace(config=types.SimpleNamespace(currency="EUR"), states={"sensor.price": state}),
+            hass=types.SimpleNamespace(config=types.SimpleNamespace(currency="EUR", time_zone="Europe/Berlin"), states={"sensor.price": state}),
             site_accounting_options={"site_accounting_profile": "grid_only", "site_tariff_entity": "sensor.price", "site_fixed_price": fixed},
             battery_power_entity=None,
         )
-        return runtime.site_inputs(coordinator, AT)[1]
+        return runtime.site_inputs(coordinator, at)[1]
+
+    def test_daily_octopus_slot_uses_local_time_and_exclusive_midnight(self):
+        bounds = {"active_timeslot_from": "05:00:00", "active_timeslot_to": "00:00:00",
+                  "valid_from": "2025-12-10T23:00:00+00:00", "valid_to": "2027-12-10T23:00:00+00:00"}
+        for stamp, valid in (("2026-10-05T02:59:59+00:00", False),
+                             ("2026-10-05T03:00:00+00:00", True),
+                             ("2026-10-05T21:59:59+00:00", True),
+                             ("2026-10-05T22:00:00+00:00", False),
+                             ("2026-12-05T03:59:59+00:00", False),
+                             ("2026-12-05T04:00:00+00:00", True)):
+            at = datetime.fromisoformat(stamp)
+            with self.subTest(stamp=stamp):
+                tariff = self.price_from_sensor(attributes=bounds, at=at)
+                self.assertEqual(tariff.price_at(at), .313922 if valid else None)
+        tariff = self.price_from_sensor(attributes=bounds)
+        result = core.allocate(delta(.031605), core.SiteObservations(), tariff, core.AccountingPolicy())
+        self.assertAlmostEqual(result.effective_grid_cost, .031605 * .313922)
+
+    def test_overnight_slot_and_contract_expiry(self):
+        bounds = {"active_timeslot_from": "22:00:00", "active_timeslot_to": "05:00:00"}
+        at = datetime.fromisoformat("2026-10-06T01:00:00+00:00")
+        self.assertEqual(self.price_from_sensor(attributes=bounds, at=at).price_at(at), .313922)
+        for extra in ({"valid_to": at.isoformat()}, {"valid_from": (at + timedelta(hours=1)).isoformat()},
+                      {"active_timeslot_to": "invalid"}, {"active_timeslot_to": "22:00:00"},
+                      {"active_timeslot_to": None}):
+            with self.subTest(extra=extra):
+                self.assertIsNone(self.price_from_sensor(attributes={**bounds, **extra}, at=at).price_at(at))
+        self.assertIsNone(self.price_from_sensor(attributes=bounds, at=at, updated=at + timedelta(seconds=1)).price_at(at))
 
     def test_unchanged_current_price_remains_valid_after_one_hour(self):
         tariff = self.price_from_sensor()
