@@ -31,6 +31,7 @@ from .charging.session_controls import (
     REMOTE_START_COMMAND,
     SESSION_CONTROL_DEDUPE_KEY,
     start_revalidation_failure,
+    target_blocks_manual_start,
 )
 from .runtime.write_queue import (
     CONFIGURATION_WRITE_POLICY,
@@ -82,7 +83,7 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 
     @property
     def _write_block_reason(self) -> str | None:
-        if getattr(self.coordinator, "charging_target_request", None):
+        if target_blocks_manual_start(getattr(self.coordinator, "charging_target_request", None)):
             return "native_target_requires_reconciliation"
         return charger_write_block_reason(
             connected=self.coordinator.connected,
@@ -95,6 +96,8 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 
     def _start_revalidation_failure(self) -> str | None:
         """Return why a delayed start no longer represents a valid intent."""
+        if (reason := self._write_block_reason) is not None:
+            return reason
         return start_revalidation_failure(
             charger_faulted=self.coordinator.charger_is_faulted,
             transaction_active=self.coordinator.transaction_is_active,

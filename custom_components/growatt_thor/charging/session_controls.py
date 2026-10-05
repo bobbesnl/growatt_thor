@@ -7,6 +7,7 @@ performs the final check immediately before an OCPP request is sent.
 from __future__ import annotations
 
 from typing import Final
+from collections.abc import Mapping
 
 
 REMOTE_START_COMMAND: Final = "RemoteStartTransaction"
@@ -16,6 +17,19 @@ REMOTE_STOP_COMMAND: Final = "RemoteStopTransaction"
 # key prevents delayed opposing commands from surviving as independent work.
 SESSION_CONTROL_DEDUPE_KEY: Final = "charging_session_control"
 STOP_CANCELLED_START_REASON: Final = "cancelled_by_stop_intent"
+
+
+def target_blocks_manual_start(request: object) -> bool:
+    """A target never sent or explicitly rejected must not lock Start forever.
+
+    Completed targets are deliberately not exempt: a plain Start does not
+    replace a native limit, unlike the target editor's replacement operation.
+    """
+    if not request:
+        return False
+    return not isinstance(request, Mapping) or request.get("state") not in {
+        "blocked_before_target", "target_rejected",
+    }
 
 
 def start_revalidation_failure(

@@ -24,6 +24,15 @@ SPEC.loader.exec_module(session_controls)
 class SessionControlDecisionTest(unittest.TestCase):
     """Keep delayed session commands tied to current charger state."""
 
+    def test_never_applied_targets_do_not_permanently_disable_manual_start(self):
+        self.assertFalse(session_controls.target_blocks_manual_start(None))
+        for state in ("blocked_before_target", "target_rejected"):
+            self.assertFalse(session_controls.target_blocks_manual_start({"state": state}))
+        for state in ("scheduled", "sending_target", "target_accepted", "outcome_unknown",
+                      "completed", "active", "start_rejected_target_may_remain", "unknown"):
+            self.assertTrue(session_controls.target_blocks_manual_start({"state": state}))
+        self.assertTrue(session_controls.target_blocks_manual_start("invalid"))
+
     def test_start_is_rejected_for_every_active_transaction_signal(self):
         # The coordinator folds OCPP Charging/Suspended states, a retained
         # transaction object, and a retained ID into this boolean.  Whatever

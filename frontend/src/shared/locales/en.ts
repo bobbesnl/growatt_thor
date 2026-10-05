@@ -142,7 +142,7 @@ export const en = {
   rfid_onlyHint:
     'Start locally by presenting an RFID card. A remote start is not offered in RFID-only mode.',
   plug_and_chargeHint:
-    'Automatic activation when plugged in; charging strategy and limits still apply.',
+    'Automatic activation when plugged in. After a stop, you can start again here; charging strategy and limits still apply.',
   authUnknownHint: 'Waiting for the charger to report its activation mode.',
   presentCard: 'Present RFID card',
   automaticStart: 'Automatic activation',

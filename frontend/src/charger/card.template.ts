@@ -378,14 +378,18 @@ function renderSession({
   `;
 }
 
-function renderActions({ inactive, status, t, auth, caps }: CardViewModel, actions: CardActions) {
+function renderActions(
+  { inactive, status, t, auth, caps, vehicle }: CardViewModel,
+  actions: CardActions,
+) {
   return html`
     <div class="actions">
       ${inactive
         ? html`<div class="activation">
             <ha-icon .icon=${status.icon}></ha-icon><span>${t(status.key)}</span>
           </div>`
-        : auth === 'home_assistant_rfid'
+        : auth === 'home_assistant_rfid' ||
+            (auth === 'plug_and_charge' && vehicle === 'vehicleConnected')
           ? html`<button
               class="action start"
               ?disabled=${!caps.start}

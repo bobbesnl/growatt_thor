@@ -67,7 +67,7 @@ test('Rest display does not pretend missing measurements are zero or conceal cha
 });
 
 test('Activation mode is distinct from strategy and gates manual start', () => {
-  for (const mode of ['rfid_only', 'plug_and_charge', undefined, 'unexpected']) {
+  for (const mode of ['rfid_only', undefined, 'unexpected']) {
     const data = makeData({ auth_mode: mode, transaction_active: false });
     assert.equal(capabilities(hass, data, entity('preparing', data), true, false).start, false);
   }
@@ -77,6 +77,40 @@ test('Activation mode is distinct from strategy and gates manual start', () => {
     capabilities(hass, makeData({ auth_mode: 'rfid_only' }), entity('charging'), true, false).stop,
     true,
   );
+});
+
+test('Plug and charge allows a manual start after a confirmed stop in either PV mode', () => {
+  for (const working_mode of ['pv_linkage', 'pv_linkage_plus', 'fast']) {
+    const data = makeData({
+      auth_mode: 'plug_and_charge',
+      working_mode,
+      transaction_active: false,
+      command: { action: 'stop', state: 'accepted', updated_at: new Date(now).toISOString() },
+    });
+    const info = commandInfo(data, 'preparing', now);
+    assert.equal(info.pending, false);
+    assert.equal(info.key, '');
+    const caps = capabilities(hass, data, entity('preparing', data), true, info.pending);
+    assert.equal(caps.start, true);
+    assert.equal(caps.stop, false);
+    for (const state of ['available', 'idle', 'faulted', 'unavailable'])
+      assert.equal(capabilities(hass, data, entity(state, data), true, false).start, false);
+    assert.equal(
+      capabilities(hass, { ...data, transaction_active: true }, entity('preparing'), true, false)
+        .start,
+      false,
+    );
+    assert.equal(capabilities(hass, data, entity('preparing'), true, true).start, false);
+    assert.equal(capabilities(hass, data, entity('preparing'), false, false).start, false);
+    const unavailable = {
+      ...hass,
+      states: {
+        ...hass.states,
+        'button.start': { ...hass.states['button.start']!, state: 'unavailable' },
+      },
+    };
+    assert.equal(capabilities(unavailable, data, entity('preparing'), true, false).start, false);
+  }
 });
 
 test('Vehicle presence is not inferred from the wallbox network connection', () => {

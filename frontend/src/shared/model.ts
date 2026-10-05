@@ -152,7 +152,10 @@ export function commandInfo(data: CardData, state: string, now: number) {
   const complete =
     command.action === 'start'
       ? state === 'charging'
-      : !data.transaction_active && ['idle', 'available', 'finishing'].includes(state);
+      : !data.transaction_active &&
+        ['idle', 'available', 'finishing', 'preparing', 'suspended_ev', 'suspended_evse'].includes(
+          state,
+        );
   if (complete) return { pending: false, key: '' };
   if (age > 60000) return { pending: false, key: 'commandUnconfirmed' };
   return { pending: true, key: command.state === 'accepted' ? 'commandAccepted' : 'commandQueued' };
@@ -171,7 +174,9 @@ export function capabilities(
   return {
     start:
       connected &&
-      data.auth_mode === 'home_assistant_rfid' &&
+      (data.auth_mode === 'home_assistant_rfid' ||
+        (data.auth_mode === 'plug_and_charge' &&
+          ['preparing', 'suspended_ev', 'suspended_evse'].includes(entity.state))) &&
       !pending &&
       !data.transaction_active &&
       ['available', 'idle', 'preparing', 'suspended_ev', 'suspended_evse'].includes(entity.state) &&

@@ -151,7 +151,7 @@ export const de: Record<Key, string> = {
   rfid_onlyHint:
     'Zum Starten die RFID-Karte an die Wallbox halten. Im reinen RFID-Modus wird kein Fernstart angeboten.',
   plug_and_chargeHint:
-    'Automatische Freigabe beim Anstecken; Ladestrategie und Limits gelten weiterhin.',
+    'Automatische Freigabe beim Anstecken. Nach einem Stopp kannst du hier erneut starten; Ladestrategie und Limits gelten weiterhin.',
   authUnknownHint: 'Warte auf die von der Wallbox gemeldete Freigabeart.',
   presentCard: 'RFID-Karte vorhalten',
   automaticStart: 'Automatische Freigabe',

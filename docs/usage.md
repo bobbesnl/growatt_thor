@@ -45,6 +45,16 @@ vehicle or wallbox pause, the transaction can remain open; see
 [pause states](sessions.md#vehicle-and-wallbox-pauses). Missing readings stay
 unknown instead of being displayed as zero.
 
+With **Plug & charge**, a connected vehicle can also be started manually after
+a completed stop, including an energy-protection stop. The card enables
+**Start charging** once the previous transaction has ended and the charger is
+ready. The command requests a new session without changing PV Linkage, boost
+settings or current limits; it does not guarantee immediate power delivery.
+**Stop charging** stays disabled while there is no active transaction.
+RFID-only mode continues to require a physical card. Active or unresolved
+charging targets and an unavailable HA start entity can still block the button;
+an old target attempt blocked before it was sent no longer blocks manual Start.
+
 ## Local charging authorization
 
 There are two independent settings: the **wallbox authorization mode** decides
