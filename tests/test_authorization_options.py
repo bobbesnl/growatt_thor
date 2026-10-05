@@ -260,6 +260,20 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(form['errors']['battery_power_entity'], error)
         self.assertEqual(self.updates, [])
 
+    async def test_stop_settings_defaults_validation_and_storage(self):
+        draft = self.site_draft()
+        form = await self.flow.async_step_site_accounting()
+        validated = form['data_schema'](draft)
+        self.assertEqual(validated['site_stop_threshold_w'], 500)
+        self.assertEqual(validated['site_stop_hold_seconds'], 180)
+        for key, value in (('site_stop_threshold_w', 0), ('site_stop_hold_seconds', 10),
+                           ('site_stop_threshold_w', float('nan'))):
+            result = await self.flow.async_step_site_accounting({**draft, key: value})
+            self.assertEqual(result['errors'][key], 'invalid_stop_settings')
+        await self.flow.async_step_site_accounting({**draft, 'site_stop_threshold_w': 750, 'site_stop_hold_seconds': 240})
+        self.assertEqual(self.entry.data['site_stop_threshold_w'], 750)
+        self.assertEqual(self.entry.data['site_stop_hold_seconds'], 240)
+
     async def test_site_selectors_use_user_translations_not_server_language(self):
         """HA must localize choices per browser, even on a German server."""
         translation_dir = (

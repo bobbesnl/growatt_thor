@@ -1,3 +1,4 @@
+import { renderEnergyStop } from '../shared/energy-stop';
 import { html, svg, nothing } from 'lit';
 import { clamp } from '../shared/model';
 import type { CardViewModel } from './card-view-model';
@@ -577,6 +578,7 @@ export function renderCard(view: CardViewModel, actions: CardActions, feedback: 
         >${t(vehicle)}
       </div>
       <p class="hint">${t(status.hint)}</p>
+      ${renderEnergyStop(view.data.energy_stop, hass.language || hass.locale?.language || 'en')}
       ${renderWarnings(view)} ${renderSession(view)} ${renderActions(view, actions)}
       ${renderTargetNotice(view)} ${renderCommandFeedback(view, feedback)}
       ${renderFooter(view, actions)} </ha-card

@@ -270,7 +270,7 @@ class SessionEventTracker:
             session_event("energy_flow_started", at, "meter", "derived"),
         )
 
-    def record_stop_requested(self, at: object) -> bool:
+    def record_stop_requested(self, at: object, *, reason="remote_stop") -> bool:
         """Record a Home Assistant stop request only once per transaction."""
         return append_session_event(
             self.events,
@@ -279,7 +279,7 @@ class SessionEventTracker:
                 at,
                 "home_assistant",
                 "observed",
-                reason="remote_stop",
+                reason=reason,
             ),
             unique_type=True,
         )

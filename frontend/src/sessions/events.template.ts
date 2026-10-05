@@ -1,4 +1,5 @@
 import { html, nothing } from 'lit';
+import { energyStopReason } from '../shared/energy-stop';
 import { translate } from '../shared/strings';
 import type { SessionEvent, SessionEventType } from '../shared/types';
 import { sessionTranslate, type SessionKey } from './locales';
@@ -30,6 +31,8 @@ export function sessionEventReason(
   reason: string | undefined,
   language: string,
 ): string | undefined {
+  if (reason === 'energy_guard_battery' || reason === 'energy_guard_grid')
+    return energyStopReason(reason.replace('energy_guard_', ''), language);
   return reason && ['suspended_ev', 'suspended_evse'].includes(reason)
     ? translate(language)(reason)
     : reason;

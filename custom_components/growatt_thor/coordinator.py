@@ -126,6 +126,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._pending_plugged_event: dict[str, str] | None = None
         self._restored_active_session = False
         self.site_accounting_options = {}
+        self.last_energy_stop = None
         self.site_accounting: SessionAccumulator | None = None
         self.last_site_accounting: SessionAccumulator | None = None
         self.site_accounting_totals = {
@@ -248,6 +249,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """Load persistent statistics from HA storage."""
         data = await self._store.async_load()
         if data:
+            from .energy.stop_guard import restore_stop_report
+            self.last_energy_stop = restore_stop_report(data.get("last_energy_stop"))
             self.sessions.outbox.restore(data.get("pending_session_rows"))
             self.total_energy_charged = float(data.get("total_energy_charged", 0.0))
             self._transaction_id_allocator.restore(
@@ -323,6 +326,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         active_session = self._active_session_state()
         return {
             "pending_session_rows": self.sessions.outbox.snapshot(),
+            "last_energy_stop": self.last_energy_stop,
             "total_energy_charged": self.total_energy_charged,
             "next_transaction_id": self._transaction_id_allocator.next_transaction_id,
             "last_session": self._last_session_state().as_dict(),
@@ -1746,9 +1750,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 return max(30.0, interval * 3)
         return 180.0
 
-    def record_stop_requested(self) -> None:
+    def record_stop_requested(self, *, reason="remote_stop") -> None:
         """Delegate this transition to the session lifecycle."""
-        return self.sessions.record_stop_requested()
+        return self.sessions.record_stop_requested(reason=reason)
 
     # ─────────────────────────────
     # GetConfiguration verwerking

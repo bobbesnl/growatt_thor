@@ -56,6 +56,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         c.battery_power_sign = "positive_charge"
         c.site_accounting_options = {
             "site_accounting_profile": "pv_battery", "site_auto_stop_mode": "battery",
+            "site_stop_threshold_w": 200, "site_stop_hold_seconds": 90,
             "site_grid_source": "thor_external", "site_solar_power_entity": "sensor.pv", "site_fixed_price": .3,
         }
         c.site_accounting = coordinator_module.SessionAccumulator(

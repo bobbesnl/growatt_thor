@@ -46,7 +46,7 @@ class StopChargingCommand:
             transaction_active=self.coordinator.transaction_is_active,
         )
 
-    async def async_request(self, *, auto_guard=None) -> None:
+    async def async_request(self, *, auto_guard=None, stop_reason=None) -> None:
         """Stop a charging session via queue."""
         from ..runtime.action_errors import (
             async_require_command_completion,
@@ -96,6 +96,7 @@ class StopChargingCommand:
             self._stop_charging,
             charge_point,
             transaction_id,
+            *([stop_reason] if stop_reason else []),
             # A valid Stop replaces only an unsent Start.  Conversely, public
             # Start is blocked while this transaction remains active, so it
             # cannot erase a still-valid Stop for the running session.
@@ -116,6 +117,7 @@ class StopChargingCommand:
         self,
         charge_point,
         transaction_id: int,
+        stop_reason: str | None = None,
     ) -> ChargerWriteResult:
         """Stop charging command (runs inside write-queue)."""
         if (
@@ -125,7 +127,10 @@ class StopChargingCommand:
             _command_state(self.coordinator, "stop", "rejected")
             return ChargerWriteResult.skipped(reason)
         _command_state(self.coordinator, "stop", "sending")
-        self.coordinator.record_stop_requested()
+        if stop_reason:
+            self.coordinator.record_stop_requested(reason=stop_reason)
+        else:
+            self.coordinator.record_stop_requested()
         try:
             result = await charge_point.remote_stop_transaction(
                 transaction_id=transaction_id

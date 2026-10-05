@@ -138,6 +138,13 @@ export interface PowerFlowData {
   };
 }
 export interface CardData {
+  energy_stop?: {
+    reason: 'battery' | 'grid';
+    at: string;
+    threshold_w: number;
+    hold_seconds: number;
+    observed_w: number;
+  } | null;
   charging_target_pilot?: boolean;
   charging_target?: import('../targets/live').TargetRequest | null;
   connection_started_at?: string;

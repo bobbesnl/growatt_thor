@@ -135,9 +135,11 @@
       },
       "site_accounting": {
         "title": "Standortweite EV-Abrechnung",
-        "description": "Die Abrechnung ist ein beobachtendes Modell. Der optionale Ladestopp wirkt bei jeder aktiven Ladesitzung und nutzt den vorhandenen OCPP-Stoppbefehl: mindestens 200 W Batterieentladung oder Netzbezug für 90 Sekunden. Fehlende oder veraltete Werte lösen keinen Stopp aus; danach kein automatischer Neustart. Die Netzquelle muss den tatsächlichen Netzanschlusspunkt messen. Neue Standortentitäten erscheinen nach einmaligem Neuladen.",
+        "description": "EV-Energie und Kosten erfassen. Der optionale Schutz stoppt bei anhaltender Batterieentladung oder Netzbezug. Schwelle und Wartezeit sind einstellbar. Fehlende oder veraltete Messwerte lösen keinen Stopp aus. Das Laden startet nicht automatisch wieder.",
         "data": {
           "site_accounting_profile": "Standortprofil",
+          "site_stop_threshold_w": "Stoppschwelle (W)",
+          "site_stop_hold_seconds": "Dauer oberhalb der Schwelle (Sekunden)",
           "site_auto_stop_mode": "Automatischer Ladestopp",
           "site_grid_source": "Netzquelle",
           "site_grid_power_entity": "Netzleistungssensor (optional)",
@@ -148,6 +150,8 @@
           "site_fixed_price": "Fester Preis pro kWh (ohne Preissensor)"
         },
         "data_description": {
+          "site_stop_threshold_w": "Leistung aus Batterie oder Netz. Standard: 500 W.",
+          "site_stop_hold_seconds": "Standard: 180 Sekunden. Deckt die aktuelle PV-Leistung die Ladeleistung, bleiben zwei zusätzliche Minuten für kurzzeitige Hausverbraucher. Kein automatischer Wiederanlauf.",
           "site_auto_stop_mode": "Aus, Batterieentladung, Netzbezug oder beides. Nur bei frischen Messwerten und aktiver Ladesitzung; die Batteriequelle wird unter Optionale Energiequellen eingerichtet."
         }
       },
@@ -188,6 +192,7 @@
       "invalid_fixed_price": "Einen endlichen Preis pro kWh eingeben; negative Preise sind erlaubt.",
       "invalid_power_sensor": "Bitte einen Sensor mit der Einheit W, kW oder MW auswählen.",
       "invalid_site_profile": "Bitte ein unterstütztes Standortprofil auswählen.",
+      "invalid_stop_settings": "Bitte 100–10000 W und 30–1800 Sekunden verwenden.",
       "invalid_auto_stop_mode": "Bitte einen unterstützten Ladestopp-Modus auswählen.",
       "auto_stop_requires_profile": "Für den automatischen Ladestopp zuerst ein Standortprofil aktivieren.",
       "auto_stop_requires_battery": "Für diesen Ladestopp-Modus zuerst einen Batterie-Leistungssensor unter Optionale Energiequellen auswählen.",

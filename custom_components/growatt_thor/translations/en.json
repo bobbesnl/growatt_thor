@@ -135,9 +135,11 @@
       },
       "site_accounting": {
         "title": "Site EV accounting",
-        "description": "Accounting is an observational model. The optional stop acts in every active charging session and uses the existing OCPP Stop: at least 200 W battery discharge or grid import for 90 seconds. Missing or stale readings never trigger it; charging does not restart automatically. The grid source must measure the real grid connection. Reload once to add new site entities.",
+        "description": "Account for EV energy and costs. The optional protection stops charging after sustained battery discharge or grid import. Threshold and waiting time are configurable. Missing or stale readings never trigger a stop. Charging does not restart automatically.",
         "data": {
           "site_accounting_profile": "Site profile",
+          "site_stop_threshold_w": "Stop threshold (W)",
+          "site_stop_hold_seconds": "Time above threshold (seconds)",
           "site_auto_stop_mode": "Automatic charging stop",
           "site_grid_source": "Grid source",
           "site_grid_power_entity": "Grid power sensor (optional)",
@@ -148,6 +150,8 @@
           "site_fixed_price": "Fixed price per kWh (used without price sensor)"
         },
         "data_description": {
+          "site_stop_threshold_w": "Power drawn from the battery or grid. Default: 500 W.",
+          "site_stop_hold_seconds": "Default: 180 seconds. If fresh PV power covers the charging power, allow two extra minutes for temporary household loads. No automatic restart.",
           "site_auto_stop_mode": "Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
         }
       },
@@ -188,6 +192,7 @@
       "invalid_fixed_price": "Enter a finite price per kWh; negative prices are allowed.",
       "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
       "invalid_site_profile": "Choose a supported site profile.",
+      "invalid_stop_settings": "Use 100–10000 W and 30–1800 seconds.",
       "invalid_auto_stop_mode": "Choose a supported automatic stop mode.",
       "auto_stop_requires_profile": "Enable a site profile before automatic charging stop.",
       "auto_stop_requires_battery": "Select a battery power sensor under Optional energy sources first.",

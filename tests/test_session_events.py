@@ -106,6 +106,13 @@ class SessionEventTrackerTest(unittest.TestCase):
         self.assertEqual(len(requested), 1)
         self.assertEqual(requested[0]["source"], "home_assistant")
 
+    def test_protection_reason_survives_session_event_normalization(self):
+        tracker = session_events.SessionEventTracker.start("2026-10-05T14:00:00Z")
+        tracker.record_stop_requested("2026-10-05T14:08:56Z", reason="energy_guard_battery")
+        tracker.stop("2026-10-05T14:09:01Z", reason="Remote")
+        events = session_events.normalize_session_events(tracker.events)
+        self.assertEqual(next(event['reason'] for event in events if event['type'] == 'stop_requested'), 'energy_guard_battery')
+
     def test_zero_power_only_session_does_not_invent_energy_flow_stop(self):
         tracker = session_events.SessionEventTracker.start(
             "2026-09-17T10:00:00Z"

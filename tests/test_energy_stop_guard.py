@@ -33,14 +33,56 @@ def obs(tx=33, *, eligible=True, battery=None, grid=None):
 
 
 class StopGuardCoreTest(unittest.TestCase):
-    def test_disabled_and_missing_readings_never_stop(self):
+    def test_default_500_w_three_minutes_and_short_household_load(self):
         tracker = core.StopGuardTracker()
+        for seconds in (0, 180, 600):
+            self.assertIsNone(tracker.evaluate(AT + timedelta(seconds=seconds), "battery", obs(battery=499)))
+        tracker = core.StopGuardTracker()
+        value = obs(battery=600)
+        tracker.evaluate(AT, "battery", value)
+        self.assertIsNone(tracker.evaluate(AT + timedelta(seconds=179), "battery", value))
+        self.assertEqual(tracker.evaluate(AT + timedelta(seconds=180), "battery", value), "battery")
+
+    def test_observed_thermomix_interval_does_not_stop_with_new_defaults(self):
+        tracker = core.StopGuardTracker()
+        for seconds, watts in enumerate((400, 430, 500, 450, 550, 570, 500, 0)):
+            value = core.StopObservation(41, True, watts, 0, 8900, 7300)
+            self.assertIsNone(tracker.evaluate(AT + timedelta(seconds=seconds * 15), "battery", value))
+
+    def test_pv_covering_ev_gives_bounded_extra_time_not_unlimited_permission(self):
+        value = core.StopObservation(33, True, 600, 0, 8900, 7300)
+        tracker = core.StopGuardTracker()
+        tracker.evaluate(AT, "battery", value)
+        self.assertIsNone(tracker.evaluate(AT + timedelta(seconds=180), "battery", value))
+        self.assertIsNone(tracker.evaluate(AT + timedelta(seconds=299), "battery", value))
+        self.assertEqual(tracker.evaluate(AT + timedelta(seconds=300), "battery", value), "battery")
+        # A household load ending during the grace period clears the hold.
+        tracker = core.StopGuardTracker()
+        tracker.evaluate(AT, "battery", value)
+        tracker.evaluate(AT + timedelta(seconds=250), "battery", obs(battery=100))
+        self.assertIsNone(tracker.evaluate(AT + timedelta(seconds=301), "battery", value))
+
+    def test_falling_or_missing_pv_keeps_regular_hold(self):
+        for solar in (None, float("nan"), 7000):
+            tracker = core.StopGuardTracker()
+            tracker.evaluate(AT, "battery", core.StopObservation(33, True, 600, 0, 8900, 7300))
+            value = core.StopObservation(33, True, 600, 0, solar, 7300)
+            self.assertEqual(tracker.evaluate(AT + timedelta(seconds=180), "battery", value), "battery")
+
+    def test_stop_report_restore_rejects_invalid_fields(self):
+        report = {"reason": "battery", "at": AT.isoformat(), "threshold_w": 500, "hold_seconds": 300, "observed_w": 600}
+        self.assertEqual(core.restore_stop_report(report), report)
+        for value in (None, {}, {**report, "reason": "start"}, {**report, "at": "yesterday"}, {**report, "observed_w": float("nan")}):
+            self.assertIsNone(core.restore_stop_report(value))
+
+    def test_disabled_and_missing_readings_never_stop(self):
+        tracker = core.StopGuardTracker(threshold_w=200, hold_seconds=90)
         self.assertIsNone(tracker.evaluate(AT, "off", obs(battery=3000, grid=3000)))
         self.assertIsNone(tracker.evaluate(AT, "battery_or_grid", obs()))
         self.assertIsNone(tracker.evaluate(AT + timedelta(minutes=5), "battery_or_grid", obs()))
 
     def test_battery_discharge_sustained_once_per_transaction(self):
-        tracker = core.StopGuardTracker()
+        tracker = core.StopGuardTracker(threshold_w=200, hold_seconds=90)
         self.assertIsNone(tracker.evaluate(AT, "battery", obs(battery=250)))
         self.assertIsNone(tracker.evaluate(AT + timedelta(seconds=89), "battery", obs(battery=250)))
         self.assertEqual(tracker.evaluate(AT + timedelta(seconds=90), "battery", obs(battery=250)), "battery")
@@ -49,7 +91,7 @@ class StopGuardCoreTest(unittest.TestCase):
         self.assertEqual(tracker.evaluate(AT + timedelta(minutes=5, seconds=30), "battery", obs(34, battery=250)), "battery")
 
     def test_grid_mode_ignores_battery_and_battery_mode_ignores_grid(self):
-        tracker = core.StopGuardTracker()
+        tracker = core.StopGuardTracker(threshold_w=200, hold_seconds=90)
         tracker.evaluate(AT, "grid", obs(battery=2000, grid=0))
         self.assertIsNone(tracker.evaluate(AT + timedelta(minutes=2), "grid", obs(battery=2000, grid=0)))
         tracker.evaluate(AT + timedelta(minutes=3), "grid", obs(grid=220))
@@ -57,13 +99,13 @@ class StopGuardCoreTest(unittest.TestCase):
         self.assertIsNone(tracker.evaluate(AT + timedelta(minutes=5), "battery", obs(grid=220)))
 
     def test_short_cloud_passage_does_not_stop(self):
-        tracker = core.StopGuardTracker()
+        tracker = core.StopGuardTracker(threshold_w=200, hold_seconds=90)
         tracker.evaluate(AT, "battery_or_grid", obs(grid=300))
         tracker.evaluate(AT + timedelta(seconds=45), "battery_or_grid", obs(grid=0))
         self.assertIsNone(tracker.evaluate(AT + timedelta(seconds=95), "battery_or_grid", obs(grid=300)))
 
     def test_ineligible_or_nonfinite_values_clear_hold(self):
-        tracker = core.StopGuardTracker()
+        tracker = core.StopGuardTracker(threshold_w=200, hold_seconds=90)
         tracker.evaluate(AT, "battery", obs(battery=300))
         tracker.evaluate(AT + timedelta(seconds=60), "battery", obs(eligible=False, battery=300))
         self.assertIsNone(tracker.evaluate(AT + timedelta(seconds=95), "battery", obs(battery=300)))
@@ -86,6 +128,7 @@ class StopGuardRuntimeTest(unittest.TestCase):
             site_accounting_options={
                 "site_accounting_profile": "pv_battery",
                 "site_auto_stop_mode": "battery_or_grid",
+                "site_stop_threshold_w": 200, "site_stop_hold_seconds": 90,
                 "site_grid_source": "ha_sensor",
                 "site_grid_power_entity": "sensor.grid",
                 "site_grid_power_sign": "positive_import",
@@ -102,6 +145,7 @@ class StopGuardRuntimeTest(unittest.TestCase):
                 }],
             },
             _effective_meter_gap_seconds=lambda: 180,
+            _schedule_storage_save=lambda: None, async_set_updated_data=lambda _: None,
         )
         self.guard = runtime.EnergyStopGuard(self.hass, self.coordinator)
 
@@ -110,6 +154,16 @@ class StopGuardRuntimeTest(unittest.TestCase):
         self.assertTrue(value.eligible)
         self.assertEqual(value.battery_discharge_w, 300)
         self.assertEqual(value.grid_import_w, 100)
+
+    def test_pv_grace_uses_fresh_pv_and_current_ev_power(self):
+        self.coordinator.site_accounting_options['site_solar_power_entity'] = 'sensor.pv'
+        self.states['sensor.pv'] = types.SimpleNamespace(state='4', attributes={'unit_of_measurement': 'kW'}, last_updated=AT)
+        value = self.guard._observation(AT)
+        self.assertEqual((value.solar_power_w, value.ev_power_w), (4000, 3000))
+        self.assertEqual(self.guard.tracker.required_hold(value), 210)
+        value = self.guard._observation(AT + timedelta(seconds=121))
+        self.assertIsNone(value.solar_power_w)
+        self.assertEqual(self.guard.tracker.required_hold(value), 90)
 
     def test_wire_status_and_enum_use_the_same_charging_state(self):
         for status in ("Charging", "charging", types.SimpleNamespace(value="Charging")):
@@ -136,7 +190,8 @@ class StopGuardRuntimeTest(unittest.TestCase):
     def test_sustained_battery_flow_invokes_existing_stop_once(self):
         requested = []
 
-        async def press(*, auto_guard):
+        async def press(*, auto_guard, stop_reason):
+            self.assertEqual(stop_reason, "energy_guard_battery")
             requested.append(auto_guard())
 
         self.guard.stop_command = types.SimpleNamespace(async_request=press)
@@ -156,6 +211,8 @@ class StopGuardRuntimeTest(unittest.TestCase):
             with self.assertRaises(asyncio.CancelledError):
                 asyncio.run(self.guard._run())
         self.assertEqual(requested, [None])
+        self.assertEqual(self.coordinator.last_energy_stop['reason'], 'battery')
+        self.assertEqual(self.coordinator.last_energy_stop['hold_seconds'], 90)
 
 
 if __name__ == "__main__":

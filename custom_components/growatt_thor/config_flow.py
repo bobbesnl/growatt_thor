@@ -40,7 +40,10 @@ from .energy.sources import (
     tariff_sensor_options,
     duplicate_source_fields,
 )
-from .energy.stop_guard import AUTO_STOP_MODES, CONF_AUTO_STOP_MODE
+from .energy.stop_guard import (
+    AUTO_STOP_MODES, CONF_AUTO_STOP_MODE, CONF_STOP_THRESHOLD, CONF_STOP_HOLD,
+    STOP_THRESHOLD_W, STOP_HOLD_SECONDS,
+)
 from .energy.accounting_runtime import (
     CONF_FIXED_PRICE, CONF_GRID_ENTITY, CONF_GRID_SIGN, CONF_HOUSE_ENTITY,
     CONF_SITE_PROFILE, CONF_SOLAR_ENTITY, CONF_TARIFF_ENTITY, GRID_SIGNS,
@@ -341,6 +344,13 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             if profile not in PROFILES:
                 errors[CONF_SITE_PROFILE] = "invalid_site_profile"
             auto_stop_mode = user_input.get(CONF_AUTO_STOP_MODE, "off")
+            for key, default, low, high in (
+                (CONF_STOP_THRESHOLD, STOP_THRESHOLD_W, 100, 10000),
+                (CONF_STOP_HOLD, STOP_HOLD_SECONDS, 30, 1800),
+            ):
+                value = user_input.get(key, current.get(key, default))
+                if not isinstance(value, (int, float)) or not isfinite(value) or not low <= value <= high:
+                    errors[key] = "invalid_stop_settings"
             if auto_stop_mode not in AUTO_STOP_MODES:
                 errors[CONF_AUTO_STOP_MODE] = "invalid_auto_stop_mode"
             elif auto_stop_mode != "off":
@@ -393,9 +403,10 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 updated = dict(current)
                 keys = (CONF_SITE_PROFILE, CONF_GRID_ENTITY, CONF_GRID_SIGN,
                         CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY, CONF_TARIFF_ENTITY,
-                        CONF_FIXED_PRICE, "site_grid_source", CONF_AUTO_STOP_MODE)
+                        CONF_FIXED_PRICE, "site_grid_source", CONF_AUTO_STOP_MODE,
+                        CONF_STOP_THRESHOLD, CONF_STOP_HOLD)
                 for key in keys:
-                    value = user_input.get(key)
+                    value = user_input.get(key, current.get(key)) if key in (CONF_STOP_THRESHOLD, CONF_STOP_HOLD) else user_input.get(key)
                     if value in (None, ""):
                         updated.pop(key, None)
                     else:
@@ -442,6 +453,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema({
                 vol.Required(CONF_SITE_PROFILE, default=current.get(CONF_SITE_PROFILE, "disabled")): SelectSelector(SelectSelectorConfig(options=list(PROFILES), translation_key=CONF_SITE_PROFILE, mode="dropdown")),
                 vol.Required(CONF_AUTO_STOP_MODE, default=current.get(CONF_AUTO_STOP_MODE, "off")): SelectSelector(SelectSelectorConfig(options=list(AUTO_STOP_MODES), translation_key=CONF_AUTO_STOP_MODE, mode="dropdown")),
+                vol.Required(CONF_STOP_THRESHOLD, default=current.get(CONF_STOP_THRESHOLD, STOP_THRESHOLD_W)): vol.All(vol.Coerce(float), vol.Range(min=100, max=10000)),
+                vol.Required(CONF_STOP_HOLD, default=current.get(CONF_STOP_HOLD, STOP_HOLD_SECONDS)): vol.All(vol.Coerce(float), vol.Range(min=30, max=1800)),
                 vol.Required("site_grid_source", default=current.get("site_grid_source", "none")): SelectSelector(SelectSelectorConfig(options=["none", "thor_external", "ha_sensor"], translation_key="site_grid_source", mode="dropdown")),
                 source_field(CONF_GRID_ENTITY): power_selector(CONF_GRID_ENTITY, "grid"),
                 vol.Required(CONF_GRID_SIGN, default=current.get(CONF_GRID_SIGN, "positive_import")): SelectSelector(SelectSelectorConfig(options=list(GRID_SIGNS), translation_key=CONF_GRID_SIGN, mode="dropdown")),

@@ -303,12 +303,12 @@ class SessionLifecycle:
                 callback(transaction_id=stopped_transaction_id, reason=reason)
             )
 
-    def record_stop_requested(self) -> None:
+    def record_stop_requested(self, *, reason="remote_stop") -> None:
         """Record a stop intent at the point it is handed to OCPP."""
         coordinator = self.coordinator
         if coordinator._session_event_tracker is None:
             return
-        if coordinator._session_event_tracker.record_stop_requested(coordinator.now()):
+        if coordinator._session_event_tracker.record_stop_requested(coordinator.now(), reason=reason):
             coordinator._schedule_storage_save()
             coordinator.async_set_updated_data(True)
 

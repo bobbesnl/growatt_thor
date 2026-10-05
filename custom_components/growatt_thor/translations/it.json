@@ -123,9 +123,11 @@
       },
       "site_accounting": {
         "title": "Site EV accounting",
-        "description": "Accounting is an observational model. The optional stop acts in every active charging session and uses the existing OCPP Stop: at least 200 W battery discharge or grid import for 90 seconds. Missing or stale readings never trigger it; charging does not restart automatically. The grid source must measure the real grid connection. Reload once to add new site entities.",
+        "description": "Registra energia e costi del veicolo. La protezione opzionale interrompe la ricarica dopo un prelievo prolungato dalla batteria o dalla rete. Soglia e attesa sono configurabili. Letture mancanti o obsolete non causano un arresto. Nessun riavvio automatico.",
         "data": {
           "site_accounting_profile": "Site profile",
+          "site_stop_threshold_w": "Soglia di arresto (W)",
+          "site_stop_hold_seconds": "Tempo sopra la soglia (secondi)",
           "site_auto_stop_mode": "Automatic charging stop",
           "site_grid_source": "Grid source",
           "site_grid_power_entity": "Grid power sensor (optional)",
@@ -136,6 +138,8 @@
           "site_fixed_price": "Fixed price per kWh (used without price sensor)"
         },
         "data_description": {
+          "site_stop_threshold_w": "Potenza prelevata dalla batteria o dalla rete. Predefinito: 500 W.",
+          "site_stop_hold_seconds": "Predefinito: 180 secondi. Se il fotovoltaico attuale copre la ricarica, sono concessi due minuti aggiuntivi ai consumi domestici temporanei. Nessun riavvio automatico.",
           "site_auto_stop_mode": "Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
         }
       },
@@ -176,6 +180,7 @@
       "invalid_fixed_price": "Inserire un prezzo finito per kWh; sono ammessi prezzi negativi.",
       "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
       "invalid_site_profile": "Choose a supported site profile.",
+      "invalid_stop_settings": "Usare 100–10000 W e 30–1800 secondi.",
       "invalid_auto_stop_mode": "Choose a supported automatic stop mode.",
       "auto_stop_requires_profile": "Enable a site profile before automatic charging stop.",
       "auto_stop_requires_battery": "Select a battery power sensor under Optional energy sources first.",

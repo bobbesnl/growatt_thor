@@ -123,9 +123,11 @@
       },
       "site_accounting": {
         "title": "Site EV accounting",
-        "description": "Accounting is an observational model. The optional stop acts in every active charging session and uses the existing OCPP Stop: at least 200 W battery discharge or grid import for 90 seconds. Missing or stale readings never trigger it; charging does not restart automatically. The grid source must measure the real grid connection. Reload once to add new site entities.",
+        "description": "A jármű energiájának és költségeinek elszámolása. Az opcionális védelem tartós akkumulátoros vagy hálózati vételezés után leállítja a töltést. A küszöb és a várakozás állítható. Hiányzó vagy elavult adatok nem okoznak leállítást. Nincs automatikus újraindítás.",
         "data": {
           "site_accounting_profile": "Site profile",
+          "site_stop_threshold_w": "Leállítási küszöb (W)",
+          "site_stop_hold_seconds": "Küszöb feletti idő (másodperc)",
           "site_auto_stop_mode": "Automatic charging stop",
           "site_grid_source": "Grid source",
           "site_grid_power_entity": "Grid power sensor (optional)",
@@ -136,6 +138,8 @@
           "site_fixed_price": "Fixed price per kWh (used without price sensor)"
         },
         "data_description": {
+          "site_stop_threshold_w": "Akkumulátorból vagy hálózatból felvett teljesítmény. Alapérték: 500 W.",
+          "site_stop_hold_seconds": "Alapérték: 180 másodperc. Ha az aktuális napelemes termelés fedezi a töltést, az átmeneti háztartási fogyasztók további két percet kapnak. Nincs automatikus újraindítás.",
           "site_auto_stop_mode": "Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
         }
       },
@@ -176,6 +180,7 @@
       "invalid_fixed_price": "Véges kWh-árat adjon meg; negatív ár is megengedett.",
       "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
       "invalid_site_profile": "Choose a supported site profile.",
+      "invalid_stop_settings": "Használjon 100–10000 W és 30–1800 másodperc értékeket.",
       "invalid_auto_stop_mode": "Choose a supported automatic stop mode.",
       "auto_stop_requires_profile": "Enable a site profile before automatic charging stop.",
       "auto_stop_requires_battery": "Select a battery power sensor under Optional energy sources first.",

@@ -138,9 +138,18 @@ An **optional automatic charging stop** can be enabled in the same site
 settings after choosing a site profile. Its modes are battery discharge, grid
 import, or either; the default is off. It acts in every charging mode while
 the THOR reports an active transaction and fresh OCPP charging power. A
-selected source must report at least 200 W for 90 seconds. The integration
+selected source must report at least **500 W for 3 minutes** by default. Both
+values can be changed in the accounting dialog. If fresh PV production still
+covers the current EV charging power, a temporary household load gets **two
+extra minutes**. This is a limited grace period, not proof of spare solar:
+household demand may still require battery or grid support. Dropping below the
+threshold resets the timer. Without sufficient fresh PV data, the normal
+waiting time applies. The integration
 then sends the existing transaction-bound OCPP Stop command once and does not
-restart charging. A missing, unavailable or stale source cannot trigger the
+restart charging. The charging card retains the last protection stop with its
+reason, time, threshold and waiting period, including after an HA restart.
+New history events also distinguish battery protection from grid protection.
+Old events are not retroactively reclassified. A missing, unavailable or stale source cannot trigger the
 stop. Configure the battery sensor and confirm its sign under **Optional energy
 sources**. Use a grid sensor at the actual grid connection, not a branch meter:
 the THOR's meter placement behind the inverter meter can hide battery
