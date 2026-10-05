@@ -33,6 +33,9 @@ export interface CardFeedback {
 }
 const VERSION = typeof __CARD_VERSION__ === 'undefined' ? 'dev' : __CARD_VERSION__;
 const IMAGE = new URL(`thor-front.png?v=${VERSION}`, import.meta.url).href;
+// Every gauge path has length 100. A longer gap prevents a repeated round cap
+// at the far endpoint when a tiny dash is rounded to zero by the SVG renderer.
+const GAUGE_DASH_GAP = 200;
 
 function renderHeader({ config, t, data, auth, entity }: CardViewModel, actions: CardActions) {
   return html`
@@ -183,14 +186,14 @@ function renderHero({
                   class="target-range"
                   d="M 10 100 A 90 90 0 0 1 190 100"
                   pathLength="100"
-                  stroke-dasharray="${powerFlow.target.fraction} 100"
+                  stroke-dasharray="${powerFlow.target.fraction} ${GAUGE_DASH_GAP}"
                 />`
               : nothing}
             <path
               class="arc"
               d="M 10 100 A 90 90 0 0 1 190 100"
               pathLength="100"
-              stroke-dasharray="${fraction} 100"
+              stroke-dasharray="${fraction} ${GAUGE_DASH_GAP}"
               opacity=${kw !== null && fraction > 0 ? 1 : 0}
             />
             ${[...powerFlow.sources].reverse().map(
@@ -198,18 +201,18 @@ function renderHero({
                 class="source-segment source-${segment.source}"
                 d="M 10 100 A 90 90 0 0 1 190 100"
                 pathLength="100"
-                stroke-dasharray="${segment.startFraction + segment.fraction} 100"
+                stroke-dasharray="${segment.startFraction + segment.fraction} ${GAUGE_DASH_GAP}"
               />`,
             )}
             ${animate && animatedFraction > 0
-              ? svg`<path class="charge-wave" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100" stroke-dasharray="${animatedFraction} 100" />`
+              ? svg`<path class="charge-wave" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100" stroke-dasharray="${animatedFraction} ${GAUGE_DASH_GAP}" />`
               : nothing}
             ${powerFlow.overflow
               ? svg`<path
                   class="over-target ${powerFlow.overflow.severity}"
                   d="M 4 100 A 96 96 0 0 1 196 100"
                   pathLength="100"
-                  stroke-dasharray="${powerFlow.overflow.fraction} 100"
+                  stroke-dasharray="${powerFlow.overflow.fraction} ${GAUGE_DASH_GAP}"
                   stroke-dashoffset="${-powerFlow.overflow.startFraction}"
                 />`
               : nothing}
