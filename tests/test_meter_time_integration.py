@@ -5,6 +5,7 @@ import unittest
 
 from test_write_queue import coordinator_module
 from custom_components.growatt_thor.energy.stop_runtime import EnergyStopGuard
+from custom_components.growatt_thor.configuration.values import configuration_value_from_item
 from custom_components.growatt_thor.presentation.card_data import dashboard_attributes
 
 AT = datetime(2026, 10, 2, 14, 52, 49, tzinfo=timezone.utc)
@@ -33,7 +34,10 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         c.connected = True
         c.source_instance_id = "test"
         c.charge_point_id = "thor"
-        c.configuration_values = {}
+        c.configuration_values = {
+            key: configuration_value_from_item({"key": key, "value": value, "readonly": False})
+            for key, value in {"G_WorkingMode": "PVlink", "G_SolarMode": "1&2"}.items()
+        }
         c.last_status_notification = None
         c.boot_notification = None
         c.pv_boost_mode_draft = None

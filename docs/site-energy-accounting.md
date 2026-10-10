@@ -93,8 +93,9 @@ supported units and sensor behavior.
 
 ## Automatic stopping is a separate option
 
-Accounting records energy and costs. An optional rule can also stop charging
-when grid import or battery discharge persists. It must be enabled explicitly
+Accounting records energy and costs in every charging mode. In PV Linkage+
+(solar surplus only), an optional rule can also stop charging when grid import
+or battery discharge persists. It must be enabled explicitly
 and does not restart charging or control the home battery. The conditions and
 thresholds are described under [Automatic charging stop](energy.md#automatic-charging-stop).
 

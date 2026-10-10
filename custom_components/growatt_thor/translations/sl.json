@@ -123,7 +123,7 @@
       },
       "site_accounting": {
         "title": "Site EV accounting",
-        "description": "Beleženje energije in stroškov vozila. Izbirna zaščita ustavi polnjenje po trajnem odjemu iz baterije ali omrežja. Prag in čakanje sta nastavljiva. Manjkajoče ali zastarele meritve ne sprožijo ustavitve. Brez samodejnega ponovnega zagona.",
+        "description": "Samodejna zaščita deluje samo v načinu PV Linkage+ (samo presežek sončne energije). Beleženje energije in stroškov vozila. Izbirna zaščita ustavi polnjenje po trajnem odjemu iz baterije ali omrežja. Prag in čakanje sta nastavljiva. Manjkajoče ali zastarele meritve ne sprožijo ustavitve. Brez samodejnega ponovnega zagona.",
         "data": {
           "site_accounting_profile": "Site profile",
           "site_stop_threshold_w": "Prag ustavitve (W)",
@@ -140,7 +140,7 @@
         "data_description": {
           "site_stop_threshold_w": "Moč iz baterije ali omrežja. Privzeto: 500 W.",
           "site_stop_hold_seconds": "Privzeto: 180 sekund. Če trenutna sončna proizvodnja pokriva polnjenje, imajo začasni gospodinjski porabniki dodatni dve minuti. Brez samodejnega ponovnega zagona.",
-          "site_auto_stop_mode": "Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
+          "site_auto_stop_mode": "Samodejna zaščita deluje samo v načinu PV Linkage+ (samo presežek sončne energije). Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
         }
       },
       "authorization": {

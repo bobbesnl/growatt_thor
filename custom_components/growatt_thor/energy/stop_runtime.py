@@ -9,6 +9,7 @@ from math import isfinite
 from ..ocpp.status import normalize_ocpp_status
 from .meter_observations import charging_meter_values
 from ..charging.commands import StopChargingCommand
+from ..charging.controls import selected_working_mode
 from .stop_guard import (
     AUTO_STOP_MODES, CONF_AUTO_STOP_MODE, CONF_STOP_THRESHOLD, CONF_STOP_HOLD,
     STOP_THRESHOLD_W, STOP_HOLD_SECONDS,
@@ -89,6 +90,9 @@ class EnergyStopGuard:
         )
         eligible = (
             self.mode() != "off"
+            # Grid/battery supply is intentional outside solar-surplus-only mode.
+            # Read the confirmed mode here so queued stops are checked as well.
+            and selected_working_mode(coordinator.configuration_values) == "pv_linkage_plus"
             and coordinator.connected
             and coordinator.transaction_is_active
             and normalize_ocpp_status(coordinator.status) == "charging"

@@ -135,7 +135,7 @@
       },
       "site_accounting": {
         "title": "Site EV accounting",
-        "description": "Account for EV energy and costs. The optional protection stops charging after sustained battery discharge or grid import. Threshold and waiting time are configurable. Missing or stale readings never trigger a stop. Charging does not restart automatically.",
+        "description": "Automatic protection applies only in PV Linkage+ (solar surplus only). Account for EV energy and costs. The optional protection stops charging after sustained battery discharge or grid import. Threshold and waiting time are configurable. Missing or stale readings never trigger a stop. Charging does not restart automatically.",
         "data": {
           "site_accounting_profile": "Site profile",
           "site_stop_threshold_w": "Stop threshold (W)",
@@ -152,7 +152,7 @@
         "data_description": {
           "site_stop_threshold_w": "Power drawn from the battery or grid. Default: 500 W.",
           "site_stop_hold_seconds": "Default: 180 seconds. If fresh PV power covers the charging power, allow two extra minutes for temporary household loads. No automatic restart.",
-          "site_auto_stop_mode": "Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
+          "site_auto_stop_mode": "Automatic protection applies only in PV Linkage+ (solar surplus only). Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
         }
       },
       "authorization": {

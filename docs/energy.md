@@ -136,8 +136,12 @@ In the accounting dialog, number **2** controls the stop guard.
 
 An **optional automatic charging stop** can be enabled in the same site
 settings after choosing a site profile. Its modes are battery discharge, grid
-import, or either; the default is off. It acts in every charging mode while
-the THOR reports an active transaction and fresh OCPP charging power. A
+import, or either; the default is off. It acts **only in PV Linkage+ (solar
+surplus only)** while the THOR reports an active transaction and fresh OCPP
+charging power. Fast, Off-Peak and regular PV Linkage allow grid or battery
+supply and are not interrupted by this protection. An unknown charging mode
+also leaves the guard inactive. Leaving PV Linkage+ clears the waiting period;
+a queued protection stop checks the mode again before it is sent. A
 selected source must report at least **500 W for 3 minutes** by default. Both
 values can be changed in the accounting dialog. If fresh PV production still
 covers the current EV charging power, a temporary household load gets **two

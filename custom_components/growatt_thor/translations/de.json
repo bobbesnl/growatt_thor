@@ -135,7 +135,7 @@
       },
       "site_accounting": {
         "title": "Standortweite EV-Abrechnung",
-        "description": "EV-Energie und Kosten erfassen. Der optionale Schutz stoppt bei anhaltender Batterieentladung oder Netzbezug. Schwelle und Wartezeit sind einstellbar. Fehlende oder veraltete Messwerte lösen keinen Stopp aus. Das Laden startet nicht automatisch wieder.",
+        "description": "Der automatische Schutz greift ausschließlich in PV Linkage+ (nur PV-Überschuss). EV-Energie und Kosten erfassen. Der optionale Schutz stoppt bei anhaltender Batterieentladung oder Netzbezug. Schwelle und Wartezeit sind einstellbar. Fehlende oder veraltete Messwerte lösen keinen Stopp aus. Das Laden startet nicht automatisch wieder.",
         "data": {
           "site_accounting_profile": "Standortprofil",
           "site_stop_threshold_w": "Stoppschwelle (W)",
@@ -152,7 +152,7 @@
         "data_description": {
           "site_stop_threshold_w": "Leistung aus Batterie oder Netz. Standard: 500 W.",
           "site_stop_hold_seconds": "Standard: 180 Sekunden. Deckt die aktuelle PV-Leistung die Ladeleistung, bleiben zwei zusätzliche Minuten für kurzzeitige Hausverbraucher. Kein automatischer Wiederanlauf.",
-          "site_auto_stop_mode": "Aus, Batterieentladung, Netzbezug oder beides. Nur bei frischen Messwerten und aktiver Ladesitzung; die Batteriequelle wird unter Optionale Energiequellen eingerichtet."
+          "site_auto_stop_mode": "Der automatische Schutz greift ausschließlich in PV Linkage+ (nur PV-Überschuss). Aus, Batterieentladung, Netzbezug oder beides. Nur bei frischen Messwerten und aktiver Ladesitzung; die Batteriequelle wird unter Optionale Energiequellen eingerichtet."
         }
       },
       "authorization": {

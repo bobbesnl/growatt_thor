@@ -123,7 +123,7 @@
       },
       "site_accounting": {
         "title": "Site EV accounting",
-        "description": "Registre la energía y los costes del vehículo. La protección opcional detiene la carga tras un consumo sostenido de batería o red. Umbral y espera son configurables. Las lecturas ausentes o antiguas no provocan una parada. Sin reinicio automático.",
+        "description": "La protección automática actúa solo en PV Linkage+ (solo excedente solar). Registre la energía y los costes del vehículo. La protección opcional detiene la carga tras un consumo sostenido de batería o red. Umbral y espera son configurables. Las lecturas ausentes o antiguas no provocan una parada. Sin reinicio automático.",
         "data": {
           "site_accounting_profile": "Site profile",
           "site_stop_threshold_w": "Umbral de parada (W)",
@@ -140,7 +140,7 @@
         "data_description": {
           "site_stop_threshold_w": "Potencia de la batería o de la red. Predeterminado: 500 W.",
           "site_stop_hold_seconds": "Predeterminado: 180 segundos. Si la producción solar actual cubre la carga, se conceden dos minutos adicionales para consumos domésticos temporales. Sin reinicio automático.",
-          "site_auto_stop_mode": "Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
+          "site_auto_stop_mode": "La protección automática actúa solo en PV Linkage+ (solo excedente solar). Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
         }
       },
       "authorization": {

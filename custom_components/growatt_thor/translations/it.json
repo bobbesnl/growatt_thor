@@ -123,7 +123,7 @@
       },
       "site_accounting": {
         "title": "Site EV accounting",
-        "description": "Registra energia e costi del veicolo. La protezione opzionale interrompe la ricarica dopo un prelievo prolungato dalla batteria o dalla rete. Soglia e attesa sono configurabili. Letture mancanti o obsolete non causano un arresto. Nessun riavvio automatico.",
+        "description": "La protezione automatica interviene solo in PV Linkage+ (solo surplus solare). Registra energia e costi del veicolo. La protezione opzionale interrompe la ricarica dopo un prelievo prolungato dalla batteria o dalla rete. Soglia e attesa sono configurabili. Letture mancanti o obsolete non causano un arresto. Nessun riavvio automatico.",
         "data": {
           "site_accounting_profile": "Site profile",
           "site_stop_threshold_w": "Soglia di arresto (W)",
@@ -140,7 +140,7 @@
         "data_description": {
           "site_stop_threshold_w": "Potenza prelevata dalla batteria o dalla rete. Predefinito: 500 W.",
           "site_stop_hold_seconds": "Predefinito: 180 secondi. Se il fotovoltaico attuale copre la ricarica, sono concessi due minuti aggiuntivi ai consumi domestici temporanei. Nessun riavvio automatico.",
-          "site_auto_stop_mode": "Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
+          "site_auto_stop_mode": "La protezione automatica interviene solo in PV Linkage+ (solo surplus solare). Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
         }
       },
       "authorization": {

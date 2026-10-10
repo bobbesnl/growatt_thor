@@ -25,6 +25,13 @@ def load(name):
 
 core = load('energy.stop_guard')
 runtime = load('energy.stop_runtime')
+configuration = sys.modules[f'{NAME}.configuration.values']
+
+def mode_values(working='PVlink', solar='1&2'):
+    return {key: configuration.configuration_value_from_item(
+        {'key': key, 'value': value, 'readonly': False}
+    ) for key, value in {'G_WorkingMode': working, 'G_SolarMode': solar}.items()}
+
 AT = datetime(2026, 9, 30, 18, 0, tzinfo=timezone.utc)
 
 
@@ -135,7 +142,7 @@ class StopGuardRuntimeTest(unittest.TestCase):
             },
             battery_power_entity="sensor.battery", battery_power_sign="positive_charge",
             transaction_id=33, transaction_is_active=True, connected=True,
-            status="charging", configuration_values={},
+            status="charging", configuration_values=mode_values(),
             last_meter_values={
                 "transaction_id": 33, "received_at": AT.isoformat(),
                 "meter_values": [{
@@ -179,13 +186,41 @@ class StopGuardRuntimeTest(unittest.TestCase):
         self.coordinator.last_meter_values["transaction_id"] = 34
         self.assertFalse(self.guard._observation(AT).eligible)
 
-    def test_every_charger_mode_can_stop_but_disabled_profile_cannot(self):
-        self.coordinator.configuration_values = {"G_WorkingMode": "fast"}
-        self.assertTrue(self.guard._observation(AT).eligible)
-        self.coordinator.site_accounting_options["site_accounting_profile"] = "disabled"
-        self.assertEqual(self.guard.mode(), "off")
-        self.coordinator.site_accounting_options["site_accounting_profile"] = "invalid"
-        self.assertEqual(self.guard.mode(), "off")
+    def test_only_confirmed_pv_linkage_plus_is_eligible(self):
+        for working, solar, expected in (
+            ('PVlink', '1&2', True), ('PVlink', '1&1', False),
+            ('Fast', '1&2', False), ('Off Peak', '1&2', False),
+            ('invalid', '1&2', False), ('PVlink', 'invalid', False),
+        ):
+            with self.subTest(working=working, solar=solar):
+                self.coordinator.configuration_values = mode_values(working, solar)
+                self.assertEqual(self.guard._observation(AT).eligible, expected)
+        self.coordinator.configuration_values = {}
+        self.assertFalse(self.guard._observation(AT).eligible)
+        for profile in ('disabled', 'invalid'):
+            self.coordinator.site_accounting_options['site_accounting_profile'] = profile
+            self.assertEqual(self.guard.mode(), 'off')
+
+    def test_leaving_pv_plus_clears_hold_before_returning(self):
+        self.guard.tracker.evaluate(AT, self.guard.mode(), self.guard._observation(AT))
+        self.coordinator.configuration_values = mode_values('Fast')
+        at = AT + timedelta(seconds=60)
+        self.assertIsNone(self.guard.tracker.evaluate(at, self.guard.mode(), self.guard._observation(at)))
+        self.assertIsNone(self.guard.tracker.above_since)
+        self.coordinator.configuration_values = mode_values()
+        at = AT + timedelta(seconds=90)
+        self.assertIsNone(self.guard.tracker.evaluate(at, self.guard.mode(), self.guard._observation(at)))
+        self.assertEqual(self.guard.tracker.above_since, at)
+
+    def test_queued_stop_is_cancelled_after_charger_mode_change(self):
+        self.guard.tracker.evaluate(AT, self.guard.mode(), self.guard._observation(AT))
+        at = AT + timedelta(seconds=90)
+        clock = types.SimpleNamespace(now=lambda _tz: at)
+        with patch.object(runtime, 'datetime', clock):
+            self.assertIsNone(self.guard._still_eligible(33))
+            for working, solar in (('Fast', '1&2'), ('PVlink', '1&1'), ('Off Peak', '1&2')):
+                self.coordinator.configuration_values = mode_values(working, solar)
+                self.assertEqual(self.guard._still_eligible(33), 'auto_stop_no_longer_eligible')
 
     def test_sustained_battery_flow_invokes_existing_stop_once(self):
         requested = []
