@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## 2.0.0-dev.9
+
+### Fixed
+
+- Restrict automatic energy-protection stops to PV Linkage+ (solar surplus only), reset the waiting period outside that mode, and recheck the mode before sending a queued stop.
+- Clear the last protection-stop notice when a new charging session starts, while retaining the previous session's stop event in history.
+
+### Changed
+
+- Give the Stop charging button a subtle red tint in light and dark themes; keep disabled styling neutral.
+- Clarify the PV Linkage+ restriction in the settings and energy handbook.
+
 ## 2.0.0-dev.8
 
 ### Changed
