@@ -819,9 +819,9 @@ button:disabled {
   color: #19320d;
 }
 .action.stop:not(:disabled) {
-  background: var(--ink);
-  color: var(--surface);
-  border-color: var(--ink);
+  background: color-mix(in srgb, var(--red) 8%, var(--surface));
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 25%, var(--line));
 }
 .action:disabled {
   opacity: 1;
