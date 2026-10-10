@@ -152,6 +152,8 @@ waiting time applies. The integration
 then sends the existing transaction-bound OCPP Stop command once and does not
 restart charging. The charging card retains the last protection stop with its
 reason, time, threshold and waiting period, including after an HA restart.
+The notice clears when a new charging session actually starts; the previous
+session keeps its protection-stop event in the history.
 New history events also distinguish battery protection from grid protection.
 Old events are not retroactively reclassified. A missing, unavailable or stale source cannot trigger the
 stop. Configure the battery sensor and confirm its sign under **Optional energy

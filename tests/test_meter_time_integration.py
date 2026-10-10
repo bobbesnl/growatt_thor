@@ -74,6 +74,20 @@ class MeterTimeIntegrationTest(unittest.TestCase):
             {"value": str(energy), "measurand": "Energy.Active.Import.Register", "unit": "Wh"},
         ]}], transaction_id=27)
 
+    def test_confirmed_new_session_clears_and_persists_protection_notice(self):
+        self.receive()
+        c = self.c
+        c.last_energy_stop = {"reason": "battery", "at": AT.isoformat()}
+        c._pending_plugged_event = None
+        c.sessions = coordinator_module.SessionLifecycle(c)
+        saved_notices = []
+        c._schedule_storage_save = lambda: saved_notices.append(c.last_energy_stop)
+        c.start_transaction(28, connector_id=1, meter_start=1050)
+        self.assertIsNone(c.last_energy_stop)
+        self.assertEqual(saved_notices, [None])
+        self.assertIsNone(dashboard_attributes(c)["energy_stop"])
+        self.assertEqual(c.transaction_id, 28)
+
     def test_status_notification_persists_session_pause_without_meter_sample(self):
         c = self.c
         tracker = c._session_event_tracker = coordinator_module.SessionEventTracker.start(AT.isoformat())

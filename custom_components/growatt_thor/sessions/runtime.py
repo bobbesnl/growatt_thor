@@ -175,6 +175,9 @@ class SessionLifecycle:
         coordinator.transaction_id = transaction_id
         coordinator.id_tag = id_tag
         coordinator.status = "Charging"
+        # Clear the dashboard notice only on a confirmed new transaction, not
+        # on a Start click or reconnect. The old session keeps its stop event.
+        coordinator.last_energy_stop = None
 
         request = {
             "connector_id": connector_id,
