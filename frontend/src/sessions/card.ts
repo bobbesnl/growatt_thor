@@ -594,10 +594,21 @@ export class ThorSessionCard extends LitElement {
     }
     this.goToPage(0);
   }
-  private goToPage(index: number) {
+  private async goToPage(index: number, scrollToList = false) {
+    const changed = index !== this._page;
     this._page = index;
     if (this._tableRef.value) this._tableRef.value.scrollTop = 0;
     this.requestUpdate();
+    if (!scrollToList || !changed) return;
+    // Wait for the new page's height before scrolling the dashboard. Checking
+    // the visible layout also handles narrow cards on otherwise wide screens.
+    await this.updateComplete;
+    const list = this.renderRoot.querySelector<HTMLElement>('.session-list-view');
+    if (!this.isConnected || !list || getComputedStyle(list).display === 'none') return;
+    list.scrollIntoView({
+      block: 'start',
+      behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+    });
   }
   private selectSession(sessionId: string | null) {
     this._selectedSessionId = sessionId || undefined;
@@ -773,7 +784,7 @@ export class ThorSessionCard extends LitElement {
                 aria-label=${t('previousPage')}
                 title=${t('previousPage')}
                 ?disabled=${page.index === 0}
-                @click=${() => this.goToPage(page.index - 1)}
+                @click=${() => this.goToPage(page.index - 1, true)}
               >
                 ‹
               </button>
@@ -783,7 +794,7 @@ export class ThorSessionCard extends LitElement {
                 aria-label=${t('nextPage')}
                 title=${t('nextPage')}
                 ?disabled=${page.index >= page.count - 1}
-                @click=${() => this.goToPage(page.index + 1)}
+                @click=${() => this.goToPage(page.index + 1, true)}
               >
                 ›
               </button>

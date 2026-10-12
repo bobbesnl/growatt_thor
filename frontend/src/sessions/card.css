@@ -317,6 +317,7 @@ th.num {
   color: var(--muted);
 }
 .session-list-view {
+  scroll-margin-top: calc(var(--header-height, 56px) + 12px);
   display: none;
 }
 .list-sort,
