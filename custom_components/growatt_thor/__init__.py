@@ -25,7 +25,12 @@ from .const import (
 )
 from .coordinator import GrowattCoordinator
 from .ocpp_server import start_ocpp_server
-from .runtime import GrowattRuntimeData, get_runtime_data, iter_runtime_data
+from .runtime import (
+    GrowattRuntimeData,
+    find_device_with_identifier,
+    get_runtime_data,
+    iter_runtime_data,
+)
 from .session_csv import (
     SESSION_EXPORT_HEADERS,
     append_session_row,
@@ -79,8 +84,9 @@ async def _legacy_seed_allowed(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 def _migrate_external_meter_device(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update legacy default metadata for the external meter device."""
     registry = dr.async_get(hass)
-    device = registry.async_get_device(
-        identifiers={(DOMAIN, entry.entry_id, "grid_connection")}
+    device = find_device_with_identifier(
+        dr.async_entries_for_config_entry(registry, entry.entry_id),
+        (DOMAIN, entry.entry_id, "grid_connection"),
     )
     if device is None:
         return

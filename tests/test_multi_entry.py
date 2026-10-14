@@ -248,6 +248,60 @@ class LivePowerResetTest(unittest.TestCase):
         self.assertEqual(coordinator.power, 0)
 
 
+def _load_runtime_module():
+    """Import runtime.py within the stubbed package."""
+    name = "custom_components.growatt_thor.runtime"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, PACKAGE_PATH / "runtime.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+runtime_module = _load_runtime_module()
+
+
+class _Device:
+    def __init__(self, device_id, identifiers):
+        self.id = device_id
+        self.identifiers = identifiers
+
+
+class DeviceLookupTest(unittest.TestCase):
+    """The external meter device is found among the entry's own devices."""
+
+    def test_finds_device_with_identifier(self):
+        charger = _Device("charger", {("growatt_thor", "entry_left")})
+        meter = _Device(
+            "meter",
+            {("growatt_thor", "entry_left", "grid_connection")},
+        )
+        found = runtime_module.find_device_with_identifier(
+            [charger, meter],
+            ("growatt_thor", "entry_left", "grid_connection"),
+        )
+        self.assertIs(found, meter)
+
+    def test_returns_none_without_match(self):
+        charger = _Device("charger", {("growatt_thor", "entry_left")})
+        self.assertIsNone(
+            runtime_module.find_device_with_identifier(
+                [charger],
+                ("growatt_thor", "entry_left", "grid_connection"),
+            )
+        )
+
+    def test_deprecated_lookup_is_not_called(self):
+        for path in PACKAGE_PATH.glob("*.py"):
+            source = path.read_text(encoding="utf-8")
+            with self.subTest(file=path.name):
+                self.assertNotIn("registry.async_get_device(", source)
+                self.assertNotIn(".async_get_device(\n", source)
+
+
 class NoGlobalStateSourceTest(unittest.TestCase):
     """Guard against reintroducing a single shared state slot."""
 

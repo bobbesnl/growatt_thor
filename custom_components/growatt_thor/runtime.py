@@ -34,6 +34,21 @@ def get_coordinator(hass, entry_id: str):
     return runtime.coordinator if runtime else None
 
 
+def find_device_with_identifier(devices, identifier):
+    """Return the first device whose identifiers contain identifier.
+
+    Pass the devices of one config entry, from
+    device_registry.async_entries_for_config_entry. That keeps the lookup
+    within the entry without device_registry.async_get_device (deprecated
+    since Home Assistant 2026.9) or async_get_device_by_identifier (only
+    available since 2026.8), so it works on every Home Assistant version.
+    """
+    for device in devices:
+        if identifier in device.identifiers:
+            return device
+    return None
+
+
 def iter_runtime_data(hass) -> list[tuple[str, GrowattRuntimeData]]:
     """Return (entry_id, runtime data) for every loaded config entry."""
     return [
