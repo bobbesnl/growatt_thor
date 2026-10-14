@@ -24,6 +24,7 @@ from .configuration import (
     configuration_entity_state,
 )
 from .const import DOMAIN
+from .runtime import get_coordinator
 from .currency import configured_currency, electricity_price_unit
 from .ocpp_status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
 from .session_records import (
@@ -218,7 +219,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
 )
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    coordinator = get_coordinator(hass, entry.entry_id)
     configuration_sensors = [
         GrowattConfigurationSensor(coordinator, entry, description)
         for description in CONFIGURATION_SENSOR_DESCRIPTIONS

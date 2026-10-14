@@ -10,13 +10,14 @@ from homeassistant.helpers.entity import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
 from .const import DOMAIN
+from .runtime import get_coordinator
 from .currency import electricity_price_unit
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    coordinator = get_coordinator(hass, entry.entry_id)
 
     async_add_entities([
         MaxCurrentNumber(coordinator, entry),
@@ -75,7 +76,7 @@ class MaxCurrentNumber(BaseConfigNumber):
     async def async_set_native_value(self, value: float) -> None:
         value = int(round(value))
 
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.active_charge_point
         if not charge_point:
             _LOGGER.warning("Cannot change Max Current: charger not connected")
             return
@@ -158,7 +159,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
     async def async_set_native_value(self, value: float) -> None:
         value = int(round(value))
 
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.active_charge_point
         if not charge_point:
             _LOGGER.warning("Cannot change Load Balancing Limit: charger not connected")
             return
@@ -242,7 +243,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
     async def async_set_native_value(self, value: float) -> None:
         value = round(value, 2)
 
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.active_charge_point
         if not charge_point:
             _LOGGER.warning("Cannot change Elektricteitstarief: charger not connected")
             return

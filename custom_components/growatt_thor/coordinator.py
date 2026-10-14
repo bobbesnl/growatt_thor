@@ -17,24 +17,52 @@ from .const import DOMAIN
 from .external_meter import parse_external_meter_data
 from .meter_samples import parse_meter_values
 from .ocpp_diagnostics import create_ocpp_snapshot
+from .ocpp_status import normalize_ocpp_status
 from .session_records import GrowattSessionRecord
 from .session_state import LastSessionState
 from .transaction_ids import TransactionIdAllocator
 
 _LOGGER = logging.getLogger(__name__)
 
+# Shared storage file used before per-entry storage existed. It is only read
+# once, to seed a config entry that has no storage file of its own yet.
 STORAGE_KEY = "growatt_thor_statistics"
 STORAGE_VERSION = 1
+
+# OCPP statuses in which the charger delivers energy. In every other status
+# the last MeterValues sample is stale, so live power and current go to 0.
+LIVE_POWER_STATUSES = frozenset({"charging"})
+
+
+def storage_key_for_entry(source_instance_id) -> str:
+    """Return the storage key for one config entry."""
+    if not source_instance_id:
+        return STORAGE_KEY
+    return f"{STORAGE_KEY}_{source_instance_id}"
 
 
 class GrowattCoordinator(DataUpdateCoordinator):
     """Coordinator for Growatt THOR OCPP data."""
 
-    def __init__(self, hass, source_instance_id=None):
+    # The connected charge point of this config entry and the moment until
+    # which its external meter poll is paused. Kept per coordinator so that
+    # several config entries never share them.
+    active_charge_point = None
+    skip_polling_until = 0.0
+
+    def __init__(self, hass, source_instance_id=None, seed_from_legacy=True):
         super().__init__(hass, _LOGGER, name="Growatt THOR Coordinator")
 
-        self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+        storage_key = storage_key_for_entry(source_instance_id)
+        self._store = Store(hass, STORAGE_VERSION, storage_key)
+        self._legacy_store = (
+            Store(hass, STORAGE_VERSION, STORAGE_KEY)
+            if seed_from_legacy and storage_key != STORAGE_KEY
+            else None
+        )
         self.source_instance_id = source_instance_id
+        self.active_charge_point = None
+        self.skip_polling_until = 0.0
         self._transaction_id_allocator = TransactionIdAllocator()
         self._transaction_id_lock = asyncio.Lock()
 
@@ -136,6 +164,16 @@ class GrowattCoordinator(DataUpdateCoordinator):
     async def async_load_storage(self):
         """Load persistent statistics from HA storage."""
         data = await self._store.async_load()
+        seeded_from_legacy = False
+        legacy_store = getattr(self, "_legacy_store", None)
+        if not data and legacy_store is not None:
+            data = await legacy_store.async_load()
+            seeded_from_legacy = bool(data)
+            if seeded_from_legacy:
+                _LOGGER.info(
+                    "📦 No storage for this config entry yet; seeding it "
+                    "once from the shared legacy storage file"
+                )
         if data:
             self.total_energy_charged = float(data.get("total_energy_charged", 0.0))
             self._transaction_id_allocator.restore(
@@ -151,6 +189,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 self._transaction_id_allocator.next_transaction_id,
                 self.last_session_transaction_id,
             )
+            if seeded_from_legacy:
+                # Pin the seeded values to this entry's own file, so later
+                # restarts no longer depend on the shared legacy file.
+                await self.async_save_storage()
         else:
             _LOGGER.info("📦 No persistent storage found, starting fresh")
 
@@ -324,17 +366,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         )
 
                         if write_item["rate_limited"]:
-                            until = (
+                            self.pause_polling_until(
                                 self.hass.loop.time()
                                 + self._poll_pause_after_write
-                            )
-                            current = self.hass.data[DOMAIN].get(
-                                "skip_polling_until",
-                                0,
-                            )
-                            self.hass.data[DOMAIN]["skip_polling_until"] = max(
-                                current,
-                                until,
                             )
                             _LOGGER.info(
                                 "🛡️ Polling paused BEFORE write "
@@ -401,12 +435,39 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.last_heartbeat_at = timestamp
         self.async_set_updated_data(True)
 
+    def pause_polling_until(self, until):
+        """Pause this entry's external meter poll until a monotonic time."""
+        self.skip_polling_until = max(self.skip_polling_until, until)
+
+    def _reset_live_power(self):
+        """Zero live power and current values that are no longer current.
+
+        The THOR sends MeterValues only while it charges. When charging ends
+        with the cable still connected (SuspendedEV) no StopTransaction
+        follows, so without this reset the last sample stays visible.
+        Voltages are kept: the charger still sees mains voltage.
+        """
+        zero_phases = {"L1": 0, "L2": 0, "L3": 0}
+        if (
+            self.power == 0
+            and self.phase_power == zero_phases
+            and self.currents == zero_phases
+        ):
+            return False
+
+        self.power = 0
+        self.phase_power = dict(zero_phases)
+        self.currents = dict(zero_phases)
+        return True
+
     def set_disconnected(self):
         """Mark the active OCPP transport connection as disconnected."""
         was_connected = self.connected
         self.connected = False
         if was_connected:
             _LOGGER.info("Charge point disconnected: %s", self.charge_point_id)
+        if self._reset_live_power():
+            _LOGGER.debug("Live power reset after disconnect")
         self.async_set_updated_data(True)
 
     def set_status(self, status):
@@ -416,6 +477,14 @@ class GrowattCoordinator(DataUpdateCoordinator):
         if self.status != value:
             self.status = value
             _LOGGER.debug("Status changed to: %s", value)
+
+        normalized = normalize_ocpp_status(value)
+        if (
+            normalized is not None
+            and normalized not in LIVE_POWER_STATUSES
+            and self._reset_live_power()
+        ):
+            _LOGGER.info("Status %s: live power reset to 0 W", value)
 
         self.async_set_updated_data(True)
 

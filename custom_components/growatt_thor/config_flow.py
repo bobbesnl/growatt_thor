@@ -13,6 +13,7 @@ from .const import (
     DEFAULT_POLL_INTERVAL,
     MIN_POLL_INTERVAL,
 )
+from .runtime import get_coordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 return await self.async_step_confirm_ap_mode()
 
             selected_mode = user_input.get("charger_mode")
-            coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
+            coordinator = get_coordinator(self.hass, self.config_entry.entry_id)
             current_mode_value = str(coordinator.charger_mode) if coordinator and coordinator.charger_mode else None
 
             if selected_mode and selected_mode != current_mode_value:
@@ -108,7 +109,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     }
                 )
                 # Update coordinator location live
-                coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
+                coordinator = get_coordinator(self.hass, self.config_entry.entry_id)
                 if coordinator:
                     coordinator.location = new_location
                 return self.async_create_entry(title="", data={})
@@ -118,7 +119,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         )
         current_location = self.config_entry.data.get(CONF_LOCATION, "")
 
-        coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
+        coordinator = get_coordinator(self.hass, self.config_entry.entry_id)
         current_mode_value = str(coordinator.charger_mode) if coordinator and coordinator.charger_mode else None
         if current_mode_value not in CHARGER_MODE_OPTIONS:
             current_mode_value = "1"
@@ -194,8 +195,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         """Write charger mode to the THOR via OCPP."""
         from ocpp.v16.enums import ConfigurationStatus
 
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
-        coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
+        coordinator = get_coordinator(self.hass, self.config_entry.entry_id)
+        charge_point = coordinator.active_charge_point if coordinator else None
 
         if not charge_point or not coordinator:
             _LOGGER.error("Cannot change Charger Mode: not connected")
@@ -223,8 +224,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         """Activate AP Mode via OCPP DataTransfer."""
         from ocpp.v16 import call
 
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
-        coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
+        coordinator = get_coordinator(self.hass, self.config_entry.entry_id)
+        charge_point = coordinator.active_charge_point if coordinator else None
 
         if not charge_point or not coordinator:
             _LOGGER.error("Cannot enable AP Mode: not connected")

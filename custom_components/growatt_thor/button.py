@@ -9,6 +9,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import EntityCategory
 
 from .const import DOMAIN
+from .runtime import get_coordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ DEFAULT_ID_TAG = "12345678"  # Growatt handshake key
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Growatt THOR button entities."""
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    coordinator = get_coordinator(hass, entry.entry_id)
 
     async_add_entities([
         StartChargingButton(coordinator, entry),
@@ -50,7 +51,7 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Start a charging session via queue."""
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.active_charge_point
         if not charge_point:
             _LOGGER.warning("Cannot start charging: charger not connected")
             return
@@ -125,7 +126,7 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Stop a charging session via queue."""
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.active_charge_point
         if not charge_point:
             _LOGGER.warning("Cannot stop charging: charger not connected")
             return

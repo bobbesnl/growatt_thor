@@ -28,7 +28,7 @@ from .connection import (
     OcppConnectionActivity,
 )
 from .session_records import parse_growatt_session_record
-from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
+from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -75,15 +75,15 @@ class GrowattChargePoint(OcppChargePoint):
         self._activity = OcppConnectionActivity(hass.loop.time())
         self._boot_notification_requested = False
 
-        hass.data.setdefault(DOMAIN, {})
-        hass.data[DOMAIN]["charge_point"] = self
+        # The newest connection on this entry's server becomes the active one.
+        self.coordinator.active_charge_point = self
 
         self.coordinator.set_charge_point(cp_id)
         _LOGGER.info("GrowattChargePoint initialised for %s", cp_id)
 
     def _is_current_connection(self):
         """Return whether this charge point owns the active connection slot."""
-        return self.hass.data.get(DOMAIN, {}).get("charge_point") is self
+        return self.coordinator.active_charge_point is self
 
     def _mark_activity(self, action):
         """Record an inbound message for the connection watchdog."""
@@ -149,9 +149,8 @@ class GrowattChargePoint(OcppChargePoint):
                     exc,
                 )
             finally:
-                domain_data = self.hass.data.get(DOMAIN, {})
-                if domain_data.get("charge_point") is self:
-                    domain_data.pop("charge_point", None)
+                if self.coordinator.active_charge_point is self:
+                    self.coordinator.active_charge_point = None
             return
 
     # ─────────────────────────────
@@ -398,9 +397,9 @@ class GrowattChargePoint(OcppChargePoint):
 
             if count >= 2:
                 pause = min(60 * (count - 1), 300)
-                until = self.hass.loop.time() + pause
-                current = self.hass.data[DOMAIN].get("skip_polling_until", 0)
-                self.hass.data[DOMAIN]["skip_polling_until"] = max(current, until)
+                self.coordinator.pause_polling_until(
+                    self.hass.loop.time() + pause
+                )
                 _LOGGER.debug(
                     "External meterval timeout #%d - pausing poll %ds (THOR likely rebooting)",
                     count, pause
@@ -611,9 +610,8 @@ async def _on_connect(websocket, path, coordinator, hass):
                 except asyncio.CancelledError:
                     pass
 
-            domain_data = hass.data.get(DOMAIN, {})
-            if domain_data.get("charge_point") is cp:
-                domain_data.pop("charge_point", None)
+            if coordinator.active_charge_point is cp:
+                coordinator.active_charge_point = None
                 coordinator.set_disconnected()
             else:
                 _LOGGER.debug(

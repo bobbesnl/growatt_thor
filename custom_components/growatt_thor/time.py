@@ -11,13 +11,14 @@ from homeassistant.helpers.entity import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
 from .const import DOMAIN
+from .runtime import get_coordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Growatt THOR time entities."""
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    coordinator = get_coordinator(hass, entry.entry_id)
 
     async_add_entities([
         AutoChargeStartTime(coordinator, entry),
@@ -47,7 +48,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
 
     async def async_set_value(self, value: time) -> None:
         """Update time and auto-apply schedule via write queue."""
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.active_charge_point
         if not charge_point:
             _LOGGER.warning("Cannot change %s: charger not connected", self.name)
             return

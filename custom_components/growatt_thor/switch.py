@@ -10,13 +10,14 @@ from homeassistant.helpers.entity import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
 from .const import DOMAIN
+from .runtime import get_coordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Growatt THOR switches."""
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    coordinator = get_coordinator(hass, entry.entry_id)
 
     async_add_entities([
         LoadBalancingEnableSwitch(coordinator, entry),
@@ -86,7 +87,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
 
     async def _set_value(self, value: str):
         """Queue the configuration update (prevents rapid-fire FW crashes)."""
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.active_charge_point
 
         if not charge_point:
             _LOGGER.warning("Cannot change Loadbalancing: charger not connected")
@@ -177,7 +178,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
 
     async def _set_value(self, value: str):
         """Queue the configuration update (prevents rapid-fire FW crashes)."""
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.active_charge_point
 
         if not charge_point:
             _LOGGER.warning("Cannot change LCD display: charger not connected")

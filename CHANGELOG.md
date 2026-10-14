@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Multiple chargers mirrored each other**: All runtime state (coordinator, active OCPP connection, OCPP server, poll task, poll pause) was stored in one shared slot under `hass.data[DOMAIN]`, so with two config entries both entries' entities showed one charger, and Start/Stop, Max Current and other controls of both entries went to the last connected charger. State now lives per config entry, and each coordinator keeps its own active connection.
+- **OCPP port stayed occupied after reloading one entry**: Unloading an entry closed whichever server was stored last and cleared the data of every entry. Unloading now only stops the entry's own poll task and server. A port that cannot be opened raises `ConfigEntryNotReady`, so Home Assistant retries instead of failing permanently.
+- **Shared statistics storage**: Total charged energy, the transaction ID counter and the last session were written to one storage file by every entry. Each entry now has its own storage file. Entries that existed before this change are seeded once from the old shared file, so their sensors continue without a jump; a charger added later starts empty.
+- **Charging power kept its last value after charging ended**: When the car is full with the cable still connected, the THOR reports `SuspendedEV`, keeps the transaction open and stops sending MeterValues, so the last power sample (for example 547 W) stayed visible until unplugging or a restart. Power and current now reset to 0 on every status other than `Charging`, and on disconnect. Voltages are kept.
+
+### Added
+- **Optional charger target for `growatt_thor.refresh`**: The new `config_entry_id` field limits a refresh to one charger; without it every charger is refreshed. The services are registered once and stay available until the last entry is unloaded.
+
+---
+
 ## [1.6.1] - 2026-09-08
 
 ### Fixed
