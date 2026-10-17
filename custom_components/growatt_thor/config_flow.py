@@ -1,6 +1,12 @@
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.helpers.selector import TextSelector, TextSelectorConfig
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+)
 import voluptuous as vol
 import logging
 
@@ -35,22 +41,6 @@ from .write_queue import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _port_schema_value(value):
-    """Apply the protocol port range in the HA form and direct flow calls."""
-    try:
-        return validate_tcp_port(value)
-    except NumericValidationError as exc:
-        raise vol.Invalid("invalid_port") from exc
-
-
-def _poll_interval_schema_value(value):
-    """Reject fractional and non-finite intervals instead of coercing them."""
-    try:
-        return validate_poll_interval(value, minimum=MIN_POLL_INTERVAL)
-    except NumericValidationError as exc:
-        raise vol.Invalid("invalid_poll_interval") from exc
 
 
 def _poll_interval_error(exc: NumericValidationError) -> str:
@@ -108,7 +98,14 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(
                         CONF_PORT,
                         default=DEFAULT_PORT,
-                    ): _port_schema_value,
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=1,
+                            max=65535,
+                            step=1,
+                            mode=NumberSelectorMode.BOX,
+                        )
+                    ),
                     vol.Required(CONF_LOCATION, default=""): str,
                     vol.Required(
                         CONF_POLL_INTERVAL,
@@ -116,7 +113,13 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         description={
                             "suggested_value": DEFAULT_POLL_INTERVAL
                         }
-                    ): _poll_interval_schema_value,
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=MIN_POLL_INTERVAL,
+                            step=1,
+                            mode=NumberSelectorMode.BOX,
+                        )
+                    ),
                 }
             ),
             errors=errors,
@@ -190,7 +193,13 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(
                         CONF_POLL_INTERVAL,
                         default=current_poll_interval,
-                    ): _poll_interval_schema_value,
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=MIN_POLL_INTERVAL,
+                            step=1,
+                            mode=NumberSelectorMode.BOX,
+                        )
+                    ),
                     vol.Required(
                         CONF_LOCATION,
                         default=current_location,
