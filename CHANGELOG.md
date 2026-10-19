@@ -7,18 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [2.0.0] - 2026-10-19
 
-_Target version: 1.7.0_
+**Major release!! Built end-to-end by @felixhix. Huge thanks to him for driving this release from start to finish. Please keep going on!**
 
 ### Added
-- **Local RFID authorization**: Optionally restrict physical cards to an exact
-  local allowlist while keeping existing installations open by default. Starts
-  from Home Assistant use a separate permission and identifiers remain absent
-  from normal logs and downloaded diagnostics.
-- **Authorization-mode control**: Change between Home Assistant/RFID, RFID-only,
-  and Plug & Charge through a guarded device select. Changes are blocked while
-  disconnected, faulted, actively charging, or reported read-only.
+- **Local RFID authorization**: Optionally restrict physical cards to an exact local allowlist while keeping existing installations open by default. Starts from Home Assistant use a separate permission and identifiers remain absent from normal logs and downloaded diagnostics.
+- **Authorization-mode control**: Change between Home Assistant/RFID, RFID-only, and Plug & Charge through a guarded device select. Changes are blocked while disconnected, faulted, actively charging, or reported read-only.
 - **More interface languages**: Setup, entity names, states, and controls are now also available in Italian, Hungarian, Slovenian, French, and Spanish. Detailed technical help remains in English until it has been reviewed by native speakers.
 - **Last charger fault**: A new diagnostic sensor keeps the most recent real charger fault, even after the charger recovers or Home Assistant restarts. Downloaded diagnostics include the available details for troubleshooting.
 - **External meter status**: A new diagnostic sensor shows whether the external meter is working, has a Modbus fault, has stopped responding, or has not reported any data yet.
@@ -34,9 +29,7 @@ _Target version: 1.7.0_
 - **Automation resilience guide**: Repository documentation now explains the Home Assistant automation failure scenarios, queue and reconnect safeguards, observable behavior, deliberate limitations, and the implementation commit for each protection area.
 
 ### Changed
-- **Current range matches the charger**: The maximum-current control now stops
-  at 16 A for 3/11 kW, 32 A for 7/22 kW, or 63 A for 44 kW models. Unknown
-  models keep the conservative 32 A limit.
+- **Current range matches the charger**: The maximum-current control now stops at 16 A for 3/11 kW, 32 A for 7/22 kW, or 63 A for 44 kW models. Unknown models keep the conservative 32 A limit.
 - **Clearer entity roles**: Measurements remain sensors, settings that can be changed appear as controls, technical values appear under diagnostics, and Start/Stop remain buttons.
 - **Less duplicate information**: Read-only copies of writable settings are disabled by default. They can still be enabled manually when separate history or automations are needed.
 - **Shared charging periods**: The same charger time windows may be used for Off-Peak charging or PV Linkage Manual Boost, depending on the selected mode. Their name and description now reflect this.
@@ -45,30 +38,18 @@ _Target version: 1.7.0_
 - **Load-balancing guidance**: The load-balancing controls now explain that they are available only in Fast and Off-Peak modes, not in PV Linkage modes.
 
 ### Fixed
+- **Power Distribution strategy**: Treat the charger-reported `Power Distribution` working mode as Fast charging with load balancing enabled. The separate `power_distribution` strategy option is no longer shown; the raw charger value remains available for diagnostics.
+- **Options flow serialization**: Use Home Assistant number selectors for the TCP port and polling interval instead of callable schema validators, preventing an `unable to serialize schema` error when opening General settings.
 - **Action failures visible to automations**: Blocked, disconnected, rejected, expired, and uncertain actions no longer return as apparent success. Suitable Home Assistant actions wait for a bounded terminal result while idempotent requests remain successful without unnecessary charger traffic.
 - **Latest automation intent wins**: Rapid changes to the same setting retain the newest desired value even when an older OCPP response arrives later. Superseded results remain available for diagnosis and accepted older writes trigger a safe readback instead of overwriting current state.
 - **Safe delayed commands**: Every queued write now has an explicit lifetime, reconnect policy, and execution-time validation. Old Start and AP-mode requests cannot execute after a later reconnect, and Stop remains bound to the exact transaction for which it was requested.
 - **Transaction and charger ownership**: Opposing Start and Stop intents are serialized without invented transaction IDs, duplicate configuration entries are rejected, and stale or different charger connections cannot replace or update the active runtime.
 - **Predictable compound changes and service bursts**: Paired Auto Charge times settle into one combined schedule, partial PV Linkage writes remain visible and trigger readback, concurrent refreshes share one operation, and same-target CSV exports are serialized and replaced atomically.
 - **Strict automation input validation**: Non-finite, out-of-range, and off-step values are rejected instead of being rounded or truncated. TCP ports, polling intervals, and export date ranges receive equivalent validation, and polling interval changes take effect without a reload.
-- **Reliable charger writes across reconnects**: Serialize integration-initiated
-  OCPP operations, keep commands that were definitely not sent in the queue,
-  and rebind them to the current charger connection after reconnecting. A lost
-  acknowledgement is shown as uncertain and resolved through configuration
-  readback instead of being reported as a rejection or blindly retried.
-- **Write/readback request collisions**: Coalesce post-write configuration
-  refreshes and wait until the write queue is idle. Periodic external-meter
-  polling yields to pending writes so both tasks no longer wake together and
-  send a burst of requests to sensitive THOR firmware.
-- **Stable configuration controls**: Keep reported values visible while an
-  active transaction or fault temporarily blocks writes, show the LCD's pending
-  state, and restore rejected numeric changes from the last charger-reported
-  value rather than an earlier optimistic UI value.
-- **Power Distribution strategy**: Keep a charger-reported Power Distribution
-  mode visible as the current select option without exposing it as an
-  unverified writable target. Working and solar mode are now part of the first
-  operational configuration request, so a later diagnostic timeout cannot
-  leave charging strategy unknown.
+- **Reliable charger writes across reconnects**: Serialize integration-initiated OCPP operations, keep commands that were definitely not sent in the queue, and rebind them to the current charger connection after reconnecting. A lost acknowledgement is shown as uncertain and resolved through configuration readback instead of being reported as a rejection or blindly retried.
+- **Write/readback request collisions**: Coalesce post-write configuration refreshes and wait until the write queue is idle. Periodic external-meter polling yields to pending writes so both tasks no longer wake together and send a burst of requests to sensitive THOR firmware.
+- **Stable configuration controls**: Keep reported values visible while an active transaction or fault temporarily blocks writes, show the LCD's pending state, and restore rejected numeric changes from the last charger-reported value rather than an earlier optimistic UI value.
+- **Power Distribution strategy**: Keep a charger-reported Power Distribution mode visible as the current select option without exposing it as an unverified writable target. Working and solar mode are now part of the first operational configuration request, so a later diagnostic timeout cannot leave charging strategy unknown.
 - **Home Assistant 2026.8 compatibility**: Removes a warning when upgrading an existing External Meter device while keeping the existing device and entities intact.
 - **Controls while the charger has a fault**: Settings and Start Charging are unavailable while the charger reports a fault. Stop Charging remains available, and the other controls return automatically after recovery.
 - **PV Linkage with a meter fault**: PV Linkage cannot be newly selected while the external meter reports a fault or repeatedly stops responding. One or two temporary timeouts do not block the mode, and an active mode is never changed automatically.
