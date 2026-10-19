@@ -434,6 +434,7 @@ function renderWarnings({
   data,
   t,
   meterWarning,
+  batteryDrain,
   connected,
   inactive,
   idle,
@@ -451,6 +452,18 @@ function renderWarnings({
             <strong>${t('faultDetails')}</strong>${String(faultMessage).slice(0, 500)}<br />${data.error_code &&
             data.error_code !== 'NoError'
               ? data.error_code
+              : nothing}
+          </p>
+        </div>`
+      : nothing}
+    ${batteryDrain !== null
+      ? html`<div class="notice warning battery-drain-notice" role="status">
+          <ha-icon icon="mdi:alert-outline"></ha-icon>
+          <p>
+            <strong>${t('batteryDrainTitle')} · ${format(batteryDrain)} kW</strong>
+            ${t('batteryDrainSite')}
+            ${data.working_mode !== 'pv_linkage_plus'
+              ? html`<br />${t('batteryDrainModeHint')}`
               : nothing}
           </p>
         </div>`

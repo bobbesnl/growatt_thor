@@ -1,4 +1,9 @@
 export const en = {
+  batteryDrainTitle: 'Home battery is discharging',
+  batteryDrainSite: 'Battery output across the whole home while the car is charging.',
+  batteryDrainModeHint:
+    'The optional battery protection only applies in PV Linkage+. Check the charging mode.',
+
   goalLivePilot: 'Charging target',
   goalLiveWarning:
     'Energy, duration or budget is sent to the THOR as a native target. It starts by remote command, plug-in or RFID depending on authorization mode.',

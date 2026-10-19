@@ -207,3 +207,25 @@ export function powerFlowView(
     gridImportLimitKw,
   };
 }
+
+/** Warn about whole-home battery discharge, not an inferred EV-only share.
+ * This display threshold does not change the configured automatic stop policy.
+ */
+export function batteryDrainKw(data: CardData, charging: boolean, now: number): number | null {
+  const flow = data.power_flow;
+  const watts = flow?.battery_w;
+  const age = now - Date.parse(flow?.battery_received_at || '');
+  if (
+    !charging ||
+    !data.transaction_active ||
+    flow?.battery_sign !== 'positive_discharge' ||
+    typeof watts !== 'number' ||
+    !Number.isFinite(watts) ||
+    watts < 500 ||
+    !Number.isFinite(age) ||
+    age < 0 ||
+    age > 120_000
+  )
+    return null;
+  return watts / 1000;
+}

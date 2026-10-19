@@ -210,3 +210,53 @@ test('Unknown session sensors stay missing instead of becoming synthetic zero', 
   assert.equal(entityNumber(undefined), null);
   assert.equal(entityNumber(sensor('0')), 0);
 });
+
+test('Battery discharge warning requires active charging and recent signed readings', () => {
+  const data = makeData();
+  data.power_flow = {
+    ...data.power_flow!,
+    battery_w: 6550,
+    battery_sign: 'positive_discharge',
+    battery_received_at: new Date(now - 30_000).toISOString(),
+  };
+  const view = (value = data, state = 'charging', connection = true) =>
+    buildCardViewModel(
+      { ...hass, connected: connection },
+      config,
+      entity(state, value),
+      value,
+      now,
+      idleCommand,
+    );
+  const before = JSON.stringify(data);
+  for (const working_mode of ['fast', 'pv_linkage', 'pv_linkage_plus', 'off_peak', null]) {
+    assert.equal(view({ ...data, working_mode }).batteryDrain, 6.55);
+  }
+  for (const battery_w of [null, NaN, Infinity, -6550, 0, 499]) {
+    assert.equal(
+      view({ ...data, power_flow: { ...data.power_flow, battery_w } }).batteryDrain,
+      null,
+    );
+  }
+  assert.equal(
+    view({ ...data, power_flow: { ...data.power_flow, battery_w: 500 } }).batteryDrain,
+    0.5,
+  );
+  for (const age of [-1000, 120001, NaN]) {
+    const battery_received_at = Number.isFinite(age) ? new Date(now - age).toISOString() : null;
+    assert.equal(
+      view({ ...data, power_flow: { ...data.power_flow, battery_received_at } }).batteryDrain,
+      null,
+    );
+  }
+  assert.equal(
+    view({ ...data, power_flow: { ...data.power_flow, battery_sign: undefined } }).batteryDrain,
+    null,
+  );
+  assert.equal(view({ ...data, transaction_active: false }).batteryDrain, null);
+  assert.equal(view({ ...data, meter_received_at: null }).batteryDrain, null);
+  assert.equal(view({ ...data, power_w: 0 }).batteryDrain, null);
+  assert.equal(view(data, 'suspended_ev').batteryDrain, null);
+  assert.equal(view(data, 'charging', false).batteryDrain, null);
+  assert.equal(JSON.stringify(data), before);
+});

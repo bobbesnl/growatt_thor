@@ -105,6 +105,12 @@ class EnergySourcesTest(unittest.TestCase):
         self.assertEqual(
             energy_sources.battery_power_attributes(coordinator)["battery_w"], -1500
         )
+        # A repeated unchanged report is still current; a restored value is not live.
+        battery.last_reported = datetime(2026, 9, 12, 10, 5, tzinfo=timezone.utc)
+        self.assertEqual(energy_sources.battery_power_attributes(coordinator)["battery_received_at"],
+                         "2026-09-12T10:05:00Z")
+        battery.attributes["restored"] = True
+        self.assertIsNone(energy_sources.battery_power_attributes(coordinator)["battery_w"])
         coordinator.battery_power_entity = None
         self.assertEqual(energy_sources.battery_power_attributes(coordinator), {})
 

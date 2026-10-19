@@ -2,6 +2,10 @@ import type { en } from './en';
 type Key = keyof typeof en;
 
 export const de: Record<Key, string> = {
+  batteryDrainTitle: 'Heimbatterie wird entladen',
+  batteryDrainSite: 'Batterieabfluss im gesamten Haus während des Ladens.',
+  batteryDrainModeHint:
+    'Der optionale Batterieschutz greift nur in PV Linkage+. Prüfe den Lademodus.',
   goalLivePilot: 'Ladeziel',
   goalLiveWarning:
     'Energie, Dauer oder Budget werden als natives Ziel an die THOR übertragen. Je nach Freigabemodus startet sie per Fernstart, Einstecken oder RFID.',

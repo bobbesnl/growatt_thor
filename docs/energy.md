@@ -130,6 +130,17 @@ inverter and battery sensors update independently. Historical accounting still
 uses the measurement time. Energy across a long telemetry gap remains unknown
 instead of being attributed to today's power split or price.
 
+## Battery discharge warning
+
+While charging, the charging card warns when a fresh battery reading shows at
+least **500 W of discharge**. The value is the battery output for the whole home,
+not an EV-only measurement. Outside PV Linkage+, the warning also reminds you
+that the optional battery protection only applies in PV Linkage+.
+
+The warning clears when the reading drops below 500 W, becomes older than two
+minutes, or charging stops. It does not change the charging mode or stop charging;
+its display threshold is separate from the automatic-stop settings below.
+
 ## Automatic charging stop
 
 In the accounting dialog, number **2** controls the stop guard.

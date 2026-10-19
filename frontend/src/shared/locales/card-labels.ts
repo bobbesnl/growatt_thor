@@ -1,6 +1,10 @@
 import type { en } from './en';
 
 export const cardLabelKeys = [
+  'batteryDrainTitle',
+  'batteryDrainSite',
+  'batteryDrainModeHint',
+
   'goalLivePilot',
   'goalLiveWarning',
   'goalScheduleWarning',
@@ -141,6 +145,11 @@ export type CardLabelKey = (typeof cardLabelKeys)[number];
 type CardLabelDictionary = Record<CardLabelKey, string>;
 
 const nl: CardLabelDictionary = {
+  batteryDrainTitle: 'Thuisbatterij wordt ontladen',
+  batteryDrainSite: 'Batterijvermogen voor de hele woning terwijl de auto laadt.',
+  batteryDrainModeHint:
+    'De optionele batterijbeveiliging werkt alleen in PV Linkage+. Controleer de laadmodus.',
+
   goalLivePilot: 'Laaddoel',
   goalLiveWarning:
     'Energie, duur of budget wordt als intern doel naar de THOR gestuurd. Afhankelijk van de autorisatiemodus start het laden via een opdracht op afstand, aansluiten of RFID.',
@@ -293,6 +302,11 @@ const nl: CardLabelDictionary = {
 };
 
 const fr: CardLabelDictionary = {
+  batteryDrainTitle: 'La batterie domestique se décharge',
+  batteryDrainSite: 'Puissance fournie par la batterie à toute la maison pendant la recharge.',
+  batteryDrainModeHint:
+    'La protection optionnelle de la batterie fonctionne uniquement en PV Linkage+. Vérifiez le mode de recharge.',
+
   goalLivePilot: 'Objectif de charge',
   goalLiveWarning:
     "L'énergie, la durée ou le budget est envoyé à la THOR comme objectif natif. La charge démarre par commande à distance, branchement ou RFID selon le mode d'autorisation.",
@@ -446,6 +460,11 @@ const fr: CardLabelDictionary = {
 };
 
 const es: CardLabelDictionary = {
+  batteryDrainTitle: 'La batería doméstica se está descargando',
+  batteryDrainSite: 'Potencia de la batería para toda la vivienda mientras se carga el coche.',
+  batteryDrainModeHint:
+    'La protección opcional de la batería solo actúa en PV Linkage+. Revisa el modo de carga.',
+
   goalLivePilot: 'Objetivo de carga',
   goalLiveWarning:
     'La energía, la duración o el presupuesto se envían a la THOR como objetivo nativo. La carga comienza mediante una orden remota, al conectar el vehículo o con RFID, según el modo de autorización.',
@@ -599,6 +618,11 @@ const es: CardLabelDictionary = {
 };
 
 const it: CardLabelDictionary = {
+  batteryDrainTitle: 'La batteria di casa si sta scaricando',
+  batteryDrainSite: 'Potenza erogata dalla batteria a tutta la casa durante la ricarica.',
+  batteryDrainModeHint:
+    'La protezione opzionale della batteria interviene solo in PV Linkage+. Controlla la modalità di ricarica.',
+
   goalLivePilot: 'Obiettivo di ricarica',
   goalLiveWarning:
     'Energia, durata o budget vengono inviati alla THOR come obiettivo nativo. La ricarica inizia tramite comando remoto, collegamento del veicolo o RFID, in base alla modalità di autorizzazione.',
@@ -752,6 +776,11 @@ const it: CardLabelDictionary = {
 };
 
 const hu: CardLabelDictionary = {
+  batteryDrainTitle: 'Az otthoni akkumulátor merül',
+  batteryDrainSite: 'Az akkumulátor teljes háznak leadott teljesítménye az autó töltése közben.',
+  batteryDrainModeHint:
+    'Az opcionális akkumulátorvédelem csak PV Linkage+ módban működik. Ellenőrizd a töltési módot.',
+
   goalLivePilot: 'Töltési cél',
   goalLiveWarning:
     'Az energia-, időtartam- vagy költségkeretcél natív célként kerül a THOR készülékre. A töltés az engedélyezési módtól függően távoli paranccsal, csatlakoztatással vagy RFID-val indul.',
@@ -904,6 +933,11 @@ const hu: CardLabelDictionary = {
 };
 
 const sl: CardLabelDictionary = {
+  batteryDrainTitle: 'Domača baterija se prazni',
+  batteryDrainSite: 'Moč baterije za celotno hišo med polnjenjem avtomobila.',
+  batteryDrainModeHint:
+    'Izbirna zaščita baterije deluje samo v načinu PV Linkage+. Preverite način polnjenja.',
+
   goalLivePilot: 'Cilj polnjenja',
   goalLiveWarning:
     'Energija, trajanje ali proračun se pošljejo napravi THOR kot izvorni cilj. Polnjenje se glede na način avtorizacije začne z oddaljenim ukazom, priklopom ali kartico RFID.',

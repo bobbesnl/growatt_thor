@@ -144,7 +144,7 @@ def battery_power_attributes(coordinator) -> dict:
         return {}
     hass = getattr(coordinator, "hass", None)
     state = getattr(hass, "states", {}).get(entity_id) if hass else None
-    value = power_w(state)
+    value = None if _attributes(state).get("restored") else power_w(state)
     if (
         value is not None
         and getattr(coordinator, "battery_power_sign", BATTERY_POSITIVE_DISCHARGE)
@@ -153,7 +153,9 @@ def battery_power_attributes(coordinator) -> dict:
         value = -value
     return {
         "battery_w": value,
-        "battery_received_at": _timestamp(getattr(state, "last_updated", None)),
+        "battery_received_at": _timestamp(
+            getattr(state, "last_reported", None) or getattr(state, "last_updated", None)
+        ),
         "battery_sign": "positive_discharge",
     }
 

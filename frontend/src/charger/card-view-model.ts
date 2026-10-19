@@ -11,7 +11,7 @@ import {
   vehicleConnection,
 } from '../shared/model';
 import { entityNumber, sessionDisplay } from '../sessions/model';
-import { powerFlowView } from '../energy/model';
+import { batteryDrainKw, powerFlowView } from '../energy/model';
 import { translate } from '../shared/strings';
 import type { CardConfig, CardData, Entity, Hass } from '../shared/types';
 
@@ -136,6 +136,11 @@ export function buildCardViewModel(
     faultMessage,
     meterWarning,
     powerFlow,
+    batteryDrain: batteryDrainKw(
+      data,
+      connected && fresh && status.key === 'charging' && power !== null && power > 0,
+      now,
+    ),
     now,
   };
 }
