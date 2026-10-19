@@ -476,14 +476,13 @@
         "state": {
           "fast": "Hitro polnjenje",
           "pv_linkage": "PV Linkage",
-          "off_peak": "Nizka tarifa",
-          "power_distribution": "Porazdelitev moči"
+          "off_peak": "Nizka tarifa"
         },
         "state_attributes": {
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "The operating mode controls which settings apply. Load balancing is available in Fast and Off-Peak mode, but not in PV Linkage mode."
+              "details": "The operating mode controls which settings apply. Load balancing is available in Fast and Off-Peak mode, but not in PV Linkage mode. Polnilnik hitro polnjenje z vključenim uravnoteženjem obremenitve sporoča kot Power Distribution. Home Assistant prikaže Hitro polnjenje; izvirna vrednost ostane na voljo v diagnostiki."
             }
           }
         }
@@ -764,7 +763,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "PV Linkage allows the configured regular grid import; PV Linkage+ uses solar surplus only. Manual and Smart Boost may still draw grid power. Existing Boost targets and time windows are not changed."
+              "details": "PV Linkage allows the configured regular grid import; PV Linkage+ uses solar surplus only. Manual and Smart Boost may still draw grid power. Existing Boost targets and time windows are not changed. Polnilnik hitro polnjenje z vključenim uravnoteženjem obremenitve sporoča kot Power Distribution. Home Assistant prikaže Hitro polnjenje; izvirna vrednost ostane na voljo v diagnostiki."
             }
           }
         }

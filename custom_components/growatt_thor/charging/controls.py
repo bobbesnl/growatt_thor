@@ -371,13 +371,10 @@ def available_working_mode_options(
     *,
     external_meter_ready: bool,
 ) -> list[str]:
-    """Return writable modes plus a currently reported read-only mode.
+    """Return verified strategies, retaining active PV modes during meter faults.
 
-    Some THORs initially report ``Power Distribution``.  We do not know a
-    verified ChangeConfiguration payload for selecting that mode, but Home
-    Assistant requires the current select value to be present in ``options``.
-    Keeping only the currently reported value avoids displaying ``unknown``
-    without accidentally advertising an unverified write target.
+    Power Distribution is a Fast readback with load balancing enabled and is
+    normalized before reaching this selector. It is not another write target.
     """
     if external_meter_ready:
         options = list(WORKING_MODE_OPTIONS)
@@ -387,6 +384,4 @@ def available_working_mode_options(
             for option in WORKING_MODE_OPTIONS
             if option not in PV_LINKAGE_WORKING_MODES or option == current_option
         ]
-    if current_option is not None and current_option not in options:
-        options.append(current_option)
     return options

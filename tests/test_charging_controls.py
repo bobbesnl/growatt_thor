@@ -93,15 +93,71 @@ class ChargingControlDependencyTest(unittest.TestCase):
             list(controls.WORKING_MODE_OPTIONS),
         )
 
-    def test_reported_power_distribution_remains_a_visible_current_option(self):
-        """A readable but unverified mode must not render as unknown in HA."""
-        options = controls.available_working_mode_options(
-            "power_distribution",
-            external_meter_ready=True,
-        )
+    def test_load_balancing_readback_keeps_fast_controls_available(self):
+        """Enabling and disabling balancing must not hide or lock Fast controls."""
+        for raw_mode, enabled in (
+            ("Fast", "0"),
+            ("Power Distribution", "1"),
+            ("Fast", "0"),
+        ):
+            with self.subTest(raw_mode=raw_mode, enabled=enabled):
+                values = _values(
+                    G_WorkingMode=raw_mode,
+                    G_ExternalLimitPowerEnable=enabled,
+                    G_ExternalLimitPower="16000",
+                    G_AutoChargeTime="00:00-23:59",
+                )
+                self.assertEqual(controls.selected_working_mode(values), "fast")
+                self.assertEqual(values["G_WorkingMode"].raw_value, raw_mode)
+                self.assertEqual(
+                    values["G_ExternalLimitPowerEnable"].raw_value, enabled
+                )
+                for ready in (False, True):
+                    options = controls.available_working_mode_options(
+                        controls.selected_working_mode(values),
+                        external_meter_ready=ready,
+                    )
+                    self.assertIn("fast", options)
+                    self.assertNotIn("power_distribution", options)
+                for control in (
+                    controls.ChargingControl.LOAD_BALANCING,
+                    controls.ChargingControl.LOAD_BALANCING_LIMIT,
+                    controls.ChargingControl.AUTO_CHARGE_SCHEDULE,
+                ):
+                    self.assertTrue(controls.control_is_applicable(control, values))
+                    self.assertIsNone(controls.control_write_block_reason(
+                        control, values, connected=True, transaction_active=False,
+                    ))
 
-        self.assertIn("power_distribution", options)
-        self.assertNotIn("power_distribution", controls.WORKING_MODE_OPTIONS)
+    def test_power_distribution_preserves_configuration_write_guards(self):
+        values = _values(
+            G_WorkingMode="Power Distribution", G_ExternalLimitPowerEnable="1"
+        )
+        control = controls.ChargingControl.LOAD_BALANCING
+        for connected, active, faulted, expected in (
+            (False, False, False, "charger_disconnected"),
+            (True, True, False, "active_transaction"),
+            (True, False, True, "charger_faulted"),
+        ):
+            with self.subTest(expected=expected):
+                self.assertEqual(controls.control_write_block_reason(
+                    control, values, connected=connected,
+                    transaction_active=active, charger_faulted=faulted,
+                ), expected)
+        values["G_ExternalLimitPowerEnable"] = (
+            configuration.configuration_value_from_item({
+                "key": "G_ExternalLimitPowerEnable", "value": "1", "readonly": True,
+            })
+        )
+        self.assertEqual(controls.control_write_block_reason(
+            control, values, connected=True, transaction_active=False,
+        ), "configuration_read_only")
+
+    def test_power_distribution_is_not_a_separate_write_target(self):
+        self.assertNotIn("power_distribution", controls.available_working_mode_options(
+            "power_distribution", external_meter_ready=True,
+        ))
+        self.assertEqual(controls.encode_working_mode("fast"), ("G_SolarMode", "1&0"))
         with self.assertRaises(ValueError):
             controls.encode_working_mode("power_distribution")
 

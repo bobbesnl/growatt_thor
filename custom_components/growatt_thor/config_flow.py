@@ -1,6 +1,9 @@
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectSelector,
     SelectSelectorConfig,
     TextSelector,
@@ -118,7 +121,11 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(
                         CONF_PORT,
                         default=DEFAULT_PORT,
-                    ): int,
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=1, max=65535, step=1, mode=NumberSelectorMode.BOX,
+                        )
+                    ),
                     vol.Required(CONF_LOCATION, default=""): str,
                     vol.Required(
                         CONF_POLL_INTERVAL,
@@ -126,7 +133,11 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         description={
                             "suggested_value": DEFAULT_POLL_INTERVAL
                         }
-                    ): int,
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=MIN_POLL_INTERVAL, step=1, mode=NumberSelectorMode.BOX,
+                        )
+                    ),
                 }
             ),
             errors=errors,
@@ -208,7 +219,11 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(
                         CONF_POLL_INTERVAL,
                         default=current_poll_interval,
-                    ): int,
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=MIN_POLL_INTERVAL, step=1, mode=NumberSelectorMode.BOX,
+                        )
+                    ),
                     vol.Required(
                         CONF_LOCATION,
                         default=current_location,

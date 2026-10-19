@@ -120,6 +120,13 @@ executed. Stop Charging remains available so an active transaction can still be
 ended as a safety action. The controls recover automatically with the next
 non-fault status.
 
+The THOR reports Fast charging with load balancing enabled as
+`G_WorkingMode=Power Distribution`. Home Assistant normalizes both reports to
+Fast, so the charging strategy, load-balancing controls and automatic charging
+times remain consistent when load balancing is switched on or off. The original
+report remains available in diagnostics. Select Fast and use the Load balancing
+switch; Power Distribution is not a separate strategy or write target.
+
 The charging-strategy select does not write `G_WorkingMode`; that key is a
 readback of the effective mode. It uses the indirect writes captured from the
 Growatt app: `G_SolarMode` selects Fast/PV Linkage variants and

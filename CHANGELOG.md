@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## 2.0.0-dev.10 — 2026-10-19
+
+### Fixed
+
+- Treat Power Distribution as Fast with load balancing enabled, preserving the raw diagnostic value and keeping Fast controls available after readback.
+- Align working-mode translations and explanations in all eight languages.
+- Use serializable Home Assistant number selectors for setup and general settings, retaining strict validation in the flow handlers.
+- Cover selector serialization, PV Boost applicability and load-balancing mode transitions with regression tests.
+
+### Changed
+
+- Run the complete Python suite on pushes and pull requests, with an optional manual workflow run.
+- Include the pending mobile history scrolling fix and the localized home-battery discharge warning.
+
 ## 2.0.0-dev.9
 
 ### Fixed
@@ -145,11 +159,10 @@ _Target version: 1.7.0_
   active transaction or fault temporarily blocks writes, show the LCD's pending
   state, and restore rejected numeric changes from the last charger-reported
   value rather than an earlier optimistic UI value.
-- **Power Distribution strategy**: Keep a charger-reported Power Distribution
-  mode visible as the current select option without exposing it as an
-  unverified writable target. Working and solar mode are now part of the first
-  operational configuration request, so a later diagnostic timeout cannot
-  leave charging strategy unknown.
+- **Power Distribution readback**: Normalize the charger's Fast-with-load-balancing
+  report to Fast while preserving the original value in diagnostics. Working
+  and solar mode are part of the first operational configuration request, so a
+  later diagnostic timeout cannot leave charging strategy unknown.
 - **Home Assistant 2026.8 compatibility**: Removes a warning when upgrading an existing External Meter device while keeping the existing device and entities intact.
 - **Controls while the charger has a fault**: Settings and Start Charging are unavailable while the charger reports a fault. Stop Charging remains available, and the other controls return automatically after recovery.
 - **PV Linkage with a meter fault**: PV Linkage cannot be newly selected while the external meter reports a fault or repeatedly stops responding. One or two temporary timeouts do not block the mode, and an active mode is never changed automatically.

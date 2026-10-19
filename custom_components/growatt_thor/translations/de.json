@@ -478,14 +478,13 @@
         "state": {
           "fast": "Schnellladen",
           "pv_linkage": "PV-Kopplung",
-          "off_peak": "Niedertarif",
-          "power_distribution": "Leistungsverteilung"
+          "off_peak": "Niedertarif"
         },
         "state_attributes": {
           "information": {
             "name": "Über diese Einstellung",
             "state": {
-              "details": "Der Betriebsmodus bestimmt, welche Einstellungen gelten. Lastausgleich steht beim Schnellladen und im Niedertarifmodus zur Verfügung, nicht jedoch bei PV-Kopplung."
+              "details": "Der Betriebsmodus bestimmt, welche Einstellungen gelten. Lastausgleich steht beim Schnellladen und im Niedertarifmodus zur Verfügung, nicht jedoch bei PV-Kopplung. Die Wallbox meldet Schnellladen mit aktiviertem Lastausgleich als Power Distribution. Home Assistant zeigt Schnellladen an; der Originalwert bleibt in der Diagnose erhalten."
             }
           }
         }
@@ -758,7 +757,7 @@
           "information": {
             "name": "Über diese Einstellung",
             "state": {
-              "details": "PV-Kopplung erlaubt den konfigurierten regulären Netzbezug; PV-Kopplung+ verwendet ausschließlich PV-Überschuss. Manueller und Smart Boost dürfen weiterhin Netzstrom beziehen. Vorhandene Boost-Ziele und Zeitfenster bleiben unverändert."
+              "details": "PV-Kopplung erlaubt den konfigurierten regulären Netzbezug; PV-Kopplung+ verwendet ausschließlich PV-Überschuss. Manueller und Smart Boost dürfen weiterhin Netzstrom beziehen. Vorhandene Boost-Ziele und Zeitfenster bleiben unverändert. Die Wallbox meldet Schnellladen mit aktiviertem Lastausgleich als Power Distribution. Home Assistant zeigt Schnellladen an; der Originalwert bleibt in der Diagnose erhalten."
             }
           }
         }
