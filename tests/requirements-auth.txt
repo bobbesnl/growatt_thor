@@ -1,4 +1,5 @@
-# Optional dependencies for wire-level authorisation tests (no HA required).
+# Test dependencies for OCPP, validation and form serialization (no HA required).
 ocpp>=2.0.0
 websockets>=12,<14
 voluptuous>=0.13
+voluptuous-serialize>=2.6.0

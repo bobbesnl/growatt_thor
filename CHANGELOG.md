@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Major release!! Built end-to-end by @felixhix. Huge thanks to him for driving this release from start to finish. Please keep going on!**
 
 ### Added
+- **Automated Python regression checks**: Run the complete suite on pushes and pull requests, with an optional manual workflow run.
 - **Local RFID authorization**: Optionally restrict physical cards to an exact local allowlist while keeping existing installations open by default. Starts from Home Assistant use a separate permission and identifiers remain absent from normal logs and downloaded diagnostics.
 - **Authorization-mode control**: Change between Home Assistant/RFID, RFID-only, and Plug & Charge through a guarded device select. Changes are blocked while disconnected, faulted, actively charging, or reported read-only.
 - **More interface languages**: Setup, entity names, states, and controls are now also available in Italian, Hungarian, Slovenian, French, and Spanish. Detailed technical help remains in English until it has been reviewed by native speakers.
@@ -38,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Load-balancing guidance**: The load-balancing controls now explain that they are available only in Fast and Off-Peak modes, not in PV Linkage modes.
 
 ### Fixed
+- **Consistent Fast controls**: Keep load balancing, its power limit and automatic charging times available when the charger reports Power Distribution; retain all existing write guards.
+- **Working-mode translations**: Align state options and explain the Fast alias in all eight languages.
+- **Regression coverage**: Exercise setup and general-settings schema serialization, PV Boost applicability, mode transitions and preserved raw diagnostics.
 - **Power Distribution strategy**: Treat the charger-reported `Power Distribution` working mode as Fast charging with load balancing enabled. The separate `power_distribution` strategy option is no longer shown; the raw charger value remains available for diagnostics.
 - **Options flow serialization**: Use Home Assistant number selectors for the TCP port and polling interval instead of callable schema validators, preventing an `unable to serialize schema` error when opening General settings.
 - **Action failures visible to automations**: Blocked, disconnected, rejected, expired, and uncertain actions no longer return as apparent success. Suitable Home Assistant actions wait for a bounded terminal result while idempotent requests remain successful without unnecessary charger traffic.
@@ -49,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Reliable charger writes across reconnects**: Serialize integration-initiated OCPP operations, keep commands that were definitely not sent in the queue, and rebind them to the current charger connection after reconnecting. A lost acknowledgement is shown as uncertain and resolved through configuration readback instead of being reported as a rejection or blindly retried.
 - **Write/readback request collisions**: Coalesce post-write configuration refreshes and wait until the write queue is idle. Periodic external-meter polling yields to pending writes so both tasks no longer wake together and send a burst of requests to sensitive THOR firmware.
 - **Stable configuration controls**: Keep reported values visible while an active transaction or fault temporarily blocks writes, show the LCD's pending state, and restore rejected numeric changes from the last charger-reported value rather than an earlier optimistic UI value.
-- **Power Distribution strategy**: Keep a charger-reported Power Distribution mode visible as the current select option without exposing it as an unverified writable target. Working and solar mode are now part of the first operational configuration request, so a later diagnostic timeout cannot leave charging strategy unknown.
+- **Early strategy readback**: Request working and solar mode in the first operational configuration request, so a later diagnostic timeout cannot leave charging strategy unknown.
 - **Home Assistant 2026.8 compatibility**: Removes a warning when upgrading an existing External Meter device while keeping the existing device and entities intact.
 - **Controls while the charger has a fault**: Settings and Start Charging are unavailable while the charger reports a fault. Stop Charging remains available, and the other controls return automatically after recovery.
 - **PV Linkage with a meter fault**: PV Linkage cannot be newly selected while the external meter reports a fault or repeatedly stops responding. One or two temporary timeouts do not block the mode, and an active mode is never changed automatically.

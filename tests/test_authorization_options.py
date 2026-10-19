@@ -1,6 +1,7 @@
 """Exercise the real options flow with a minimal HA form/storage harness."""
 import importlib
 import importlib.util
+import json
 from pathlib import Path
 import sys
 from types import ModuleType, SimpleNamespace
@@ -8,6 +9,10 @@ import unittest
 from unittest.mock import patch
 
 HAS_VOL = importlib.util.find_spec('voluptuous') is not None
+HAS_SERIALIZER = importlib.util.find_spec('voluptuous_serialize') is not None
+if HAS_SERIALIZER:
+    # Load schema classes before load_flow temporarily patches sys.modules.
+    import voluptuous_serialize
 
 
 class FlowBase:
@@ -40,6 +45,29 @@ class TextSelector:
         return value
 
 
+class NumberSelector:
+    """Represent HA's selector serialization boundary without starting HA."""
+
+    def __init__(self, config):
+        self.config = config
+
+    def __call__(self, value):
+        return value
+
+
+def serialized_form_fields(form):
+    """Use the real schema serializer; unsupported callables must fail."""
+    def custom_serializer(value):
+        if isinstance(value, NumberSelector):
+            return {"selector": {"number": value.config}}
+        return voluptuous_serialize.UNSUPPORTED
+
+    fields = voluptuous_serialize.convert(
+        form['data_schema'], custom_serializer=custom_serializer,
+    )
+    return {field['name']: field for field in json.loads(json.dumps(fields))}
+
+
 def load_flow():
     package = ModuleType('thor_auth_flow_target')
     package.__path__ = [str(Path(__file__).parents[1] / 'custom_components/growatt_thor')]
@@ -54,6 +82,9 @@ def load_flow():
     selectors = ModuleType('homeassistant.helpers.selector')
     selectors.SelectSelector = selectors.TextSelector = TextSelector
     selectors.SelectSelectorConfig = selectors.TextSelectorConfig = dict
+    selectors.NumberSelector = NumberSelector
+    selectors.NumberSelectorConfig = dict
+    selectors.NumberSelectorMode = SimpleNamespace(BOX='box')
     with patch.dict(sys.modules, {
         'homeassistant': ha, 'homeassistant.core': core,
         'homeassistant.exceptions': exceptions,
@@ -98,6 +129,19 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
         general = await self.flow.async_step_general()
         field_names = {marker.schema for marker in general['data_schema'].schema}
         self.assertNotIn('charger_mode', field_names)
+
+    @unittest.skipUnless(HAS_SERIALIZER, 'Install tests/requirements-auth.txt')
+    async def test_general_form_uses_frontend_serializable_validators(self):
+        self.entry.data['poll_interval'] = 45
+        fields = serialized_form_fields(await self.flow.async_step_general())
+        self.assertEqual(fields['poll_interval']['selector']['number'], {
+            'min': self.module.MIN_POLL_INTERVAL, 'step': 1, 'mode': 'box',
+        })
+        self.assertEqual(fields['poll_interval']['default'], 45)
+        self.assertEqual(fields['location']['type'], 'string')
+        invalid = await self.flow.async_step_general({'poll_interval': 5.5})
+        self.assertEqual(invalid['errors'], {'poll_interval': 'invalid_poll_interval'})
+        serialized_form_fields(invalid)
 
     async def test_save_preserves_existing_data_and_applies_live(self):
         result = await self.flow.async_step_authorization({
@@ -209,6 +253,27 @@ class SingleInstanceConfigFlowTest(unittest.IsolatedAsyncioTestCase):
         result = await flow.async_step_user()
 
         self.assertEqual(result["step_id"], "user")
+
+    @unittest.skipUnless(HAS_SERIALIZER, 'Install tests/requirements-auth.txt')
+    async def test_setup_form_serializes_port_and_interval_selectors(self):
+        flow = self.module.GrowattThorConfigFlow()
+        fields = serialized_form_fields(await flow.async_step_user())
+        self.assertEqual(fields['port']['selector']['number'], {
+            'min': 1, 'max': 65535, 'step': 1, 'mode': 'box',
+        })
+        self.assertEqual(fields['port']['default'], self.module.DEFAULT_PORT)
+        self.assertEqual(fields['poll_interval']['selector']['number'], {
+            'min': self.module.MIN_POLL_INTERVAL, 'step': 1, 'mode': 'box',
+        })
+        self.assertEqual(
+            fields['poll_interval']['default'], self.module.DEFAULT_POLL_INTERVAL
+        )
+        # Number selectors may submit integral floats; retain strict normalization.
+        result = await flow.async_step_user({
+            'port': 9000.0, 'location': '', 'poll_interval': 30.0,
+        })
+        self.assertIs(type(result['data']['port']), int)
+        self.assertIs(type(result['data']['poll_interval']), int)
 
     async def test_port_must_be_an_exact_protocol_port(self):
         for invalid in (0, 65536, 9000.5, float('nan')):

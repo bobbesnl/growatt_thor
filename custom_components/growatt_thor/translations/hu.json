@@ -310,14 +310,13 @@
         "state": {
           "fast": "Gyors töltés",
           "pv_linkage": "PV Linkage",
-          "off_peak": "Csúcsidőn kívül",
-          "power_distribution": "Teljesítményelosztás"
+          "off_peak": "Csúcsidőn kívül"
         },
         "state_attributes": {
           "information": {
             "name": "A beállításról",
             "state": {
-              "details": "The operating mode controls which settings apply. Load balancing is available in Fast and Off-Peak mode, but not in PV Linkage mode."
+              "details": "The operating mode controls which settings apply. Load balancing is available in Fast and Off-Peak mode, but not in PV Linkage mode. A töltő az aktív terheléselosztással működő gyors töltést Power Distribution néven jelzi. A Home Assistant Gyors töltésként jeleníti meg; az eredeti érték elérhető marad a diagnosztikában."
             }
           }
         }
@@ -598,7 +597,7 @@
           "information": {
             "name": "A beállításról",
             "state": {
-              "details": "PV Linkage allows the configured regular grid import; PV Linkage+ uses solar surplus only. Manual and Smart Boost may still draw grid power. Existing Boost targets and time windows are not changed."
+              "details": "PV Linkage allows the configured regular grid import; PV Linkage+ uses solar surplus only. Manual and Smart Boost may still draw grid power. Existing Boost targets and time windows are not changed. A töltő az aktív terheléselosztással működő gyors töltést Power Distribution néven jelzi. A Home Assistant Gyors töltésként jeleníti meg; az eredeti érték elérhető marad a diagnosztikában."
             }
           }
         }

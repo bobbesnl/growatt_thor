@@ -238,7 +238,8 @@ class ConfigurationEntityStateTest(unittest.TestCase):
             ("PVlink ManualBoost", "pv_linkage"),
             ("PVlink SmartBoost", "pv_linkage"),
             ("Off-Peak", "off_peak"),
-            ("Power Distribution", "power_distribution"),
+            ("Power Distribution", "fast"),
+            ("power_distribution", "fast"),
         ):
             with self.subTest(raw_value=raw_value):
                 self.assertEqual(
@@ -248,6 +249,19 @@ class ConfigurationEntityStateTest(unittest.TestCase):
                     ),
                     expected,
                 )
+
+    def test_fast_alias_preserves_original_diagnostic_value(self):
+        value = self._value("G_WorkingMode", "Power Distribution")
+        self.assertEqual(
+            configuration.configuration_entity_state("G_WorkingMode", value),
+            "fast",
+        )
+        self.assertEqual(value.raw_value, "Power Distribution")
+        self.assertEqual(value.as_dict(redact=True)["raw_value"], "Power Distribution")
+        self.assertNotIn(
+            "power_distribution",
+            configuration.CONFIGURATION_ENTITY_OPTIONS["G_WorkingMode"],
+        )
 
     def test_charger_mode_values(self):
         for raw_value, expected in (
@@ -895,6 +909,18 @@ class EntityTranslationTest(unittest.TestCase):
                         hardcoded_names.append((path.name, node.lineno))
 
         self.assertEqual(hardcoded_names, [])
+
+    def test_pv_boost_select_imports_its_applicability_guard(self):
+        tree = ast.parse(SELECT_PATH.read_text(encoding="utf-8"))
+        charging_control_imports = {
+            alias.name
+            for node in tree.body
+            if isinstance(node, ast.ImportFrom)
+            and node.module == "charging_controls"
+            for alias in node.names
+        }
+
+        self.assertIn("control_is_applicable", charging_control_imports)
 
     def test_pv_mode_translations_explain_grid_import(self):
         expected = {

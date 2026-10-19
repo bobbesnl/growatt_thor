@@ -543,6 +543,7 @@ _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
                     "pvlinksmartboost": "pv_linkage",
                     "offpeak": "off_peak",
                     "offpeakmode": "off_peak",
+                    # Fast with load balancing; the raw value stays intact.
                     "powerdistribution": "fast",
                 }
             ),

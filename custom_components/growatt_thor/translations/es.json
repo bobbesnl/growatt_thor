@@ -310,14 +310,13 @@
         "state": {
           "fast": "Carga rápida",
           "pv_linkage": "PV Linkage",
-          "off_peak": "Horas valle",
-          "power_distribution": "Distribución de potencia"
+          "off_peak": "Horas valle"
         },
         "state_attributes": {
           "information": {
             "name": "Acerca de este ajuste",
             "state": {
-              "details": "The operating mode controls which settings apply. Load balancing is available in Fast and Off-Peak mode, but not in PV Linkage mode."
+              "details": "The operating mode controls which settings apply. Load balancing is available in Fast and Off-Peak mode, but not in PV Linkage mode. El cargador indica la carga rápida con balanceo de carga activado como Power Distribution. Home Assistant muestra Carga rápida; el valor original sigue disponible en el diagnóstico."
             }
           }
         }
@@ -598,7 +597,7 @@
           "information": {
             "name": "Acerca de este ajuste",
             "state": {
-              "details": "PV Linkage allows the configured regular grid import; PV Linkage+ uses solar surplus only. Manual and Smart Boost may still draw grid power. Existing Boost targets and time windows are not changed."
+              "details": "PV Linkage allows the configured regular grid import; PV Linkage+ uses solar surplus only. Manual and Smart Boost may still draw grid power. Existing Boost targets and time windows are not changed. El cargador indica la carga rápida con balanceo de carga activado como Power Distribution. Home Assistant muestra Carga rápida; el valor original sigue disponible en el diagnóstico."
             }
           }
         }

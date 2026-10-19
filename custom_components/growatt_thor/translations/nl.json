@@ -300,14 +300,13 @@
         "state": {
           "fast": "Snel laden",
           "pv_linkage": "PV-koppeling",
-          "off_peak": "Daltarief",
-          "power_distribution": "Vermogensverdeling"
+          "off_peak": "Daltarief"
         },
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
             "state": {
-              "details": "De bedrijfsmodus bepaalt welke instellingen gelden. Load balancing is beschikbaar in de modi Snel laden en Daltarief, maar niet in de modus PV-koppeling."
+              "details": "De bedrijfsmodus bepaalt welke instellingen gelden. Load balancing is beschikbaar in de modi Snel laden en Daltarief, maar niet in de modus PV-koppeling. De lader meldt Snel laden met ingeschakelde load balancing als Power Distribution. Home Assistant toont Snel laden; de oorspronkelijke waarde blijft beschikbaar in de diagnose."
             }
           }
         }
@@ -580,7 +579,7 @@
           "information": {
             "name": "Over deze instelling",
             "state": {
-              "details": "PV-koppeling staat de ingestelde reguliere netafname toe; PV-koppeling+ gebruikt alleen PV-overschot. Handmatige en Slimme Boost mogen nog steeds netstroom gebruiken. Bestaande boostdoelen en tijdvensters blijven ongewijzigd."
+              "details": "PV-koppeling staat de ingestelde reguliere netafname toe; PV-koppeling+ gebruikt alleen PV-overschot. Handmatige en Slimme Boost mogen nog steeds netstroom gebruiken. Bestaande boostdoelen en tijdvensters blijven ongewijzigd. De lader meldt Snel laden met ingeschakelde load balancing als Power Distribution. Home Assistant toont Snel laden; de oorspronkelijke waarde blijft beschikbaar in de diagnose."
             }
           }
         }
