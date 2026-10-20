@@ -103,6 +103,11 @@ def _build_coordinator(store=None, legacy_store=None, entry_id="entry_test"):
     coordinator.phase_power = {}
     coordinator.currents = {}
     coordinator.voltages = {}
+    coordinator.energy = None
+    coordinator.temperature = None
+    coordinator.transaction_id = None
+    coordinator.last_meter_values = None
+    coordinator.configuration_values = {}
     coordinator._store = store or _MemoryStore()
     coordinator._legacy_store = legacy_store
     coordinator._transaction_id_allocator = (
@@ -257,6 +262,76 @@ class LivePowerResetTest(unittest.TestCase):
         coordinator.set_disconnected()
 
         self.assertFalse(coordinator.connected)
+        self.assertEqual(coordinator.power, 0)
+
+
+def _meter_values(power_w, current_a, timestamp="2026-10-14T01:25:50Z"):
+    return [{
+        "timestamp": timestamp,
+        "sampled_value": [
+            {"value": str(power_w), "measurand": "Power.Active.Import", "unit": "W", "phase": "L1"},
+            {"value": str(current_a), "measurand": "Current.Import", "unit": "A", "phase": "L1"},
+            {"value": "228", "measurand": "Voltage", "unit": "V", "phase": "L1"},
+        ],
+    }]
+
+
+class DelayedMeterValuesTest(unittest.TestCase):
+    """A late sample must not bring charging power back (review on #58)."""
+
+    def test_late_sample_after_suspended_ev_keeps_power_at_zero(self):
+        coordinator = _build_coordinator()
+        coordinator.set_status("Charging")
+        coordinator.process_meter_values(_meter_values(971, 4.2))
+        self.assertEqual(coordinator.power, 971)
+
+        coordinator.set_status("SuspendedEV")
+        self.assertEqual(coordinator.power, 0)
+
+        # The THOR delivers a sample from the charging phase after the status.
+        coordinator.process_meter_values(_meter_values(971, 4.2))
+
+        self.assertEqual(coordinator.status, "SuspendedEV")
+        self.assertEqual(coordinator.power, 0)
+        self.assertEqual(coordinator.currents["L1"], 0)
+        # The raw sample stays available for diagnostics.
+        raw = coordinator.last_meter_values["meter_values"][0]
+        self.assertIn("971", str(raw))
+        # Non-live measurands still update.
+        self.assertEqual(coordinator.voltages["L1"], 228)
+
+    def test_valid_samples_apply_again_when_charging_resumes(self):
+        coordinator = _build_coordinator()
+        coordinator.set_status("Charging")
+        coordinator.process_meter_values(_meter_values(971, 4.2))
+        coordinator.set_status("SuspendedEV")
+        coordinator.process_meter_values(_meter_values(971, 4.2))
+
+        # Warm-up: the vehicle draws again and the charger reports Charging.
+        coordinator.set_status("Charging")
+        coordinator.process_meter_values(
+            _meter_values(106, 0.5, timestamp="2026-10-14T06:15:37Z")
+        )
+
+        self.assertEqual(coordinator.power, 106)
+        self.assertEqual(coordinator.currents["L1"], 0.5)
+
+    def test_samples_before_any_status_are_applied(self):
+        coordinator = _build_coordinator()
+        coordinator.status = None
+
+        coordinator.process_meter_values(_meter_values(547, 2.4))
+
+        self.assertEqual(coordinator.power, 547)
+
+    def test_late_sample_after_finishing_is_ignored(self):
+        coordinator = _build_coordinator()
+        coordinator.set_status("Charging")
+        coordinator.process_meter_values(_meter_values(971, 4.2))
+        coordinator.set_status("Finishing")
+
+        coordinator.process_meter_values(_meter_values(971, 4.2))
+
         self.assertEqual(coordinator.power, 0)
 
 

@@ -1602,6 +1602,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
             if effective_updated:
                 self._schedule_storage_save()
 
+        live_power = self._live_power_follows_samples()
+        ignored_live_samples = False
+
         for entry in parsed_values:
             for sample in entry.samples:
                 value = sample.numeric_value
@@ -1611,6 +1614,16 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         sample.raw_value,
                         sample.measurand,
                     )
+                    continue
+
+                if (
+                    sample.measurand in ("Power.Active.Import", "Current.Import")
+                    and not live_power
+                ):
+                    # Retained above in last_meter_values for diagnostics,
+                    # but not shown as live: the charger reports that it is
+                    # not delivering energy.
+                    ignored_live_samples = True
                     continue
 
                 if sample.measurand == "Energy.Active.Import.Register":
@@ -1652,12 +1665,31 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 self.power = total
                 updated = True
 
+        if ignored_live_samples:
+            _LOGGER.debug(
+                "Ignoring live power and current from MeterValues while "
+                "status is %s",
+                self.status,
+            )
         _LOGGER.debug(
             "Retained %d MeterValues entries%s",
             len(parsed_values),
             " and updated live sensors" if updated else "",
         )
         self.async_set_updated_data(True)
+
+    def _live_power_follows_samples(self) -> bool:
+        """Return whether MeterValues may update live power and current.
+
+        Live power and current follow samples only while the charger reports
+        Charging, or while no status is known yet.  In every other status the
+        charger is not delivering energy, so a sample that arrives late (for
+        example a MeterValues report after SuspendedEV) must not bring the
+        last charging power back.  When the vehicle draws again the THOR
+        reports Charging first, so valid measurements apply again at once.
+        """
+        normalized = normalize_ocpp_status(self.status)
+        return normalized is None or normalized in LIVE_POWER_STATUSES
 
     def _effective_meter_gap_seconds(self) -> float:
         """Bound counted intervals using the charger-reported sample period."""

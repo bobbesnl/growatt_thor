@@ -547,6 +547,18 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         return True
 
+    # Unload the entities first.  When that does not succeed Home Assistant
+    # keeps the entry loaded, so its poll loop, write queue and OCPP server
+    # must keep running instead of leaving entities without a charger.
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if not unload_ok:
+        _LOGGER.warning(
+            "Unloading the platforms of config entry %s failed; keeping its "
+            "charger connection running",
+            entry.entry_id,
+        )
+        return False
+
     polling_task = runtime_data.get("polling_task")
     if polling_task:
         polling_task.cancel()
@@ -558,18 +570,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = runtime_data.get("coordinator")
     if coordinator is not None:
         # The write queue may intentionally be waiting for a reconnect.  Stop
-        # that wait before clearing hass.data so no background task survives a
-        # reload of the integration.
+        # that wait before releasing the runtime so no background task
+        # survives a reload of the integration.
         await coordinator.async_shutdown()
-
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     server = runtime_data.get("server")
     if server:
         server.close()
         await server.wait_closed()
 
-    if unload_ok:
-        release_entry_runtime(domain_data, entry.entry_id, runtime_data)
-
-    return unload_ok
+    release_entry_runtime(domain_data, entry.entry_id, runtime_data)
+    return True
