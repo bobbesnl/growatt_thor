@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.0.0] - 2026-10-19
+## [1.7.0] - 2026-10-20
 
-**Major release!! Built end-to-end by @felixhix. Huge thanks to him for driving this release from start to finish. Please keep going on!**
+** 🎉 Another major release!! Built end-to-end by @felixhix. Huge thanks to him for driving this release from start to finish. Please keep going on!**
 
 ### Added
 - **Automated Python regression checks**: Run the complete suite on pushes and pull requests, with an optional manual workflow run.
