@@ -42,6 +42,7 @@ charging_sessions = _load_module(
 
 def _transaction(transaction_id: int = 7):
     return {
+        "effective_charging_duration_minutes": 24.5,
         "start": {
             "received_at": "2026-08-24T10:00:01Z",
             "request": {
@@ -122,6 +123,10 @@ class UnifiedChargingSessionTest(unittest.TestCase):
         self.assertEqual(session["metering"]["growatt_energy_wh"], 412.0)
         self.assertEqual(session["metering"]["energy_delta_wh"], 0.0)
         self.assertEqual(session["billing"]["growatt_cost"], 0.09)
+        self.assertEqual(
+            session["timing"]["effective_charging_duration_minutes"],
+            24.5,
+        )
         self.assertEqual(session["modes"]["growatt_charge_mode"], "3")
         self.assertEqual(session["stop_reason"], "EVDisconnected")
 

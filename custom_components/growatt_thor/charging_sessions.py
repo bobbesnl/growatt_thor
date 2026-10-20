@@ -331,6 +331,9 @@ def build_unified_session(
             ),
         },
         "timing": {
+            "effective_charging_duration_minutes": _optional_float(
+                transaction.get("effective_charging_duration_minutes")
+            ),
             "ocpp": {
                 "start_timestamp": _optional_text(start_request.get("timestamp")),
                 "start_received_at": _optional_text(

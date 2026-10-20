@@ -1,25 +1,71 @@
 import logging
-import re
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 from collections import deque
+from collections.abc import Awaitable, Callable
 import asyncio
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.storage import Store
 
+from .authorization import LocalAuthorization
+from .charging_duration import EffectiveChargingTracker
 from .charging_sessions import CORRELATION_MATCHED, build_unified_session
+from .charging_controls import transaction_state_is_active
+from .charger_faults import (
+    ChargerFault,
+    fault_from_data_transfer,
+    fault_from_status_notification,
+)
 from .configuration import (
     ConfigurationValue,
+    configuration_entity_state,
+    configuration_numeric_value,
+    configuration_value_from_item,
     merge_configuration_values,
     normalize_unknown_configuration_keys,
+    parse_time_sharing_price,
+)
+from .configuration_writes import (
+    ConfigurationWriteStatus,
+    ConfigurationWriteState,
+    acknowledge_configuration_write,
+    begin_configuration_write,
+    configuration_write_is_current,
+    confirm_configuration_writes,
+    mark_configuration_write,
 )
 from .const import DOMAIN
-from .external_meter import parse_external_meter_data
+from .external_meter import (
+    external_meter_health,
+    parse_external_meter_data,
+    status_clears_external_meter_fault,
+    status_reports_external_meter_fault,
+)
 from .meter_samples import parse_meter_values
 from .ocpp_diagnostics import create_ocpp_snapshot
+from .ocpp_status import normalize_ocpp_status
+from .pv_linkage import (
+    PvBoostMode,
+    PvLinkageApplyResult,
+    PvLinkageDraft,
+    draft_matches_reported,
+    parse_manual_period,
+)
 from .session_records import GrowattSessionRecord
 from .session_state import LastSessionState
 from .transaction_ids import TransactionIdAllocator
+from .write_queue import (
+    ChargerCommandHandle,
+    ChargerCommandResult,
+    ChargerConnectionUnavailable,
+    ChargerRequestOutcomeUncertain,
+    ChargerWriteQueuePolicy,
+    ChargerWriteReconnectPolicy,
+    ChargerWriteResult,
+    ChargerWriteStatus,
+    DEFAULT_WRITE_POLICY,
+    create_command_handle,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,15 +93,19 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_heartbeat_at = None
         self.transaction_id = None
         self.id_tag = None
+        self.authorization = LocalAuthorization()
 
         # Latest normalized OCPP requests retained for HA diagnostics.
         self.boot_notification = None
         self.last_status_notification = None
+        self.last_charger_fault: ChargerFault | None = None
         self.last_meter_values = None
         self.active_transaction = None
         self.last_completed_transaction = None
         self.last_current_record = None
         self.last_frozen_record = None
+        self.effective_charging = EffectiveChargingTracker()
+        self._pending_effective_charging_minutes: dict[str, float] = {}
 
         # ── Totaal ─────────────────────────
         self.power = None        # W
@@ -91,6 +141,17 @@ class GrowattCoordinator(DataUpdateCoordinator):
         # Last-known raw and normalized GetConfiguration values.
         self.configuration_values: dict[str, ConfigurationValue] = {}
         self.unknown_configuration_keys: tuple[str, ...] = ()
+        self.configuration_writes: dict[str, ConfigurationWriteState] = {}
+        self.last_command_result: ChargerCommandResult | None = None
+
+        # Local compound PV Linkage draft. It is sent only by the Apply button.
+        self.pv_boost_mode_draft: PvBoostMode | None = None
+        self.pv_manual_start_draft: time | None = None
+        self.pv_manual_end_draft: time | None = None
+        self.pv_smart_finish_draft: time | None = None
+        self.pv_smart_target_energy_draft: float | None = None
+        self.pv_linkage_draft_dirty = False
+        self.pv_linkage_apply_result: PvLinkageApplyResult | None = None
 
         # ── Last session ─────────────────
         self.last_session_energy = None           # kWh
@@ -99,7 +160,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_session_end = None              # str
         self.last_session_plug_time = None        # str
         self.last_session_unplug_time = None      # str
-        self.last_session_duration_minutes = None # float
+        self.last_session_duration_minutes = None  # float
+        self.last_session_effective_charging_minutes = None  # float
         self.last_session_id = None               # str
         self.last_session_source = None           # str
         self.last_session_transaction_id = None   # str
@@ -117,12 +179,24 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.external_meter_used = None
         self.external_meter_wring = None
         self.external_meter_last_updated_at = None
+        self.external_meter_faulted = False
+        self.external_meter_fault_connector_id = None
+        self.external_meter_fault_error_code = None
+        self.external_meter_fault_info = None
+        self.meterval_consecutive_timeouts = 0
 
         # WRITE QUEUE SYSTEEM
         self._write_queue = deque()
         self._write_lock = asyncio.Lock()
         self._write_task = None
         self._write_queue_changed = asyncio.Event()
+        self._write_queue_idle = asyncio.Event()
+        self._write_queue_idle.set()
+        self._connection_changed = asyncio.Event()
+        self._active_write_item = None
+        self._shutting_down = False
+        self._configuration_refresh_task = None
+        self._auto_charge_schedule_task = None
 
         # Rate limiting / polling pause (monotonic time)
         self._last_write_monotonic = None
@@ -144,6 +218,21 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self._restore_last_session_state(
                 LastSessionState.from_dict(data.get("last_session"))
             )
+            self.last_charger_fault = ChargerFault.from_dict(
+                data.get("last_charger_fault")
+            )
+            self.effective_charging = EffectiveChargingTracker.from_dict(
+                data.get("active_effective_charging")
+            )
+            pending_effective = data.get("pending_effective_charging_minutes")
+            if isinstance(pending_effective, dict):
+                for key, value in pending_effective.items():
+                    try:
+                        self._pending_effective_charging_minutes[str(key)] = float(
+                            value
+                        )
+                    except (TypeError, ValueError):
+                        continue
             _LOGGER.info(
                 "📦 Loaded from storage: total_energy_charged=%.3f kWh, "
                 "next_transaction_id=%d, last_session_transaction_id=%s",
@@ -156,21 +245,34 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     async def async_save_storage(self):
         """Save persistent statistics to HA storage."""
-        await self._store.async_save(
-            {
-                "total_energy_charged": self.total_energy_charged,
-                "next_transaction_id": (
-                    self._transaction_id_allocator.next_transaction_id
-                ),
-                "last_session": self._last_session_state().as_dict(),
-            }
-        )
+        await self._store.async_save(self._storage_data())
         _LOGGER.debug(
             "💾 Saved to storage: total_energy_charged=%.3f kWh, "
             "next_transaction_id=%d",
             self.total_energy_charged,
             self._transaction_id_allocator.next_transaction_id,
         )
+
+    def _storage_data(self) -> dict[str, object]:
+        """Build the current JSON-safe persistent payload."""
+        return {
+            "total_energy_charged": self.total_energy_charged,
+            "next_transaction_id": self._transaction_id_allocator.next_transaction_id,
+            "last_session": self._last_session_state().as_dict(),
+            "last_charger_fault": (
+                self.last_charger_fault.as_dict()
+                if self.last_charger_fault is not None
+                else None
+            ),
+            "active_effective_charging": self.effective_charging.as_dict(),
+            "pending_effective_charging_minutes": dict(
+                self._pending_effective_charging_minutes
+            ),
+        }
+
+    def _schedule_storage_save(self) -> None:
+        """Coalesce frequent MeterValues persistence into one delayed write."""
+        self._store.async_delay_save(self._storage_data, 60)
 
     async def async_allocate_transaction_id(self) -> int:
         """Allocate and persist the next local OCPP transaction ID."""
@@ -193,6 +295,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
             plug_time=self.last_session_plug_time,
             unplug_time=self.last_session_unplug_time,
             duration_minutes=self.last_session_duration_minutes,
+            effective_charging_minutes=(
+                self.last_session_effective_charging_minutes
+            ),
             session_id=self.last_session_id,
             session_source=self.last_session_source,
             transaction_id=self.last_session_transaction_id,
@@ -210,6 +315,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_session_plug_time = state.plug_time
         self.last_session_unplug_time = state.unplug_time
         self.last_session_duration_minutes = state.duration_minutes
+        self.last_session_effective_charging_minutes = (
+            state.effective_charging_minutes
+        )
         self.last_session_id = state.session_id
         self.last_session_source = state.session_source
         self.last_session_transaction_id = state.transaction_id
@@ -229,24 +337,85 @@ class GrowattCoordinator(DataUpdateCoordinator):
         priority=False,
         rate_limited=True,
         command_name=None,
+        requires_connection=False,
+        configuration_key=None,
+        configuration_generation=None,
+        policy: ChargerWriteQueuePolicy = DEFAULT_WRITE_POLICY,
+        revalidate=None,
+        on_unsent=None,
         **kwargs,
-    ):
-        """Queue a charger command with optional deduplication and priority."""
+    ) -> ChargerCommandHandle:
+        """Queue a charger command with optional deduplication and priority.
+
+        ``requires_connection`` means that the first positional argument is a
+        charge-point object.  We replace that object with the current
+        connection immediately before execution.  This is intentionally
+        explicit: queued work may wait for tens of seconds, during which the
+        THOR can reconnect and make the originally captured object stale.
+
+        ``policy`` bounds how long an unsent intent remains valid and whether
+        it may cross a disconnect. ``revalidate`` returns a skip reason when
+        runtime state has changed. ``on_unsent`` restores entity-local
+        optimistic state for replaced, skipped, or expired queue entries. The
+        returned handle identifies this exact intent and resolves once with
+        its terminal physical or local outcome.
+        """
+        if requires_connection and not args:
+            raise ValueError("A connection-bound write requires a charge point argument")
+        if (configuration_key is None) != (configuration_generation is None):
+            raise ValueError(
+                "Configuration key and generation must be queued together"
+            )
+
+        enqueued_at = self.hass.loop.time()
+        handle = create_command_handle()
         write_item = {
             "func": write_func,
             "args": args,
             "kwargs": kwargs,
-            "enqueued_at": self.hass.loop.time(),
+            "enqueued_at": enqueued_at,
+            "queued_at": self.now(),
+            "expires_at": enqueued_at + policy.expires_after,
             "dedupe_key": dedupe_key,
             "priority": priority,
             "rate_limited": rate_limited,
             "command_name": command_name or write_func.__name__,
+            "requires_connection": requires_connection,
+            "configuration_key": configuration_key,
+            "configuration_generation": configuration_generation,
+            "policy": policy,
+            "revalidate": revalidate,
+            "on_unsent": on_unsent,
+            "command_id": handle.command_id,
+            "completion": handle._completion,
         }
 
-        if dedupe_key is not None:
-            self._write_queue = deque(
-                item for item in self._write_queue if item.get("dedupe_key") != dedupe_key
+        if self._shutting_down:
+            # A late background callback can race integration unload.  Return
+            # a normal, already resolved handle instead of creating an orphan
+            # Future or silently accepting work that can never execute.
+            self._finish_unsent_write(
+                write_item,
+                ChargerWriteResult.skipped("integration_unloaded"),
             )
+            return handle
+
+        if dedupe_key is not None:
+            retained_items = deque()
+            for item in self._write_queue:
+                if item.get("dedupe_key") == dedupe_key:
+                    # The replacement's generation is already current. Marking
+                    # the old item now records a superseded diagnostic without
+                    # allowing its cleanup callback to touch the newer intent.
+                    self._finish_unsent_write(
+                        item,
+                        ChargerWriteResult.skipped(
+                            "replaced_by_newer_intent"
+                        ),
+                    )
+                else:
+                    retained_items.append(item)
+            self._write_queue = retained_items
 
         if priority:
             insert_at = next(
@@ -262,21 +431,83 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self._write_queue.append(write_item)
 
         _LOGGER.debug(
-            "📥 Queued %s. Queue size: %d",
+            "📥 Queued %s [%s]. Queue size: %d",
             write_item["command_name"],
+            write_item["command_id"],
             len(self._write_queue),
         )
+        self._write_queue_idle.clear()
         self._write_queue_changed.set()
 
         if self._write_task is None or self._write_task.done():
             self._write_task = self.hass.async_create_task(self._process_write_queue())
+        return handle
 
     async def _process_write_queue(self):
-        """Verwerk de write queue met rate limiting."""
+        """Process writes without losing them across a charger reconnect."""
         async with self._write_lock:
             try:
                 while self._write_queue:
                     write_item = self._write_queue[0]
+
+                    if self._write_item_is_expired(write_item):
+                        self._write_queue.popleft()
+                        self._finish_unsent_write(
+                            write_item,
+                            ChargerWriteResult.expired(),
+                        )
+                        continue
+
+                    invalid_reason = self._write_revalidation_failure(write_item)
+                    if invalid_reason is not None:
+                        self._write_queue.popleft()
+                        self._finish_unsent_write(
+                            write_item,
+                            ChargerWriteResult.skipped(invalid_reason),
+                        )
+                        continue
+
+                    if write_item["requires_connection"]:
+                        charge_point = self.hass.data.get(DOMAIN, {}).get(
+                            "charge_point"
+                        )
+                        if charge_point is None or not self.connected:
+                            if (
+                                write_item["policy"].reconnect
+                                == ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED
+                            ):
+                                self._write_queue.popleft()
+                                self._finish_unsent_write(
+                                    write_item,
+                                    ChargerWriteResult.expired(
+                                        "discarded_on_disconnect"
+                                    ),
+                                )
+                                continue
+                            # Do not pop an unsent command while disconnected.
+                            # A later write with the same dedupe key can still
+                            # replace it, preserving last-value-wins semantics.
+                            _LOGGER.info(
+                                "⏸️ Waiting for reconnect before %s",
+                                write_item["command_name"],
+                            )
+                            self._connection_changed.clear()
+                            charge_point = self.hass.data.get(DOMAIN, {}).get(
+                                "charge_point"
+                            )
+                            if charge_point is None or not self.connected:
+                                try:
+                                    await asyncio.wait_for(
+                                        self._connection_changed.wait(),
+                                        timeout=self._write_expiry_remaining(
+                                            write_item
+                                        ),
+                                    )
+                                except asyncio.TimeoutError:
+                                    # The next loop iteration records the
+                                    # terminal expired result without sending.
+                                    pass
+                            continue
 
                     if (
                         write_item["rate_limited"]
@@ -301,24 +532,41 @@ class GrowattCoordinator(DataUpdateCoordinator):
                             try:
                                 await asyncio.wait_for(
                                     self._write_queue_changed.wait(),
-                                    timeout=wait_time,
+                                    timeout=min(
+                                        wait_time,
+                                        self._write_expiry_remaining(write_item),
+                                    ),
                                 )
                             except asyncio.TimeoutError:
-                                pass
+                                # Re-run the connection and queue checks before
+                                # removing the item.  The THOR may have
+                                # disconnected during this long rate-limit wait.
+                                continue
                             else:
                                 # Re-evaluate the head of the queue so a newly
                                 # queued control command can run immediately.
                                 continue
 
+                    # Keep the item in the queue while rate limiting so a newer
+                    # write with the same dedupe key can still replace it.
                     write_item = self._write_queue.popleft()
+                    call_args = list(write_item["args"])
+                    if write_item["requires_connection"]:
+                        # The current connection can differ from the one that
+                        # existed when the UI action was queued.  Rebinding here
+                        # prevents commands from being sent to a closed socket.
+                        call_args[0] = self.hass.data[DOMAIN]["charge_point"]
+                    self._active_write_item = write_item
 
                     try:
                         queue_age = (
                             self.hass.loop.time() - write_item["enqueued_at"]
                         )
                         _LOGGER.info(
-                            "✍️ Executing %s after %.1fs. Remaining in queue: %d",
+                            "✍️ Executing %s [%s] after %.1fs. "
+                            "Remaining in queue: %d",
                             write_item["command_name"],
+                            write_item["command_id"],
                             queue_age,
                             len(self._write_queue),
                         )
@@ -342,20 +590,345 @@ class GrowattCoordinator(DataUpdateCoordinator):
                             )
 
                         result = await write_item["func"](
-                            *write_item["args"],
+                            *call_args,
                             **write_item["kwargs"],
                         )
 
-                        if write_item["rate_limited"]:
+                        if (
+                            isinstance(result, ChargerWriteResult)
+                            and result.status
+                            in {
+                                ChargerWriteStatus.SKIPPED,
+                                ChargerWriteStatus.EXPIRED,
+                            }
+                        ):
+                            self._run_unsent_cleanup(write_item, result)
+
+                        if (
+                            write_item["rate_limited"]
+                            and not (
+                                isinstance(result, ChargerWriteResult)
+                                and result.status
+                                in {
+                                    ChargerWriteStatus.SKIPPED,
+                                    ChargerWriteStatus.EXPIRED,
+                                }
+                            )
+                        ):
                             self._last_write_monotonic = self.hass.loop.time()
 
-                        _LOGGER.info("✅ Write completed successfully. Result: %s", result)
+                        self._log_write_result(write_item, result)
+                        completion_result = (
+                            result
+                            if isinstance(result, ChargerWriteResult)
+                            else ChargerWriteResult.uncertain(
+                                "missing_structured_outcome"
+                            )
+                        )
+                        self._resolve_write_result(
+                            write_item,
+                            completion_result,
+                        )
+
+                    except ChargerConnectionUnavailable as err:
+                        # The request was definitely not sent.  Put it back at
+                        # the front; on the next pass its connection argument is
+                        # rebound again.  This differs from an uncertain write,
+                        # which must be read back before any retry.
+                        if (
+                            write_item["policy"].reconnect
+                            == ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED
+                        ):
+                            self._finish_unsent_write(
+                                write_item,
+                                ChargerWriteResult.expired(
+                                    "discarded_on_disconnect"
+                                ),
+                            )
+                        elif self._write_item_is_expired(write_item):
+                            self._finish_unsent_write(
+                                write_item,
+                                ChargerWriteResult.expired(),
+                            )
+                        else:
+                            self._write_queue.appendleft(write_item)
+                            _LOGGER.info(
+                                "↻ Deferring %s until the current connection "
+                                "is ready: %s",
+                                write_item["command_name"],
+                                err,
+                            )
+                        await asyncio.sleep(0)
+
+                    except ChargerRequestOutcomeUncertain as err:
+                        if write_item["rate_limited"]:
+                            self._last_write_monotonic = self.hass.loop.time()
+                        configuration_key = write_item.get("configuration_key")
+                        configuration_generation = write_item.get(
+                            "configuration_generation"
+                        )
+                        if (
+                            configuration_key
+                            and configuration_generation is not None
+                        ):
+                            self.mark_configuration_write(
+                                configuration_key,
+                                ConfigurationWriteStatus.UNCERTAIN,
+                                generation=configuration_generation,
+                                result=str(err),
+                            )
+                            self.schedule_configuration_refresh(delay=0)
+                        result = ChargerWriteResult.uncertain(str(err))
+                        self._log_write_result(write_item, result)
+                        self._resolve_write_result(write_item, result)
+
+                    except asyncio.CancelledError:
+                        # The callback may already have handed its request to
+                        # OCPP.  Unload therefore resolves the active command
+                        # as uncertain, never as safely cancelled or skipped.
+                        result = ChargerWriteResult.uncertain(
+                            "integration_unloaded_during_execution"
+                        )
+                        self._log_write_result(write_item, result)
+                        self._resolve_write_result(write_item, result)
+                        raise
 
                     except Exception as err:
                         _LOGGER.error("❌ Write command failed: %s", err, exc_info=True)
+                        self._resolve_write_result(
+                            write_item,
+                            ChargerWriteResult.failed("unexpected_error"),
+                        )
 
+                    finally:
+                        self._active_write_item = None
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # Queue infrastructure must fail closed.  Entries still in
+                # the deque are definitely unsent and every waiter receives a
+                # terminal result instead of hanging forever.
+                _LOGGER.exception("Charger write queue processor failed")
+                while self._write_queue:
+                    self._finish_unsent_write(
+                        self._write_queue.popleft(),
+                        ChargerWriteResult.skipped(
+                            "queue_processor_failed"
+                        ),
+                    )
             finally:
                 self._write_task = None
+                if not self._write_queue:
+                    self._write_queue_idle.set()
+
+    def cancel_queued_writes(
+        self,
+        *,
+        dedupe_key: str,
+        command_name: str | None = None,
+        reason: str,
+    ) -> int:
+        """Cancel matching writes that have definitely not reached OCPP.
+
+        This method intentionally searches only ``_write_queue``.  The active
+        item has already crossed the boundary where a request may have reached
+        the charger; pretending to cancel it would create a false guarantee for
+        automations and could leave Home Assistant out of sync with the THOR.
+        """
+        retained_items = deque()
+        cancelled_items = []
+        for item in self._write_queue:
+            matches = item.get("dedupe_key") == dedupe_key and (
+                command_name is None
+                or item.get("command_name") == command_name
+            )
+            if matches:
+                cancelled_items.append(item)
+            else:
+                retained_items.append(item)
+
+        if not cancelled_items:
+            return 0
+
+        self._write_queue = retained_items
+        for item in cancelled_items:
+            self._finish_unsent_write(
+                item,
+                ChargerWriteResult.skipped(reason),
+            )
+
+        # Wake a processor waiting on rate limiting so it re-evaluates its head
+        # immediately.  If cancellation emptied the queue, idle is already a
+        # truthful state even while the processor task winds down.
+        self._write_queue_changed.set()
+        if not self._write_queue and self._active_write_item is None:
+            self._write_queue_idle.set()
+        return len(cancelled_items)
+
+    @property
+    def has_pending_charger_writes(self) -> bool:
+        """Return whether a queued or currently executing write exists."""
+        return bool(self._write_queue) or self._active_write_item is not None
+
+    def _log_write_result(self, write_item, result) -> None:
+        """Log the charger outcome instead of merely logging callback return."""
+        command_name = write_item["command_name"]
+        command_label = f"{command_name} [{write_item['command_id']}]"
+        if not isinstance(result, ChargerWriteResult):
+            # Legacy callbacks still returning None are intentionally described
+            # neutrally.  "Callback finished" must never be mistaken for an
+            # acknowledgement from the charger.
+            _LOGGER.info(
+                "Write callback finished without a structured outcome: %s",
+                command_label,
+            )
+            return
+
+        details = result.reason or result.charger_result or "no details"
+        if result.status == ChargerWriteStatus.SUCCESS:
+            _LOGGER.info("✅ Write succeeded: %s (%s)", command_label, details)
+        elif result.status == ChargerWriteStatus.FAILED:
+            _LOGGER.error("❌ Write failed: %s (%s)", command_label, details)
+        elif result.status == ChargerWriteStatus.PARTIAL:
+            _LOGGER.error(
+                "◐ Compound write only partially applied: %s (%s)",
+                command_label,
+                details,
+            )
+        elif result.status == ChargerWriteStatus.SKIPPED:
+            if result.reason == "replaced_by_newer_intent":
+                _LOGGER.info(
+                    "↪️ Queued write replaced: %s (%s)",
+                    command_label,
+                    details,
+                )
+            elif result.reason and result.reason.startswith("cancelled_by_"):
+                _LOGGER.info(
+                    "↩️ Queued write cancelled: %s (%s)",
+                    command_label,
+                    details,
+                )
+            else:
+                _LOGGER.warning("⏭️ Write skipped: %s (%s)", command_label, details)
+        elif result.status == ChargerWriteStatus.EXPIRED:
+            _LOGGER.warning("⌛ Write expired: %s (%s)", command_label, details)
+        else:
+            _LOGGER.warning(
+                "❔ Write outcome uncertain: %s (%s)",
+                command_label,
+                details,
+            )
+
+    def _resolve_write_result(
+        self,
+        write_item,
+        result: ChargerWriteResult,
+    ) -> ChargerCommandResult:
+        """Resolve one completion Future and publish exactly one last result."""
+        existing = write_item.get("terminal_result")
+        if existing is not None:
+            return existing
+
+        completion = ChargerCommandResult.from_write_result(
+            command_id=write_item["command_id"],
+            command_name=write_item["command_name"],
+            queued_at=write_item["queued_at"],
+            completed_at=self.now(),
+            result=result,
+        )
+        # Store the terminal result before touching the Future.  Even if a
+        # caller cancelled its own wait, every later queue path observes this
+        # marker and cannot publish a conflicting second outcome.
+        write_item["terminal_result"] = completion
+        future = write_item["completion"]
+        if not future.done():
+            future.set_result(completion)
+        self.last_command_result = completion
+        try:
+            self.async_set_updated_data(True)
+        except Exception:
+            # Entity publication is secondary to resolving the command.  A
+            # listener failure must never strand this or later queue waiters.
+            _LOGGER.exception(
+                "Failed to publish command completion %s",
+                completion.command_id,
+            )
+        return completion
+
+    def _write_item_is_expired(self, write_item) -> bool:
+        """Return whether an unsent queue item has outlived its policy."""
+        return self._write_expiry_remaining(write_item) <= 0
+
+    def _write_expiry_remaining(self, write_item) -> float:
+        """Return remaining monotonic lifetime for one unsent command."""
+        return max(0.0, write_item["expires_at"] - self.hass.loop.time())
+
+    def _write_revalidation_failure(self, write_item) -> str | None:
+        """Recheck delayed intent immediately before it may be sent.
+
+        The callback returns ``None`` while the original intent is still valid,
+        or a stable diagnostic reason when changed runtime state made it stale.
+        Exceptions fail closed so a broken guard can never authorize a write.
+        """
+        revalidate = write_item.get("revalidate")
+        if revalidate is None:
+            return None
+        try:
+            reason = revalidate()
+            if reason is None:
+                return None
+            if not isinstance(reason, str) or not reason:
+                raise ValueError(
+                    "Write revalidation must return a non-empty reason or None"
+                )
+            return reason
+        except Exception:
+            _LOGGER.exception(
+                "Write revalidation failed for %s",
+                write_item["command_name"],
+            )
+            return "revalidation_error"
+
+    def _finish_unsent_write(
+        self,
+        write_item,
+        result: ChargerWriteResult,
+    ) -> None:
+        """Record a terminal outcome for a command never handed to OCPP."""
+        configuration_key = write_item.get("configuration_key")
+        configuration_generation = write_item.get("configuration_generation")
+        if configuration_key and configuration_generation is not None:
+            status = (
+                ConfigurationWriteStatus.EXPIRED
+                if result.status == ChargerWriteStatus.EXPIRED
+                else ConfigurationWriteStatus.SKIPPED
+            )
+            self.mark_configuration_write(
+                configuration_key,
+                status,
+                generation=configuration_generation,
+                result=result.reason,
+            )
+        self._run_unsent_cleanup(write_item, result)
+        self._log_write_result(write_item, result)
+        self._resolve_write_result(write_item, result)
+
+    def _run_unsent_cleanup(
+        self,
+        write_item,
+        result: ChargerWriteResult,
+    ) -> None:
+        """Restore entity-local optimistic state after a command was not sent."""
+        on_unsent = write_item.get("on_unsent")
+        if on_unsent is not None:
+            try:
+                on_unsent(result)
+            except Exception:
+                _LOGGER.exception(
+                    "Unsent write cleanup failed for %s",
+                    write_item["command_name"],
+                )
 
     # ─────────────────────────────
     # 🔑 LOAD BALANCING PROPERTY
@@ -380,6 +953,15 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """Return current UTC timestamp in ISO format."""
         return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
+    @property
+    def transaction_is_active(self) -> bool:
+        """Return whether any retained OCPP state indicates an active charge."""
+        return transaction_state_is_active(
+            active_transaction=self.active_transaction,
+            transaction_id=self.transaction_id,
+            status=self.status,
+        )
+
     def set_charge_point(self, cp_id):
         """Set charge point ID and notify sensors."""
         self.charge_point_id = cp_id
@@ -388,13 +970,314 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_message_at = self.connection_started_at
         self.last_message_action = "WebSocketConnect"
         self.last_heartbeat_at = None
+        self._connection_changed.set()
         _LOGGER.info("Charge point connected: %s", cp_id)
         self.async_set_updated_data(True)
+
+    def update_configuration_value(self, key: str, raw_value: str) -> None:
+        """Update one acknowledged configuration value without dropping metadata."""
+        previous = self.configuration_values.get(key)
+        value = configuration_value_from_item(
+            {
+                "key": key,
+                "value": raw_value,
+                "readonly": previous.readonly if previous is not None else False,
+            }
+        )
+        if value is None:
+            return
+        self.configuration_values[key] = value
+        self.async_set_updated_data(True)
+
+    def begin_configuration_write(self, key: str, raw_value: str) -> int:
+        """Track a configuration write and return its per-key generation."""
+        self.configuration_writes = begin_configuration_write(
+            self.configuration_writes,
+            key=key,
+            raw_value=raw_value,
+            requested_at=self.now(),
+        )
+        self.async_set_updated_data(True)
+        return self.configuration_writes[key].generation
+
+    def configuration_write_is_current(
+        self,
+        key: str,
+        generation: int,
+    ) -> bool:
+        """Return whether a callback still owns the latest intent for a key."""
+        return configuration_write_is_current(
+            self.configuration_writes,
+            key=key,
+            generation=generation,
+        )
+
+    def acknowledge_configuration_write(
+        self,
+        key: str,
+        *,
+        generation: int,
+        accepted: bool,
+        result: object,
+    ) -> bool:
+        """Retain a current OCPP result; ignore a superseded response."""
+        outcome_is_current = self.configuration_write_is_current(key, generation)
+        if not outcome_is_current:
+            _LOGGER.info(
+                "Ignoring superseded ChangeConfiguration result for %s "
+                "(generation %d)",
+                key,
+                generation,
+            )
+        result_value = result.value if hasattr(result, "value") else str(result)
+        self.configuration_writes = acknowledge_configuration_write(
+            self.configuration_writes,
+            key=key,
+            generation=generation,
+            accepted=accepted,
+            result=result_value,
+        )
+        self.async_set_updated_data(True)
+        return outcome_is_current
+
+    def mark_configuration_write(
+        self,
+        key: str,
+        status: ConfigurationWriteStatus,
+        *,
+        generation: int,
+        result: str | None = None,
+    ) -> bool:
+        """Retain a current non-acknowledgement outcome."""
+        outcome_is_current = self.configuration_write_is_current(key, generation)
+        if not outcome_is_current:
+            _LOGGER.info(
+                "Ignoring superseded %s outcome for %s (generation %d)",
+                status.value,
+                key,
+                generation,
+            )
+        self.configuration_writes = mark_configuration_write(
+            self.configuration_writes,
+            key=key,
+            generation=generation,
+            status=status,
+            result=result,
+        )
+        self.async_set_updated_data(True)
+        return outcome_is_current
+
+    def schedule_configuration_refresh(self, *, delay: float = 20.0):
+        """Coalesce post-write readbacks into one reconnect-safe task.
+
+        Historically each accepted write slept for exactly the same 20 seconds
+        as the queue rate limit.  The readback and the next write therefore woke
+        together and competed for the OCPP connection.  A single shared task
+        now waits until all queued writes have finished, then reads once from
+        whichever connection is current at that time.
+        """
+        if (
+            self._configuration_refresh_task is not None
+            and not self._configuration_refresh_task.done()
+        ):
+            return self._configuration_refresh_task
+
+        self._configuration_refresh_task = self.hass.async_create_task(
+            self._delayed_configuration_refresh(delay)
+        )
+        return self._configuration_refresh_task
+
+    def schedule_auto_charge_schedule_write(
+        self,
+        write_callback: Callable[[], Awaitable[None]],
+        *,
+        delay: float = 0.5,
+    ):
+        """Debounce the two entity edits that form one Auto Charge schedule.
+
+        Home Assistant exposes start and stop as separate time entities, while
+        the THOR accepts only one compound ``start-stop`` value.  Cancelling a
+        still-sleeping task lets a typical back-to-back automation settle both
+        entity values before a generation enters the charger write queue.
+        """
+        previous_task = self._auto_charge_schedule_task
+        if previous_task is not None and not previous_task.done():
+            previous_task.cancel()
+
+        async def _delayed_write() -> None:
+            try:
+                await asyncio.sleep(delay)
+                await write_callback()
+            except asyncio.CancelledError:
+                # Replacement and integration unload are expected cancellation
+                # paths; neither represents a failed charger command.
+                return
+            except Exception:
+                # The original HA entity action has already returned by the
+                # time the debounce expires.  Preserve a visible traceback
+                # instead of leaving an unobserved background-task exception.
+                _LOGGER.exception(
+                    "Failed to queue debounced Auto Charge schedule"
+                )
+            finally:
+                if self._auto_charge_schedule_task is asyncio.current_task():
+                    self._auto_charge_schedule_task = None
+
+        task = self.hass.async_create_task(_delayed_write())
+        self._auto_charge_schedule_task = task
+        return task
+
+    async def _delayed_configuration_refresh(self, delay: float) -> bool:
+        """Wait for a safe request window and refresh reported configuration."""
+        try:
+            if delay > 0:
+                await asyncio.sleep(delay)
+
+            while True:
+                await self._write_queue_idle.wait()
+
+                charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+                if charge_point is None or not self.connected:
+                    self._connection_changed.clear()
+                    charge_point = self.hass.data.get(DOMAIN, {}).get(
+                        "charge_point"
+                    )
+                    if charge_point is None or not self.connected:
+                        await self._connection_changed.wait()
+                    continue
+
+                # trigger_get_configuration repeats the pending-write check
+                # while holding the per-connection request lock.  If a write
+                # enters the queue in this small hand-off window, retry after
+                # the queue is idle rather than racing it.
+                completed = await charge_point.trigger_get_configuration(
+                    skip_if_writes_pending=True
+                )
+                if completed:
+                    return True
+                # A false result can represent a 30-second timeout, a stale
+                # connection, or a newly queued write.  Backing off avoids a
+                # tight retry loop while the websocket cleanup catches up.
+                await asyncio.sleep(1.0)
+        except asyncio.CancelledError:
+            return False
+        finally:
+            self._configuration_refresh_task = None
+
+    def pv_linkage_draft(self) -> PvLinkageDraft | None:
+        """Return the current local PV Linkage draft when initialized."""
+        if self.pv_boost_mode_draft is None:
+            return None
+        return PvLinkageDraft(
+            boost_mode=self.pv_boost_mode_draft,
+            manual_start=self.pv_manual_start_draft,
+            manual_end=self.pv_manual_end_draft,
+            smart_finish=self.pv_smart_finish_draft,
+            smart_target_energy_kwh=self.pv_smart_target_energy_draft,
+        )
+
+    def update_pv_linkage_draft(self, **changes) -> None:
+        """Update local compound-control fields without writing the charger."""
+        for attribute, value in changes.items():
+            if attribute not in {
+                "pv_boost_mode_draft",
+                "pv_manual_start_draft",
+                "pv_manual_end_draft",
+                "pv_smart_finish_draft",
+                "pv_smart_target_energy_draft",
+            }:
+                raise ValueError(f"Unsupported PV Linkage draft field: {attribute}")
+            setattr(self, attribute, value)
+        draft = self.pv_linkage_draft()
+        reported_mode = configuration_entity_state(
+            "G_SolarBoost",
+            self.configuration_values.get("G_SolarBoost"),
+        )
+        period_value = self.configuration_values.get("G_PeriodTime")
+        self.pv_linkage_draft_dirty = not (
+            draft is not None
+            and draft_matches_reported(
+                draft,
+                reported_mode=(
+                    reported_mode if isinstance(reported_mode, str) else None
+                ),
+                reported_period=(
+                    period_value.raw_value
+                    if period_value is not None
+                    else None
+                ),
+            )
+        )
+        self.async_set_updated_data(True)
+
+    def record_pv_linkage_apply_result(
+        self,
+        result: PvLinkageApplyResult,
+    ) -> None:
+        """Expose the latest logical compound-write outcome."""
+        self.pv_linkage_apply_result = result
+        self.async_set_updated_data(True)
+
+    def mark_pv_linkage_draft_applied(
+        self,
+        expected_draft: PvLinkageDraft,
+    ) -> bool:
+        """Clear only the exact draft whose complete Apply succeeded.
+
+        A user may edit the local draft while an older Apply is executing.  A
+        successful acknowledgement for that older snapshot must not erase the
+        newer unsent changes.
+        """
+        if self.pv_linkage_draft() != expected_draft:
+            _LOGGER.info(
+                "Keeping newer PV Linkage draft dirty after an older Apply"
+            )
+            return False
+        self.pv_linkage_draft_dirty = False
+        self.async_set_updated_data(True)
+        return True
+
+    def _initialize_pv_linkage_draft(self) -> bool:
+        """Initialize an untouched draft from reported configuration values."""
+        if self.pv_linkage_draft_dirty:
+            return False
+
+        updated = False
+        reported_mode = configuration_entity_state(
+            "G_SolarBoost",
+            self.configuration_values.get("G_SolarBoost"),
+        )
+        if isinstance(reported_mode, str):
+            try:
+                mode = PvBoostMode(reported_mode)
+            except ValueError:
+                mode = None
+            if mode is not None and self.pv_boost_mode_draft != mode:
+                self.pv_boost_mode_draft = mode
+                updated = True
+
+        period_value = self.configuration_values.get("G_PeriodTime")
+        period = parse_manual_period(
+            period_value.raw_value if period_value is not None else None
+        )
+        if period is not None:
+            start, end = period
+            if self.pv_manual_start_draft != start:
+                self.pv_manual_start_draft = start
+                updated = True
+            if self.pv_manual_end_draft != end:
+                self.pv_manual_end_draft = end
+                updated = True
+
+        return updated
 
     def mark_connection_activity(self, action):
         """Record the latest inbound OCPP message."""
         timestamp = self.now()
+        was_connected = self.connected
         self.connected = True
+        if not was_connected:
+            self._connection_changed.set()
         self.last_message_at = timestamp
         self.last_message_action = action
         if action == "Heartbeat":
@@ -405,9 +1288,39 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """Mark the active OCPP transport connection as disconnected."""
         was_connected = self.connected
         self.connected = False
+        self._connection_changed.clear()
         if was_connected:
             _LOGGER.info("Charge point disconnected: %s", self.charge_point_id)
         self.async_set_updated_data(True)
+
+    async def async_shutdown(self) -> None:
+        """Cancel coordinator-owned background work during integration unload."""
+        self._shutting_down = True
+        tasks = (
+            self._write_task,
+            self._configuration_refresh_task,
+            self._auto_charge_schedule_task,
+        )
+        for task in tasks:
+            if task is not None and not task.done():
+                task.cancel()
+        for task in tasks:
+            if task is None or task.done():
+                continue
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+        # Anything still in the deque is definitely unsent and can be skipped
+        # honestly.  The active item is resolved in the processor's
+        # CancelledError path because OCPP delivery may already have started.
+        while self._write_queue:
+            self._finish_unsent_write(
+                self._write_queue.popleft(),
+                ChargerWriteResult.skipped("integration_unloaded"),
+            )
+        self._write_queue_idle.set()
 
     def set_status(self, status):
         """Set charger status and notify sensors."""
@@ -439,7 +1352,56 @@ class GrowattCoordinator(DataUpdateCoordinator):
             **payload,
         }
         self.last_status_notification = create_ocpp_snapshot(self.now(), request)
+        if normalize_ocpp_status(status) == "faulted":
+            self.last_charger_fault = fault_from_status_notification(
+                self.now(),
+                connector_id,
+                error_code,
+                payload,
+            )
+            self._schedule_fault_storage_save()
+        info = payload.get("info")
+        if status_reports_external_meter_fault(error_code, info):
+            self.external_meter_faulted = True
+            self.external_meter_fault_connector_id = connector_id
+            self.external_meter_fault_error_code = (
+                error_code.value if hasattr(error_code, "value") else error_code
+            )
+            self.external_meter_fault_info = info
+        elif (
+            self.external_meter_faulted
+            and status_clears_external_meter_fault(error_code)
+            and connector_id == self.external_meter_fault_connector_id
+        ):
+            self.external_meter_faulted = False
+            self.external_meter_fault_connector_id = None
+            self.external_meter_fault_error_code = None
+            self.external_meter_fault_info = None
         self.set_status(status)
+
+    def process_fault_message(
+        self,
+        vendor_id: object,
+        data: str,
+    ) -> None:
+        """Retain and merge a Growatt DataTransfer/faultmessage event."""
+        self.last_charger_fault = fault_from_data_transfer(
+            self.now(),
+            vendor_id,
+            data,
+            self.last_charger_fault,
+        )
+        self._schedule_fault_storage_save()
+        self.async_set_updated_data(True)
+
+    @property
+    def charger_is_faulted(self) -> bool:
+        """Return whether the current OCPP charger status is Faulted."""
+        return normalize_ocpp_status(self.status) == "faulted"
+
+    def _schedule_fault_storage_save(self) -> None:
+        """Coalesce paired StatusNotification/faultmessage storage writes."""
+        self._store.async_delay_save(self._storage_data, 1)
 
     def start_transaction(
         self,
@@ -464,6 +1426,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         start_snapshot = create_ocpp_snapshot(self.now(), request)
         start_snapshot["response"] = {"transaction_id": transaction_id}
         self.active_transaction = {"start": start_snapshot}
+        self.effective_charging.start(transaction_id)
+        self._schedule_storage_save()
 
         _LOGGER.info("🔋 New transaction started → Resetting energy counter")
         self.energy = 0
@@ -497,6 +1461,23 @@ class GrowattCoordinator(DataUpdateCoordinator):
         }
         completed = dict(self.active_transaction or {})
         completed["stop"] = create_ocpp_snapshot(self.now(), request)
+        effective_minutes = None
+        normalized_transaction_id = (
+            str(stopped_transaction_id)
+            if stopped_transaction_id is not None
+            else None
+        )
+        if self.effective_charging.transaction_id == normalized_transaction_id:
+            effective_minutes = self.effective_charging.effective_minutes
+        completed["effective_charging_duration_minutes"] = effective_minutes
+        if normalized_transaction_id is not None and effective_minutes is not None:
+            self._pending_effective_charging_minutes[normalized_transaction_id] = (
+                effective_minutes
+            )
+            while len(self._pending_effective_charging_minutes) > 10:
+                oldest = next(iter(self._pending_effective_charging_minutes))
+                self._pending_effective_charging_minutes.pop(oldest)
+        self.effective_charging = EffectiveChargingTracker()
         self.last_completed_transaction = completed
         self.active_transaction = None
 
@@ -508,6 +1489,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         self.transaction_id = None
         self.status = "Idle"
+        self.hass.async_create_task(self.async_save_storage())
         self.async_set_updated_data(True)
 
     # ─────────────────────────────
@@ -530,6 +1512,28 @@ class GrowattCoordinator(DataUpdateCoordinator):
             "meter_values": [entry.as_dict() for entry in parsed_values],
         }
         updated = False
+        effective_transaction_id = (
+            transaction_id
+            if transaction_id is not None
+            else self.transaction_id
+        )
+        if effective_transaction_id is not None:
+            previous_transaction_id = self.effective_charging.transaction_id
+            self.effective_charging.start(effective_transaction_id)
+            effective_updated = (
+                previous_transaction_id != self.effective_charging.transaction_id
+            )
+            max_gap_seconds = self._effective_meter_gap_seconds()
+            for entry in parsed_values:
+                effective_updated = (
+                    self.effective_charging.observe(
+                        entry,
+                        max_gap_seconds=max_gap_seconds,
+                    )
+                    or effective_updated
+                )
+            if effective_updated:
+                self._schedule_storage_save()
 
         for entry in parsed_values:
             for sample in entry.samples:
@@ -588,6 +1592,20 @@ class GrowattCoordinator(DataUpdateCoordinator):
         )
         self.async_set_updated_data(True)
 
+    def _effective_meter_gap_seconds(self) -> float:
+        """Bound counted intervals using the charger-reported sample period."""
+        for key in ("G_MeterValueInterval", "MeterValueSampleInterval"):
+            value = self.configuration_values.get(key)
+            if value is None:
+                continue
+            try:
+                interval = float(value.parsed_value)
+            except (TypeError, ValueError):
+                continue
+            if interval > 0:
+                return max(30.0, interval * 3)
+        return 180.0
+
     # ─────────────────────────────
     # GetConfiguration verwerking
     # ─────────────────────────────
@@ -604,6 +1622,25 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.unknown_configuration_keys = normalized_unknown_keys
             updated = True
 
+        reported_values = {
+            str(item["key"]): (
+                None if item.get("value") is None else str(item.get("value"))
+            )
+            for item in configuration
+            if isinstance(item, dict) and item.get("key")
+        }
+        confirmed_writes = confirm_configuration_writes(
+            self.configuration_writes,
+            reported_values,
+            readback_at=self.now(),
+        )
+        if confirmed_writes != self.configuration_writes:
+            self.configuration_writes = confirmed_writes
+            updated = True
+
+        if self._initialize_pv_linkage_draft():
+            updated = True
+
         for item in configuration:
             if not isinstance(item, dict):
                 continue
@@ -612,14 +1649,22 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
             try:
                 if key == "G_MaxCurrent":
-                    value = float(raw)
+                    value = configuration_numeric_value(
+                        self.configuration_values.get(key)
+                    )
+                    if value is None:
+                        continue
                     if self.max_current != value:
                         self.max_current = value
                         _LOGGER.debug("Config: MaxCurrent = %.1f A", value)
                         updated = True
 
                 elif key == "G_ExternalLimitPower":
-                    value = float(raw)
+                    value = configuration_numeric_value(
+                        self.configuration_values.get(key)
+                    )
+                    if value is None:
+                        continue
                     if self.external_limit_power != value:
                         self.external_limit_power = value
                         _LOGGER.debug("Config: ExternalLimitPower = %.1f kW", value)
@@ -673,9 +1718,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         updated = True
 
                 elif key == "G_TimeSharingPrice":
-                    match = re.search(r'price1=(-?\d+\.\d+)', raw)
-                    if match:
-                        value = round(float(match.group(1)), 2)
+                    value = parse_time_sharing_price(raw)
+                    if value is not None:
+                        value = round(value, 2)
                         if self.electricity_price != value:
                             self.electricity_price = value
                             _LOGGER.debug("Config: G_TimeSharingPrice = %.2f per kWh", value)
@@ -716,6 +1761,29 @@ class GrowattCoordinator(DataUpdateCoordinator):
             # The charger can send the same completed session as both message types.
             dedup_key = record.dedup_key
             if dedup_key is not None and self._last_session_record_key == dedup_key:
+                duplicate_session = build_unified_session(
+                    self.last_completed_transaction,
+                    session_records=(snapshot,),
+                    charge_point_id=self.charge_point_id,
+                    source_instance_id=self.source_instance_id,
+                )
+                effective_minutes = None
+                if (
+                    duplicate_session is not None
+                    and duplicate_session["correlation"]["status"]
+                    == CORRELATION_MATCHED
+                ):
+                    effective_minutes = (
+                        self._pending_effective_charging_minutes.pop(
+                            str(record.transaction_id),
+                            None,
+                        )
+                    )
+                if effective_minutes is not None:
+                    self.last_session_effective_charging_minutes = (
+                        effective_minutes
+                    )
+                    self.hass.async_create_task(self.async_save_storage())
                 _LOGGER.debug(
                     "Duplicate Growatt session record skipped (transaction=%s)",
                     record.transaction_id,
@@ -746,10 +1814,19 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 charge_point_id=self.charge_point_id,
                 source_instance_id=self.source_instance_id,
             )
-            if (
-                session is None
-                or session["correlation"]["status"] != CORRELATION_MATCHED
-            ):
+            matched = (
+                session is not None
+                and session["correlation"]["status"] == CORRELATION_MATCHED
+            )
+            effective_minutes = (
+                self._pending_effective_charging_minutes.pop(
+                    str(record.transaction_id),
+                    None,
+                )
+                if matched
+                else None
+            )
+            if not matched:
                 session = build_unified_session(
                     None,
                     session_records=(snapshot,),
@@ -765,6 +1842,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.last_session_plug_time = record.plug_time
             self.last_session_unplug_time = record.unplug_time
             self.last_session_duration_minutes = duration_minutes
+            self.last_session_effective_charging_minutes = effective_minutes
             self.last_session_id = identity["session_id"]
             self.last_session_source = identity["session_source"]
             self.last_session_transaction_id = record.transaction_id
@@ -794,6 +1872,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     "energy_kwh": round(energy_kwh, 3),
                     "cost": round(cost, 2),
                     "duration_minutes": duration_minutes if duration_minutes is not None else "",
+                    "effective_charging_minutes": (
+                        effective_minutes if effective_minutes is not None else ""
+                    ),
                     "transaction_id": record.transaction_id,
                     "session_id": self.last_session_id,
                     "session_source": self.last_session_source,
@@ -814,10 +1895,35 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # Growatt external meter values
     # ─────────────────────────────
 
-    def process_external_meter(self, data_str: str):
+    @property
+    def external_meter_health(self) -> str:
+        """Return the effective external-meter communication state."""
+        return external_meter_health(
+            explicit_fault=self.external_meter_faulted,
+            consecutive_timeouts=self.meterval_consecutive_timeouts,
+            has_snapshot=self.external_meter_last_updated_at is not None,
+        )
+
+    @property
+    def external_meter_ready_for_pv(self) -> bool:
+        """Return whether entering a PV Linkage mode is currently safe."""
+        return self.external_meter_health == "healthy"
+
+    def record_external_meter_poll_timeout(self) -> None:
+        """Record one missed external-meter response and refresh HA state."""
+        self.meterval_consecutive_timeouts += 1
+        self.async_set_updated_data(True)
+
+    def reset_external_meter_poll_timeouts(self) -> None:
+        """Clear communication timeouts after a valid meter response."""
+        if self.meterval_consecutive_timeouts:
+            self.meterval_consecutive_timeouts = 0
+
+    def process_external_meter(self, data_str: str) -> bool:
         """Process external meter values from get_external_meterval DataTransfer."""
         try:
             snapshot = parse_external_meter_data(data_str)
+            self.reset_external_meter_poll_timeouts()
 
             if self.external_meter_used != snapshot.used:
                 self.external_meter_used = snapshot.used
@@ -844,6 +1950,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 snapshot.currents,
             )
             self.async_set_updated_data(True)
+            return True
 
         except (ValueError, TypeError, KeyError) as exc:
             _LOGGER.warning("Failed to process external meter data '%s': %s", data_str, exc)
+            return False

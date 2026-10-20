@@ -12,23 +12,44 @@
       }
     },
     "error": {
-      "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn"
+      "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn",
+      "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn",
+      "invalid_port": "De poort moet een geheel getal van 1 tot en met 65535 zijn"
     },
     "abort": {
       "ap_mode_activated": "✅ AP Mode geactiveerd! THOR zendt nu een WiFi netwerk uit. Zoek naar het SSID met daarin het serienummer van de THOR",
-      "ap_mode_failed": "❌ AP Mode activeren mislukt. Controleer de logs."
+      "ap_mode_failed": "❌ AP Mode activeren mislukt. Controleer de logs.",
+      "single_instance_allowed": "Er kan maar één Growatt THOR-integratie worden geconfigureerd."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Growatt THOR Opties",
-        "description": "Configureer polling en geavanceerde opties",
+        "description": "Choose what you want to configure. Charging strategy and authorization mode are dedicated device controls.",
+        "menu_options": {"general": "General settings", "authorization": "Local access control", "confirm_ap_mode": "Maintenance: AP mode"},
+        "menu_option_descriptions": {"general": "Configure polling and location.", "authorization": "Manage RFID access and Home Assistant remote starts separately.", "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant."}
+      },
+      "general": {
+        "title": "General settings",
+        "description": "These settings affect Home Assistant. Charging strategy and authorization mode are dedicated device controls.",
         "data": {
           "poll_interval": "Grid poll interval (seconden, nu: {current_interval})",
-          "location": "Installatielocatie",
-          "charger_mode": "⚠️ Oplaadmodus",
-          "enable_ap_mode": "⚠️ AP Mode activeren"
+          "location": "Installatielocatie"
+        }
+      },
+      "authorization": {
+        "title": "Local charging authorisation",
+        "description": "Stored RFID identifiers: {count}. Physical card access and starts initiated by Home Assistant are managed independently. This does not change the charger's authorization mode, cards, or cloud bindings.",
+        "data": {
+          "restrict_authorization": "Restrict RFID access to the allowlist",
+          "allow_ha_remote_start": "Allow starts from Home Assistant",
+          "authorized_id_tags": "RFID allowlist (one identifier per line)"
+        },
+        "data_description": {
+          "restrict_authorization": "Enables local checking of physical RFID identifiers. An enabled empty list rejects every card.",
+          "allow_ha_remote_start": "Allows starts through HA controls, services, and automations. No technical identifier needs to be added to the RFID list.",
+          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics."
         }
       },
       "confirm_charger_mode": {
@@ -47,12 +68,85 @@
       }
     },
     "error": {
-      "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn"
+      "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn",
+      "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn"
     },
     "abort": {
       "ap_mode_activated": "✅ AP Mode geactiveerd! THOR zendt nu een WiFi netwerk uit. Zoek naar het SSID met daarin het serienummer van de THOR",
       "ap_mode_failed": "❌ AP Mode activeren mislukt. Controleer de logs.",
       "charger_mode_changed": "✅ Oplaadmodus gewijzigd. De THOR herstart. Plug de EV indien nodig opnieuw in."
+    }
+  },
+  "exceptions": {
+    "action_not_allowed": {
+      "message": "De gevraagde actie is niet toegestaan ({reason})."
+    },
+    "charger_disconnected": {
+      "message": "De lader is niet verbonden, waardoor de gevraagde actie niet kan worden uitgevoerd."
+    },
+    "charger_faulted": {
+      "message": "De gevraagde actie is geblokkeerd zolang de lader een storing meldt."
+    },
+    "active_transaction": {
+      "message": "Deze instelling kan niet worden gewijzigd terwijl een laadsessie actief is."
+    },
+    "control_not_applicable": {
+      "message": "Deze bediening is niet van toepassing op de huidige bedrijfsmodus van de lader."
+    },
+    "configuration_read_only": {
+      "message": "De lader meldt deze configuratiewaarde als alleen-lezen."
+    },
+    "external_meter_not_ready": {
+      "message": "{option} kan niet worden geselecteerd omdat de communicatie met de externe meter niet gereed is."
+    },
+    "invalid_working_mode": {
+      "message": "{option} is geen ondersteunde laadstrategie."
+    },
+    "charging_already_active": {
+      "message": "Laden kan niet worden gestart omdat er al een transactie actief is."
+    },
+    "no_active_transaction": {
+      "message": "Laden kan niet worden gestopt omdat er geen actieve transactie bekend is."
+    },
+    "invalid_pv_linkage_draft": {
+      "message": "De PV Linkage-instellingen zijn onvolledig of ongeldig ({errors})."
+    },
+    "value_out_of_range": {
+      "message": "De gevraagde waarde {value} valt buiten het ondersteunde bereik van {minimum} tot {maximum}."
+    },
+    "invalid_numeric_value": {
+      "message": "De gevraagde waarde {value} is geen geldig getal."
+    },
+    "value_not_finite": {
+      "message": "De gevraagde waarde {value} moet een eindig getal zijn."
+    },
+    "value_step_mismatch": {
+      "message": "De gevraagde waarde {value} past niet bij de ondersteunde stapgrootte {step}."
+    },
+    "invalid_export_date": {
+      "message": "De datums voor de sessie-export moeten de notatie JJJJ-MM-DD gebruiken."
+    },
+    "invalid_export_date_range": {
+      "message": "De begindatum van de sessie-export mag niet na de einddatum liggen."
+    },
+    "refresh_failed": {
+      "message": "Het vernieuwen van de lader kon de stap {step} niet voltooien."
+    },
+    "session_export_failed": {
+      "message": "Het exporteren van de laadsessies is mislukt. Controleer het Home Assistant-logboek voor details."
+    },
+    "command_still_pending": {
+      "message": "Opdracht {command_id} is nog in behandeling; het eindresultaat verschijnt in de sensor Laatste opdrachtresultaat."
+    },
+    "command_not_executed": {
+      "message": "Opdracht {command_name} ({command_id}) is niet uitgevoerd: {status} ({details})."
+    },
+    "command_outcome_uncertain": {
+      "message": "Het resultaat van opdracht {command_name} ({command_id}) is onzeker: {status} ({details})."
+    },
+    "command_failed": {
+      "message": "Opdracht {command_name} ({command_id}) is mislukt: {status} ({details})."
     }
   },
   "selector": {
@@ -82,7 +176,60 @@
           "idle": "Inactief"
         }
       },
+      "last_charger_fault": {
+        "name": "Laatste laderfout",
+        "state": {
+          "emergency_stop": "Noodstop",
+          "power_meter_failure": "Fout externe meter",
+          "other_fault": "Andere laderfout"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze gebeurtenis",
+            "state": {
+              "details": "Bewaart de laatste echte Faulted-gebeurtenis nadat de lader is hersteld. Bijbehorende details uit OCPP StatusNotification en Growatt faultmessage worden samengevoegd."
+            }
+          }
+        }
+      },
+      "last_command_result": {
+        "name": "Laatste opdrachtresultaat",
+        "state": {
+          "confirmed": "Bevestigd",
+          "failed": "Mislukt",
+          "skipped": "Overgeslagen",
+          "expired": "Verlopen",
+          "uncertain": "Onzeker"
+        },
+        "state_attributes": {
+          "information": { "name": "Over dit resultaat", "state": { "details": "Het laatste terminale wachtrijresultaat; gebruik de opdracht-ID om herhaalde automatiseringen te correleren." } },
+          "command_id": { "name": "Opdracht-ID" },
+          "command_name": { "name": "Opdracht" },
+          "write_status": { "name": "Gedetailleerd resultaat" },
+          "queued_at": { "name": "In wachtrij sinds" },
+          "completed_at": { "name": "Voltooid om" },
+          "reason": { "name": "Reden" },
+          "charger_result": { "name": "Laderresultaat" }
+        }
+      },
       "charge_point_id": { "name": "Laadpunt-ID" },
+      "charger_vendor": { "name": "Fabrikant laadstation" },
+      "charger_model": { "name": "Model laadstation" },
+      "firmware_version": { "name": "Firmwareversie" },
+      "charger_serial_number": { "name": "Serienummer laadstation" },
+      "network_mode": {
+        "name": "Netwerkmodus",
+        "state": {
+          "dhcp": "DHCP",
+          "static": "Statisch"
+        }
+      },
+      "network_ip_address": { "name": "IP-adres" },
+      "network_subnet_mask": { "name": "Subnetmasker" },
+      "network_gateway": { "name": "Standaardgateway" },
+      "network_dns_server": { "name": "DNS-server" },
+      "network_mac_address": { "name": "MAC-adres" },
+      "network_wifi_ssid": { "name": "Wifi-SSID" },
       "charging_power": { "name": "Laadvermogen" },
       "energy_charged": { "name": "Geladen energie" },
       "total_energy_charged": { "name": "Totaal geladen energie" },
@@ -90,6 +237,17 @@
       "last_session_energy": { "name": "Energie laatste sessie" },
       "last_session_cost": { "name": "Kosten laatste sessie" },
       "last_session_duration": { "name": "Duur laatste sessie" },
+      "last_session_effective_charging_duration": {
+        "name": "Effectieve laadtijd laatste sessie",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze waarde",
+            "state": {
+              "details": "Geschatte tijd met werkelijke energieoverdracht, opgebouwd uit MeterValues van de transactie boven 100 W. Bij ontbrekend vermogen worden stijgende energietellers gebruikt; lange rapportageonderbrekingen tellen niet mee. Oudere sessies blijven voor deze waarde niet beschikbaar."
+            }
+          }
+        }
+      },
       "last_session_start": { "name": "Start laatste sessie" },
       "last_session_end": { "name": "Einde laatste sessie" },
       "last_session_plug_time": { "name": "Inplugtijd laatste sessie" },
@@ -117,6 +275,23 @@
       "voltage": { "name": "Spanning {phase}" },
       "phase_power": { "name": "Vermogen {phase}" },
       "temperature": { "name": "Temperatuur" },
+      "external_meter_health": {
+        "name": "Communicatiestatus",
+        "state": {
+          "healthy": "In orde",
+          "faulted": "Modbus-fout",
+          "stale": "Communicatie onderbroken",
+          "not_reported": "Nog niet gemeld"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze status",
+            "state": {
+              "details": "PV-koppeling kan niet worden geselecteerd zolang de lader PowerMeterFailure/485 Fault meldt of drie opeenvolgende aanvragen voor de externe meter geen bruikbaar antwoord opleveren. Een of twee tijdelijke time-outs blokkeren de modus niet."
+            }
+          }
+        }
+      },
       "grid_power": { "name": "Netvermogen" },
       "grid_voltage": { "name": "Netspanning {phase}" },
       "grid_current": { "name": "Netstroom {phase}" },
@@ -125,14 +300,13 @@
         "state": {
           "fast": "Snel laden",
           "pv_linkage": "PV-koppeling",
-          "off_peak": "Daltarief",
-          "power_distribution": "Vermogensverdeling"
+          "off_peak": "Daltarief"
         },
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
             "state": {
-              "details": "De bedrijfsmodus bepaalt welke instellingen gelden. Load balancing is beschikbaar in de modi Snel laden en Daltarief, maar niet in de modus PV-koppeling."
+              "details": "De bedrijfsmodus bepaalt welke instellingen gelden. Load balancing is beschikbaar in de modi Snel laden en Daltarief, maar niet in de modus PV-koppeling. De lader meldt Snel laden met ingeschakelde load balancing als Power Distribution. Home Assistant toont Snel laden; de oorspronkelijke waarde blijft beschikbaar in de diagnose."
             }
           }
         }
@@ -154,28 +328,28 @@
         }
       },
       "solar_mode": {
-        "name": "Zonnemodus",
+        "name": "Gemelde zonnemodus",
         "state": {
           "disabled": "Uitgeschakeld",
-          "pv_linkage": "PV-koppeling",
-          "pv_linkage_plus": "PV-koppeling+"
+          "pv_linkage": "PV-koppeling (netafname toegestaan)",
+          "pv_linkage_plus": "PV-koppeling+ (alleen PV-overschot)"
         },
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
             "state": {
-              "details": "Toont de zonnelaadmodus van de lader. PV-koppeling en PV-koppeling+ gebruiken de metingen van de geconfigureerde externe meter."
+              "details": "PV-koppeling mag het zonnevermogen aanvullen met de ingestelde netafname. PV-koppeling+ gebruikt alleen PV-overschot. Handmatige en Slimme Boost mogen nog steeds netstroom gebruiken."
             }
           }
         }
       },
       "solar_grid_import_limit": {
-        "name": "Toegestane netafname bij PV-koppeling",
+        "name": "Gemelde netafname bij PV-koppeling",
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
             "state": {
-              "details": "Maximaal netvermogen dat de lader in de modus PV-koppeling mag toevoegen. Om te starten is ongeveer 1,4 kW enkelfasig of 4,1 kW driefasig nodig."
+              "details": "Maximaal netvermogen dat de lader in de modus PV-koppeling mag toevoegen. In PV-koppeling+ is de bewaarde waarde geen actieve reguliere netafname. Om te starten is ongeveer 1,4 kW enkelfasig of 4,1 kW driefasig nodig."
             }
           }
         }
@@ -230,12 +404,12 @@
         }
       },
       "off_peak_schedule": {
-        "name": "Daltariefschema",
+        "name": "Ingestelde laadvensters",
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
             "state": {
-              "details": "Toont de actieve daltariefvensters van de lader. De oorspronkelijke Growatt-payload blijft beschikbaar als attribuut met de ruwe waarde."
+              "details": "Toont de gedeelde tijdvensters van de lader. Growatt gebruikt deze afhankelijk van de bedrijfsmodus voor daltarief of handmatige boost bij PV-koppeling."
             }
           }
         }
@@ -253,6 +427,18 @@
       },
       "power_meter_type": {
         "name": "Energiemetertype",
+        "state": {
+          "none": "Geen meter",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (driefasig)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (driefasig)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (driefasig)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (driefasig)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (driefasig)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
@@ -273,8 +459,8 @@
           }
         }
       },
-      "external_sampling_wiring": {
-        "name": "Externe meetmethode",
+      "reported_external_sampling_method": {
+        "name": "Gemelde externe meetmethode",
         "state": {
           "ct_2000_1": "CT 2000:1",
           "power_meter": "Energiemeter",
@@ -290,7 +476,7 @@
         }
       },
       "warm_up_after_full_charge": {
-        "name": "Opwarmen na volledig laden",
+        "name": "Gemeld opwarmen na volledig laden",
         "state": {
           "disabled": "Uitgeschakeld",
           "enabled": "Ingeschakeld"
@@ -312,6 +498,200 @@
             "state": {
               "details": "Laadvertraging van de fabrikant in seconden. 0 betekent geen vertraging. Het gedrag van willekeurige vertraging kan per laderfirmware verschillen."
             }
+          }
+        }
+      }
+    },
+    "button": {
+      "start_charging": { "name": "Laden starten" },
+      "stop_charging": { "name": "Laden stoppen" },
+      "apply_pv_linkage": {
+        "name": "PV-Boost-instellingen toepassen",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze actie",
+            "state": {
+              "details": "Stuurt het volledige gewijzigde PV-Boost-concept naar de lader. Handmatige Boost stuurt het tijdvenster; Slimme Boost stuurt eindtijd en doelenergie. De actie is alleen beschikbaar wanneer het concept volledig is, afwijkt van de gemelde instellingen, er geen laadsessie actief is en de lader in een PV-modus staat."
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "max_current": { "name": "Maximale laadstroom" },
+      "load_balancing_limit": {
+        "name": "Limiet voor load balancing",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Stelt de netbelastingslimiet voor load balancing in. Alleen beschikbaar bij de laadstrategieën Snel laden en Daltarief; niet beschikbaar in de PV-koppelingsmodi."
+            }
+          }
+        }
+      },
+      "electricity_price": { "name": "Elektriciteitsprijs" },
+      "power_meter_address": {
+        "name": "Energiemeteradres",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Modbus-adres van de externe meter. Alleen beschikbaar wanneer Energiemeter als externe meetmethode is gekozen en er geen laadtransactie actief is."
+            }
+          }
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "Toegestane netafname bij PV-koppeling",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Alleen beschikbaar bij PV-koppeling, waar reguliere netafname is toegestaan. In PV-koppeling+ is deze instelling uitgeschakeld omdat alleen PV-overschot wordt gebruikt. Decimale waarden worden met een punt verstuurd."
+            }
+          }
+        }
+      },
+      "pv_smart_boost_target_energy": {
+        "name": "Doelenergie Slimme Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Doelenergie voor Slimme Boost. Dit bewerkt alleen het lokale concept en wordt pas samen met de eindtijd verstuurd wanneer Toepassen wordt ingedrukt."
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "authorization_mode": {"name":"Authorization mode","state":{"home_assistant_rfid":"Home Assistant / RFID","rfid_only":"Alleen RFID","plug_and_charge":"Aansluiten en laden"}},
+      "working_mode": {
+        "name": "Laadstrategie",
+        "state": {
+          "fast": "Snel laden",
+          "pv_linkage": "PV-koppeling (netafname toegestaan)",
+          "pv_linkage_plus": "PV-koppeling+ (alleen PV-overschot)",
+          "off_peak": "Daltarief"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "PV-koppeling staat de ingestelde reguliere netafname toe; PV-koppeling+ gebruikt alleen PV-overschot. Handmatige en Slimme Boost mogen nog steeds netstroom gebruiken. Bestaande boostdoelen en tijdvensters blijven ongewijzigd. De lader meldt Snel laden met ingeschakelde load balancing als Power Distribution. Home Assistant toont Snel laden; de oorspronkelijke waarde blijft beschikbaar in de diagnose."
+            }
+          }
+        }
+      },
+      "external_sampling_method": {
+        "name": "Externe meetmethode",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Energiemeter",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Selecteert directe Modbus-metingen of een CT 2000:1/3000:1-stroomtransformator. Alleen beschikbaar zonder actieve laadtransactie. Growatt noemt de OCPP-sleutel 'G_ExternalSamplingCurWring', waarschijnlijk een typefout van de fabrikant."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Energiemetertype",
+        "state": {
+          "none": "Geen meter",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (driefasig)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (driefasig)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (driefasig)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (driefasig)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (driefasig)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Selecteert het model van de externe Modbus-meter. Alleen beschikbaar wanneer Energiemeter als externe meetmethode is gekozen en er geen laadtransactie actief is."
+            }
+          }
+        }
+      },
+      "pv_boost_mode": {
+        "name": "PV-Boostmodus",
+        "state": {
+          "disabled": "Uitgeschakeld",
+          "manual": "Handmatig",
+          "smart": "Slim"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Selecteert welke Boost-workflow lokaal wordt voorbereid. Handmatig toont een tijdvenster; Slim toont eindtijd en doelenergie. Er wordt pas naar de lader geschreven wanneer Toepassen wordt ingedrukt."
+            }
+          }
+        }
+      }
+    },
+    "switch": {
+      "load_balancing": {
+        "name": "Load balancing (alleen Snel/Daltarief)",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Voorkomt dat de ingestelde netbelastingslimiet wordt overschreden. Alleen beschikbaar bij de laadstrategieën Snel laden en Daltarief; niet beschikbaar in de PV-koppelingsmodi."
+            }
+          }
+        }
+      },
+      "lcd_display": { "name": "LCD-scherm" },
+      "warm_up": {
+        "name": "Opwarmen na volledig laden",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": {
+              "details": "Staat een compatibele auto toe na volledig laden vermogen te blijven afnemen voor voorverwarmen of ontdooien. Ondersteuning door de auto is vereist."
+            }
+          }
+        }
+      }
+    },
+    "time": {
+      "auto_charge_start_time": { "name": "Automatische laadstart" },
+      "auto_charge_stop_time": { "name": "Automatisch laadeinde" },
+      "pv_manual_boost_start": {
+        "name": "Start Handmatige Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": { "details": "Start van het voorbereide Handmatige Boost-tijdvenster. Toepassen stuurt het volledige tijdvenster." }
+          }
+        }
+      },
+      "pv_manual_boost_end": {
+        "name": "Einde Handmatige Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": { "details": "Einde van het voorbereide Handmatige Boost-tijdvenster. Toepassen stuurt het volledige tijdvenster." }
+          }
+        }
+      },
+      "pv_smart_boost_finish": {
+        "name": "Eindtijd Slimme Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Over deze instelling",
+            "state": { "details": "Gewenste eindtijd voor Slimme Boost. Een tijd die vandaag al voorbij is, wordt bij Toepassen voor morgen gepland." }
           }
         }
       }

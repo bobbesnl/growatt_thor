@@ -10,8 +10,10 @@ from .charging_sessions import build_unified_session
 from .configuration import (
     INFORMATIONAL_CONFIGURATION_KEYS,
     OPERATIONAL_CONFIGURATION_KEYS,
+    redact_configuration_value,
     serialize_configuration_values,
 )
+from .configuration_writes import serialize_configuration_writes
 from .const import DOMAIN
 from .ocpp_diagnostics import redact_ocpp_data
 from .session_records import session_record_diagnostics
@@ -35,8 +37,24 @@ async def async_get_config_entry_diagnostics(
                 },
             },
             "configuration": {},
+            "configuration_writes": {},
+            "commands": {
+                "last_result": None,
+            },
+            "compound_writes": {
+                "pv_linkage": None,
+            },
             "unknown_configuration_keys": [],
             "growatt": {
+                "last_charger_fault": None,
+                "external_meter": {
+                    "health": "not_reported",
+                    "last_updated_at": None,
+                    "consecutive_timeouts": 0,
+                    "fault_connector_id": None,
+                    "fault_error_code": None,
+                    "fault_info": None,
+                },
                 "session_records": {
                     "current": None,
                     "frozen": None,
@@ -52,7 +70,31 @@ async def async_get_config_entry_diagnostics(
         coordinator.last_current_record,
         coordinator.last_frozen_record,
     )
+    configuration_writes = serialize_configuration_writes(
+        coordinator.configuration_writes,
+    )
+    for key, write in configuration_writes.items():
+        write["requested_raw_value"] = redact_configuration_value(
+            key,
+            write["requested_raw_value"],
+        )
+        write["reported_raw_value"] = redact_configuration_value(
+            key,
+            write["reported_raw_value"],
+        )
+
+    active_transaction = (
+        dict(coordinator.active_transaction)
+        if coordinator.active_transaction is not None
+        else None
+    )
+    if active_transaction is not None:
+        active_transaction["effective_charging_duration_minutes"] = (
+            coordinator.effective_charging.effective_minutes
+        )
+
     return {
+        "local_authorization": coordinator.authorization.diagnostics(),
         "connection": {
             "connected": coordinator.connected,
             "status": coordinator.status,
@@ -67,12 +109,25 @@ async def async_get_config_entry_diagnostics(
                 "last_status_notification": coordinator.last_status_notification,
                 "last_meter_values": coordinator.last_meter_values,
                 "transactions": {
-                    "active": coordinator.active_transaction,
+                    "active": active_transaction,
                     "last_completed": coordinator.last_completed_transaction,
                 },
             }
         ),
         "growatt": {
+            "last_charger_fault": (
+                coordinator.last_charger_fault.as_dict()
+                if coordinator.last_charger_fault is not None
+                else None
+            ),
+            "external_meter": {
+                "health": coordinator.external_meter_health,
+                "last_updated_at": coordinator.external_meter_last_updated_at,
+                "consecutive_timeouts": coordinator.meterval_consecutive_timeouts,
+                "fault_connector_id": coordinator.external_meter_fault_connector_id,
+                "fault_error_code": coordinator.external_meter_fault_error_code,
+                "fault_info": coordinator.external_meter_fault_info,
+            },
             "session_records": {
                 "current": session_record_diagnostics(
                     coordinator.last_current_record
@@ -85,7 +140,7 @@ async def async_get_config_entry_diagnostics(
         "sessions": {
             "active": (
                 build_unified_session(
-                    coordinator.active_transaction,
+                    active_transaction,
                     meter_values=coordinator.last_meter_values,
                     session_records=session_records,
                     charge_point_id=coordinator.charge_point_id,
@@ -106,6 +161,21 @@ async def async_get_config_entry_diagnostics(
             coordinator.configuration_values,
             redact=True,
         ),
+        "configuration_writes": configuration_writes,
+        "commands": {
+            "last_result": (
+                coordinator.last_command_result.as_dict()
+                if coordinator.last_command_result is not None
+                else None
+            ),
+        },
+        "compound_writes": {
+            "pv_linkage": (
+                coordinator.pv_linkage_apply_result.as_dict()
+                if coordinator.pv_linkage_apply_result is not None
+                else None
+            ),
+        },
         "unknown_configuration_keys": list(
             coordinator.unknown_configuration_keys
         ),

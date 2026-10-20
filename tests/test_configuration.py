@@ -5,6 +5,7 @@ import ast
 import importlib.util
 import json
 from pathlib import Path
+import re
 import sys
 import unittest
 
@@ -16,7 +17,16 @@ MODULE_PATH = (
     / "configuration.py"
 )
 TRANSLATIONS_PATH = MODULE_PATH.parent / "translations"
+TRANSLATION_LANGUAGES = ("en", "de", "nl", "it", "hu", "sl", "fr", "es")
+TRANSLATION_PLACEHOLDER_PATTERN = re.compile(r"\{[^{}]+\}")
 SENSOR_PATH = MODULE_PATH.parent / "sensor.py"
+DIAGNOSTICS_PATH = MODULE_PATH.parent / "diagnostics.py"
+CONFIGURATION_CONTROL_PATH = MODULE_PATH.parent / "configuration_control.py"
+SELECT_PATH = MODULE_PATH.parent / "select.py"
+CONTROL_PATHS = tuple(
+    MODULE_PATH.parent / f"{platform}.py"
+    for platform in ("button", "number", "select", "switch", "time")
+)
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_configuration_test_target",
     MODULE_PATH,
@@ -48,6 +58,9 @@ class ConfigurationRegistryTest(unittest.TestCase):
                 "ElectricityMeterOnline",
                 "G_WebSocketPingInterval",
                 "G_TimeSharingPrice",
+                "G_SolarMode",
+                "G_WorkingMode",
+                "G_PeriodTime",
             ),
         )
         self.assertEqual(
@@ -70,7 +83,6 @@ class ConfigurationRegistryTest(unittest.TestCase):
                 "G_ExternalSamplingCurWring",
                 "G_TimeZone",
                 "G_DaylightSavingTime",
-                "G_SolarMode",
                 "G_SolarLimitPower",
                 "G_SolarBoost",
                 "G_SolarThresholdCurr",
@@ -79,7 +91,6 @@ class ConfigurationRegistryTest(unittest.TestCase):
                 "G_OffPeakEnable",
                 "G_OffPeakCurr",
                 "G_MeterValueInterval",
-                "G_WorkingMode",
                 "G_LowPowerReserveEnable",
                 "G_FullContinueChargeEnable",
                 "G_RandDelayChargeTime",
@@ -132,6 +143,34 @@ class ConfigurationValueTest(unittest.TestCase):
 
         self.assertEqual(value.raw_value, "not-a-number")
         self.assertEqual(value.parsed_value, "not-a-number")
+
+    def test_numeric_value_does_not_coerce_malformed_wire_text(self):
+        valid = configuration.configuration_value_from_item(
+            {"key": "G_MaxCurrent", "value": "13.00", "readonly": False}
+        )
+        malformed = configuration.configuration_value_from_item(
+            {"key": "G_MaxCurrent", "value": "not-a-number", "readonly": False}
+        )
+
+        self.assertEqual(configuration.configuration_numeric_value(valid), 13.0)
+        self.assertIsNone(configuration.configuration_numeric_value(malformed))
+
+    def test_time_sharing_price_parser_handles_compound_and_negative_values(self):
+        self.assertEqual(
+            configuration.parse_time_sharing_price(
+                "time1=00:00-23:59&price1=0.31"
+            ),
+            0.31,
+        )
+        self.assertEqual(
+            configuration.parse_time_sharing_price(
+                "time1=00:00-23:59&price1=-1.25&time2=00:00-00:00"
+            ),
+            -1.25,
+        )
+        self.assertIsNone(
+            configuration.parse_time_sharing_price("time1=00:00-23:59")
+        )
 
     def test_unknown_value_is_preserved_and_redacted_by_default(self):
         value = configuration.configuration_value_from_item(
@@ -199,7 +238,8 @@ class ConfigurationEntityStateTest(unittest.TestCase):
             ("PVlink ManualBoost", "pv_linkage"),
             ("PVlink SmartBoost", "pv_linkage"),
             ("Off-Peak", "off_peak"),
-            ("Power Distribution", "power_distribution"),
+            ("Power Distribution", "fast"),
+            ("power_distribution", "fast"),
         ):
             with self.subTest(raw_value=raw_value):
                 self.assertEqual(
@@ -209,6 +249,19 @@ class ConfigurationEntityStateTest(unittest.TestCase):
                     ),
                     expected,
                 )
+
+    def test_fast_alias_preserves_original_diagnostic_value(self):
+        value = self._value("G_WorkingMode", "Power Distribution")
+        self.assertEqual(
+            configuration.configuration_entity_state("G_WorkingMode", value),
+            "fast",
+        )
+        self.assertEqual(value.raw_value, "Power Distribution")
+        self.assertEqual(value.as_dict(redact=True)["raw_value"], "Power Distribution")
+        self.assertNotIn(
+            "power_distribution",
+            configuration.CONFIGURATION_ENTITY_OPTIONS["G_WorkingMode"],
+        )
 
     def test_charger_mode_values(self):
         for raw_value, expected in (
@@ -324,6 +377,23 @@ class ConfigurationEntityStateTest(unittest.TestCase):
                     expected,
                 )
 
+    def test_network_mode_values(self):
+        for raw_value, expected in (
+            ("0", "static"),
+            ("STATIC", "static"),
+            ("Static", "static"),
+            ("1", "dhcp"),
+            ("DHCP", "dhcp"),
+        ):
+            with self.subTest(raw_value=raw_value):
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        "G_NetworkMode",
+                        self._value("G_NetworkMode", raw_value),
+                    ),
+                    expected,
+                )
+
     def test_off_peak_schedule_extracts_time_windows(self):
         for raw_value, expected in (
             ("00:00-05:00=0&1", "00:00-05:00"),
@@ -355,14 +425,26 @@ class ConfigurationEntityStateTest(unittest.TestCase):
                 self.assertEqual(value.parsed_value, parsed_value)
                 self.assertEqual(value.definition.unit, unit)
 
-    def test_plain_meter_values_keep_their_parsed_type(self):
-        self.assertEqual(
-            configuration.configuration_entity_state(
-                "G_PowerMeterType",
-                self._value("G_PowerMeterType", "Eastron SDM630"),
-            ),
-            "Eastron SDM630",
-        )
+    def test_power_meter_type_values(self):
+        for raw_value, expected in (
+            ("0", "none"),
+            ("1", "acrel_dds1352"),
+            ("Acrel DTSD1352(Three)", "acrel_dtsd1352_three"),
+            ("Eastron SDM630", "eastron_sdm630_three"),
+            ("Eastron SDM72D MID (three-phase)", "eastron_sdm72d_mid_three"),
+            ("CHINT DTSU666 MID(Three)", "chint_dtsu666_mid_three"),
+            ("CHINT DDSU666", "chint_ddsu666"),
+        ):
+            with self.subTest(raw_value=raw_value):
+                self.assertEqual(
+                    configuration.configuration_entity_state(
+                        "G_PowerMeterType",
+                        self._value("G_PowerMeterType", raw_value),
+                    ),
+                    expected,
+                )
+
+    def test_power_meter_address_keeps_its_parsed_type(self):
         self.assertEqual(
             configuration.configuration_entity_state(
                 "G_PowerMeterAddr",
@@ -389,11 +471,51 @@ class ConfigurationEntityStateTest(unittest.TestCase):
 class EntityTranslationTest(unittest.TestCase):
     """Keep translated enum states aligned with the entity contract."""
 
+    def test_translation_files_match_english_structure_and_placeholders(self):
+        def flatten(value, path=()):
+            flattened = {}
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    flattened.update(flatten(child, (*path, key)))
+                return flattened
+            flattened[path] = value
+            return flattened
+
+        reference = flatten(
+            json.loads(
+                (TRANSLATIONS_PATH / "en.json").read_text(encoding="utf-8")
+            )
+        )
+        for language in TRANSLATION_LANGUAGES:
+            with self.subTest(language=language):
+                translated = flatten(
+                    json.loads(
+                        (TRANSLATIONS_PATH / f"{language}.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                )
+                self.assertEqual(translated.keys(), reference.keys())
+                for path, source_value in reference.items():
+                    self.assertIsInstance(translated[path], str)
+                    self.assertTrue(translated[path].strip())
+                    self.assertEqual(
+                        TRANSLATION_PLACEHOLDER_PATTERN.findall(translated[path]),
+                        TRANSLATION_PLACEHOLDER_PATTERN.findall(source_value),
+                        ".".join(path),
+                    )
+
     def test_configuration_entities_are_translated(self):
         expected_entities = {
             "server_url",
             "status",
+            "last_charger_fault",
+            "last_command_result",
             "charge_point_id",
+            "charger_vendor",
+            "charger_model",
+            "firmware_version",
+            "charger_serial_number",
             "charging_power",
             "energy_charged",
             "total_energy_charged",
@@ -401,6 +523,7 @@ class EntityTranslationTest(unittest.TestCase):
             "last_session_energy",
             "last_session_cost",
             "last_session_duration",
+            "last_session_effective_charging_duration",
             "last_session_start",
             "last_session_end",
             "last_session_plug_time",
@@ -412,6 +535,8 @@ class EntityTranslationTest(unittest.TestCase):
             "voltage",
             "phase_power",
             "temperature",
+            "external_meter_health",
+            "last_charger_fault",
             "grid_power",
             "grid_voltage",
             "grid_current",
@@ -427,9 +552,16 @@ class EntityTranslationTest(unittest.TestCase):
             "off_peak_current",
             "power_meter_type",
             "power_meter_address",
-            "external_sampling_wiring",
+            "reported_external_sampling_method",
             "warm_up_after_full_charge",
             "delayed_charging_time",
+            "network_mode",
+            "network_ip_address",
+            "network_subnet_mask",
+            "network_gateway",
+            "network_dns_server",
+            "network_mac_address",
+            "network_wifi_ssid",
         }
         enum_entities = {
             "working_mode": "G_WorkingMode",
@@ -438,8 +570,10 @@ class EntityTranslationTest(unittest.TestCase):
             "grid_off_peak_charging": "G_PeakValleyEnable",
             "solar_boost": "G_SolarBoost",
             "off_peak_enable_setting": "G_OffPeakEnable",
-            "external_sampling_wiring": "G_ExternalSamplingCurWring",
+            "reported_external_sampling_method": "G_ExternalSamplingCurWring",
             "warm_up_after_full_charge": "G_FullContinueChargeEnable",
+            "network_mode": "G_NetworkMode",
+            "power_meter_type": "G_PowerMeterType",
         }
         session_enum_entities = {
             "last_session_charge_mode": (
@@ -467,12 +601,14 @@ class EntityTranslationTest(unittest.TestCase):
             "off_peak_current",
             "power_meter_type",
             "power_meter_address",
-            "external_sampling_wiring",
+            "reported_external_sampling_method",
             "warm_up_after_full_charge",
             "delayed_charging_time",
+            "external_meter_health",
+            "last_command_result",
         }
 
-        for language in ("en", "de", "nl"):
+        for language in TRANSLATION_LANGUAGES:
             with self.subTest(language=language):
                 translation = json.loads(
                     (TRANSLATIONS_PATH / f"{language}.json").read_text(
@@ -494,6 +630,16 @@ class EntityTranslationTest(unittest.TestCase):
                         "unavailable",
                         "faulted",
                         "idle",
+                    ),
+                )
+                self.assertEqual(
+                    tuple(sensors["last_command_result"]["state"]),
+                    (
+                        "confirmed",
+                        "failed",
+                        "skipped",
+                        "expired",
+                        "uncertain",
                     ),
                 )
 
@@ -518,6 +664,15 @@ class EntityTranslationTest(unittest.TestCase):
                     self.assertTrue(information["name"])
                     self.assertEqual(tuple(information["state"]), ("details",))
                     self.assertTrue(information["state"]["details"])
+
+                self.assertEqual(
+                    tuple(sensors["external_meter_health"]["state"]),
+                    ("healthy", "faulted", "stale", "not_reported"),
+                )
+                self.assertEqual(
+                    tuple(sensors["last_charger_fault"]["state"]),
+                    ("emergency_stop", "power_meter_failure", "other_fault"),
+                )
 
         self.assertIn(
             'attributes["information"] = "details"',
@@ -553,6 +708,7 @@ class EntityTranslationTest(unittest.TestCase):
         self.assertTrue(
             {
                 "status",
+                "last_command_result",
                 "charging_power",
                 "electricity_price",
                 "last_session_energy",
@@ -564,6 +720,303 @@ class EntityTranslationTest(unittest.TestCase):
                 "grid_current",
             }.issubset(translation_keys)
         )
+
+    def test_last_command_result_sensor_is_registered_and_correlatable(self):
+        source = SENSOR_PATH.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        setup = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.AsyncFunctionDef)
+            and node.name == "async_setup_entry"
+        )
+        setup_source = ast.unparse(setup)
+
+        self.assertIn("LastCommandResultSensor(coordinator, entry)", setup_source)
+        self.assertIn('attributes.pop("status")', source)
+        self.assertIn(
+            "coordinator.last_command_result.as_dict()",
+            DIAGNOSTICS_PATH.read_text(encoding="utf-8"),
+        )
+        for attribute in (
+            "command_id",
+            "command_name",
+            "write_status",
+            "queued_at",
+            "completed_at",
+            "reason",
+            "charger_result",
+        ):
+            self.assertIn(
+                attribute,
+                json.loads(
+                    (TRANSLATIONS_PATH / "en.json").read_text(
+                        encoding="utf-8"
+                    )
+                )["entity"]["sensor"]["last_command_result"][
+                    "state_attributes"
+                ],
+            )
+
+    def test_last_session_duration_declares_ha_duration_semantics(self):
+        tree = ast.parse(SENSOR_PATH.read_text(encoding="utf-8"))
+        duration_class = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef)
+            and node.name == "LastSessionDurationSensor"
+        )
+        assignments = {
+            target.id: node.value
+            for node in duration_class.body
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        self.assertEqual(
+            ast.unparse(assignments["_attr_device_class"]),
+            "SensorDeviceClass.DURATION",
+        )
+        self.assertEqual(
+            ast.unparse(assignments["_attr_native_unit_of_measurement"]),
+            "UnitOfTime.HOURS",
+        )
+        self.assertEqual(
+            ast.literal_eval(assignments["_attr_suggested_display_precision"]),
+            2,
+        )
+
+        native_value = next(
+            node
+            for node in duration_class.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "native_value"
+        )
+        self.assertIn("minutes / 60", ast.unparse(native_value))
+
+    def test_control_entities_are_translated(self):
+        expected = {
+            "button": {
+                "start_charging",
+                "stop_charging",
+                "apply_pv_linkage",
+            },
+            "number": {
+                "max_current",
+                "load_balancing_limit",
+                "electricity_price",
+                "solar_grid_import_limit",
+                "pv_smart_boost_target_energy",
+                "power_meter_address",
+            },
+            "select": {
+                "working_mode",
+                "external_sampling_method",
+                "power_meter_type",
+                "pv_boost_mode",
+            },
+            "switch": {
+                "load_balancing",
+                "lcd_display",
+                "warm_up",
+            },
+            "time": {
+                "auto_charge_start_time",
+                "auto_charge_stop_time",
+                "pv_manual_boost_start",
+                "pv_manual_boost_end",
+                "pv_smart_boost_finish",
+            },
+        }
+
+        for language in TRANSLATION_LANGUAGES:
+            with self.subTest(language=language):
+                translation = json.loads(
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                entities = translation["entity"]
+                for platform, keys in expected.items():
+                    self.assertTrue(keys.issubset(entities[platform]))
+                self.assertEqual(
+                    tuple(entities["select"]["working_mode"]["state"]),
+                    ("fast", "pv_linkage", "pv_linkage_plus", "off_peak"),
+                )
+                for platform, key in (
+                    ("number", "solar_grid_import_limit"),
+                    ("number", "power_meter_address"),
+                    ("number", "load_balancing_limit"),
+                    ("select", "working_mode"),
+                    ("select", "power_meter_type"),
+                    ("switch", "load_balancing"),
+                    ("switch", "warm_up"),
+                ):
+                    information = entities[platform][key]["state_attributes"][
+                        "information"
+                    ]
+                    self.assertTrue(information["name"])
+                    self.assertTrue(information["state"]["details"])
+
+    def test_apply_button_names_the_pv_boost_scope(self):
+        expected_names = {
+            "en": "Apply PV Boost settings",
+            "de": "PV-Boost-Einstellungen anwenden",
+            "nl": "PV-Boost-instellingen toepassen",
+        }
+        for language, expected_name in expected_names.items():
+            with self.subTest(language=language):
+                translation = json.loads(
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                self.assertEqual(
+                    translation["entity"]["button"]["apply_pv_linkage"]["name"],
+                    expected_name,
+                )
+
+    def test_load_balancing_name_explains_mode_limit(self):
+        expected_names = {
+            "en": "Load balancing (Fast/Off-Peak only)",
+            "de": "Lastausgleich (nur Schnellladen/Niedertarif)",
+            "nl": "Load balancing (alleen Snel/Daltarief)",
+        }
+        for language, expected_name in expected_names.items():
+            with self.subTest(language=language):
+                translation = json.loads(
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                self.assertEqual(
+                    translation["entity"]["switch"]["load_balancing"]["name"],
+                    expected_name,
+                )
+
+    def test_control_entities_do_not_use_hardcoded_names(self):
+        hardcoded_names = []
+        for path in CONTROL_PATHS:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Assign):
+                    continue
+                for target in node.targets:
+                    if (
+                        isinstance(target, ast.Attribute)
+                        and target.attr == "_attr_name"
+                    ):
+                        hardcoded_names.append((path.name, node.lineno))
+
+        self.assertEqual(hardcoded_names, [])
+
+    def test_pv_boost_select_imports_its_applicability_guard(self):
+        tree = ast.parse(SELECT_PATH.read_text(encoding="utf-8"))
+        charging_control_imports = {
+            alias.name
+            for node in tree.body
+            if isinstance(node, ast.ImportFrom)
+            and node.module == "charging_controls"
+            for alias in node.names
+        }
+
+        self.assertIn("control_is_applicable", charging_control_imports)
+
+    def test_pv_mode_translations_explain_grid_import(self):
+        expected = {
+            "en": (
+                "PV Linkage (grid import allowed)",
+                "PV Linkage+ (solar surplus only)",
+            ),
+            "de": (
+                "PV-Kopplung (Netzbezug erlaubt)",
+                "PV-Kopplung+ (nur PV-Überschuss)",
+            ),
+            "nl": (
+                "PV-koppeling (netafname toegestaan)",
+                "PV-koppeling+ (alleen PV-overschot)",
+            ),
+        }
+
+        for language, labels in expected.items():
+            with self.subTest(language=language):
+                translation = json.loads(
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                entities = translation["entity"]
+                for platform, key in (
+                    ("sensor", "solar_mode"),
+                    ("select", "working_mode"),
+                ):
+                    states = entities[platform][key]["state"]
+                    self.assertEqual(states["pv_linkage"], labels[0])
+                    self.assertEqual(states["pv_linkage_plus"], labels[1])
+
+    def test_direct_control_shadow_sensors_are_disabled_by_default(self):
+        tree = ast.parse(SENSOR_PATH.read_text(encoding="utf-8"))
+        defaults = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if not isinstance(node.func, ast.Name):
+                continue
+            if node.func.id != "SensorEntityDescription":
+                continue
+            keywords = {keyword.arg: keyword.value for keyword in node.keywords}
+            key_node = keywords.get("key")
+            default_node = keywords.get("entity_registry_enabled_default")
+            if (
+                isinstance(key_node, ast.Constant)
+                and isinstance(key_node.value, str)
+                and isinstance(default_node, ast.Constant)
+            ):
+                defaults[key_node.value] = default_node.value
+
+        shadow_keys = {
+            "working_mode",
+            "solar_mode",
+            "solar_grid_import_limit",
+            "off_peak_enable_setting",
+            "warm_up_after_full_charge",
+            "external_sampling_wiring",
+            "power_meter_type",
+            "power_meter_address",
+            "solar_boost",
+        }
+        self.assertEqual(
+            {key: defaults.get(key) for key in shadow_keys},
+            {key: False for key in shadow_keys},
+        )
+
+        sensor_source = SENSOR_PATH.read_text(encoding="utf-8")
+        self.assertIn(
+            "_attr_entity_registry_enabled_default = False",
+            sensor_source,
+        )
+
+    def test_control_state_attributes_exclude_write_lifecycle_details(self):
+        configuration_control_source = CONFIGURATION_CONTROL_PATH.read_text(
+            encoding="utf-8"
+        )
+        for volatile_attribute in ('"raw_value"', '"write_status"'):
+            self.assertNotIn(
+                volatile_attribute,
+                configuration_control_source,
+            )
+
+        select_source = SELECT_PATH.read_text(encoding="utf-8")
+        for volatile_attribute in (
+            '"pending_option"',
+            '"pending_changes"',
+            '"reported_working_mode"',
+            '"raw_working_mode"',
+            '"reported_boost_mode"',
+            '"raw_boost_value"',
+            '"raw_period_value"',
+        ):
+            self.assertNotIn(volatile_attribute, select_source)
 
 
 if __name__ == "__main__":

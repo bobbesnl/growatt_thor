@@ -1,10 +1,26 @@
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+)
 import voluptuous as vol
 import logging
 
+from .authorization import (
+    AuthorizationPolicy,
+    CONF_ALLOW_HA_REMOTE_START,
+    CONF_AUTHORIZATION,
+    CONF_AUTHORIZED_TAGS,
+    CONF_RESTRICT_AUTHORIZATION,
+    policy_from_input,
+)
+from .action_errors import async_require_command_completion
 from .const import (
+    CONFIG_ENTRY_VERSION,
     DOMAIN,
     DEFAULT_PORT,
     CONF_PORT,
@@ -13,41 +29,83 @@ from .const import (
     DEFAULT_POLL_INTERVAL,
     MIN_POLL_INTERVAL,
 )
+from .value_validation import (
+    NumericValidationError,
+    NumericValidationReason,
+    validate_poll_interval,
+    validate_tcp_port,
+)
+from .write_queue import (
+    VOLATILE_CONTROL_WRITE_POLICY,
+    ChargerWriteResult,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
-CHARGER_MODE_OPTIONS = {
-    "1": "HA/RFID",
-    "2": "RFID Only",
-    "3": "Plug & Charge",
-}
+
+def _poll_interval_error(exc: NumericValidationError) -> str:
+    """Retain the specific minimum error while naming all other bad values."""
+    if exc.reason == NumericValidationReason.OUT_OF_RANGE:
+        return "poll_interval_too_low"
+    return "invalid_poll_interval"
 
 
 class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for Growatt THOR EV Charger."""
 
-    VERSION = 1
+    VERSION = CONFIG_ENTRY_VERSION
 
     async def async_step_user(self, user_input=None):
         """Handle initial setup."""
+        # The 1.7 runtime has one domain-global coordinator and OCPP socket.
+        # A second entry would therefore expose duplicate entities that both
+        # operate on whichever charger connected last.  Fail explicitly until
+        # runtime state is deliberately keyed by config-entry ID.
+        if self._async_current_entries():
+            return self.async_abort(reason="single_instance_allowed")
+
         errors = {}
 
         if user_input is not None:
-            poll_interval = user_input.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
+            normalized_input = dict(user_input)
+            try:
+                normalized_input[CONF_PORT] = validate_tcp_port(
+                    user_input.get(CONF_PORT, DEFAULT_PORT)
+                )
+            except NumericValidationError:
+                errors[CONF_PORT] = "invalid_port"
+            try:
+                normalized_input[CONF_POLL_INTERVAL] = validate_poll_interval(
+                    user_input.get(
+                        CONF_POLL_INTERVAL,
+                        DEFAULT_POLL_INTERVAL,
+                    ),
+                    minimum=MIN_POLL_INTERVAL,
+                )
+            except NumericValidationError as exc:
+                errors[CONF_POLL_INTERVAL] = _poll_interval_error(exc)
 
-            if poll_interval < MIN_POLL_INTERVAL:
-                errors[CONF_POLL_INTERVAL] = "poll_interval_too_low"
-            else:
+            if not errors:
                 return self.async_create_entry(
                     title="Growatt THOR EV Charger",
-                    data=user_input,
+                    data=normalized_input,
                 )
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
+                    vol.Required(
+                        CONF_PORT,
+                        default=DEFAULT_PORT,
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=1,
+                            max=65535,
+                            step=1,
+                            mode=NumberSelectorMode.BOX,
+                        )
+                    ),
                     vol.Required(CONF_LOCATION, default=""): str,
                     vol.Required(
                         CONF_POLL_INTERVAL,
@@ -55,7 +113,13 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         description={
                             "suggested_value": DEFAULT_POLL_INTERVAL
                         }
-                    ): vol.All(vol.Coerce(int), vol.Range(min=MIN_POLL_INTERVAL)),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=MIN_POLL_INTERVAL,
+                            step=1,
+                            mode=NumberSelectorMode.BOX,
+                        )
+                    ),
                 }
             ),
             errors=errors,
@@ -75,28 +139,25 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class GrowattThorOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Growatt THOR."""
 
-    def __init__(self):
-        self._selected_mode = None
-
     async def async_step_init(self, user_input=None):
-        """Manage the options."""
+        """Show purpose-based options instead of action checkboxes."""
+        return self.async_show_menu(
+            step_id="init",
+            menu_options=["general", "authorization", "confirm_ap_mode"],
+        )
+
+    async def async_step_general(self, user_input=None):
+        """Manage local polling and location settings."""
         errors = {}
 
         if user_input is not None:
-            if user_input.get("enable_ap_mode"):
-                return await self.async_step_confirm_ap_mode()
-
-            selected_mode = user_input.get("charger_mode")
-            coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
-            current_mode_value = str(coordinator.charger_mode) if coordinator and coordinator.charger_mode else None
-
-            if selected_mode and selected_mode != current_mode_value:
-                self._selected_mode = selected_mode
-                return await self.async_step_confirm_charger_mode()
-
-            poll_interval = user_input.get(CONF_POLL_INTERVAL)
-            if poll_interval < MIN_POLL_INTERVAL:
-                errors[CONF_POLL_INTERVAL] = "poll_interval_too_low"
+            try:
+                poll_interval = validate_poll_interval(
+                    user_input.get(CONF_POLL_INTERVAL),
+                    minimum=MIN_POLL_INTERVAL,
+                )
+            except NumericValidationError as exc:
+                errors[CONF_POLL_INTERVAL] = _poll_interval_error(exc)
             else:
                 new_location = user_input.get(CONF_LOCATION, "")
                 self.hass.config_entries.async_update_entry(
@@ -111,6 +172,13 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
                 if coordinator:
                     coordinator.location = new_location
+                runtime_data = self.hass.data.get(DOMAIN, {})
+                runtime_data["poll_interval"] = poll_interval
+                schedule = runtime_data.get("poll_interval_schedule")
+                if schedule is not None:
+                    # Wake the active sleep so the new cadence starts from
+                    # this options save, without reloading the integration.
+                    schedule.update(poll_interval)
                 return self.async_create_entry(title="", data={})
 
         current_poll_interval = self.config_entry.data.get(
@@ -118,33 +186,24 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         )
         current_location = self.config_entry.data.get(CONF_LOCATION, "")
 
-        coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
-        current_mode_value = str(coordinator.charger_mode) if coordinator and coordinator.charger_mode else None
-        if current_mode_value not in CHARGER_MODE_OPTIONS:
-            current_mode_value = "1"
-
         return self.async_show_form(
-            step_id="init",
+            step_id="general",
             data_schema=vol.Schema(
                 {
                     vol.Required(
                         CONF_POLL_INTERVAL,
                         default=current_poll_interval,
-                    ): vol.All(vol.Coerce(int), vol.Range(min=MIN_POLL_INTERVAL)),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=MIN_POLL_INTERVAL,
+                            step=1,
+                            mode=NumberSelectorMode.BOX,
+                        )
+                    ),
                     vol.Required(
                         CONF_LOCATION,
                         default=current_location,
                     ): str,
-                    vol.Optional(
-                        "charger_mode",
-                        default=current_mode_value,
-                    ): SelectSelector(
-                        SelectSelectorConfig(
-                            options=list(CHARGER_MODE_OPTIONS),
-                            translation_key="charger_mode",
-                        )
-                    ),
-                    vol.Optional("enable_ap_mode", default=False): bool,
                 }
             ),
             errors=errors,
@@ -154,22 +213,58 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             },
         )
 
-    async def async_step_confirm_charger_mode(self, user_input=None):
-        """Confirm charger mode change - warns about reboot."""
+    async def async_step_authorization(self, user_input=None):
+        """Change only local policy, without sending charger configuration writes."""
+        policy = AuthorizationPolicy.from_config(
+            self.config_entry.data.get(CONF_AUTHORIZATION)
+        )
+        errors = {}
         if user_input is not None:
-            if user_input.get("confirm"):
-                await self._apply_charger_mode(self._selected_mode)
-                return self.async_abort(reason="charger_mode_changed")
+            try:
+                updated = policy_from_input(policy, user_input)
+            except ValueError as exc:
+                errors["base"] = str(exc)
             else:
-                return await self.async_step_init()
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    data={**self.config_entry.data, CONF_AUTHORIZATION: updated.as_config()},
+                )
+                coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
+                if coordinator:
+                    coordinator.authorization.policy = updated
+                return self.async_create_entry(title="", data={})
+
+        visible_tags = "\n".join(sorted(policy.id_tags))
+        if user_input is not None and isinstance(
+            user_input.get(CONF_AUTHORIZED_TAGS), str
+        ):
+            visible_tags = user_input[CONF_AUTHORIZED_TAGS]
 
         return self.async_show_form(
-            step_id="confirm_charger_mode",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("confirm", default=False): bool,
-                }
-            ),
+            step_id="authorization",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_RESTRICT_AUTHORIZATION,
+                    default=(user_input or {}).get(
+                        CONF_RESTRICT_AUTHORIZATION, policy.restricted
+                    ),
+                ): bool,
+                vol.Required(
+                    CONF_ALLOW_HA_REMOTE_START,
+                    default=(user_input or {}).get(
+                        CONF_ALLOW_HA_REMOTE_START,
+                        policy.allow_ha_remote_start,
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_AUTHORIZED_TAGS,
+                    default=visible_tags,
+                ): TextSelector(
+                    TextSelectorConfig(multiline=True)
+                ),
+            }),
+            errors=errors,
+            description_placeholders={"count": str(len(policy.id_tags))},
         )
 
     async def async_step_confirm_ap_mode(self, user_input=None):
@@ -190,39 +285,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             ),
         )
 
-    async def _apply_charger_mode(self, value: str):
-        """Write charger mode to the THOR via OCPP."""
-        from ocpp.v16.enums import ConfigurationStatus
-
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
-        coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
-
-        if not charge_point or not coordinator:
-            _LOGGER.error("Cannot change Charger Mode: not connected")
-            return
-
-        if value not in CHARGER_MODE_OPTIONS:
-            _LOGGER.error("Invalid charger mode: %s", value)
-            return
-
-        mode_label = CHARGER_MODE_OPTIONS[value]
-        _LOGGER.info("Setting G_ChargerMode to %s (%s)", value, mode_label)
-
-        async def _do_mode():
-            result = await charge_point.change_configuration("G_ChargerMode", value)
-            if result in (ConfigurationStatus.accepted, ConfigurationStatus.reboot_required):
-                coordinator.charger_mode = int(value)
-                coordinator.async_set_updated_data(True)
-                _LOGGER.info("Charger Mode changed to %s (result: %s)", mode_label, result)
-            else:
-                _LOGGER.error("Charger Mode change rejected: %s", result)
-
-        await coordinator.queue_write(_do_mode)
-
     async def _activate_ap_mode(self):
         """Activate AP Mode via OCPP DataTransfer."""
-        from ocpp.v16 import call
-
         charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
         coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
 
@@ -232,13 +296,24 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
 
         _LOGGER.info("Activating AP Mode...")
 
-        async def _do_ap():
-            result = await charge_point.call(
-                call.DataTransfer(
-                    vendor_id="Growatt",
-                    message_id="appconfigmode"
-                )
+        async def _do_ap(current_charge_point):
+            status = await current_charge_point.send_data_transfer(
+                vendor_id="Growatt",
+                message_id="appconfigmode",
             )
-            _LOGGER.info("AP Mode result: %s", result)
+            status_value = status.value if hasattr(status, "value") else str(status)
+            _LOGGER.info("AP Mode result: %s", status_value)
+            if status_value == "Accepted":
+                return ChargerWriteResult.success(status)
+            return ChargerWriteResult.failed("charger_rejected", status)
 
-        await coordinator.queue_write(_do_ap)
+        handle = await coordinator.queue_write(
+            _do_ap,
+            charge_point,
+            command_name="DataTransfer(appconfigmode)",
+            requires_connection=True,
+            policy=VOLATILE_CONTROL_WRITE_POLICY,
+        )
+        # The success abort screen is shown only after the charger has
+        # acknowledged AP mode, not merely after local enqueueing.
+        await async_require_command_completion(handle)

@@ -12,23 +12,52 @@
       }
     },
     "error": {
-      "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen"
+      "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen",
+      "invalid_poll_interval": "Das Abfrageintervall muss eine endliche ganze Anzahl Sekunden sein",
+      "invalid_port": "Der Port muss eine ganze Zahl zwischen 1 und 65535 sein"
     },
     "abort": {
       "ap_mode_activated": "✅ AP-Modus aktiviert! Die THOR-Wallbox stellt jetzt ein WLAN bereit. Suche nach einer SSID, die die THOR-Seriennummer enthält.",
-      "ap_mode_failed": "❌ Der AP-Modus konnte nicht aktiviert werden. Weitere Informationen sind in den Protokollen verfügbar."
+      "ap_mode_failed": "❌ Der AP-Modus konnte nicht aktiviert werden. Weitere Informationen sind in den Protokollen verfügbar.",
+      "single_instance_allowed": "Es kann nur eine Growatt THOR-Integration eingerichtet werden."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Optionen für Growatt THOR",
-        "description": "Abfrageintervall und erweiterte Optionen konfigurieren",
+        "description": "Wähle den zu konfigurierenden Bereich. Ladestrategie und Autorisierungsmodus sind eigene Gerätesteuerungen.",
+        "menu_options": {
+          "general": "Allgemeine Einstellungen",
+          "authorization": "Lokale Zugriffskontrolle",
+          "confirm_ap_mode": "Wartung: AP-Modus"
+        },
+        "menu_option_descriptions": {
+          "general": "Abfrageintervall und Installationsort konfigurieren.",
+          "authorization": "RFID-Zugriff und Starts durch Home Assistant getrennt verwalten.",
+          "confirm_ap_mode": "Einrichtungs-WLAN der Wallbox aktivieren; Home Assistant wird dabei getrennt."
+        }
+      },
+      "general": {
+        "title": "Allgemeine Einstellungen",
+        "description": "Diese Einstellungen betreffen Home Assistant. Ladestrategie und Autorisierungsmodus sind eigene Select-Entitäten am Gerät.",
         "data": {
           "poll_interval": "Netzdaten-Abfrageintervall (Sekunden, aktuell: {current_interval})",
-          "location": "Installationsort",
-          "charger_mode": "⚠️ Lademodus",
-          "enable_ap_mode": "⚠️ AP-Modus aktivieren"
+          "location": "Installationsort"
+        }
+      },
+      "authorization": {
+        "title": "Lokale Ladefreigabe",
+        "description": "Gespeicherte RFID-Kennungen: {count}. Der Zugriff mit physischen Karten und von Home Assistant gestartete Ladevorgänge werden getrennt verwaltet. Dies ändert weder den Autorisierungsmodus der Wallbox noch Karten oder Cloud-Bindungen.",
+        "data": {
+          "restrict_authorization": "RFID-Zugriff auf Freigabeliste beschränken",
+          "allow_ha_remote_start": "Starts durch Home Assistant erlauben",
+          "authorized_id_tags": "RFID-Freigabeliste (eine Kennung pro Zeile)"
+        },
+        "data_description": {
+          "restrict_authorization": "Aktiviert die lokale Prüfung physischer RFID-Kennungen. Eine aktivierte leere Liste lehnt jede Karte ab.",
+          "allow_ha_remote_start": "Erlaubt Starts über HA-Steuerelemente, Dienste und Automationen. Die technische Kennung gehört nicht in die RFID-Liste.",
+          "authorized_id_tags": "Maximal 100 exakte OCPP-Kennungen mit je 1–20 Zeichen. Die Liste wird lokal gespeichert und beim nächsten Öffnen wieder angezeigt. Zum Entfernen die jeweilige Zeile löschen; Kennungen erscheinen nicht in normalen Protokollen oder Diagnosedaten."
         }
       },
       "confirm_charger_mode": {
@@ -47,12 +76,85 @@
       }
     },
     "error": {
-      "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen"
+      "invalid_authorization": "Höchstens 100 Kennungen mit je 1–20 druckbaren ASCII-Zeichen ohne Leerzeichen eingeben.",
+      "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen",
+      "invalid_poll_interval": "Das Abfrageintervall muss eine endliche ganze Anzahl Sekunden sein"
     },
     "abort": {
       "ap_mode_activated": "✅ AP-Modus aktiviert! Die THOR-Wallbox stellt jetzt ein WLAN bereit. Suche nach einer SSID, die die THOR-Seriennummer enthält.",
       "ap_mode_failed": "❌ Der AP-Modus konnte nicht aktiviert werden. Weitere Informationen sind in den Protokollen verfügbar.",
       "charger_mode_changed": "✅ Lademodus geändert. Die THOR-Wallbox wird neu gestartet. Schließe das Fahrzeug bei Bedarf erneut an."
+    }
+  },
+  "exceptions": {
+    "action_not_allowed": {
+      "message": "Die angeforderte Aktion ist nicht zulässig ({reason})."
+    },
+    "charger_disconnected": {
+      "message": "Die Wallbox ist nicht verbunden. Die angeforderte Aktion kann daher nicht ausgeführt werden."
+    },
+    "charger_faulted": {
+      "message": "Die angeforderte Aktion ist gesperrt, solange die Wallbox eine Störung meldet."
+    },
+    "active_transaction": {
+      "message": "Diese Einstellung kann während eines aktiven Ladevorgangs nicht geändert werden."
+    },
+    "control_not_applicable": {
+      "message": "Diese Steuerung ist im aktuellen Betriebsmodus der Wallbox nicht anwendbar."
+    },
+    "configuration_read_only": {
+      "message": "Die Wallbox meldet diesen Konfigurationswert als schreibgeschützt."
+    },
+    "external_meter_not_ready": {
+      "message": "{option} kann nicht ausgewählt werden, da die Kommunikation mit dem externen Zähler nicht bereit ist."
+    },
+    "invalid_working_mode": {
+      "message": "{option} ist keine unterstützte Ladestrategie."
+    },
+    "charging_already_active": {
+      "message": "Der Ladevorgang kann nicht gestartet werden, da bereits eine Transaktion aktiv ist."
+    },
+    "no_active_transaction": {
+      "message": "Der Ladevorgang kann nicht gestoppt werden, da keine aktive Transaktion bekannt ist."
+    },
+    "invalid_pv_linkage_draft": {
+      "message": "Die PV-Linkage-Einstellungen sind unvollständig oder ungültig ({errors})."
+    },
+    "value_out_of_range": {
+      "message": "Der angeforderte Wert {value} liegt außerhalb des unterstützten Bereichs von {minimum} bis {maximum}."
+    },
+    "invalid_numeric_value": {
+      "message": "Der angeforderte Wert {value} ist keine gültige Zahl."
+    },
+    "value_not_finite": {
+      "message": "Der angeforderte Wert {value} muss eine endliche Zahl sein."
+    },
+    "value_step_mismatch": {
+      "message": "Der angeforderte Wert {value} entspricht nicht der unterstützten Schrittweite {step}."
+    },
+    "invalid_export_date": {
+      "message": "Die Datumswerte für den Sitzungsexport müssen das Format JJJJ-MM-TT verwenden."
+    },
+    "invalid_export_date_range": {
+      "message": "Das Startdatum des Sitzungsexports darf nicht nach dem Enddatum liegen."
+    },
+    "refresh_failed": {
+      "message": "Die Aktualisierung der Wallbox konnte den Schritt {step} nicht abschließen."
+    },
+    "session_export_failed": {
+      "message": "Der Export der Ladesitzungen ist fehlgeschlagen. Weitere Details stehen im Home-Assistant-Protokoll."
+    },
+    "command_still_pending": {
+      "message": "Der Befehl {command_id} steht noch aus; sein Endergebnis erscheint im Sensor Letztes Befehlsergebnis."
+    },
+    "command_not_executed": {
+      "message": "Der Befehl {command_name} ({command_id}) wurde nicht ausgeführt: {status} ({details})."
+    },
+    "command_outcome_uncertain": {
+      "message": "Das Ergebnis des Befehls {command_name} ({command_id}) ist ungewiss: {status} ({details})."
+    },
+    "command_failed": {
+      "message": "Der Befehl {command_name} ({command_id}) ist fehlgeschlagen: {status} ({details})."
     }
   },
   "selector": {
@@ -82,7 +184,60 @@
           "idle": "Leerlauf"
         }
       },
+      "last_charger_fault": {
+        "name": "Letzter Wallbox-Fehler",
+        "state": {
+          "emergency_stop": "Not-Aus",
+          "power_meter_failure": "Externer Zählerfehler",
+          "other_fault": "Anderer Wallbox-Fehler"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über dieses Ereignis",
+            "state": {
+              "details": "Bewahrt das letzte echte Faulted-Ereignis auch nach der Erholung der Wallbox auf. Zusammengehörige Details aus OCPP StatusNotification und Growatt faultmessage werden kombiniert."
+            }
+          }
+        }
+      },
+      "last_command_result": {
+        "name": "Letztes Befehlsergebnis",
+        "state": {
+          "confirmed": "Bestätigt",
+          "failed": "Fehlgeschlagen",
+          "skipped": "Übersprungen",
+          "expired": "Abgelaufen",
+          "uncertain": "Ungewiss"
+        },
+        "state_attributes": {
+          "information": { "name": "Über dieses Ergebnis", "state": { "details": "Das letzte terminale Queue-Ergebnis; die Befehls-ID ordnet wiederholte Automationsaufrufe eindeutig zu." } },
+          "command_id": { "name": "Befehls-ID" },
+          "command_name": { "name": "Befehl" },
+          "write_status": { "name": "Detailliertes Ergebnis" },
+          "queued_at": { "name": "Eingereiht um" },
+          "completed_at": { "name": "Abgeschlossen um" },
+          "reason": { "name": "Grund" },
+          "charger_result": { "name": "Wallbox-Ergebnis" }
+        }
+      },
       "charge_point_id": { "name": "Ladepunkt-ID" },
+      "charger_vendor": { "name": "Hersteller der Wallbox" },
+      "charger_model": { "name": "Wallbox-Modell" },
+      "firmware_version": { "name": "Firmware-Version" },
+      "charger_serial_number": { "name": "Seriennummer der Wallbox" },
+      "network_mode": {
+        "name": "Netzwerkmodus",
+        "state": {
+          "dhcp": "DHCP",
+          "static": "Statisch"
+        }
+      },
+      "network_ip_address": { "name": "IP-Adresse" },
+      "network_subnet_mask": { "name": "Subnetzmaske" },
+      "network_gateway": { "name": "Standardgateway" },
+      "network_dns_server": { "name": "DNS-Server" },
+      "network_mac_address": { "name": "MAC-Adresse" },
+      "network_wifi_ssid": { "name": "WLAN-SSID" },
       "charging_power": { "name": "Ladeleistung" },
       "energy_charged": { "name": "Geladene Energie" },
       "total_energy_charged": { "name": "Gesamte Ladeenergie" },
@@ -90,6 +245,17 @@
       "last_session_energy": { "name": "Energie der letzten Sitzung" },
       "last_session_cost": { "name": "Kosten der letzten Sitzung" },
       "last_session_duration": { "name": "Dauer der letzten Sitzung" },
+      "last_session_effective_charging_duration": {
+        "name": "Effektive Ladezeit der letzten Sitzung",
+        "state_attributes": {
+          "information": {
+            "name": "Über diesen Wert",
+            "state": {
+              "details": "Näherungsweise Zeit mit tatsächlichem Energiefluss, ermittelt aus den MeterValues der Transaktion oberhalb von 100 W. Fehlt die Leistung, werden steigende Energiezähler verwendet; lange Meldelücken zählen nicht mit. Frühere Sitzungen bleiben für diesen Wert nicht verfügbar."
+            }
+          }
+        }
+      },
       "last_session_start": { "name": "Start der letzten Sitzung" },
       "last_session_end": { "name": "Ende der letzten Sitzung" },
       "last_session_plug_time": { "name": "Einsteckzeit der letzten Sitzung" },
@@ -117,6 +283,23 @@
       "voltage": { "name": "Spannung {phase}" },
       "phase_power": { "name": "Leistung {phase}" },
       "temperature": { "name": "Temperatur" },
+      "external_meter_health": {
+        "name": "Kommunikationsstatus",
+        "state": {
+          "healthy": "OK",
+          "faulted": "Modbus-Fehler",
+          "stale": "Kommunikation unterbrochen",
+          "not_reported": "Noch nicht gemeldet"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diesen Status",
+            "state": {
+              "details": "PV-Kopplung kann nicht ausgewählt werden, solange die Wallbox PowerMeterFailure/485 Fault meldet oder drei aufeinanderfolgende Abfragen des externen Zählers keine verwertbare Antwort liefern. Ein oder zwei vorübergehende Timeouts sperren den Modus nicht."
+            }
+          }
+        }
+      },
       "grid_power": { "name": "Netzleistung" },
       "grid_voltage": { "name": "Netzspannung {phase}" },
       "grid_current": { "name": "Netzstrom {phase}" },
@@ -125,14 +308,13 @@
         "state": {
           "fast": "Schnellladen",
           "pv_linkage": "PV-Kopplung",
-          "off_peak": "Niedertarif",
-          "power_distribution": "Leistungsverteilung"
+          "off_peak": "Niedertarif"
         },
         "state_attributes": {
           "information": {
             "name": "Über diese Einstellung",
             "state": {
-              "details": "Der Betriebsmodus bestimmt, welche Einstellungen gelten. Lastausgleich steht beim Schnellladen und im Niedertarifmodus zur Verfügung, nicht jedoch bei PV-Kopplung."
+              "details": "Der Betriebsmodus bestimmt, welche Einstellungen gelten. Lastausgleich steht beim Schnellladen und im Niedertarifmodus zur Verfügung, nicht jedoch bei PV-Kopplung. Die Wallbox meldet Schnellladen mit aktiviertem Lastausgleich als Power Distribution. Home Assistant zeigt Schnellladen an; der Originalwert bleibt in der Diagnose erhalten."
             }
           }
         }
@@ -154,28 +336,28 @@
         }
       },
       "solar_mode": {
-        "name": "Solarmodus",
+        "name": "Gemeldeter Solarmodus",
         "state": {
           "disabled": "Deaktiviert",
-          "pv_linkage": "PV-Kopplung",
-          "pv_linkage_plus": "PV-Kopplung+"
+          "pv_linkage": "PV-Kopplung (Netzbezug erlaubt)",
+          "pv_linkage_plus": "PV-Kopplung+ (nur PV-Überschuss)"
         },
         "state_attributes": {
           "information": {
             "name": "Über diese Einstellung",
             "state": {
-              "details": "Zeigt den in der Wallbox aktiven Solarlademodus. PV-Kopplung und PV-Kopplung+ verwenden die Messwerte des konfigurierten externen Zählers."
+              "details": "PV-Kopplung darf die Solarleistung um den konfigurierten Netzbezug ergänzen. PV-Kopplung+ verwendet nur PV-Überschuss. Manueller und Smart Boost dürfen weiterhin Netzstrom beziehen."
             }
           }
         }
       },
       "solar_grid_import_limit": {
-        "name": "Erlaubter Netzbezug bei PV-Kopplung",
+        "name": "Gemeldeter Netzbezug bei PV-Kopplung",
         "state_attributes": {
           "information": {
             "name": "Über diese Einstellung",
             "state": {
-              "details": "Maximale Netzleistung, welche die Wallbox bei PV-Kopplung ergänzen darf. Zum Start benötigt sie ungefähr 1,4 kW einphasig oder 4,1 kW dreiphasig."
+              "details": "Maximale Netzleistung, welche die Wallbox bei PV-Kopplung ergänzen darf. Bei PV-Kopplung+ ist der erhaltene Wert kein aktiver regulärer Netzbezug. Zum Start benötigt die Wallbox ungefähr 1,4 kW einphasig oder 4,1 kW dreiphasig."
             }
           }
         }
@@ -230,12 +412,12 @@
         }
       },
       "off_peak_schedule": {
-        "name": "Niedertarif-Zeitplan",
+        "name": "Konfigurierte Ladezeitfenster",
         "state_attributes": {
           "information": {
             "name": "Über diese Einstellung",
             "state": {
-              "details": "Listet die aktiven Niedertarif-Zeitfenster der Wallbox auf. Der ursprüngliche Growatt-Payload bleibt als Rohwert-Attribut erhalten."
+              "details": "Listet die gemeinsam genutzten Zeitfenster der Wallbox auf. Growatt verwendet sie je nach Betriebsmodus für Niedertarifladen oder den manuellen Boost bei PV-Kopplung."
             }
           }
         }
@@ -253,6 +435,18 @@
       },
       "power_meter_type": {
         "name": "Zählertyp",
+        "state": {
+          "none": "Kein Zähler",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (dreiphasig)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (dreiphasig)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (dreiphasig)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (dreiphasig)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (dreiphasig)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
         "state_attributes": {
           "information": {
             "name": "Über diese Einstellung",
@@ -273,8 +467,8 @@
           }
         }
       },
-      "external_sampling_wiring": {
-        "name": "Externe Messmethode",
+      "reported_external_sampling_method": {
+        "name": "Gemeldete externe Messmethode",
         "state": {
           "ct_2000_1": "CT 2000:1",
           "power_meter": "Stromzähler",
@@ -290,7 +484,7 @@
         }
       },
       "warm_up_after_full_charge": {
-        "name": "Aufwärmen nach Volladung",
+        "name": "Gemeldetes Aufwärmen nach Volladung",
         "state": {
           "disabled": "Deaktiviert",
           "enabled": "Aktiviert"
@@ -312,6 +506,200 @@
             "state": {
               "details": "Herstellerseitige Ladeverzögerung in Sekunden. 0 bedeutet keine Verzögerung. Das Verhalten der Zufallsverzögerung kann je nach Wallbox-Firmware abweichen."
             }
+          }
+        }
+      }
+    },
+    "button": {
+      "start_charging": { "name": "Laden starten" },
+      "stop_charging": { "name": "Laden stoppen" },
+      "apply_pv_linkage": {
+        "name": "PV-Boost-Einstellungen anwenden",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Aktion",
+            "state": {
+              "details": "Überträgt den vollständigen geänderten PV-Boost-Entwurf an die Wallbox. Manueller Boost sendet sein Zeitfenster; Smart Boost sendet Endzeit und Zielenergie. Die Aktion ist nur verfügbar, wenn der Entwurf vollständig ist, von den gemeldeten Einstellungen abweicht, keine Ladetransaktion aktiv ist und die Wallbox im PV-Modus arbeitet."
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "max_current": { "name": "Maximaler Ladestrom" },
+      "load_balancing_limit": {
+        "name": "Lastausgleichsgrenze",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Legt die Netzlastgrenze für den Lastausgleich fest. Nur bei den Ladestrategien Schnellladen und Niedertarif verfügbar; in den PV-Kopplungsmodi deaktiviert."
+            }
+          }
+        }
+      },
+      "electricity_price": { "name": "Strompreis" },
+      "power_meter_address": {
+        "name": "Zähleradresse",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Modbus-Adresse des externen Zählers. Nur verfügbar, wenn Stromzähler als externe Messmethode gewählt ist und keine Ladetransaktion läuft."
+            }
+          }
+        }
+      },
+      "solar_grid_import_limit": {
+        "name": "Erlaubter Netzbezug bei PV-Kopplung",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Nur bei PV-Kopplung verfügbar, da dort regulärer Netzbezug erlaubt ist. Bei PV-Kopplung+ ist die Einstellung deaktiviert, weil ausschließlich PV-Überschuss verwendet wird. Dezimalwerte werden mit Punktnotation gesendet."
+            }
+          }
+        }
+      },
+      "pv_smart_boost_target_energy": {
+        "name": "Smart-Boost-Zielenergie",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Zielenergie für Smart Boost. Bearbeitet nur den lokalen Entwurf und wird erst beim Übernehmen zusammen mit der Endzeit gesendet."
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "authorization_mode": {"name":"Autorisierungsmodus","state":{"home_assistant_rfid":"Home Assistant / RFID","rfid_only":"Nur RFID","plug_and_charge":"Einstecken und laden"}},
+      "working_mode": {
+        "name": "Ladestrategie",
+        "state": {
+          "fast": "Schnellladen",
+          "pv_linkage": "PV-Kopplung (Netzbezug erlaubt)",
+          "pv_linkage_plus": "PV-Kopplung+ (nur PV-Überschuss)",
+          "off_peak": "Niedertarif"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "PV-Kopplung erlaubt den konfigurierten regulären Netzbezug; PV-Kopplung+ verwendet ausschließlich PV-Überschuss. Manueller und Smart Boost dürfen weiterhin Netzstrom beziehen. Vorhandene Boost-Ziele und Zeitfenster bleiben unverändert. Die Wallbox meldet Schnellladen mit aktiviertem Lastausgleich als Power Distribution. Home Assistant zeigt Schnellladen an; der Originalwert bleibt in der Diagnose erhalten."
+            }
+          }
+        }
+      },
+      "external_sampling_method": {
+        "name": "Externe Messmethode",
+        "state": {
+          "ct_2000_1": "CT 2000:1",
+          "power_meter": "Stromzähler",
+          "ct_3000_1": "CT 3000:1"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Wählt direkte Modbus-Zählerwerte oder einen Stromwandler mit CT 2000:1 beziehungsweise 3000:1. Nur ohne aktive Ladetransaktion verfügbar. Growatt nennt den OCPP-Schlüssel „G_ExternalSamplingCurWring“, vermutlich ein herstellerspezifischer Tippfehler."
+            }
+          }
+        }
+      },
+      "power_meter_type": {
+        "name": "Zählertyp",
+        "state": {
+          "none": "Kein Zähler",
+          "acrel_dds1352": "Acrel DDS1352",
+          "acrel_dtsd1352_three": "Acrel DTSD1352 (dreiphasig)",
+          "eastron_sdm230": "Eastron SDM230",
+          "eastron_sdm630_three": "Eastron SDM630 (dreiphasig)",
+          "eastron_sdm120_mid": "Eastron SDM120 MID",
+          "eastron_sdm72d_mid_three": "Eastron SDM72D MID (dreiphasig)",
+          "din_rail_dtsu666_mid_three": "Din-Rail DTSU666 MID (dreiphasig)",
+          "chint_dtsu666_mid_three": "CHINT DTSU666 MID (dreiphasig)",
+          "chint_ddsu666": "CHINT DDSU666"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Wählt das Modell des externen Modbus-Zählers. Nur verfügbar, wenn Stromzähler als externe Messmethode gewählt ist und keine Ladetransaktion läuft."
+            }
+          }
+        }
+      },
+      "pv_boost_mode": {
+        "name": "PV-Boost-Modus",
+        "state": {
+          "disabled": "Deaktiviert",
+          "manual": "Manuell",
+          "smart": "Smart"
+        },
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Wählt den lokal vorzubereitenden Boost-Ablauf. Manuell blendet ein Zeitfenster ein; Smart blendet Endzeit und Zielenergie ein. Erst Übernehmen schreibt die Werte auf die Wallbox."
+            }
+          }
+        }
+      }
+    },
+    "switch": {
+      "load_balancing": {
+        "name": "Lastausgleich (nur Schnellladen/Niedertarif)",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Verhindert das Überschreiten der konfigurierten Netzlastgrenze. Nur bei den Ladestrategien Schnellladen und Niedertarif verfügbar; in den PV-Kopplungsmodi deaktiviert."
+            }
+          }
+        }
+      },
+      "lcd_display": { "name": "LCD-Anzeige" },
+      "warm_up": {
+        "name": "Aufwärmen nach Volladung",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": {
+              "details": "Erlaubt einem kompatiblen Fahrzeug nach der Volladung weiterhin Leistung zum Vorwärmen oder Enteisen zu beziehen. Das Fahrzeug muss diese Funktion unterstützen."
+            }
+          }
+        }
+      }
+    },
+    "time": {
+      "auto_charge_start_time": { "name": "Automatischer Ladestart" },
+      "auto_charge_stop_time": { "name": "Automatisches Ladeende" },
+      "pv_manual_boost_start": {
+        "name": "Start manueller Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": { "details": "Start des vorbereiteten manuellen Boost-Zeitfensters. Übernehmen sendet das vollständige Zeitfenster." }
+          }
+        }
+      },
+      "pv_manual_boost_end": {
+        "name": "Ende manueller Boost",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": { "details": "Ende des vorbereiteten manuellen Boost-Zeitfensters. Übernehmen sendet das vollständige Zeitfenster." }
+          }
+        }
+      },
+      "pv_smart_boost_finish": {
+        "name": "Smart-Boost-Endzeit",
+        "state_attributes": {
+          "information": {
+            "name": "Über diese Einstellung",
+            "state": { "details": "Gewünschte Smart-Boost-Endzeit. Eine heute bereits vergangene Uhrzeit wird beim Übernehmen für morgen angesetzt." }
           }
         }
       }
