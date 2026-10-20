@@ -1,4 +1,4 @@
-"""Regression tests for running several config entries side by side."""
+"""Per-entry coordinator state: storage, poll pause and live power (F09)."""
 from __future__ import annotations
 
 import asyncio
@@ -83,7 +83,7 @@ class _MemoryStore:
         self.data = data
 
 
-def _build_coordinator(store=None, legacy_store=None):
+def _build_coordinator(store=None, legacy_store=None, entry_id="entry_test"):
     coordinator = coordinator_module.GrowattCoordinator.__new__(
         coordinator_module.GrowattCoordinator
     )
@@ -93,7 +93,10 @@ def _build_coordinator(store=None, legacy_store=None):
         coordinator.updates += 1
 
     coordinator.async_set_updated_data = _updated
+    coordinator.runtime_data = {}
+    coordinator.source_instance_id = entry_id
     coordinator.connected = True
+    coordinator._connection_changed = asyncio.Event()
     coordinator.charge_point_id = "XGJ0000000000001"
     coordinator.status = None
     coordinator.power = None
@@ -106,6 +109,9 @@ def _build_coordinator(store=None, legacy_store=None):
         coordinator_module.TransactionIdAllocator()
     )
     coordinator.total_energy_charged = 0.0
+    coordinator.last_charger_fault = None
+    coordinator.effective_charging = coordinator_module.EffectiveChargingTracker()
+    coordinator._pending_effective_charging_minutes = {}
     coordinator._restore_last_session_state(
         coordinator_module.LastSessionState.from_dict(None)
     )
@@ -121,28 +127,32 @@ def _set_charging(coordinator):
 
 
 class PerEntryStateTest(unittest.TestCase):
-    """Each config entry keeps its own connection and poll state."""
+    """Each config entry keeps its own connection slot and poll pause."""
 
     def test_connection_and_poll_pause_are_per_coordinator(self):
-        left = _build_coordinator()
-        right = _build_coordinator()
+        left = _build_coordinator(entry_id="entry_left")
+        right = _build_coordinator(entry_id="entry_right")
 
-        left.active_charge_point = object()
+        left.runtime_data["charge_point"] = object()
         left.pause_polling_until(100.0)
 
-        self.assertIsNone(right.active_charge_point)
-        self.assertEqual(right.skip_polling_until, 0.0)
-        self.assertEqual(left.skip_polling_until, 100.0)
+        self.assertNotIn("charge_point", right.runtime_data)
+        self.assertNotIn("skip_polling_until", right.runtime_data)
+        self.assertEqual(left.runtime_data["skip_polling_until"], 100.0)
 
     def test_poll_pause_only_extends(self):
         coordinator = _build_coordinator()
         coordinator.pause_polling_until(100.0)
         coordinator.pause_polling_until(50.0)
-        self.assertEqual(coordinator.skip_polling_until, 100.0)
+        self.assertEqual(coordinator.runtime_data["skip_polling_until"], 100.0)
 
     def test_storage_key_is_unique_per_entry(self):
         key_for = coordinator_module.storage_key_for_entry
         self.assertNotEqual(key_for("entry_left"), key_for("entry_right"))
+        self.assertEqual(
+            key_for("entry_left"),
+            "growatt_thor_statistics_entry_left",
+        )
         self.assertEqual(key_for(None), coordinator_module.STORAGE_KEY)
 
 
@@ -168,16 +178,9 @@ class PerEntryStorageTest(unittest.IsolatedAsyncioTestCase):
             14,
         )
         self.assertEqual(len(own.saved), 1)
+        self.assertAlmostEqual(own.saved[0]["total_energy_charged"], 55.531)
+        self.assertIn("active_effective_charging", own.saved[0])
         self.assertEqual(legacy.saved, [])
-
-    async def test_entry_without_legacy_seed_starts_fresh(self):
-        own = _MemoryStore()
-        coordinator = _build_coordinator(own, legacy_store=None)
-
-        await coordinator.async_load_storage()
-
-        self.assertEqual(coordinator.total_energy_charged, 0.0)
-        self.assertEqual(own.saved, [])
 
     async def test_own_file_wins_over_legacy(self):
         own = _MemoryStore({"total_energy_charged": 12.0, "next_transaction_id": 3})
@@ -188,6 +191,15 @@ class PerEntryStorageTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertAlmostEqual(coordinator.total_energy_charged, 12.0)
         self.assertEqual(legacy.loads, 0)
+        self.assertEqual(own.saved, [])
+
+    async def test_entry_without_legacy_seed_starts_fresh(self):
+        own = _MemoryStore()
+        coordinator = _build_coordinator(own, legacy_store=None)
+
+        await coordinator.async_load_storage()
+
+        self.assertEqual(coordinator.total_energy_charged, 0.0)
         self.assertEqual(own.saved, [])
 
 
@@ -248,78 +260,38 @@ class LivePowerResetTest(unittest.TestCase):
         self.assertEqual(coordinator.power, 0)
 
 
-def _load_runtime_module():
-    """Import runtime.py within the stubbed package."""
-    name = "custom_components.growatt_thor.runtime"
-    if name in sys.modules:
-        return sys.modules[name]
-    spec = importlib.util.spec_from_file_location(name, PACKAGE_PATH / "runtime.py")
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-runtime_module = _load_runtime_module()
-
-
-class _Device:
-    def __init__(self, device_id, identifiers):
-        self.id = device_id
-        self.identifiers = identifiers
-
-
-class DeviceLookupTest(unittest.TestCase):
-    """The external meter device is found among the entry's own devices."""
-
-    def test_finds_device_with_identifier(self):
-        charger = _Device("charger", {("growatt_thor", "entry_left")})
-        meter = _Device(
-            "meter",
-            {("growatt_thor", "entry_left", "grid_connection")},
-        )
-        found = runtime_module.find_device_with_identifier(
-            [charger, meter],
-            ("growatt_thor", "entry_left", "grid_connection"),
-        )
-        self.assertIs(found, meter)
-
-    def test_returns_none_without_match(self):
-        charger = _Device("charger", {("growatt_thor", "entry_left")})
-        self.assertIsNone(
-            runtime_module.find_device_with_identifier(
-                [charger],
-                ("growatt_thor", "entry_left", "grid_connection"),
-            )
-        )
-
-    def test_deprecated_lookup_is_not_called(self):
-        for path in PACKAGE_PATH.glob("*.py"):
-            source = path.read_text(encoding="utf-8")
-            with self.subTest(file=path.name):
-                self.assertNotIn("registry.async_get_device(", source)
-                self.assertNotIn(".async_get_device(\n", source)
-
-
-class NoGlobalStateSourceTest(unittest.TestCase):
-    """Guard against reintroducing a single shared state slot."""
-
-    def test_no_shared_coordinator_or_charge_point_slot(self):
-        for path in PACKAGE_PATH.glob("*.py"):
-            source = path.read_text(encoding="utf-8")
-            with self.subTest(file=path.name):
-                self.assertNotIn('["coordinator"]', source)
-                self.assertNotIn('.get("coordinator")', source)
-                self.assertNotIn('["charge_point"]', source)
-                self.assertNotIn('.get("charge_point")', source)
-                self.assertNotIn('"skip_polling_until"', source)
+class PerEntryWiringSourceTest(unittest.TestCase):
+    """Keep setup, platforms and services keyed by config entry."""
 
     def test_platforms_read_their_own_entry(self):
-        for name in ("sensor.py", "number.py", "switch.py", "button.py", "time.py"):
+        for name in (
+            "sensor.py",
+            "number.py",
+            "switch.py",
+            "button.py",
+            "time.py",
+            "select.py",
+        ):
             source = (PACKAGE_PATH / name).read_text(encoding="utf-8")
             with self.subTest(file=name):
-                self.assertIn("get_coordinator(hass, entry.entry_id)", source)
+                self.assertIn(
+                    'hass.data[DOMAIN][entry.entry_id]["coordinator"]',
+                    source,
+                )
+
+    def test_setup_seeds_storage_only_for_migrated_entries(self):
+        source = (PACKAGE_PATH / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn(
+            "seed_from_legacy=await _legacy_seed_allowed(hass, entry)",
+            source,
+        )
+        self.assertIn("coordinator.runtime_data = runtime_data", source)
+
+    def test_refresh_accepts_an_optional_charger(self):
+        source = (PACKAGE_PATH / "__init__.py").read_text(encoding="utf-8")
+        services = (PACKAGE_PATH / "services.yaml").read_text(encoding="utf-8")
+        self.assertIn("vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string", source)
+        self.assertIn("config_entry_id:", services)
 
 
 if __name__ == "__main__":

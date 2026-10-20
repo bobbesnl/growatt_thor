@@ -56,7 +56,7 @@ Home Assistant.
 |---|---|---|---|---|---|
 | `BootNotification` | CP -> CS | `chargePointVendor=Growatt`, `chargePointModel=THOR_22AS`, serial and firmware | Latest complete request in redacted HA diagnostics; connection creates the Charge Point ID sensor | 2.2.16 | observed, implemented |
 | `Heartbeat` | CP -> CS | Periodic clock synchronization; Central System requests a 60-second interval in `BootNotification.conf` | Returns current UTC time and refreshes connection liveness; any inbound OCPP message also counts as activity | 2.2.16 | observed, implemented |
-| `StatusNotification` | CP -> CS | `Preparing`, `Charging`, `Finishing`; `errorCode=NoError` and an empty `info` field | Status sensor plus latest complete request in HA diagnostics | 2.2.16 | observed, implemented |
+| `StatusNotification` | CP -> CS | Operational states plus faults such as `PowerMeterFailure` and emergency-stop `OtherError` | Status sensor, latest complete request, and persistent Last Charger Fault diagnostics | 2.2.16 | observed, implemented |
 | `StartTransaction` | CP -> CS | Starts an OCPP transaction | Resets live session values, returns a CS-generated transaction ID, and starts the retained transaction diagnostics | 2.2.16 | implemented |
 | `MeterValues` | CP -> CS | Charging energy, current, voltage, power, and temperature | Known values feed live sensors; the complete latest sample set is retained in HA diagnostics | 2.2.16 | observed, implemented |
 | `StopTransaction` | CP -> CS | Ends a transaction with meter stop and reason | Clears active state and retains the complete start/stop transaction pair in HA diagnostics | 2.2.16 | observed, implemented |
@@ -66,6 +66,7 @@ Home Assistant.
 | `DataTransfer/get_external_meterval` | CS -> CP | Requests the external power meter snapshot | Grid power, voltage, and current sensors | 2.2.16 | observed, implemented |
 | `DataTransfer/currentrecord` | CP -> CS | Current or latest Growatt session record | Structured diagnostics, last-session sensors, and CSV logging | 2.2.16 | observed, implemented |
 | `DataTransfer/frozenrecord` | CP -> CS | Completed Growatt session record | Structured diagnostics, last-session sensors, and CSV logging | 2.2.16 | implemented |
+| `DataTransfer/faultmessage` | CP -> CS | Growatt fault code, connector, event time, and message | Merged into persistent Last Charger Fault diagnostics | 2.2.16 | observed, implemented |
 | `DataTransfer/appconfigmode` | CS -> CP | Enables charger AP mode | Options flow with confirmation | 2.2.16 | implemented |
 | `DataTransfer/solar_target_data` | CS -> CP | PV Linkage Smart Boost target time and energy | Documented; no Home Assistant control | 2.2.16 | observed |
 | `DataTransfer/G_SetTime` | CS -> CP | One-shot fast-charge duration in minutes | Documented; no Home Assistant control | 2.2.16 | observed |
@@ -185,6 +186,38 @@ validated measurands in the table above are mapped to Home Assistant entities.
 Growatt encodes these payloads as query-string-like data. The raw value should
 be preserved because unknown fields may be added by other firmware versions.
 
+### `faultmessage`
+
+Activating the charger emergency stop produces two related requests:
+
+```text
+StatusNotification(
+  connectorId=1,
+  status=Faulted,
+  errorCode=OtherError,
+  info="Emergency stop press,or emergency stop is broken",
+  vendorId=Growatt,
+  vendorErrorCode="Emergency stop press,or emergency stop is broken"
+)
+
+DataTransfer(
+  vendorId=Growatt,
+  messageId=faultmessage,
+  data="connectorId=1&time=2026-08-30T10:00:51+02:00&errcode=100&info=Emergency stop press,or emergency stop is broken"
+)
+```
+
+Releasing the emergency stop produces
+`StatusNotification(status=Available, errorCode=NoError)`. The tested sequence
+returned to Available about 4.4 seconds after the Faulted notification. Growatt
+error code `100` therefore identifies the emergency-stop event, while the
+current status remains the authoritative recovery signal.
+
+The integration combines both fault requests by connector, category, and a
+30-second event window. The resulting Last Charger Fault record is retained
+after recovery and across Home Assistant restarts. Routine non-Faulted states
+such as `SuspendedEV` with `ChargeWait` are not recorded as charger faults.
+
 ### `get_external_meterval`
 
 The integration sends:
@@ -219,6 +252,28 @@ integration sends `vendorId=Growatt` and the tested charger accepts it.
 | `power` | Signed total grid power in W; import/export sign needs more captures | Grid power | 2.2.16 | observed, inferred, implemented |
 
 Do not treat the sign of `power` as a proven import/export convention yet.
+
+#### External meter Modbus failure
+
+Changing `G_PowerMeterAddr` from the working address `2` to the unused Modbus
+address `247` makes the charger send this status for connector 1:
+
+```text
+StatusNotification(status=Faulted, errorCode=PowerMeterFailure, info="485 Fault")
+```
+
+The charger continues to answer `get_external_meterval` every 30 seconds while
+the fault is active. Those responses contain current timestamps and zero-valued
+measurements, so neither payload freshness nor zero power is a valid health
+signal. `PowerMeterFailure` is the primary fault indicator; `485 Fault` is kept
+as a vendor fallback. Restoring address `2` produces
+`StatusNotification(status=Available, errorCode=NoError)` and non-zero meter
+data resumes on the next poll.
+
+The integration therefore reports communication as stale only after three
+consecutive requests have no usable response. One or two missed responses are
+treated as a temporary interruption. An explicit Modbus fault always takes
+priority over fresh meter payloads.
 
 ### `currentrecord` and `frozenrecord`
 
@@ -370,31 +425,31 @@ writable controls require separate before/after captures.
 | `G_DaylightSavingTime` | `00-00&00-00` | Daylight-saving configuration; value format not confirmed | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_ExternalLimitPower` | `45` | External grid power limit in kW in the tested setup | Loadbalancing limit number | 2.2.16 | observed, implemented |
 | `G_ExternalLimitPowerEnable` | `0` | Enable external power limiting | Loadbalancing switch | 2.2.16 | observed, implemented |
-| `G_ExternalSamplingCurWring` | `1` | External current sampling: `0=CT 2000:1`, `1=PowerMeter`, `2=CT 3000:1`; these OCPP values differ from the shifted charger web-page dropdown values | Read-only External Sampling Method sensor | 2.2.16 | observed, implemented |
+| `G_ExternalSamplingCurWring` | `1` | External current sampling: `0=CT 2000:1`, `1=PowerMeter`, `2=CT 3000:1`; these OCPP values differ from the shifted charger web-page dropdown values | External Sampling Method select; optional readback sensor | 2.2.16 | observed, implemented |
 | `G_LowPowerReserveEnable` | `Disable` | Low-power reserve setting | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_MaxCurrent` | `32.00` | Maximum charging current per phase in A | Max Current number | 2.2.16 | observed, implemented |
 | `G_MaxTemperature` | `80` | Maximum temperature threshold in Celsius | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_MeterValueInterval` | `5` | Growatt meter-value interval in seconds | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_NetworkMode` | `DHCP` | Charger network mode | Preserved in diagnostics | 2.2.16 | observed, implemented |
 | `G_OffPeakCurr` | empty | Off-peak current setting in A | Read-only Off-Peak Current sensor when a non-empty value is reported | 2.2.16 | observed, inferred, implemented |
-| `G_OffPeakEnable` | `1&Enable`, `1&Disable` | Vendor-encoded off-peak enable setting | Read-only translated Off-Peak Enable Setting sensor; raw value retained as an attribute | 2.2.16 | observed, implemented |
-| `G_OffPeakTime` | `12:00-13:00=0&00:00-05:00=0&1` | Vendor-encoded off-peak time windows | Read-only Off-Peak Schedule sensor displays the extracted windows; raw value retained as an attribute | 2.2.16 | observed, implemented |
+| `G_OffPeakEnable` | `1&Enable`, `1&Disable` | Vendor-encoded off-peak mode setting; enabling it selects the effective Off-Peak working mode | Read-only diagnostic state plus indirect Off-Peak option in the Charging Strategy select | 2.2.16 | observed, implemented |
+| `G_OffPeakTime` | `12:00-13:00=0&00:00-05:00=0&1` | Charger-derived windows from shared `G_PeriodTime`; used for Off-Peak or PV Manual Boost depending on mode | Read-only Configured Charging Periods diagnostic; raw value retained as an attribute | 2.2.16 | observed, implemented |
 | `G_PeakValleyEnable` | `0` | Peak/valley tariff enable setting | Read-only Grid Off-Peak Charging sensor | 2.2.16 | observed, inferred, implemented |
 | `G_PeriodTime` | `1&time1=00:00-05:00` | Vendor-encoded period definition | Not requested | 2.2.16 | observed, inferred |
-| `G_PowerMeterAddr` | `2` | External Modbus meter address | Read-only Power Meter Address sensor | 2.2.16 | observed, implemented |
-| `G_PowerMeterType` | `Eastron SDM630` | External meter model/type | Read-only Power Meter Type sensor | 2.2.16 | observed, implemented |
+| `G_PowerMeterAddr` | `2` | External Modbus meter address; Growatt API accepts positive integer addresses | Power Meter Address number; optional readback sensor | 2.2.16 | observed, implemented |
+| `G_PowerMeterType` | `Eastron SDM630` | External meter model/type; Growatt API writes the web-page model code and firmware may read it back as a model name | Power Meter Type select; optional readback sensor | 2.2.16 | observed, implemented |
 | `G_RCDProtection` | `6` | RCD protection mode; enum not confirmed | Preserved in diagnostics | 2.2.16 | observed, inferred, implemented |
 | `G_RandDelayChargeTime` | `600`, `0` | Charger-side delayed charging duration in seconds; ShinePhone writes `0` for both Random Delay switch directions | Read-only Delayed Charging Time diagnostic sensor; no Boolean control | 2.2.16 | observed, implemented |
 | `G_ServerURL` | `ws://<ha-host>:9000` | OCPP central-system endpoint | Server URL diagnostic sensor | 2.2.16 | observed, implemented |
 | `G_SolarBoost` | `1&Disable`, `1&ManualBoost`, `1&SmartBoost` | Vendor-encoded PV Linkage boost setting | Read-only translated PV Linkage Boost Configuration sensor; raw value retained as an attribute | 2.2.16 | observed, implemented |
-| `G_SolarLimitPower` | write `4.2`, readback `3.96` | PV Linkage grid-import allowance in kW; charger-adjusted readback depends on phase configuration | Read-only PV Linkage Grid Import Allowance sensor | 2.2.16 | observed, inferred, implemented |
-| `G_SolarMode` | `1&0`, `1&1`, `1&2` | Vendor-encoded solar mode; suffix values are `0=Disable`, `1=PVLink`, `2=PVLink+` | Read-only translated Solar Mode sensor | 2.2.16 | observed, implemented |
+| `G_SolarLimitPower` | write `4.2`, readback `3.96` | PV Linkage grid-import allowance in kW; charger-adjusted readback depends on phase configuration and is not an active regular grid allowance in PV Linkage+ | Read-only diagnostic plus mode-aware PV Linkage Grid Import Allowance number, writable only in PV Linkage | 2.2.16 | observed, inferred, implemented |
+| `G_SolarMode` | `1&0`, `1&1`, `1&2` | Vendor-encoded solar mode; suffix values are `0=Disable`, `1=PVLink` with regular grid import allowed, `2=PVLink+` using solar surplus only; writes also drive the effective working mode | Read-only diagnostic plus explicit Fast/PV options in the Charging Strategy select | 2.2.16 | observed, implemented |
 | `G_SolarThresholdCurr` | `0` | Solar current threshold in A | Read-only Solar Threshold Current sensor | 2.2.16 | observed, inferred, implemented |
 | `G_TimeZone` | `UTC+2` | Charger time zone | Preserved in diagnostics | 2.2.16 | observed, implemented |
 | `G_WebSocketPingInterval` | `30` | Growatt WebSocket ping interval in seconds | Preserved in diagnostics | 2.2.16 | observed, implemented |
 | `G_WifiPassword` | `<redacted>` | Wi-Fi password | Intentionally not requested; sensitive | 2.2.16 | observed |
 | `G_WifiSSID` | `<redacted>` | Wi-Fi network name | Preserved in diagnostics; privacy-sensitive | 2.2.16 | observed, implemented |
-| `G_WorkingMode` | `Fast`, `Off Peak`, `PVlink`, `PVlink ManualBoost`, `Power Distribution` | Charger working mode; boost suffixes do not change the base PV Linkage mode. `Power Distribution` is retained as a distinct reported state because its relationship to the app's Fast mode is not confirmed. | Read-only Working Mode sensor; last session also exposes a separate work-mode code | 2.2.16 | observed, implemented |
+| `G_WorkingMode` | `Fast`, `Off Peak`, `PVlink`, `PVlink ManualBoost`, `Power Distribution` | Effective charger working-mode readback; boost suffixes do not change the base PV Linkage mode. `Power Distribution` is retained as a distinct reported state because its relationship to the app's Fast mode is not confirmed. | Working Mode sensor plus mode-aware Charging Strategy select that writes the underlying mode keys; last session exposes a separate work-mode code | 2.2.16 | observed, implemented |
 
 ### Write-confirmed or implemented without GetConfiguration readback
 
@@ -404,7 +459,7 @@ capture set used for the tables above:
 | Key | Current use | Status |
 |---|---|---|
 | `ElectricityMeterOnline` | Preserved in diagnostics | implemented |
-| `G_FullContinueChargeEnable` | `Enable` and `Disable` writes were accepted. Exposed as a read-only diagnostic sensor when the charger reports it; compatible vehicle support is required. | observed, implemented |
+| `G_FullContinueChargeEnable` | `Enable` and `Disable` writes were accepted; readback was not confirmed. Exposed as a Warm-up switch, with a read-only diagnostic mirror only when reported. Compatible vehicle support is required. | observed, implemented |
 | `G_LCDCloseEnable` | LCD Display switch | implemented |
 | `G_TimeSharingPrice` | Electricity price number and sensor | implemented |
 
@@ -428,6 +483,10 @@ read-only sensors. It also retains all samples from the latest OCPP
 `MeterValues` request and structured Growatt `currentrecord` and `frozenrecord`
 payloads. Other, unrecognized `DataTransfer` message types are not retained yet.
 
-This is intentional for controls: a key name is not enough evidence to make a
-setting writable. Future controls should be added one use case at a time after
-capturing the value before and after the corresponding charger/app change.
+Controls are classified as directly writable, compound, or read-only. Direct
+controls use only captured values and become unavailable outside their valid
+working mode. Compound workflows stay read-only until Home Assistant can write
+the complete operation: Boost needs its mode plus target/period data, and the
+shared `G_PeriodTime` must not be edited as though it belonged only to
+Off-Peak mode. A key name or `readonly=false` response alone is not treated as
+proof that a standalone write is safe.

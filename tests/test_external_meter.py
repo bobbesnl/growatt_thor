@@ -69,5 +69,66 @@ class ExternalMeterParserTest(unittest.TestCase):
             external_meter.parse_external_meter_data(None)
 
 
+class ExternalMeterHealthTest(unittest.TestCase):
+    """Verify explicit faults and sustained communication failures."""
+
+    def test_detects_observed_power_meter_failure(self):
+        self.assertTrue(
+            external_meter.status_reports_external_meter_fault(
+                "PowerMeterFailure",
+                "485 Fault",
+            )
+        )
+        self.assertTrue(
+            external_meter.status_reports_external_meter_fault(None, "485 Fault")
+        )
+        self.assertFalse(
+            external_meter.status_reports_external_meter_fault("NoError", None)
+        )
+        self.assertTrue(
+            external_meter.status_clears_external_meter_fault("NoError")
+        )
+
+    def test_explicit_fault_takes_priority_over_fresh_zero_snapshot(self):
+        self.assertEqual(
+            external_meter.external_meter_health(
+                explicit_fault=True,
+                consecutive_timeouts=0,
+                has_snapshot=True,
+            ),
+            "faulted",
+        )
+
+    def test_three_consecutive_timeouts_are_required_for_stale(self):
+        for timeouts in (0, 1, 2):
+            with self.subTest(timeouts=timeouts):
+                self.assertEqual(
+                    external_meter.external_meter_health(
+                        explicit_fault=False,
+                        consecutive_timeouts=timeouts,
+                        has_snapshot=True,
+                    ),
+                    "healthy",
+                )
+        self.assertEqual(
+            external_meter.external_meter_health(
+                explicit_fault=False,
+                consecutive_timeouts=3,
+                has_snapshot=True,
+            ),
+            "stale",
+        )
+
+    def test_missing_initial_snapshot_is_not_reported(self):
+        self.assertEqual(
+            external_meter.external_meter_health(
+                explicit_fault=False,
+                consecutive_timeouts=0,
+                has_snapshot=False,
+            ),
+            "not_reported",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

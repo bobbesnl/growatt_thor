@@ -103,6 +103,29 @@ evidence.
 The web-interface **Machine Type** field selects a charger model. It is not a
 hardware-generation or PCB-revision identifier.
 
+The field is submitted to the charger's local `/config.cgi` endpoint as
+`mdtype` and uses the following values:
+
+| `mdtype` | Web-interface model |
+|---:|---|
+| `0` | `NULL` |
+| `1` | `EVA-11S` |
+| `2` | `EVA-22S` |
+| `3` | `EVA-44S` |
+| `4` | `EVA-11S-SE` |
+| `5` | `EVA-22S-SE` |
+| `6` | `EVA-44S-SE` |
+
+No matching OCPP configuration key is currently known. This local setting is
+therefore separate from the `chargePointModel` string reported through
+`BootNotification` and is not exposed as a Home Assistant entity.
+
+The generic web interface accepts a **Max Output Current** value from 6 to
+63 A. The usable upper limit depends on the charger model: 16 A for 3/11 kW,
+32 A for 7/22 kW, and 63 A for 44 kW models. The integration derives this
+limit from the OCPP model or firmware string and keeps a conservative 32 A
+limit when the model is unknown.
+
 ## Firmware update safety
 
 - Install only firmware offered for the exact device by Growatt or ShinePhone.

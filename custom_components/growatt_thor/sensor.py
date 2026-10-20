@@ -23,9 +23,11 @@ from .configuration import (
     CONFIGURATION_ENTITY_OPTIONS,
     configuration_entity_state,
 )
+from .charger_faults import CHARGER_FAULT_OPTIONS
 from .const import DOMAIN
-from .runtime import get_coordinator
 from .currency import configured_currency, electricity_price_unit
+from .external_meter import EXTERNAL_METER_HEALTH_OPTIONS
+from .ocpp_diagnostics import boot_notification_field
 from .ocpp_status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
 from .session_records import (
     SESSION_CHARGE_MODE_OPTIONS,
@@ -33,6 +35,7 @@ from .session_records import (
     normalize_session_charge_mode,
     normalize_session_work_mode,
 )
+from .write_queue import COMMAND_COMPLETION_STATUSES
 
 
 @dataclass(frozen=True)
@@ -45,6 +48,54 @@ class GrowattConfigurationSensorDefinition:
     has_information: bool = False
 
 
+@dataclass(frozen=True)
+class OcppBootSensorDefinition:
+    """Define a diagnostic sensor sourced from BootNotification."""
+
+    entity_description: SensorEntityDescription
+    payload_key: str
+
+
+OCPP_BOOT_SENSOR_DESCRIPTIONS = (
+    OcppBootSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="charger_vendor",
+            translation_key="charger_vendor",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:factory",
+        ),
+        payload_key="charge_point_vendor",
+    ),
+    OcppBootSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="charger_model",
+            translation_key="charger_model",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:ev-station",
+        ),
+        payload_key="charge_point_model",
+    ),
+    OcppBootSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="firmware_version",
+            translation_key="firmware_version",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:chip",
+        ),
+        payload_key="firmware_version",
+    ),
+    OcppBootSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="charger_serial_number",
+            translation_key="charger_serial_number",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:identifier",
+        ),
+        payload_key="charge_point_serial_number",
+    ),
+)
+
+
 CONFIGURATION_SENSOR_DESCRIPTIONS = (
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -53,6 +104,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             device_class=SensorDeviceClass.ENUM,
             options=list(CONFIGURATION_ENTITY_OPTIONS["G_WorkingMode"]),
             icon="mdi:ev-station",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_WorkingMode",
         has_information=True,
@@ -72,9 +124,11 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         entity_description=SensorEntityDescription(
             key="solar_mode",
             translation_key="solar_mode",
+            entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
             options=list(CONFIGURATION_ENTITY_OPTIONS["G_SolarMode"]),
             icon="mdi:solar-power",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_SolarMode",
         has_information=True,
@@ -83,9 +137,11 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         entity_description=SensorEntityDescription(
             key="solar_grid_import_limit",
             translation_key="solar_grid_import_limit",
+            entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.POWER,
             native_unit_of_measurement=UnitOfPower.KILO_WATT,
             icon="mdi:transmission-tower-import",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_SolarLimitPower",
         has_information=True,
@@ -94,9 +150,11 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         entity_description=SensorEntityDescription(
             key="solar_boost",
             translation_key="solar_boost",
+            entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
             options=list(CONFIGURATION_ENTITY_OPTIONS["G_SolarBoost"]),
             icon="mdi:flash",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_SolarBoost",
         has_information=True,
@@ -105,6 +163,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         entity_description=SensorEntityDescription(
             key="solar_threshold_current",
             translation_key="solar_threshold_current",
+            entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.CURRENT,
             native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
             icon="mdi:current-ac",
@@ -115,6 +174,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         entity_description=SensorEntityDescription(
             key="grid_off_peak_charging",
             translation_key="grid_off_peak_charging",
+            entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
             options=list(CONFIGURATION_ENTITY_OPTIONS["G_PeakValleyEnable"]),
             icon="mdi:transmission-tower",
@@ -126,9 +186,11 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         entity_description=SensorEntityDescription(
             key="off_peak_enable_setting",
             translation_key="off_peak_enable_setting",
+            entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
             options=list(CONFIGURATION_ENTITY_OPTIONS["G_OffPeakEnable"]),
             icon="mdi:clock-check-outline",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_OffPeakEnable",
         has_information=True,
@@ -137,6 +199,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         entity_description=SensorEntityDescription(
             key="off_peak_schedule",
             translation_key="off_peak_schedule",
+            entity_category=EntityCategory.DIAGNOSTIC,
             icon="mdi:calendar-clock",
         ),
         configuration_key="G_OffPeakTime",
@@ -146,6 +209,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         entity_description=SensorEntityDescription(
             key="off_peak_current",
             translation_key="off_peak_current",
+            entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.CURRENT,
             native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
             icon="mdi:current-ac",
@@ -158,7 +222,10 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             key="power_meter_type",
             translation_key="power_meter_type",
             entity_category=EntityCategory.DIAGNOSTIC,
+            device_class=SensorDeviceClass.ENUM,
+            options=list(CONFIGURATION_ENTITY_OPTIONS["G_PowerMeterType"]),
             icon="mdi:counter",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_PowerMeterType",
         external_meter=True,
@@ -170,6 +237,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             translation_key="power_meter_address",
             entity_category=EntityCategory.DIAGNOSTIC,
             icon="mdi:numeric",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_PowerMeterAddr",
         external_meter=True,
@@ -178,13 +246,14 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
             key="external_sampling_wiring",
-            translation_key="external_sampling_wiring",
+            translation_key="reported_external_sampling_method",
             entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
             options=list(
                 CONFIGURATION_ENTITY_OPTIONS["G_ExternalSamplingCurWring"]
             ),
             icon="mdi:connection",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_ExternalSamplingCurWring",
         external_meter=True,
@@ -200,6 +269,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
                 CONFIGURATION_ENTITY_OPTIONS["G_FullContinueChargeEnable"]
             ),
             icon="mdi:car-defrost-front",
+            entity_registry_enabled_default=False,
         ),
         configuration_key="G_FullContinueChargeEnable",
         has_information=True,
@@ -216,10 +286,79 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
         configuration_key="G_RandDelayChargeTime",
         has_information=True,
     ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_mode",
+            translation_key="network_mode",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            device_class=SensorDeviceClass.ENUM,
+            options=list(CONFIGURATION_ENTITY_OPTIONS["G_NetworkMode"]),
+            icon="mdi:network",
+        ),
+        configuration_key="G_NetworkMode",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_ip_address",
+            translation_key="network_ip_address",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:ip-network",
+        ),
+        configuration_key="G_ChargerNetIP",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_subnet_mask",
+            translation_key="network_subnet_mask",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:ip-network-outline",
+        ),
+        configuration_key="G_ChargerNetMask",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_gateway",
+            translation_key="network_gateway",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:router-network",
+        ),
+        configuration_key="G_ChargerNetGateway",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_dns_server",
+            translation_key="network_dns_server",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:dns",
+        ),
+        configuration_key="G_ChargerNetDNS",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_mac_address",
+            translation_key="network_mac_address",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:network-outline",
+        ),
+        configuration_key="G_ChargerNetMac",
+    ),
+    GrowattConfigurationSensorDefinition(
+        entity_description=SensorEntityDescription(
+            key="network_wifi_ssid",
+            translation_key="network_wifi_ssid",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:wifi",
+        ),
+        configuration_key="G_WifiSSID",
+    ),
 )
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator = get_coordinator(hass, entry.entry_id)
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    boot_sensors = [
+        OcppBootSensor(coordinator, entry, description)
+        for description in OCPP_BOOT_SENSOR_DESCRIPTIONS
+    ]
     configuration_sensors = [
         GrowattConfigurationSensor(coordinator, entry, description)
         for description in CONFIGURATION_SENSOR_DESCRIPTIONS
@@ -229,7 +368,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
         [
             # ── Status / live ─────────────────────────
             StatusSensor(coordinator, entry),
+            LastChargerFaultSensor(coordinator, entry),
+            LastCommandResultSensor(coordinator, entry),
             ChargePointIdSensor(coordinator, entry),
+            *boot_sensors,
             ChargingPowerSensor(coordinator, entry),
             EnergyChargedSensor(coordinator, entry),
             ServerUrlSensor(coordinator, entry),
@@ -242,6 +384,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             LastSessionPlugTimeSensor(coordinator, entry),
             LastSessionUnplugTimeSensor(coordinator, entry),
             LastSessionDurationSensor(coordinator, entry),
+            LastSessionEffectiveChargingDurationSensor(coordinator, entry),
             LastSessionTransactionIdSensor(coordinator, entry),
             LastSessionChargeModeSensor(coordinator, entry),
             LastSessionWorkModeSensor(coordinator, entry),
@@ -265,6 +408,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             TemperatureSensor(coordinator, entry),
 
             # ── Load Balancing Grid sensors ───────────
+            ExternalMeterHealthSensor(coordinator, entry),
             GridPowerSensor(coordinator, entry),
             GridVoltageSensor(coordinator, entry, "L1"),
             GridVoltageSensor(coordinator, entry, "L2"),
@@ -297,6 +441,75 @@ class BaseSensor(CoordinatorEntity, SensorEntity):
             "name": "Growatt THOR EV Charger",
             "manufacturer": "Growatt",
             "model": "THOR",
+        }
+
+
+class LastChargerFaultSensor(BaseSensor):
+    """Expose the most recently retained charger fault."""
+
+    _attr_translation_key = "last_charger_fault"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = list(CHARGER_FAULT_OPTIONS)
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:alert-octagon-outline"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_charger_fault")
+
+    @property
+    def native_value(self):
+        fault = self.coordinator.last_charger_fault
+        return fault.category if fault is not None else None
+
+    @property
+    def available(self):
+        return super().available and self.coordinator.last_charger_fault is not None
+
+    @property
+    def extra_state_attributes(self):
+        fault = self.coordinator.last_charger_fault
+        if fault is None:
+            return {"information": "details"}
+        return {
+            "information": "details",
+            **fault.as_dict(),
+        }
+
+
+class LastCommandResultSensor(BaseSensor):
+    """Expose the latest queue completion for automation correlation."""
+
+    _attr_translation_key = "last_command_result"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = list(COMMAND_COMPLETION_STATUSES)
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:progress-check"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "last_command_result")
+
+    @property
+    def native_value(self):
+        result = self.coordinator.last_command_result
+        return result.status.value if result is not None else None
+
+    @property
+    def available(self):
+        return (
+            super().available
+            and self.coordinator.last_command_result is not None
+        )
+
+    @property
+    def extra_state_attributes(self):
+        result = self.coordinator.last_command_result
+        if result is None:
+            return {"information": "details"}
+        attributes = result.as_dict()
+        attributes.pop("status")
+        return {
+            "information": "details",
+            **attributes,
         }
 
 
@@ -387,6 +600,30 @@ class GrowattConfigurationSensor(CoordinatorEntity, SensorEntity):
         if self._has_information:
             attributes["information"] = "details"
         return attributes
+
+
+# ─────────────────────────────
+# Retained OCPP BootNotification metadata
+# ─────────────────────────────
+
+class OcppBootSensor(BaseSensor):
+    """Expose one retained BootNotification field."""
+
+    def __init__(self, coordinator, entry, definition):
+        super().__init__(coordinator, entry, definition.entity_description.key)
+        self.entity_description = definition.entity_description
+        self._payload_key = definition.payload_key
+
+    @property
+    def native_value(self):
+        return boot_notification_field(
+            self.coordinator.boot_notification,
+            self._payload_key,
+        )
+
+    @property
+    def available(self):
+        return super().available and self.native_value is not None
 
 
 # ─────────────────────────────
@@ -538,6 +775,7 @@ class ElectricityPriceSensor(BaseSensor):
     _attr_icon = "mdi:cash"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 2
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "electricity_price")
@@ -598,19 +836,50 @@ class LastSessionCostSensor(BaseSensor):
 
 class LastSessionDurationSensor(BaseSensor):
     _attr_translation_key = "last_session_duration"
+    _attr_device_class = SensorDeviceClass.DURATION
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfTime.HOURS
+    _attr_suggested_display_precision = 2
     _attr_icon = "mdi:timer-outline"
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "last_session_duration")
 
     @property
-    def native_unit_of_measurement(self):
-        return UnitOfTime.MINUTES
+    def native_value(self):
+        minutes = self.coordinator.last_session_duration_minutes
+        return round(minutes / 60, 2) if minutes is not None else None
+
+
+class LastSessionEffectiveChargingDurationSensor(BaseSensor):
+    """Duration with measured energy transfer during the last session."""
+
+    _attr_translation_key = "last_session_effective_charging_duration"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfTime.HOURS
+    _attr_suggested_display_precision = 2
+    _attr_icon = "mdi:ev-plug-type2"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(
+            coordinator,
+            entry,
+            "last_session_effective_charging_duration",
+        )
 
     @property
     def native_value(self):
-        return self.coordinator.last_session_duration_minutes
+        minutes = self.coordinator.last_session_effective_charging_minutes
+        return round(minutes / 60, 2) if minutes is not None else None
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "information": "details",
+            "calculation_method": "ocpp_meter_values",
+            "active_power_threshold_w": 100,
+        }
 
 
 # ─────────────────────────────
@@ -856,6 +1125,37 @@ class TemperatureSensor(BaseSensor):
 # ─────────────────────────────
 # Grid / external meter
 # ─────────────────────────────
+
+class ExternalMeterHealthSensor(BaseExternalMeterSensor):
+    """Show whether external Modbus measurements are trustworthy."""
+
+    _attr_translation_key = "external_meter_health"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = list(EXTERNAL_METER_HEALTH_OPTIONS)
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:meter-electric-outline"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "health")
+
+    @property
+    def native_value(self):
+        return self.coordinator.external_meter_health
+
+    @property
+    def available(self):
+        return super().available and self.coordinator.connected
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            **super().extra_state_attributes,
+            "information": "details",
+            "connector_id": self.coordinator.external_meter_fault_connector_id,
+            "error_code": self.coordinator.external_meter_fault_error_code,
+            "info": self.coordinator.external_meter_fault_info,
+            "consecutive_timeouts": self.coordinator.meterval_consecutive_timeouts,
+        }
 
 class GridPowerSensor(BaseExternalMeterSensor):
     _attr_translation_key = "grid_power"

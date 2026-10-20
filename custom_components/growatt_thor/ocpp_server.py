@@ -28,7 +28,18 @@ from .connection import (
     OcppConnectionActivity,
 )
 from .session_records import parse_growatt_session_record
-from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH
+from .ocpp_logging import OcppMetadataLogger
+from .const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
+from .ocpp_requests import REQUEST_SKIPPED, SerializedOcppRequestGate
+from .runtime_ownership import (
+    ChargePointConnectionDecision,
+    decide_charge_point_connection,
+    release_active_charge_point,
+)
+from .write_queue import (
+    ChargerConnectionUnavailable,
+    ChargerRequestOutcomeUncertain,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,7 +77,7 @@ class GrowattChargePoint(OcppChargePoint):
     """
 
     def __init__(self, cp_id, websocket, coordinator, hass):
-        super().__init__(cp_id, websocket)
+        super().__init__(cp_id, websocket, logger=OcppMetadataLogger(_LOGGER, {}))
 
         self.coordinator = coordinator
         self.hass = hass
@@ -74,16 +85,76 @@ class GrowattChargePoint(OcppChargePoint):
         self._websocket = websocket
         self._activity = OcppConnectionActivity(hass.loop.time())
         self._boot_notification_requested = False
+        self._outbound_requests = SerializedOcppRequestGate(
+            connection_is_current=self._is_current_connection,
+            connection_is_available=lambda: self.coordinator.connected,
+            writes_are_pending=lambda: self.coordinator.has_pending_charger_writes,
+            uncertain_transport_errors=(
+                websockets.exceptions.ConnectionClosedError,
+                websockets.exceptions.ConnectionClosedOK,
+            ),
+        )
 
-        # The newest connection on this entry's server becomes the active one.
-        self.coordinator.active_charge_point = self
+        # The newest connection on this entry's server owns the entry's
+        # connection slot.  Other config entries keep their own slot.
+        self.coordinator.runtime_data["charge_point"] = self
 
         self.coordinator.set_charge_point(cp_id)
         _LOGGER.info("GrowattChargePoint initialised for %s", cp_id)
 
     def _is_current_connection(self):
         """Return whether this charge point owns the active connection slot."""
-        return self.coordinator.active_charge_point is self
+        return self.coordinator.runtime_data.get("charge_point") is self
+
+    def _connection_may_update_coordinator(self, operation_name: str) -> bool:
+        """Allow state changes only from the socket that owns the runtime.
+
+        A THOR reconnect can leave its old handler alive briefly.  Object
+        identity, rather than the charger ID alone, distinguishes that stale
+        socket from the replacement connection for the same physical charger.
+        """
+        if self._is_current_connection():
+            return True
+        _LOGGER.debug(
+            "Ignoring %s from superseded connection for %s",
+            operation_name,
+            self._cp_id,
+        )
+        return False
+
+    async def _run_serialized_request(
+        self,
+        operation_name,
+        operation,
+        *,
+        skip_if_writes_pending=False,
+        timeout_makes_outcome_uncertain=False,
+    ):
+        """Run one integration-initiated OCPP operation at a time.
+
+        The OCPP library already serializes individual CALL frames, but that is
+        too low-level for the THOR firmware.  A two-part GetConfiguration used
+        to overlap logically with ChangeConfiguration and meter polling; the
+        library then sent the waiting calls back-to-back.  Holding this lock for
+        the complete logical operation prevents that burst and documents the
+        firmware-protection boundary in one place.
+
+        Incoming charger requests and their CALLRESULT responses do not use
+        this lock.  Heartbeats must still be answered while an initiated CALL
+        is waiting for the charger.
+        """
+        result = await self._outbound_requests.run(
+            operation_name,
+            operation,
+            skip_if_writes_pending=skip_if_writes_pending,
+            timeout_makes_outcome_uncertain=timeout_makes_outcome_uncertain,
+        )
+        if result is REQUEST_SKIPPED:
+            _LOGGER.debug(
+                "Skipping optional %s while a charger write is pending",
+                operation_name,
+            )
+        return result
 
     def _mark_activity(self, action):
         """Record an inbound message for the connection watchdog."""
@@ -93,6 +164,9 @@ class GrowattChargePoint(OcppChargePoint):
 
     async def route_message(self, raw_msg):
         """Track every inbound OCPP frame before routing it."""
+        if not self._connection_may_update_coordinator("inbound OCPP frame"):
+            return
+
         action = "OCPPMessage"
         try:
             message = unpack(raw_msg)
@@ -149,8 +223,10 @@ class GrowattChargePoint(OcppChargePoint):
                     exc,
                 )
             finally:
-                if self.coordinator.active_charge_point is self:
-                    self.coordinator.active_charge_point = None
+                release_active_charge_point(
+                    self.coordinator.runtime_data,
+                    self,
+                )
             return
 
     # ─────────────────────────────
@@ -159,6 +235,12 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("BootNotification")
     async def on_boot_notification(self, **payload):
+        if not self._connection_may_update_coordinator("BootNotification"):
+            return call_result.BootNotification(
+                current_time=self.coordinator.now(),
+                interval=OCPP_HEARTBEAT_INTERVAL_SECONDS,
+                status=RegistrationStatus.accepted,
+            )
         try:
             _LOGGER.info("BootNotification payload: %s", payload)
             self.coordinator.record_boot_notification(payload)
@@ -179,6 +261,8 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("Heartbeat")
     async def on_heartbeat(self, **payload):
+        if not self._connection_may_update_coordinator("Heartbeat"):
+            return call_result.Heartbeat(current_time=self.coordinator.now())
         try:
             if not hasattr(self, '_heartbeat_done'):
                 self._heartbeat_done = True
@@ -198,8 +282,6 @@ class GrowattChargePoint(OcppChargePoint):
     async def _post_connect_init(self):
         try:
             await asyncio.sleep(1)
-
-            self.coordinator.meterval_consecutive_timeouts = 0
 
             _LOGGER.info("🔄 Auto GetConfiguration after connect")
             await self.trigger_get_configuration()
@@ -223,20 +305,58 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("Authorize")
     async def on_authorize(self, id_tag, **kwargs):
-        try:
+        if not self._connection_may_update_coordinator("Authorize"):
             return call_result.Authorize(
-                id_tag_info={"status": AuthorizationStatus.accepted}
+                id_tag_info={"status": AuthorizationStatus.invalid}
             )
-        except Exception as exc:
-            _LOGGER.error("Error in Authorize handler for idTag=%s: %s", id_tag, exc, exc_info=True)
+        try:
+            status = self.coordinator.authorization.decide(
+                id_tag, "Authorize", self.coordinator.now()
+            )
+            _LOGGER.info("Local Authorize decision: %s", status)
+            return call_result.Authorize(
+                id_tag_info={"status": status}
+            )
+        except Exception:
+            _LOGGER.error("Local Authorize failed; denying request")
             return call_result.Authorize(
                 id_tag_info={"status": AuthorizationStatus.invalid}
             )
 
     @on("StartTransaction")
     async def on_start_transaction(self, connector_id, id_tag, meter_start, **kwargs):
+        if not self._connection_may_update_coordinator("StartTransaction"):
+            return call_result.StartTransaction(
+                transaction_id=0,
+                id_tag_info={"status": AuthorizationStatus.invalid},
+            )
         try:
+            # Even a denied start is a reported transaction. Allocate and retain
+            # its identity so subsequent meter/stop messages remain correlatable.
             transaction_id = await self.coordinator.async_allocate_transaction_id()
+            # ID allocation waits on a lock and therefore yields to a possible
+            # reconnect.  Recheck ownership before committing transaction state
+            # that would otherwise belong to the replacement socket.
+            if not self._connection_may_update_coordinator(
+                "StartTransaction after ID allocation"
+            ):
+                return call_result.StartTransaction(
+                    transaction_id=0,
+                    id_tag_info={"status": AuthorizationStatus.invalid},
+                )
+            # Authorization diagnostics and a one-shot HA Remote Start grant
+            # are mutable coordinator-owned state.  Decide only after the
+            # ownership recheck so a superseded socket cannot consume them.
+            status = self.coordinator.authorization.decide(
+                id_tag,
+                "StartTransaction",
+                self.coordinator.now(),
+                # Plug & Charge is an explicit charger mode, not an RFID identity.
+                card_policy_applies=str(
+                    getattr(self.coordinator, "charger_mode", "")
+                )
+                != "3",
+            )
             self.coordinator.start_transaction(
                 transaction_id,
                 id_tag,
@@ -244,12 +364,16 @@ class GrowattChargePoint(OcppChargePoint):
                 meter_start=meter_start,
                 **kwargs,
             )
+            self.coordinator.active_transaction["start"]["response"]["id_tag_info"] = {
+                "status": status
+            }
+            _LOGGER.info("Local StartTransaction decision: %s", status)
             return call_result.StartTransaction(
                 transaction_id=transaction_id,
-                id_tag_info={"status": AuthorizationStatus.accepted},
+                id_tag_info={"status": status},
             )
-        except Exception as exc:
-            _LOGGER.error("Error in StartTransaction handler (connector=%s, idTag=%s): %s", connector_id, id_tag, exc, exc_info=True)
+        except Exception:
+            _LOGGER.error("StartTransaction handling failed; denying request")
             return call_result.StartTransaction(
                 transaction_id=0,
                 id_tag_info={"status": AuthorizationStatus.invalid},
@@ -257,6 +381,8 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("StopTransaction")
     async def on_stop_transaction(self, transaction_id, meter_stop, reason=None, **kwargs):
+        if not self._connection_may_update_coordinator("StopTransaction"):
+            return call_result.StopTransaction()
         try:
             self.coordinator.stop_transaction(
                 reason,
@@ -264,14 +390,12 @@ class GrowattChargePoint(OcppChargePoint):
                 meter_stop=meter_stop,
                 **kwargs,
             )
-            return call_result.StopTransaction(
-                id_tag_info={"status": AuthorizationStatus.accepted}
-            )
-        except Exception as exc:
-            _LOGGER.error("Error in StopTransaction handler (transaction_id=%s): %s", transaction_id, exc, exc_info=True)
-            return call_result.StopTransaction(
-                id_tag_info={"status": AuthorizationStatus.accepted}
-            )
+            # A stop must always be processed. Omit optional idTagInfo so this
+            # acknowledgement does not grant cached access to an unknown tag.
+            return call_result.StopTransaction()
+        except Exception:
+            _LOGGER.error("StopTransaction handling failed")
+            return call_result.StopTransaction()
 
     # ─────────────────────────────
     # Status & Metering
@@ -279,6 +403,8 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("StatusNotification")
     async def on_status_notification(self, connector_id, status, error_code=None, **kwargs):
+        if not self._connection_may_update_coordinator("StatusNotification"):
+            return call_result.StatusNotification()
         try:
             self.coordinator.record_status_notification(
                 connector_id,
@@ -293,6 +419,8 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("MeterValues")
     async def on_meter_values(self, connector_id, meter_value, **kwargs):
+        if not self._connection_may_update_coordinator("MeterValues"):
+            return call_result.MeterValues()
         try:
             transaction_id = kwargs.get('transaction_id')
             if transaction_id is not None:
@@ -316,6 +444,8 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("DataTransfer")
     async def on_data_transfer(self, vendor_id, message_id=None, data=None, **kwargs):
+        if not self._connection_may_update_coordinator("DataTransfer"):
+            return call_result.DataTransfer(status=DataTransferStatus.rejected)
         try:
             _LOGGER.debug("DataTransfer received: vendor=%s messageId=%s data=%s", vendor_id, message_id, data)
             if isinstance(data, str) and message_id in ("frozenrecord", "currentrecord"):
@@ -326,6 +456,8 @@ class GrowattChargePoint(OcppChargePoint):
                     record.transaction_id,
                 )
                 self.coordinator.process_session_record(record)
+            elif isinstance(data, str) and message_id == "faultmessage":
+                self.coordinator.process_fault_message(vendor_id, data)
         except Exception as exc:
             _LOGGER.error("Error in DataTransfer handler (vendor=%s, messageId=%s): %s", vendor_id, message_id, exc, exc_info=True)
         return call_result.DataTransfer(status=DataTransferStatus.accepted)
@@ -353,47 +485,89 @@ class GrowattChargePoint(OcppChargePoint):
         )
         return []
 
-    async def trigger_status(self):
+    async def trigger_status(self, *, skip_if_writes_pending=False):
         try:
             _LOGGER.info("Triggering StatusNotification")
-            await self.call(call.TriggerMessage(requested_message="StatusNotification", connector_id=1))
+            result = await self._run_serialized_request(
+                "TriggerMessage(StatusNotification)",
+                lambda: self.call(
+                    call.TriggerMessage(
+                        requested_message="StatusNotification",
+                        connector_id=1,
+                    ),
+                ),
+                skip_if_writes_pending=skip_if_writes_pending,
+            )
+            return result is not REQUEST_SKIPPED
         except Exception as exc:
             _LOGGER.warning("Failed to trigger StatusNotification: %s", exc)
+            return False
 
     async def trigger_boot_notification(self):
         """Request BootNotification when a reconnect did not send one."""
         try:
             _LOGGER.info("Triggering BootNotification for diagnostics")
-            await self.call(call.TriggerMessage(requested_message="BootNotification"))
+            await self._run_serialized_request(
+                "TriggerMessage(BootNotification)",
+                lambda: self.call(
+                    call.TriggerMessage(requested_message="BootNotification"),
+                ),
+            )
+            return True
         except Exception as exc:
             _LOGGER.warning("Failed to trigger BootNotification: %s", exc)
+            return False
 
-    async def trigger_external_meterval(self):
+    async def trigger_external_meterval(self, *, skip_if_writes_pending=False):
         _LOGGER.info("Triggering Growatt get_external_meterval")
-
-        task = asyncio.ensure_future(
-            self.call(call.DataTransfer(vendor_id="Growatt", message_id="get_external_meterval"))
-        )
-
         try:
-            result = await asyncio.wait_for(asyncio.shield(task), timeout=15.0)
+            async def request_external_meter():
+                task = asyncio.ensure_future(
+                    self.call(
+                        call.DataTransfer(
+                            vendor_id="Growatt",
+                            message_id="get_external_meterval",
+                        ),
+                    )
+                )
+                try:
+                    return await asyncio.wait_for(asyncio.shield(task), timeout=15.0)
+                except BaseException:
+                    task.cancel()
+                    try:
+                        await task
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                    raise
 
-            self.coordinator.meterval_consecutive_timeouts = 0
+            result = await self._run_serialized_request(
+                "DataTransfer(get_external_meterval)",
+                request_external_meter,
+                skip_if_writes_pending=skip_if_writes_pending,
+            )
+            if result is REQUEST_SKIPPED:
+                return False
+            if not self._connection_may_update_coordinator(
+                "external meter response"
+            ):
+                return False
+
             if hasattr(result, 'data') and isinstance(result.data, str):
                 _LOGGER.info("Received external meter values: %s", result.data)
-                self.coordinator.process_external_meter(result.data)
+                if not self.coordinator.process_external_meter(result.data):
+                    self.coordinator.record_external_meter_poll_timeout()
             else:
-                _LOGGER.debug("External meterval result: %s", result)
+                self.coordinator.record_external_meter_poll_timeout()
+                _LOGGER.warning("External meterval returned no usable data: %s", result)
+            return True
 
         except asyncio.TimeoutError:
-            task.cancel()
-            try:
-                await task
-            except (asyncio.CancelledError, Exception):
-                pass
-
-            count = getattr(self.coordinator, 'meterval_consecutive_timeouts', 0) + 1
-            self.coordinator.meterval_consecutive_timeouts = count
+            if not self._connection_may_update_coordinator(
+                "external meter timeout"
+            ):
+                return False
+            self.coordinator.record_external_meter_poll_timeout()
+            count = self.coordinator.meterval_consecutive_timeouts
 
             if count >= 2:
                 pause = min(60 * (count - 1), 300)
@@ -406,24 +580,31 @@ class GrowattChargePoint(OcppChargePoint):
                 )
             else:
                 _LOGGER.debug("External meterval timeout - THOR likely disconnected or busy")
+            return False
 
-        except websockets.exceptions.ConnectionClosedError as exc:
-            task.cancel()
-            try:
-                await task
-            except (asyncio.CancelledError, Exception):
-                pass
+        except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain) as exc:
             _LOGGER.debug("External meterval aborted - connection closed: %s", exc)
+            return False
 
         except Exception as exc:
-            task.cancel()
-            try:
-                await task
-            except (asyncio.CancelledError, Exception):
-                pass
             _LOGGER.warning("Failed to trigger external meter values: %s", exc)
+            return False
 
-    async def trigger_get_configuration(self):
+    async def trigger_get_configuration(self, *, skip_if_writes_pending=False):
+        """Read both configuration groups as one serialized operation."""
+        try:
+            result = await self._run_serialized_request(
+                "GetConfiguration",
+                self._request_configuration,
+                skip_if_writes_pending=skip_if_writes_pending,
+            )
+            return result is not REQUEST_SKIPPED and bool(result)
+        except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain) as exc:
+            _LOGGER.debug("GetConfiguration aborted - connection closed: %s", exc)
+            return False
+
+    async def _request_configuration(self):
+        """Perform the two firmware-sized GetConfiguration calls."""
         try:
             # ═══════════════════════════════════════════════════════
             # CALL 1: Operational keys
@@ -436,9 +617,15 @@ class GrowattChargePoint(OcppChargePoint):
 
             _LOGGER.info("Triggering GetConfiguration CALL 1 (operational keys: %d)", len(operational_keys))
             result1 = await asyncio.wait_for(
-                self.call(call.GetConfiguration(key=operational_keys)),
+                self.call(
+                    call.GetConfiguration(key=operational_keys),
+                ),
                 timeout=30.0
             )
+            if not self._connection_may_update_coordinator(
+                "GetConfiguration CALL 1 response"
+            ):
+                return False
             config_keys_1 = self._normalize_configuration_list(
                 getattr(result1, "configuration_key", None),
                 "configuration_key",
@@ -450,6 +637,15 @@ class GrowattChargePoint(OcppChargePoint):
                 "GetConfiguration CALL 1",
             )
             _LOGGER.info("CALL 1 received: %d keys (%d unknown)", len(config_keys_1), len(unknown_keys_1))
+
+            # Apply operational state immediately.  The second call contains
+            # diagnostics and has historically been more likely to time out on
+            # a busy THOR.  A timeout there must not discard a valid first
+            # response or leave charging controls unknown.
+            self.coordinator.process_configuration(
+                config_keys_1,
+                unknown_keys_1,
+            )
 
             # ═══════════════════════════════════════════════════════
             # CALL 2: Informational / diagnostic keys
@@ -464,9 +660,15 @@ class GrowattChargePoint(OcppChargePoint):
 
             _LOGGER.info("Triggering GetConfiguration CALL 2 (informational keys: %d)", len(informational_keys))
             result2 = await asyncio.wait_for(
-                self.call(call.GetConfiguration(key=informational_keys)),
+                self.call(
+                    call.GetConfiguration(key=informational_keys),
+                ),
                 timeout=30.0
             )
+            if not self._connection_may_update_coordinator(
+                "GetConfiguration CALL 2 response"
+            ):
+                return False
             config_keys_2 = self._normalize_configuration_list(
                 getattr(result2, "configuration_key", None),
                 "configuration_key",
@@ -508,19 +710,29 @@ class GrowattChargePoint(OcppChargePoint):
                 _LOGGER.info("Unknown keys: %s", ", ".join(str(k) for k in all_unknown_keys))
 
             if all_config_keys or all_unknown_keys:
+                # The first group was already applied above; process only the
+                # new values while retaining the complete unknown-key view.
                 self.coordinator.process_configuration(
-                    all_config_keys,
+                    config_keys_2,
                     all_unknown_keys,
                 )
             else:
                 _LOGGER.warning("GetConfiguration returned no usable configuration keys")
+            return True
 
         except asyncio.TimeoutError:
             _LOGGER.warning("GetConfiguration timeout - Thor likely rebooting, will retry on reconnect")
-        except websockets.exceptions.ConnectionClosedError as exc:
-            _LOGGER.debug("GetConfiguration aborted - connection closed: %s", exc)
+            return False
+        except (
+            websockets.exceptions.ConnectionClosedError,
+            websockets.exceptions.ConnectionClosedOK,
+        ):
+            # Let _run_serialized_request translate transport loss into the
+            # shared reconnect semantics.
+            raise
         except Exception as exc:
             _LOGGER.warning("Failed to trigger GetConfiguration: %s", exc)
+            return False
 
     # ─────────────────────────────
     # ChangeConfiguration
@@ -533,10 +745,21 @@ class GrowattChargePoint(OcppChargePoint):
                 key,
                 redact_configuration_value(key, value),
             )
-            result = await self.call(call.ChangeConfiguration(key=key, value=value))
+            result = await self._run_serialized_request(
+                f"ChangeConfiguration({key})",
+                lambda: self.call(
+                    call.ChangeConfiguration(key=key, value=value),
+                ),
+                timeout_makes_outcome_uncertain=True,
+            )
             status = getattr(result, "status", ConfigurationStatus.rejected)
             _LOGGER.info("ChangeConfiguration result: %s", status)
             return status
+        except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain):
+            # The queue distinguishes a definitely-unsent request from one
+            # whose acknowledgement was lost.  Do not collapse either into an
+            # ordinary charger rejection here.
+            raise
         except Exception as exc:
             _LOGGER.error(
                 "Failed to change configuration %s=%s: %s",
@@ -547,32 +770,105 @@ class GrowattChargePoint(OcppChargePoint):
             )
             return ConfigurationStatus.rejected
 
+    async def send_data_transfer(
+        self,
+        *,
+        vendor_id: str,
+        message_id: str,
+        data: str | None = None,
+    ):
+        """Send one vendor control payload and return its OCPP status."""
+        try:
+            _LOGGER.info(
+                "DataTransfer control: vendor=%s messageId=%s",
+                vendor_id,
+                message_id,
+            )
+            payload = {
+                "vendor_id": vendor_id,
+                "message_id": message_id,
+            }
+            if data is not None:
+                # OCPP marks ``data`` optional.  Omitting it is safer than
+                # serializing JSON null for firmware commands such as AP mode.
+                payload["data"] = data
+            result = await self._run_serialized_request(
+                f"DataTransfer({message_id})",
+                lambda: self.call(
+                    call.DataTransfer(**payload),
+                ),
+                timeout_makes_outcome_uncertain=True,
+            )
+            status = getattr(result, "status", DataTransferStatus.rejected)
+            _LOGGER.info("DataTransfer control result: %s", status)
+            return status
+        except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain):
+            raise
+        except Exception as exc:
+            _LOGGER.error(
+                "Failed DataTransfer control %s/%s: %s",
+                vendor_id,
+                message_id,
+                exc,
+                exc_info=True,
+            )
+            return DataTransferStatus.rejected
+
     # ─────────────────────────────
     # Remote Start/Stop Transaction
     # ─────────────────────────────
 
     async def remote_start_transaction(self, connector_id: int, id_tag: str) -> dict:
+        authorization = self.coordinator.authorization
         try:
-            _LOGGER.info("🔵 RemoteStartTransaction: connector_id=%d, id_tag=%s", connector_id, id_tag)
-            result = await self.call(
-                call.RemoteStartTransaction(connector_id=connector_id, id_tag=id_tag)
+            if not authorization.begin_ha_remote_start(id_tag):
+                _LOGGER.warning("Remote start denied by local authorisation policy")
+                return {"status": "Rejected"}
+            _LOGGER.info("RemoteStartTransaction: connector_id=%d", connector_id)
+            result = await self._run_serialized_request(
+                "RemoteStartTransaction",
+                lambda: self.call(
+                    call.RemoteStartTransaction(
+                        connector_id=connector_id,
+                        id_tag=id_tag,
+                    ),
+                ),
+                timeout_makes_outcome_uncertain=True,
             )
             status = getattr(result, "status", RemoteStartStopStatus.rejected)
+            status_value = status.value if hasattr(status, "value") else str(status)
+            if status_value != RemoteStartStopStatus.accepted.value:
+                authorization.cancel_ha_remote_start()
             _LOGGER.info("RemoteStartTransaction result: %s", status)
-            return {"status": status.value if hasattr(status, "value") else str(status)}
-        except Exception as exc:
-            _LOGGER.error("Failed to start transaction: %s", exc, exc_info=True)
+            return {"status": status_value}
+        except ChargerConnectionUnavailable:
+            authorization.cancel_ha_remote_start()
+            raise
+        except ChargerRequestOutcomeUncertain:
+            # The THOR may have accepted the command before the response was
+            # lost.  Keep the short-lived, one-shot grant so a resulting
+            # StartTransaction is not incorrectly denied by local RFID policy.
+            raise
+        except Exception:
+            authorization.cancel_ha_remote_start()
+            _LOGGER.error("Failed to send remote start transaction")
             return {"status": "Rejected"}
 
     async def remote_stop_transaction(self, transaction_id: int) -> dict:
         try:
             _LOGGER.info("🔴 RemoteStopTransaction: transaction_id=%d", transaction_id)
-            result = await self.call(
-                call.RemoteStopTransaction(transaction_id=transaction_id)
+            result = await self._run_serialized_request(
+                "RemoteStopTransaction",
+                lambda: self.call(
+                    call.RemoteStopTransaction(transaction_id=transaction_id),
+                ),
+                timeout_makes_outcome_uncertain=True,
             )
             status = getattr(result, "status", RemoteStartStopStatus.rejected)
             _LOGGER.info("RemoteStopTransaction result: %s", status)
             return {"status": status.value if hasattr(status, "value") else str(status)}
+        except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain):
+            raise
         except Exception as exc:
             _LOGGER.error("Failed to stop transaction: %s", exc, exc_info=True)
             return {"status": "Rejected"}
@@ -582,16 +878,82 @@ class GrowattChargePoint(OcppChargePoint):
 # WebSocket server
 # ─────────────────────────────
 
+async def _close_superseded_connection(charge_point):
+    """Close an old same-charger socket after its replacement owns the slot."""
+    try:
+        await asyncio.wait_for(
+            charge_point._websocket.close(
+                code=1000,
+                reason="Superseded by a newer connection",
+            ),
+            timeout=5.0,
+        )
+    except asyncio.TimeoutError:
+        _LOGGER.warning(
+            "Timed out closing superseded connection for %s",
+            charge_point._cp_id,
+        )
+        transport = getattr(charge_point._websocket, "transport", None)
+        if transport is not None:
+            transport.close()
+    except Exception as exc:
+        _LOGGER.debug(
+            "Failed to close superseded connection for %s: %s",
+            charge_point._cp_id,
+            exc,
+        )
+
+
 async def _on_connect(websocket, path, coordinator, hass):
     watchdog_task = None
+    cp = None
     try:
         if not path.startswith(DEFAULT_PATH):
             await websocket.close()
             return
 
         cp_id = path.rstrip("/").split("/")[-1]
+        # Each config entry runs its own server, so this decision only sees
+        # the connection and charger identity of the entry that owns it.
+        runtime_data = coordinator.runtime_data
+        active_charge_point = runtime_data.get("charge_point")
+        active_charge_point_id = (
+            getattr(active_charge_point, "_cp_id", "<unknown>")
+            if active_charge_point is not None
+            else None
+        )
+        decision = decide_charge_point_connection(
+            retained_charge_point_id=coordinator.charge_point_id,
+            active_charge_point_id=active_charge_point_id,
+            incoming_charge_point_id=cp_id,
+        )
+        if (
+            decision
+            == ChargePointConnectionDecision.REJECT_DIFFERENT_CHARGER
+        ):
+            _LOGGER.error(
+                "Rejecting OCPP connection from %s: runtime belongs to %s",
+                cp_id,
+                coordinator.charge_point_id or active_charge_point_id,
+            )
+            await websocket.close(
+                code=1008,
+                reason="A different charger already owns this integration",
+            )
+            return
+
         _LOGGER.info("THOR connected: %s", cp_id)
         cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
+        if (
+            decision
+            == ChargePointConnectionDecision.REPLACE_SAME_CHARGER
+        ):
+            # Publish the replacement first.  The old handler's identity guard
+            # then becomes effective before its socket is asked to close.
+            hass.async_create_background_task(
+                _close_superseded_connection(active_charge_point),
+                name=f"growatt_thor_close_superseded_{cp_id}",
+            )
         watchdog_task = hass.async_create_background_task(
             cp.async_watch_connection(),
             name=f"growatt_thor_connection_watchdog_{cp_id}",
@@ -610,8 +972,7 @@ async def _on_connect(websocket, path, coordinator, hass):
                 except asyncio.CancelledError:
                     pass
 
-            if coordinator.active_charge_point is cp:
-                coordinator.active_charge_point = None
+            if release_active_charge_point(coordinator.runtime_data, cp):
                 coordinator.set_disconnected()
             else:
                 _LOGGER.debug(

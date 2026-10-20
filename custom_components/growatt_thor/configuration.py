@@ -260,6 +260,12 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         ),
         "G_NetworkMode": _definition(
             "Charger network mode",
+            enum_values=(
+                ("0", "Static"),
+                ("1", "DHCP"),
+                ("STATIC", "Static"),
+                ("DHCP", "DHCP"),
+            ),
             request_group=_INFORMATIONAL,
         ),
         "G_WifiSSID": _definition(
@@ -281,15 +287,35 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         "G_PowerMeterAddr": _definition(
             "External Modbus meter address",
             data_type=ConfigurationDataType.INTEGER,
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_PowerMeterType": _definition(
             "External power meter model",
+            enum_values=(
+                ("0", "None"),
+                ("1", "Acrel DDS1352"),
+                ("2", "Acrel DTSD1352 (three-phase)"),
+                ("3", "Eastron SDM230"),
+                ("4", "Eastron SDM630 (three-phase)"),
+                ("5", "Eastron SDM120 MID"),
+                ("6", "Eastron SDM72D MID (three-phase)"),
+                ("7", "Din-Rail DTSU666 MID (three-phase)"),
+                ("10", "CHINT DTSU666 MID (three-phase)"),
+                ("11", "CHINT DDSU666"),
+            ),
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_ExternalSamplingCurWring": _definition(
             "External meter wiring or sampling mode",
             data_type=ConfigurationDataType.INTEGER,
+            enum_values=(
+                ("0", "CT 2000:1"),
+                ("1", "Power meter"),
+                ("2", "CT 3000:1"),
+            ),
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_TimeZone": _definition(
@@ -302,16 +328,21 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         ),
         "G_SolarMode": _definition(
             "Vendor-encoded solar charging mode",
-            request_group=_INFORMATIONAL,
+            writable=True,
+            # Charging strategy depends on this value, so it belongs in the
+            # first safety-critical read rather than the diagnostic follow-up.
+            request_group=_OPERATIONAL,
         ),
         "G_SolarLimitPower": _definition(
             "PV Linkage power threshold or grid-import allowance",
             data_type=ConfigurationDataType.FLOAT,
             unit="kW",
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_SolarBoost": _definition(
             "Vendor-encoded PV Linkage boost configuration",
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_SolarThresholdCurr": _definition(
@@ -331,6 +362,7 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         ),
         "G_OffPeakEnable": _definition(
             "Vendor-encoded off-peak enable setting",
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_OffPeakCurr": _definition(
@@ -347,7 +379,10 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         ),
         "G_WorkingMode": _definition(
             "Charger working mode",
-            request_group=_INFORMATIONAL,
+            # This drives entity applicability and the Charging strategy
+            # select.  Reading it with operational keys avoids an unnecessary
+            # ``unknown`` state when the informational request times out.
+            request_group=_OPERATIONAL,
         ),
         "G_LowPowerReserveEnable": _definition(
             "Low-power reserve setting",
@@ -355,6 +390,7 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
         ),
         "G_FullContinueChargeEnable": _definition(
             "Allow compatible vehicles to draw power after reaching full charge",
+            writable=True,
             request_group=_INFORMATIONAL,
         ),
         "G_RandDelayChargeTime": _definition(
@@ -412,7 +448,11 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
             sensitivity=_SECRET,
         ),
         "G_CardPin": _definition("Local card or PIN value", sensitivity=_SECRET),
-        "G_PeriodTime": _definition("Vendor-encoded period definition"),
+        "G_PeriodTime": _definition(
+            "Vendor-encoded period definition",
+            writable=True,
+            request_group=_OPERATIONAL,
+        ),
         "G_WifiPassword": _definition("Wi-Fi password", sensitivity=_SECRET),
         "G_RFEnable": _definition("Unconfirmed Growatt RF setting"),
         "LightIntensity": _definition("Unconfirmed light intensity setting"),
@@ -438,7 +478,6 @@ CONFIGURATION_ENTITY_OPTIONS: Final[Mapping[str, tuple[str, ...]]] = MappingProx
             "fast",
             "pv_linkage",
             "off_peak",
-            "power_distribution",
         ),
         "G_ChargerMode": (
             "home_assistant_rfid",
@@ -472,6 +511,22 @@ CONFIGURATION_ENTITY_OPTIONS: Final[Mapping[str, tuple[str, ...]]] = MappingProx
             "disabled",
             "enabled",
         ),
+        "G_NetworkMode": (
+            "dhcp",
+            "static",
+        ),
+        "G_PowerMeterType": (
+            "none",
+            "acrel_dds1352",
+            "acrel_dtsd1352_three",
+            "eastron_sdm230",
+            "eastron_sdm630_three",
+            "eastron_sdm120_mid",
+            "eastron_sdm72d_mid_three",
+            "din_rail_dtsu666_mid_three",
+            "chint_dtsu666_mid_three",
+            "chint_ddsu666",
+        ),
     }
 )
 
@@ -488,7 +543,8 @@ _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
                     "pvlinksmartboost": "pv_linkage",
                     "offpeak": "off_peak",
                     "offpeakmode": "off_peak",
-                    "powerdistribution": "power_distribution",
+                    # Fast with load balancing; the raw value stays intact.
+                    "powerdistribution": "fast",
                 }
             ),
             "G_ChargerMode": MappingProxyType(
@@ -562,6 +618,45 @@ _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
                     "enabled": "enabled",
                 }
             ),
+            "G_NetworkMode": MappingProxyType(
+                {
+                    "0": "static",
+                    "static": "static",
+                    "1": "dhcp",
+                    "dhcp": "dhcp",
+                }
+            ),
+            "G_PowerMeterType": MappingProxyType(
+                {
+                    "0": "none",
+                    "none": "none",
+                    "null": "none",
+                    "1": "acrel_dds1352",
+                    "acreldds1352": "acrel_dds1352",
+                    "2": "acrel_dtsd1352_three",
+                    "acreldtsd1352three": "acrel_dtsd1352_three",
+                    "acreldtsd1352threephase": "acrel_dtsd1352_three",
+                    "3": "eastron_sdm230",
+                    "eastronsdm230": "eastron_sdm230",
+                    "4": "eastron_sdm630_three",
+                    "eastronsdm630": "eastron_sdm630_three",
+                    "eastronsdm630three": "eastron_sdm630_three",
+                    "eastronsdm630threephase": "eastron_sdm630_three",
+                    "5": "eastron_sdm120_mid",
+                    "eastronsdm120mid": "eastron_sdm120_mid",
+                    "6": "eastron_sdm72d_mid_three",
+                    "eastronsdm72dmidthree": "eastron_sdm72d_mid_three",
+                    "eastronsdm72dmidthreephase": "eastron_sdm72d_mid_three",
+                    "7": "din_rail_dtsu666_mid_three",
+                    "dinraildtsu666midthree": "din_rail_dtsu666_mid_three",
+                    "dinraildtsu666midthreephase": "din_rail_dtsu666_mid_three",
+                    "10": "chint_dtsu666_mid_three",
+                    "chintdtsu666midthree": "chint_dtsu666_mid_three",
+                    "chintdtsu666midthreephase": "chint_dtsu666_mid_three",
+                    "11": "chint_ddsu666",
+                    "chintddsu666": "chint_ddsu666",
+                }
+            ),
         }
     )
 )
@@ -569,6 +664,9 @@ _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = (
 
 _OFF_PEAK_WINDOW_PATTERN = re.compile(
     r"^(?P<window>\d{2}:\d{2}-\d{2}:\d{2})(?:=[^&]*)?$"
+)
+_TIME_SHARING_PRICE_PATTERN = re.compile(
+    r"(?:^|&)price1=(?P<price>-?\d+(?:\.\d+)?)(?:&|$)"
 )
 
 
@@ -580,6 +678,33 @@ def _parse_off_peak_schedule(raw_value: str) -> str:
         if match:
             windows.append(match.group("window"))
     return ", ".join(windows) if windows else raw_value
+
+
+def configuration_numeric_value(value: ConfigurationValue | None) -> float | None:
+    """Return a parsed configuration number without coercing invalid raw text.
+
+    A malformed numeric response is deliberately treated as unknown.  Calling
+    ``float`` on the retained raw value in an entity callback would raise while
+    trying to restore the last charger-reported state after a rejected write.
+    """
+    if value is None or isinstance(value.parsed_value, bool):
+        return None
+    if isinstance(value.parsed_value, (int, float)):
+        return float(value.parsed_value)
+    return None
+
+
+def parse_time_sharing_price(raw_value: str | None) -> float | None:
+    """Extract the first tariff from Growatt's compound price payload.
+
+    ``G_TimeSharingPrice`` is not a plain number; the THOR reports values such
+    as ``time1=00:00-23:59&price1=0.31``.  Sharing one parser between normal
+    readback and rollback handling prevents those two paths from disagreeing.
+    """
+    if not isinstance(raw_value, str):
+        return None
+    match = _TIME_SHARING_PRICE_PATTERN.search(raw_value)
+    return float(match.group("price")) if match is not None else None
 
 
 def configuration_entity_state(

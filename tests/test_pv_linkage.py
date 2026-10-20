@@ -1,0 +1,248 @@
+"""Tests for compound Growatt PV Linkage controls."""
+from __future__ import annotations
+
+from datetime import datetime, time, timezone
+import importlib.util
+from pathlib import Path
+import sys
+from types import ModuleType
+import unittest
+
+
+MODULE_PATH = (
+    Path(__file__).parents[1]
+    / "custom_components"
+    / "growatt_thor"
+    / "pv_linkage.py"
+)
+PACKAGE_NAME = "growatt_thor_pv_linkage_test_target"
+package = ModuleType(PACKAGE_NAME)
+package.__path__ = [str(MODULE_PATH.parent)]
+sys.modules[PACKAGE_NAME] = package
+SPEC = importlib.util.spec_from_file_location(
+    f"{PACKAGE_NAME}.pv_linkage",
+    MODULE_PATH,
+)
+assert SPEC is not None and SPEC.loader is not None
+pv = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = pv
+SPEC.loader.exec_module(pv)
+
+
+class PvLinkageControlTest(unittest.TestCase):
+    """Verify captured Manual and Smart Boost payloads."""
+
+    def test_parses_first_reported_manual_period(self):
+        self.assertEqual(
+            pv.parse_manual_period("1&time1=00:00-23:59"),
+            (time(0, 0), time(23, 59)),
+        )
+        self.assertIsNone(pv.parse_manual_period("1&broken"))
+
+    def test_disabled_boost_is_one_configuration_write(self):
+        self.assertEqual(
+            pv.build_pv_linkage_writes(
+                pv.PvLinkageDraft(pv.PvBoostMode.DISABLED),
+                now=datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc),
+            ),
+            (pv.ConfigurationWrite("G_SolarBoost", "1&Disable"),),
+        )
+
+    def test_manual_boost_writes_mode_then_period(self):
+        writes = pv.build_pv_linkage_writes(
+            pv.PvLinkageDraft(
+                pv.PvBoostMode.MANUAL,
+                manual_start=time(0, 0),
+                manual_end=time(23, 59),
+            ),
+            now=datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc),
+        )
+        self.assertEqual(
+            writes,
+            (
+                pv.ConfigurationWrite("G_SolarBoost", "1&ManualBoost"),
+                pv.ConfigurationWrite(
+                    "G_PeriodTime",
+                    "1&time1=00:00-23:59",
+                ),
+            ),
+        )
+
+    def test_smart_boost_uses_next_finish_and_dot_decimal(self):
+        writes = pv.build_pv_linkage_writes(
+            pv.PvLinkageDraft(
+                pv.PvBoostMode.SMART,
+                smart_finish=time(10, 34),
+                smart_target_energy_kwh=4.2,
+            ),
+            now=datetime(2026, 8, 24, 11, 0, tzinfo=timezone.utc),
+        )
+        self.assertEqual(
+            writes,
+            (
+                pv.ConfigurationWrite("G_SolarBoost", "1&SmartBoost"),
+                pv.DataTransferWrite(
+                    "Growatt",
+                    "solar_target_data",
+                    "connectorid=1&contime=2026-08-25 10:34&energy=4.2",
+                ),
+            ),
+        )
+
+    def test_selected_mode_requires_its_dependent_fields(self):
+        self.assertEqual(
+            pv.draft_validation_errors(
+                pv.PvLinkageDraft(pv.PvBoostMode.MANUAL)
+            ),
+            ("manual_start_required", "manual_end_required"),
+        )
+        self.assertEqual(
+            pv.draft_validation_errors(
+                pv.PvLinkageDraft(
+                    pv.PvBoostMode.SMART,
+                    smart_finish=time(10, 0),
+                    smart_target_energy_kwh=0,
+                )
+            ),
+            ("smart_target_energy_invalid",),
+        )
+
+    def test_smart_boost_rejects_ambiguous_energy_before_payload(self):
+        for invalid in (
+            0,
+            200.1,
+            4.25,
+            float("nan"),
+            float("inf"),
+            float("-inf"),
+        ):
+            with self.subTest(invalid=invalid):
+                draft = pv.PvLinkageDraft(
+                    pv.PvBoostMode.SMART,
+                    smart_finish=time(10, 0),
+                    smart_target_energy_kwh=invalid,
+                )
+                self.assertEqual(
+                    pv.draft_validation_errors(draft),
+                    ("smart_target_energy_invalid",),
+                )
+                with self.assertRaises(ValueError):
+                    pv.build_pv_linkage_writes(
+                        draft,
+                        now=datetime(
+                            2026,
+                            8,
+                            24,
+                            9,
+                            0,
+                            tzinfo=timezone.utc,
+                        ),
+                    )
+
+    def test_smart_boost_preserves_upper_bound_integer(self):
+        writes = pv.build_pv_linkage_writes(
+            pv.PvLinkageDraft(
+                pv.PvBoostMode.SMART,
+                smart_finish=time(10, 34),
+                smart_target_energy_kwh=200,
+            ),
+            now=datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc),
+        )
+
+        self.assertTrue(writes[-1].data.endswith("&energy=200"))
+
+    def test_draft_matches_only_readable_reported_state(self):
+        disabled = pv.PvLinkageDraft(pv.PvBoostMode.DISABLED)
+        self.assertTrue(
+            pv.draft_matches_reported(
+                disabled,
+                reported_mode="disabled",
+                reported_period="1&time1=12:00-13:00",
+            )
+        )
+
+        manual = pv.PvLinkageDraft(
+            pv.PvBoostMode.MANUAL,
+            manual_start=time(12, 0),
+            manual_end=time(13, 0),
+        )
+        self.assertTrue(
+            pv.draft_matches_reported(
+                manual,
+                reported_mode="manual",
+                reported_period="1&time1=12:00-13:00",
+            )
+        )
+        self.assertFalse(
+            pv.draft_matches_reported(
+                manual,
+                reported_mode="manual",
+                reported_period="1&time1=00:00-05:00",
+            )
+        )
+
+        smart = pv.PvLinkageDraft(
+            pv.PvBoostMode.SMART,
+            smart_finish=time(10, 0),
+            smart_target_energy_kwh=4,
+        )
+        self.assertFalse(
+            pv.draft_matches_reported(
+                smart,
+                reported_mode="smart",
+                reported_period=None,
+            )
+        )
+
+    def test_compound_failure_distinguishes_failed_from_partial(self):
+        failed = pv.PvLinkageApplyResult.failed(
+            completed_steps=0,
+            total_steps=2,
+            failed_step="G_SolarBoost",
+            reason="Rejected",
+        )
+        partial = pv.PvLinkageApplyResult.failed(
+            completed_steps=1,
+            total_steps=2,
+            failed_step="G_PeriodTime",
+            reason="Rejected",
+        )
+
+        self.assertEqual(failed.status, pv.PvLinkageApplyStatus.FAILED)
+        self.assertEqual(partial.status, pv.PvLinkageApplyStatus.PARTIAL)
+        self.assertEqual(
+            partial.as_dict(),
+            {
+                "status": "partial",
+                "completed_steps": 1,
+                "total_steps": 2,
+                "failed_step": "G_PeriodTime",
+                "reason": "Rejected",
+            },
+        )
+
+    def test_compound_uncertain_and_success_outcomes_are_explicit(self):
+        uncertain = pv.PvLinkageApplyResult.uncertain(
+            completed_steps=1,
+            total_steps=2,
+            failed_step="solar_target_data",
+            reason=RuntimeError("acknowledgement lost"),
+        )
+        success = pv.PvLinkageApplyResult.success(total_steps=2)
+
+        self.assertEqual(uncertain.status, pv.PvLinkageApplyStatus.UNCERTAIN)
+        self.assertEqual(uncertain.reason, "acknowledgement lost")
+        self.assertEqual(success.status, pv.PvLinkageApplyStatus.SUCCESS)
+        self.assertEqual(success.completed_steps, 2)
+
+    def test_compound_outcome_rejects_impossible_progress(self):
+        with self.assertRaisesRegex(ValueError, "Completed steps"):
+            pv.PvLinkageApplyResult(
+                status=pv.PvLinkageApplyStatus.PARTIAL,
+                completed_steps=3,
+                total_steps=2,
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

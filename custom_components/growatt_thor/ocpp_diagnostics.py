@@ -48,6 +48,26 @@ def create_ocpp_snapshot(received_at: str, payload: Mapping[str, Any]) -> dict[s
     }
 
 
+def boot_notification_field(
+    snapshot: Mapping[str, Any] | None,
+    field: str,
+) -> str | None:
+    """Return one non-empty field from a retained BootNotification request."""
+    if not isinstance(snapshot, Mapping):
+        return None
+
+    request = snapshot.get("request")
+    if not isinstance(request, Mapping):
+        return None
+
+    value = request.get(field)
+    if value is None:
+        return None
+
+    normalized = str(value).strip()
+    return normalized or None
+
+
 def redact_ocpp_data(value: Any) -> Any:
     """Redact identifiers while preserving the OCPP diagnostics structure."""
     if isinstance(value, Mapping):
