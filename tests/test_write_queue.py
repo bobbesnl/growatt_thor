@@ -73,6 +73,9 @@ def _build_coordinator(loop):
         coordinator_module.GrowattCoordinator
     )
     coordinator.hass = _FakeHass(loop)
+    # The coordinator reads its active connection and poll pause from its own
+    # per-entry runtime mapping, never from a domain-global slot.
+    coordinator.runtime_data = {}
     coordinator._write_queue = deque()
     coordinator._write_lock = asyncio.Lock()
     coordinator._write_task = None
@@ -502,7 +505,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         )
         await asyncio.sleep(0.01)
 
-        coordinator.hass.data["growatt_thor"][
+        coordinator.runtime_data[
             "charge_point"
         ] = current_charge_point
         coordinator.connected = True
@@ -645,7 +648,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             "expired",
         )
 
-        coordinator.hass.data["growatt_thor"]["charge_point"] = object()
+        coordinator.runtime_data["charge_point"] = object()
         coordinator.connected = True
         coordinator._connection_changed.set()
         await coordinator._write_task
@@ -990,7 +993,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(calls, [])
         self.assertEqual(len(coordinator._write_queue), 1)
 
-        coordinator.hass.data["growatt_thor"]["charge_point"] = new_charge_point
+        coordinator.runtime_data["charge_point"] = new_charge_point
         coordinator.connected = True
         coordinator._connection_changed.set()
         await coordinator._write_task
@@ -1026,7 +1029,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             requires_connection=True,
         )
 
-        coordinator.hass.data["growatt_thor"]["charge_point"] = new_charge_point
+        coordinator.runtime_data["charge_point"] = new_charge_point
         coordinator.connected = True
         coordinator._connection_changed.set()
         await coordinator._write_task
@@ -1038,13 +1041,13 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         coordinator = _build_coordinator(asyncio.get_running_loop())
         first_charge_point = object()
         second_charge_point = object()
-        coordinator.hass.data["growatt_thor"]["charge_point"] = first_charge_point
+        coordinator.runtime_data["charge_point"] = first_charge_point
         calls = []
 
         async def write(charge_point):
             calls.append(charge_point)
             if len(calls) == 1:
-                coordinator.hass.data["growatt_thor"][
+                coordinator.runtime_data[
                     "charge_point"
                 ] = second_charge_point
                 raise coordinator_module.ChargerConnectionUnavailable(
@@ -1110,7 +1113,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
                 return True
 
         charge_point = ChargePoint()
-        coordinator.hass.data["growatt_thor"]["charge_point"] = charge_point
+        coordinator.runtime_data["charge_point"] = charge_point
 
         first = coordinator.schedule_configuration_refresh(delay=0)
         second = coordinator.schedule_configuration_refresh(delay=0)

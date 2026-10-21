@@ -354,7 +354,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
 )
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     boot_sensors = [
         OcppBootSensor(coordinator, entry, description)
         for description in OCPP_BOOT_SENSOR_DESCRIPTIONS
