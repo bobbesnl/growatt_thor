@@ -810,8 +810,11 @@ class EnergyChargedSensor(BaseSensor):
 
     @property
     def native_value(self):
+        # Unknown until the charger reports a value after start-up or a
+        # reload. Reporting 0 here would look like a meter reset to this
+        # total_increasing sensor, so the next sample of a running session
+        # would be counted twice by long-term statistics and utility meters.
         if self.coordinator.energy is None:
-            # Unknown is not a counter reset: preserve statistics across reloads.
             return None
         return round(self.coordinator.energy / 1000, 3)
 

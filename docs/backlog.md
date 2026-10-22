@@ -202,7 +202,7 @@ Status: implemented in 2.0.0-dev.11 via backport of PR #58.
    waiting reasons, and reliable reconnect/queue behaviour.
 2. F03/F04: installation limits and a validated external control interface.
 3. F05/F06/F07: native-target usability, automation triggers, and session clarity.
-4. Reassess RFID and multiple chargers when evidence and user demand justify them.
+4. Reassess RFID when evidence and user demand justify it.
 
 ## References
 

@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep charged energy unknown when no value is available instead of manufacturing a zero that could double-count a running session in statistics.
 - Scope 2.0 charging targets, PV profiles, protection stops, history summaries and WebSocket session details to the selected charger. Ambiguous target actions require an entry ID; the card also targets schedule cancellation explicitly.
 
+### Changed
+
+- Merge the development history through 1.7.1, including local Home Assistant brand assets, while preserving the modular 2.0 implementation and bundled cards.
+
 ### Migration and validation
 
 - Seed existing entries once from the shared statistics store; newly added entries start empty. Existing mixed statistics cannot be split retrospectively.
@@ -120,18 +124,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Install native charging targets and scheduling through Home Assistant services.
 - Introduce feature packages and typed target runtime ownership.
 
-## [Unreleased]
+## [1.7.1] - 2026-10-22
 
-_Target version: 1.7.0_
+**Minor release with bug fixes and support for multiple chargers in one HA instance! 🎉 Big thank you to @thijsvanbloemendaal, who built this release end-to-end.**
 
 ### Added
-- **Local RFID authorization**: Optionally restrict physical cards to an exact
-  local allowlist while keeping existing installations open by default. Starts
-  from Home Assistant use a separate permission and identifiers remain absent
-  from normal logs and downloaded diagnostics.
-- **Authorization-mode control**: Change between Home Assistant/RFID, RFID-only,
-  and Plug & Charge through a guarded device select. Changes are blocked while
-  disconnected, faulted, actively charging, or reported read-only.
+- **Multiple chargers (backlog F09)**: Each THOR is its own config entry on its own listen port. Every entry owns its runtime under `hass.data[DOMAIN][entry_id]`: coordinator, OCPP server, poll task, poll pause and active connection. Entities, controls, write queues, sessions and statistics stay with their own charger, and a command, refresh or reconnect for one charger cannot reach another. The per-entry charge-point binding from 1.7.0 is kept, so a different charger on an entry's port is still refused.
+- **Optional charger target for `growatt_thor.refresh`**: The new `config_entry_id` field refreshes one charger; without it every loaded charger is refreshed. Refreshes are single-flight per charger.
+
+### Changed
+- **Second entry allowed**: The config flow no longer aborts with `single_instance_allowed`. It refuses only a port that another entry already uses (`port_already_configured`), and titles additional entries with their port until they are renamed.
+- **Busy port is retried**: When an entry's port cannot be opened, setup raises `ConfigEntryNotReady` so Home Assistant retries instead of failing permanently.
+
+### Fixed
+- **Per-entry statistics storage**: Total charged energy, the transaction counter, the last session, the last fault and effective-charging state were written to one shared storage file by every entry. Each entry now has its own file (`growatt_thor_statistics_<entry_id>`). Entries that existed before this change are seeded once from the old shared file (recorded in `growatt_thor_migration`), so their sensors continue without a jump; a charger added later starts empty. The old file is never written, so downgrading stays safe.
+- **Charging power kept its last value after charging ended**: When the car is full with the cable still connected, the THOR reports `SuspendedEV`, keeps the transaction open and stops sending MeterValues, so the last power sample stayed visible until unplugging or a restart. Power and current now reset to 0 on every status other than `Charging`, and on disconnect. Voltages are kept. A MeterValues report that arrives after such a status no longer brings the last charging power back: live power and current follow samples only while the charger reports `Charging` (or before any status is known). The raw samples stay in diagnostics, and measurements apply again as soon as charging resumes.
+- **Unsuccessful unload left an entry without a connection**: The poll loop, write queue and OCPP server were stopped before the platforms were unloaded, and the server was closed even when unloading failed. Platforms are now unloaded first; only after that succeeds are the entry's background tasks, server and runtime released.
+- **Session energy counted twice after a restart or reload during charging**: The charged-energy sensor reported 0 until the charger sent its next MeterValues sample. For this `total_increasing` sensor that drop looks like a meter reset, so the next sample of a running session was counted again by long-term statistics and utility meters. The sensor now stays unknown until the charger reports a value; a new transaction still starts from 0.
+
+---
+
+## [1.7.0] - 2026-10-20
+
+**🎉 Another major release!! Built end-to-end by @felixhix. Huge thanks to him for driving this release from start to finish. Please keep going on!**
+
+### Added
+- **Automated Python regression checks**: Run the complete suite on pushes and pull requests, with an optional manual workflow run.
+- **Local RFID authorization**: Optionally restrict physical cards to an exact local allowlist while keeping existing installations open by default. Starts from Home Assistant use a separate permission and identifiers remain absent from normal logs and downloaded diagnostics.
+- **Authorization-mode control**: Change between Home Assistant/RFID, RFID-only, and Plug & Charge through a guarded device select. Changes are blocked while disconnected, faulted, actively charging, or reported read-only.
 - **More interface languages**: Setup, entity names, states, and controls are now also available in Italian, Hungarian, Slovenian, French, and Spanish. Detailed technical help remains in English until it has been reviewed by native speakers.
 - **Last charger fault**: A new diagnostic sensor keeps the most recent real charger fault, even after the charger recovers or Home Assistant restarts. Downloaded diagnostics include the available details for troubleshooting.
 - **External meter status**: A new diagnostic sensor shows whether the external meter is working, has a Modbus fault, has stopped responding, or has not reported any data yet.
@@ -147,9 +167,7 @@ _Target version: 1.7.0_
 - **Automation resilience guide**: Repository documentation now explains the Home Assistant automation failure scenarios, queue and reconnect safeguards, observable behavior, deliberate limitations, and the implementation commit for each protection area.
 
 ### Changed
-- **Current range matches the charger**: The maximum-current control now stops
-  at 16 A for 3/11 kW, 32 A for 7/22 kW, or 63 A for 44 kW models. Unknown
-  models keep the conservative 32 A limit.
+- **Current range matches the charger**: The maximum-current control now stops at 16 A for 3/11 kW, 32 A for 7/22 kW, or 63 A for 44 kW models. Unknown models keep the conservative 32 A limit.
 - **Clearer entity roles**: Measurements remain sensors, settings that can be changed appear as controls, technical values appear under diagnostics, and Start/Stop remain buttons.
 - **Less duplicate information**: Read-only copies of writable settings are disabled by default. They can still be enabled manually when separate history or automations are needed.
 - **Shared charging periods**: The same charger time windows may be used for Off-Peak charging or PV Linkage Manual Boost, depending on the selected mode. Their name and description now reflect this.
@@ -158,6 +176,11 @@ _Target version: 1.7.0_
 - **Load-balancing guidance**: The load-balancing controls now explain that they are available only in Fast and Off-Peak modes, not in PV Linkage modes.
 
 ### Fixed
+- **Consistent Fast controls**: Keep load balancing, its power limit and automatic charging times available when the charger reports Power Distribution; retain all existing write guards.
+- **Working-mode translations**: Align state options and explain the Fast alias in all eight languages.
+- **Regression coverage**: Exercise setup and general-settings schema serialization, PV Boost applicability, mode transitions and preserved raw diagnostics.
+- **Power Distribution strategy**: Treat the charger-reported `Power Distribution` working mode as Fast charging with load balancing enabled. The separate `power_distribution` strategy option is no longer shown; the raw charger value remains available for diagnostics.
+- **Options flow serialization**: Use Home Assistant number selectors for the TCP port and polling interval instead of callable schema validators, preventing an `unable to serialize schema` error when opening General settings.
 - **Action failures visible to automations**: Blocked, disconnected, rejected, expired, and uncertain actions no longer return as apparent success. Suitable Home Assistant actions wait for a bounded terminal result while idempotent requests remain successful without unnecessary charger traffic.
 - **Latest automation intent wins**: Rapid changes to the same setting retain the newest desired value even when an older OCPP response arrives later. Superseded results remain available for diagnosis and accepted older writes trigger a safe readback instead of overwriting current state.
 - **Safe delayed commands**: Every queued write now has an explicit lifetime, reconnect policy, and execution-time validation. Old Start and AP-mode requests cannot execute after a later reconnect, and Stop remains bound to the exact transaction for which it was requested.

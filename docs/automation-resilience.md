@@ -176,7 +176,7 @@ Start and Stop must not remain as unrelated commands in the queue for an arbitra
 
 ### Typical scenario
 
-Home Assistant accidentally contains two configuration entries for the integration. Alternatively, a second charger with a different charge-point identity connects to the same endpoint. Without an explicit ownership model, the second runtime or connection could replace the first one in domain-global state.
+Home Assistant contains two configuration entries for the integration, one per physical charger. Alternatively, a second charger with a different charge-point identity connects to the endpoint of an existing entry. Without an explicit ownership model, the second runtime or connection could replace the first one in domain-global state.
 
 Another edge case occurs when the same physical charger reconnects before its old network connection has completely shut down.
 
@@ -198,7 +198,8 @@ An action such as “stop charging” must unambiguously target one charger and 
 
 ### Observable examples
 
-- A second configuration entry cannot stop the active server or replace its coordinator.
+- A second configuration entry gets its own server and coordinator; it cannot stop or replace those of the first entry.
+- A command, refresh or reconnect for one charger never reaches or pauses another charger.
 - Charger `THOR-1` may reconnect, but `THOR-2` cannot silently take over its entities and transaction state.
 - The delayed finalizer of the old `THOR-1` socket cannot remove the new `THOR-1` connection.
 - A superseded socket cannot publish meter values, timeout counters, configuration readbacks, or transaction updates.

@@ -184,3 +184,18 @@ MIT License - see LICENSE file for details
 
 - **Issues**: [GitHub Issues](https://github.com/bobbesnl/growatt_thor/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/bobbesnl/growatt_thor/discussions)
+
+## Development checks
+
+Use Python 3.12 and install the complete test requirements before running the suite:
+
+```sh
+python3.12 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r tests/requirements-auth.txt
+python -m unittest discover -s tests -q
+```
+
+The Python GitHub Actions workflow runs the same suite on pushes and pull requests.
+Tests use focused Home Assistant stand-ins and the real schema serializer; they
+do not replace testing setup, settings and charging on Home Assistant with a THOR.
