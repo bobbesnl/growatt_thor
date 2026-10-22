@@ -154,10 +154,10 @@ assignment remain separate work.
 
 ### F09 — Isolate multiple chargers
 
-Priority: demand-driven.
+Status: implemented in 2.0.0-dev.11 via backport of PR #58.
 
-- Scope connections, queues, entities, and session state to each charger.
-- Verify that a reconnect or command for one charger cannot affect another.
+- Connections, queues, entities, storage, card history and 2.0 services are scoped per entry.
+- Regression tests cover reconnects, command routing, lifecycle failures and history isolation. Real-hardware validation of the 2.0 port remains outstanding.
 - Treat coordinated load distribution as a separate energy-management feature.
 
 ## Non-functional requirements

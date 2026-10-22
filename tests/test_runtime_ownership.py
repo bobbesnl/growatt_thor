@@ -28,7 +28,7 @@ SPEC.loader.exec_module(ownership)
 class RuntimeOwnershipDecisionTest(unittest.TestCase):
     """Exercise the safety policy without Home Assistant or OCPP dependencies."""
 
-    def test_only_one_config_entry_can_claim_the_global_runtime(self):
+    def test_only_one_config_entry_can_claim_a_runtime_mapping(self):
         runtime_data = {}
 
         self.assertTrue(ownership.claim_runtime_entry(runtime_data, "entry-a"))
@@ -108,10 +108,64 @@ class RuntimeOwnershipDecisionTest(unittest.TestCase):
         )
 
 
+class EntryRuntimeTest(unittest.TestCase):
+    """Each config entry owns a separate runtime mapping (backlog F09)."""
+
+    def test_two_entries_get_separate_runtimes(self):
+        domain_data = {}
+
+        left = ownership.claim_entry_runtime(domain_data, "entry-left")
+        right = ownership.claim_entry_runtime(domain_data, "entry-right")
+
+        self.assertIsNotNone(left)
+        self.assertIsNotNone(right)
+        self.assertIsNot(left, right)
+        left["charge_point"] = object()
+        self.assertNotIn("charge_point", right)
+        self.assertIs(
+            ownership.entry_runtime_data(domain_data, "entry-left"),
+            left,
+        )
+        self.assertEqual(
+            [entry_id for entry_id, _ in ownership.loaded_entry_runtimes(domain_data)],
+            ["entry-left", "entry-right"],
+        )
+
+    def test_same_entry_cannot_claim_twice(self):
+        domain_data = {}
+        first = ownership.claim_entry_runtime(domain_data, "entry-a")
+
+        self.assertIsNone(ownership.claim_entry_runtime(domain_data, "entry-a"))
+        self.assertIs(domain_data["entry-a"], first)
+
+    def test_release_only_removes_the_registered_runtime(self):
+        domain_data = {}
+        left = ownership.claim_entry_runtime(domain_data, "entry-left")
+        right = ownership.claim_entry_runtime(domain_data, "entry-right")
+        right["coordinator"] = object()
+
+        self.assertFalse(
+            ownership.release_entry_runtime(domain_data, "entry-left", right)
+        )
+        self.assertTrue(
+            ownership.release_entry_runtime(domain_data, "entry-left", left)
+        )
+        self.assertIsNone(ownership.entry_runtime_data(domain_data, "entry-left"))
+        self.assertIs(domain_data["entry-right"], right)
+        self.assertIn("coordinator", right)
+
+    def test_unknown_entry_has_no_runtime(self):
+        domain_data = {"stray": {"config_entry_id": "other"}}
+
+        self.assertIsNone(ownership.entry_runtime_data(domain_data, "missing"))
+        self.assertIsNone(ownership.entry_runtime_data(domain_data, "stray"))
+        self.assertEqual(ownership.loaded_entry_runtimes(domain_data), [])
+
+
 class RuntimeOwnershipWiringTest(unittest.TestCase):
     """Keep the pure ownership policy connected to runtime entry points."""
 
-    def test_config_flow_aborts_when_an_entry_already_exists(self):
+    def test_config_flow_rejects_a_port_used_by_another_entry(self):
         tree = ast.parse((PACKAGE_PATH / "config_flow.py").read_text())
         flow_class = next(
             node
@@ -132,8 +186,10 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
             and isinstance(node.func, ast.Attribute)
         }
 
-        self.assertIn("_async_current_entries", called_names)
-        self.assertIn("async_abort", called_names)
+        # A second charger is a second entry; only a port that another
+        # entry's server already uses is refused.
+        self.assertIn("_configured_ports", called_names)
+        self.assertNotIn("async_abort", called_names)
 
     def test_runtime_claim_precedes_coordinator_publication(self):
         tree = ast.parse((PACKAGE_PATH / "__init__.py").read_text())
@@ -148,7 +204,7 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
             for node in ast.walk(setup)
             if isinstance(node, ast.Call)
             and isinstance(node.func, ast.Name)
-            and node.func.id == "claim_runtime_entry"
+            and node.func.id == "claim_entry_runtime"
         )
         coordinator_assignment = next(
             node
@@ -177,14 +233,14 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
             for node in ast.walk(unload)
             if isinstance(node, ast.Call)
             and isinstance(node.func, ast.Name)
-            and node.func.id == "runtime_entry_is_owner"
+            and node.func.id == "entry_runtime_data"
         )
         clear_call = next(
             node
             for node in ast.walk(unload)
             if isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "clear"
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "release_entry_runtime"
         )
 
         self.assertLess(owner_check.lineno, clear_call.lineno)
@@ -263,7 +319,7 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
         # One call belongs to the watchdog and one to _on_connect's finalizer.
         self.assertGreaterEqual(len(release_calls), 2)
 
-    def test_single_instance_abort_is_translated_in_every_language(self):
+    def test_port_conflict_error_is_translated_in_every_language(self):
         translations = PACKAGE_PATH / "translations"
         files = sorted(translations.glob("*.json"))
         self.assertGreater(len(files), 0)
@@ -271,8 +327,28 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
             payload = json.loads(path.read_text(encoding="utf-8"))
             with self.subTest(language=path.stem):
                 self.assertTrue(
-                    payload["config"]["abort"]["single_instance_allowed"]
+                    payload["config"]["error"]["port_already_configured"]
                 )
+                self.assertNotIn(
+                    "single_instance_allowed",
+                    payload["config"].get("abort", {}),
+                )
+
+    def test_no_charger_state_lives_in_a_domain_global_slot(self):
+        """Guard against reintroducing hass.data[DOMAIN]["charge_point"] etc."""
+        forbidden = (
+            'hass.data[DOMAIN]["coordinator"]',
+            'hass.data[DOMAIN]["charge_point"]',
+            'hass.data[DOMAIN]["skip_polling_until"]',
+            'hass.data[DOMAIN]["polling_task"]',
+            '.get(DOMAIN, {}).get("charge_point")',
+            '.get(DOMAIN, {}).get("coordinator")',
+        )
+        for path in sorted(PACKAGE_PATH.glob("*.py")):
+            source = path.read_text(encoding="utf-8")
+            with self.subTest(file=path.name):
+                for pattern in forbidden:
+                    self.assertNotIn(pattern, source)
 
 
 if __name__ == "__main__":

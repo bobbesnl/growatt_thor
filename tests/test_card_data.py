@@ -292,5 +292,19 @@ class CardDataTest(unittest.TestCase):
         self.assertIsNone(module.dashboard_meter_values(None)["power_w"])
 
 
+
+class LivePowerStatusTest(unittest.TestCase):
+    def test_card_keeps_raw_values_but_zeroes_non_charging_display(self):
+        raw = packet([sample(971), sample(4.2, phase='L1', unit='A', measurand='Current.Import')])
+        coordinator = types.SimpleNamespace(last_meter_values=raw, connected=True, status='SuspendedEV')
+        self.assertEqual(module.live_dashboard_meter_values(coordinator)['power_w'], 0)
+        self.assertEqual(module.live_dashboard_meter_values(coordinator)['currents_a'], [0, 0, 0])
+        self.assertEqual(module.dashboard_meter_values(raw)['power_w'], 971)
+        coordinator.status = 'Charging'
+        self.assertEqual(module.live_dashboard_meter_values(coordinator)['power_w'], 971)
+        coordinator.connected = False
+        self.assertEqual(module.live_dashboard_meter_values(coordinator)['power_w'], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

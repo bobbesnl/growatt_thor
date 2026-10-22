@@ -157,8 +157,10 @@ export class ThorCard extends LitElement {
     });
   }
   private async cancelGoal(requestId: string) {
-    if (!this.hass) throw new Error('goal_unavailable');
+    const data = this.hass && resolveEntity(this.hass, this._config)?.attributes.thor_card;
+    if (!this.hass || !data) throw new Error('goal_unavailable');
     await this.hass.callService('growatt_thor', 'cancel_scheduled_charging_target', {
+      entry_id: data.entry_id,
       request_id: requestId,
       confirm_cancel: true,
     });

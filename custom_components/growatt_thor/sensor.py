@@ -355,7 +355,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
 )
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     boot_sensors = [
         OcppBootSensor(coordinator, entry, description)
         for description in OCPP_BOOT_SENSOR_DESCRIPTIONS
@@ -811,7 +811,8 @@ class EnergyChargedSensor(BaseSensor):
     @property
     def native_value(self):
         if self.coordinator.energy is None:
-            return 0
+            # Unknown is not a counter reset: preserve statistics across reloads.
+            return None
         return round(self.coordinator.energy / 1000, 3)
 
 

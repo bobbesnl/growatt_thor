@@ -50,7 +50,7 @@ class ChargingCommandsTest(unittest.IsolatedAsyncioTestCase):
         self.cancelled = 0
         self.queued = []
         self.coordinator = types.SimpleNamespace(
-            hass=self.hass, transaction_id=7, transaction_is_active=True,
+            hass=self.hass, runtime_data=self.hass.data[commands.DOMAIN], transaction_id=7, transaction_is_active=True,
             status='charging', now=lambda: datetime.now(timezone.utc).isoformat(),
             async_set_updated_data=lambda _: None,
             record_stop_requested=lambda: None,

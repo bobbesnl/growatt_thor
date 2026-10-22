@@ -186,8 +186,8 @@ An action such as “stop charging” must unambiguously target one charger and 
 
 ### Current ownership behavior
 
-- Exactly one configuration entry is permitted. A second setup attempt is aborted with a translated, explicit reason.
-- Runtime ownership is enforced independently of the config-flow guard, so duplicate legacy entries or concurrent setup calls cannot replace the active coordinator.
+- Each configuration entry owns an independent runtime. Multiple chargers are supported on distinct ports; a duplicate port is rejected with a translated reason.
+- Runtime ownership is enforced per entry, so concurrent setup calls cannot replace an already loaded coordinator.
 - Unload and failed-setup cleanup are ownership-aware. A rejected or stale entry cannot stop the server or clear state belonging to the active entry.
 - The first connected charge-point identity remains bound for the lifetime of the loaded entry.
 - The same charger may reconnect. A different charge-point identity receives a controlled OCPP policy close and cannot inherit the existing entities, transactions, or session data.
@@ -205,7 +205,7 @@ An action such as “stop charging” must unambiguously target one charger and 
 
 ### Deliberate limitation
 
-This does not implement true multi-charger support. That feature requires runtime data to be modeled explicitly per configuration entry and charge-point identity. Until then, an explicit rejection is safer than ambiguous routing.
+Multiple chargers have independent connections, queues, storage and 2.0 services. This does not implement coordinated load distribution or coordinated site-energy allocation across chargers.
 
 ## 6. Make paired and compound changes predictable
 
@@ -249,7 +249,7 @@ The OCPP request lock prevented simultaneous protocol messages, but it did not p
 
 ### Current behavior
 
-- Concurrent refresh callers share one single-flight task and therefore one physical refresh sequence.
+- Concurrent refresh callers for the same entry share one single-flight task and therefore one physical refresh sequence. Different entries refresh independently.
 - Cancelling one caller does not cancel the shared operation for other callers.
 - Every refresh read participates in a two-stage write-priority check. If a charger write is already pending or appears between refresh steps, the remaining optional reads are not started.
 - A missing, unloaded, or disconnected charger raises a translated Home Assistant communication error. Failed refresh steps and export I/O failures are also returned to the caller instead of being logged only.
@@ -334,7 +334,7 @@ The paired Auto Charge time values deliberately wait 500 ms for each other. By t
 - A 30-second action timeout ends only the Home Assistant caller's wait, not the physical command.
 - An optimistic entity value represents the latest desired value. Automations that require physical confirmation must use the command outcome rather than optimistic state alone.
 - Rapid changes to the same value may replace older changes that are definitely still unsent. This is intentional: the integration should apply the latest meaningful intent instead of replaying an obsolete sequence of slider movements.
-- The integration deliberately supports only one active physical charger in its shared runtime context.
+- Each runtime supports one physical charger; additional wallboxes use separate entries and ports.
 
 ## Test and documentation expectations
 

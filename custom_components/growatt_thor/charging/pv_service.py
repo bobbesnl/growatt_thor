@@ -14,6 +14,7 @@ from ..runtime.action_errors import (
     raise_write_blocked,
 )
 from ..const import DOMAIN
+from ..runtime.ownership import entry_runtime_data
 from .pv_linkage import (
     PvBoostMode,
     PvLinkageDraft,
@@ -75,7 +76,7 @@ def _profile(data: dict) -> PvLinkageProfile:
 
 
 def _block_reason(hass, coordinator, writes) -> str | None:
-    charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
+    charge_point = coordinator.runtime_data.get("charge_point")
     if not coordinator.connected or charge_point is None:
         return "charger_disconnected"
     if coordinator.charger_is_faulted:
@@ -98,7 +99,8 @@ def async_register_pv_linkage_service(hass) -> None:
         return
 
     async def dispatch(call):
-        handler = hass.data.get(DOMAIN, {}).get("pv_linkage_profile_handler")
+        runtime = entry_runtime_data(hass.data.get(DOMAIN, {}), call.data["entry_id"]) or {}
+        handler = runtime.get("pv_linkage_profile_handler")
         if handler is None:
             raise HomeAssistantError("growatt_thor_entry_not_loaded")
         return await handler(call)
@@ -107,7 +109,7 @@ def async_register_pv_linkage_service(hass) -> None:
 
 
 async def async_setup_pv_linkage_service(hass, entry, coordinator) -> None:
-    """Bind the registered service to the active single-charger runtime."""
+    """Bind the registered service to the entry's runtime."""
 
     async def handle(call):
         if call.data["entry_id"] != entry.entry_id:
@@ -138,7 +140,7 @@ async def async_setup_pv_linkage_service(hass, entry, coordinator) -> None:
             pv_smart_finish_draft=draft.smart_finish,
             pv_smart_target_energy_draft=draft.smart_target_energy_kwh,
         )
-        charge_point = hass.data[DOMAIN]["charge_point"]
+        charge_point = coordinator.runtime_data["charge_point"]
 
         async def apply(current_charge_point, expected_draft, expected_writes):
             if reason := _block_reason(hass, coordinator, expected_writes):
@@ -163,9 +165,11 @@ async def async_setup_pv_linkage_service(hass, entry, coordinator) -> None:
         )
         await async_require_command_completion(handle)
 
-    hass.data[DOMAIN]["pv_linkage_profile_handler"] = handle
+    coordinator.runtime_data["pv_linkage_profile_handler"] = handle
 
 
-def async_unload_pv_linkage_service(hass) -> None:
+def async_unload_pv_linkage_service(hass, entry) -> None:
     """Detach only the current entry handler; keep the action registered."""
-    hass.data.get(DOMAIN, {}).pop("pv_linkage_profile_handler", None)
+    runtime = entry_runtime_data(hass.data.get(DOMAIN, {}), entry.entry_id)
+    if runtime is not None:
+        runtime.pop("pv_linkage_profile_handler", None)

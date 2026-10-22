@@ -21,6 +21,7 @@ from ..energy.accounting import EVEnergyDelta, allocate
 from ..energy.accounting_runtime import parse_at, site_inputs
 from datetime import datetime, timedelta, timezone
 from ..ocpp.diagnostics import boot_notification_field
+from ..ocpp.status import normalize_ocpp_status
 from ..sessions.identity import SOURCE_HOME_ASSISTANT, build_session_id
 from ..sessions.events import normalize_session_events
 from ..sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
@@ -40,6 +41,18 @@ _SESSION_DETAIL_FIELDS = (
     "site_house_load_curve_w",
     "site_battery_curve_w",
 )
+
+
+def live_dashboard_meter_values(coordinator):
+    """Keep the card consistent with live sensors without changing raw samples."""
+    result = dashboard_meter_values(coordinator.last_meter_values)
+    status = normalize_ocpp_status(getattr(coordinator, "status", None))
+    if not getattr(coordinator, "connected", True) or (
+        status is not None and status != "charging"
+    ):
+        result["power_w"] = 0
+        result["currents_a"] = [0, 0, 0]
+    return result
 
 
 def _number(value):
@@ -296,7 +309,7 @@ def dashboard_attributes(coordinator) -> dict:
         coordinator.configuration_values.get("G_SolarLimitPower"),
     )
     working_mode = selected_working_mode(coordinator.configuration_values)
-    meter_display = dashboard_meter_values(snapshot)
+    meter_display = live_dashboard_meter_values(coordinator)
     charging_sources = None
     sample_at = parse_at(meter_display.get("sample_at"))
     received_at = parse_at(snapshot.get("received_at"))

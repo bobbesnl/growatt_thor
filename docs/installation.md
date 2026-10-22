@@ -191,3 +191,28 @@ If you're locked out and need temporary cloud access:
 ⚠️ **Note**: If you get "address in use" errors, temporarily remove the integration and restart Home Assistant before running socat.
 
 ---
+
+## Multiple chargers
+
+From 2.0.0-dev.11, add one config entry per wallbox with its own TCP port.
+For example, connect the first THOR to port 9000 and the second to 9001 on the
+same Home Assistant host. Duplicate ports are rejected. Rename the entries to
+make them easy to distinguish, then select each card's matching charger.
+
+- Entities and ordinary Start/Stop controls route through their own entry.
+- `growatt_thor.refresh` accepts `config_entry_id`; omitting it refreshes all loaded chargers.
+- Native charging-target actions accept `entry_id`. With multiple loaded chargers it is required; with one loaded charger, existing untargeted automations keep working.
+- PV profile actions and session-detail requests always require `entry_id`.
+- Reloading one entry does not disconnect another. This does not coordinate load distribution between wallboxes.
+
+Existing entries inherit the legacy statistics file once. New entries start
+empty. A previously mixed total cannot be split automatically. The legacy file
+is retained; rolling back does not include statistics collected in the new
+per-entry files.
+
+Session CSV export remains combined. The cards filter retained history and
+session details by entry, with charger-ID matching for older rows. Before the
+first connection identifies the wallbox, those legacy rows may not yet appear.
+Old archived totals without an owner are preserved for the sole entry present
+at migration. If several entries existed, those totals remain unassigned in
+the combined summary rather than being duplicated across cards.

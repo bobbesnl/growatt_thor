@@ -30,6 +30,7 @@ ARCHIVE_SUMMARY_SCHEMA = 1
 SESSION_LOG_HEADERS = [
     "timestamp",
     "charger_id",
+    "source_instance_id",
     "location",
     "start_time",
     "end_time",
@@ -52,6 +53,7 @@ SESSION_LOG_HEADERS = [
 ]
 SESSION_EXPORT_HEADERS = [
     "charger_id",
+    "source_instance_id",
     "location",
     "start_time",
     "end_time",
@@ -137,6 +139,7 @@ def _empty_archive_summary() -> dict[str, Any]:
         "has_green_energy": False,
         "total_count": 0,
         "recent_session_ids": [],
+        "owners": {},
     }
 
 
@@ -152,6 +155,7 @@ def _load_archive_summary(path: Path) -> dict[str, Any]:
         return _empty_archive_summary()
     return {
         "schema": ARCHIVE_SUMMARY_SCHEMA,
+        "owners": decoded.get("owners", {}) if isinstance(decoded.get("owners"), dict) else {},
         "recent_session_ids": [value for value in decoded.get("recent_session_ids", []) if isinstance(value, str)][-SESSION_RETENTION_ROWS:],
         "total_energy_kwh": _csv_float(decoded.get("total_energy_kwh")) or 0.0,
         "total_cost": _csv_float(decoded.get("total_cost")) or 0.0,
@@ -161,6 +165,44 @@ def _load_archive_summary(path: Path) -> dict[str, Any]:
         "has_green_energy": bool(decoded.get("has_green_energy")),
         "total_count": max(0, int(_csv_float(decoded.get("total_count")) or 0)),
     }
+
+
+def _belongs_to_entry(row, source_instance_id, charge_point_id):
+    if source_instance_id is None:
+        return True
+    if row.get("source_instance_id"):
+        return row["source_instance_id"] == source_instance_id
+    return bool(charge_point_id and row.get("charger_id") == charge_point_id)
+
+
+def _add_archive_row(bucket, row):
+    bucket["total_energy_kwh"] += _csv_float(row.get("energy_kwh")) or 0.0
+    bucket["total_cost"] += _csv_float(row.get("cost")) or 0.0
+    green = _csv_float(row.get("green_energy_kwh"))
+    if green is not None:
+        bucket["total_green_energy_kwh"] += green
+        bucket["has_green_energy"] = True
+    bucket["total_count"] += 1
+
+
+def _scoped_archive(archive, entry_id, charge_point_id, include_unassigned=False):
+    result = _empty_archive_summary()
+    if include_unassigned:
+        # Old 2.0 summaries had no owner labels. Preserve them only for the
+        # sole entry present at migration; never duplicate them across chargers.
+        owners = archive.get("owners", {}).values()
+        for field in ("total_energy_kwh", "total_cost", "total_green_energy_kwh", "total_count"):
+            result[field] = archive[field] - sum(_csv_float(bucket.get(field)) or 0 for bucket in owners)
+        result["has_green_energy"] = bool(archive.get("has_green_energy"))
+    keys = ["entry:" + entry_id]
+    if charge_point_id:
+        keys.append("charger:" + charge_point_id)
+    for key in keys:
+        bucket = archive.get("owners", {}).get(key, {})
+        for field in ("total_energy_kwh", "total_cost", "total_green_energy_kwh", "total_count"):
+            result[field] += _csv_float(bucket.get(field)) or 0
+        result["has_green_energy"] |= bool(bucket.get("has_green_energy"))
+    return result
 
 
 def _write_archive_summary(path: Path, summary: dict[str, Any]) -> None:
@@ -200,10 +242,15 @@ def dashboard_session_data(
     path: str | Path,
     *,
     limit: int = DASHBOARD_SESSION_LIMIT,
+    source_instance_id: str | None = None,
+    charge_point_id: str | None = None,
+    include_unassigned_archive: bool = False,
 ) -> dict[str, Any]:
     """Read a bounded, display-safe history and totals from the session log."""
     csv_path = Path(path)
     archive = _load_archive_summary(csv_path)
+    if source_instance_id is not None:
+        archive = _scoped_archive(archive, source_instance_id, charge_point_id, include_unassigned_archive)
     if not csv_path.is_file():
         return {
             "items": [],
@@ -225,6 +272,8 @@ def dashboard_session_data(
     with csv_path.open("r", newline="", encoding="utf-8") as source:
         for raw in csv.DictReader(source):
             row = normalize_session_row(raw)
+            if not _belongs_to_entry(row, source_instance_id, charge_point_id):
+                continue
             energy = _csv_float(row.get("energy_kwh"))
             cost = _csv_float(row.get("cost"))
             green = _csv_float(row.get("green_energy_kwh"))
@@ -251,7 +300,7 @@ def dashboard_session_data(
 
 
 @_history_operation
-def session_detail_data(path: str | Path, session_id: str) -> dict[str, Any] | None:
+def session_detail_data(path: str | Path, session_id: str, *, source_instance_id=None, charge_point_id=None) -> dict[str, Any] | None:
     """Load one retained session with bounded curve and event details."""
     csv_path = Path(path)
     if not csv_path.is_file() or not session_id:
@@ -259,7 +308,7 @@ def session_detail_data(path: str | Path, session_id: str) -> dict[str, Any] | N
     with csv_path.open("r", newline="", encoding="utf-8") as source:
         rows = [normalize_session_row(row) for row in csv.DictReader(source)]
     for row in reversed(rows):
-        if row.get("session_id") == session_id:
+        if row.get("session_id") == session_id and _belongs_to_entry(row, source_instance_id, charge_point_id):
             return _session_item(row, details=True)
     return None
 
@@ -463,6 +512,9 @@ def enforce_session_retention(
 
     archive = _load_archive_summary(csv_path)
     for row in removed:
+        owner = ("entry:" + row["source_instance_id"]) if row.get("source_instance_id") else ("charger:" + str(row.get("charger_id", "")))
+        bucket = archive.setdefault("owners", {}).setdefault(owner, _empty_archive_summary())
+        _add_archive_row(bucket, row)
         archive["total_energy_kwh"] += _csv_float(row.get("energy_kwh")) or 0.0
         archive["total_cost"] += _csv_float(row.get("cost")) or 0.0
         green = _csv_float(row.get("green_energy_kwh"))

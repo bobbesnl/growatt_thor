@@ -129,11 +129,12 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         )
         self.hass = SimpleNamespace(
             services=Services(),
-            data={"growatt_thor": {"charge_point": self.cp}},
+            data={"growatt_thor": {"TEST": {"config_entry_id": "TEST", "charge_point": self.cp}}},
             loop=Loop(),
             config=SimpleNamespace(time_zone="Europe/Berlin"),
             async_create_task=asyncio.create_task,
         )
+        self.coordinator.runtime_data = self.hass.data["growatt_thor"]["TEST"]
         Store.retained = None
         self.module.async_register_target_services(self.hass)
         self.runtime._TARGET_START_PAUSE_SECONDS = 0
@@ -144,6 +145,30 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
             self.coordinator,
             now_utc=lambda: self.now_utc,
         )
+
+    async def test_two_entries_route_commands_and_reject_ambiguous_calls(self):
+        from copy import copy
+        other = copy(self.coordinator)
+        other_cp = SimpleNamespace(id="OTHER", call=AsyncMock(return_value=SimpleNamespace(status="Accepted")))
+        other.runtime_data = {"config_entry_id": "OTHER", "charge_point": other_cp}
+        other_queue = []
+        async def enqueue(function):
+            other_queue.append(function)
+        other.queue_write = enqueue
+        self.hass.data["growatt_thor"]["OTHER"] = other.runtime_data
+        await self.module.async_setup_target_services(self.hass, SimpleNamespace(entry_id="OTHER"), other)
+        with self.assertRaisesRegex(RuntimeError, "entry_id_required"):
+            await self.start()
+        await self.start(entry_id="OTHER")
+        self.assertEqual(self.queue, [])
+        await other_queue[0]()
+        self.assertEqual(other_cp.call.await_count, 2)
+        self.cp.call.assert_not_awaited()
+        self.module.async_unload_target_services(self.hass, SimpleNamespace(entry_id="OTHER"))
+        result = await self.hass.services.invoke("preview_charging_target", entry_id="TEST", kind="energy", value="1")
+        self.assertIsNotNone(result)
+        with self.assertRaisesRegex(RuntimeError, "entry_not_loaded"):
+            await self.start(entry_id="OTHER")
 
     async def start(self, **overrides):
         return await self.hass.services.invoke(
@@ -167,7 +192,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         self.cp.call.assert_not_called()
 
     async def test_unloaded_entry_keeps_schema_and_explains_unavailability(self):
-        self.module.async_unload_target_services(self.hass)
+        self.module.async_unload_target_services(self.hass, SimpleNamespace(entry_id="TEST"))
         self.assertIn("start_charging_target", self.hass.services.registered)
         with self.assertRaisesRegex(RuntimeError, "not_loaded"):
             await self.start()
@@ -176,8 +201,8 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         await self.schedule(recurrence="daily")
         timer = self.hass.loop.timers[-1]
         retained = Store.retained.copy()
-        self.module.async_unload_target_services(self.hass)
-        self.module.async_unload_target_services(self.hass)
+        self.module.async_unload_target_services(self.hass, SimpleNamespace(entry_id="TEST"))
+        self.module.async_unload_target_services(self.hass, SimpleNamespace(entry_id="TEST"))
         self.assertTrue(timer.cancelled)
         self.assertIsNone(self.coordinator._charging_target_transaction_started)
         self.assertIsNone(self.coordinator._charging_target_transaction_stopped)
@@ -189,7 +214,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(sum(not timer.cancelled for timer in self.hass.loop.timers), 1)
         self.cp.call.assert_not_called()
-        self.module.async_unload_target_services(self.hass)
+        self.module.async_unload_target_services(self.hass, SimpleNamespace(entry_id="TEST"))
 
     async def test_explicit_confirmation_is_required(self):
         import voluptuous as vol
@@ -237,7 +262,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_reconnect_before_execution_never_sends(self):
         await self.start()
-        self.hass.data["growatt_thor"]["charge_point"] = SimpleNamespace()
+        self.coordinator.runtime_data["charge_point"] = SimpleNamespace()
         await self.queue[0]()
         self.cp.call.assert_not_called()
 
@@ -390,7 +415,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_plug_rejects_wrong_entry_and_connected_vehicle(self):
         self.plug_mode()
-        with self.assertRaisesRegex(RuntimeError, "wrong_charger_entry"):
+        with self.assertRaisesRegex(RuntimeError, "growatt_thor_entry_not_loaded"):
             await self.prepare_plug(entry_id="OTHER")
         self.coordinator.status = "Preparing"
         with self.assertRaisesRegex(RuntimeError, "unplug_vehicle"):
@@ -471,7 +496,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         ):
             with self.assertRaises(RuntimeError):
                 await self.schedule(start_at=start_at)
-        with self.assertRaisesRegex(RuntimeError, "wrong_charger_entry"):
+        with self.assertRaisesRegex(RuntimeError, "growatt_thor_entry_not_loaded"):
             await self.schedule(entry_id="OTHER")
         self.coordinator.status = "Preparing"
         with self.assertRaisesRegex(RuntimeError, "unplug_vehicle_before_setting_reservation"):

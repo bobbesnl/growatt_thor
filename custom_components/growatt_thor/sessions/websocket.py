@@ -1,5 +1,6 @@
 """Authenticated on-demand session details for the bundled Lovelace card."""
 from __future__ import annotations
+from functools import partial
 
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
@@ -7,6 +8,7 @@ import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 
 from ..const import DOMAIN
+from ..runtime.ownership import entry_runtime_data
 from .csv import session_detail_data
 
 
@@ -24,13 +26,17 @@ async def websocket_session_detail(
     msg: dict,
 ) -> None:
     """Return one bounded retained session to an authenticated frontend."""
-    runtime = hass.data.get(DOMAIN, {})
-    if runtime.get("config_entry_id") != msg["entry_id"]:
+    runtime = entry_runtime_data(hass.data.get(DOMAIN, {}), msg["entry_id"])
+    if runtime is None:
         connection.send_error(msg["id"], "not_found", "Config entry not found")
         return
 
     detail = await hass.async_add_executor_job(
-        session_detail_data,
+        partial(
+            session_detail_data,
+            source_instance_id=msg["entry_id"],
+            charge_point_id=runtime["coordinator"].charge_point_id,
+        ),
         hass.config.path("growatt_thor_sessions.csv"),
         msg["session_id"],
     )

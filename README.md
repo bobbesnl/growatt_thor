@@ -89,8 +89,16 @@ explanations. Start with installation, then follow the task you want to complete
 3. Configure the charger to connect to the local OCPP endpoint.
 
 Follow the [installation guide](docs/installation.md) for prerequisites, AP-mode
-setup, verification and switching back to Growatt Cloud. Only one active wallbox
-is supported. A changed endpoint can disable Growatt app/cloud access.
+setup, verification and switching back to Growatt Cloud. A changed endpoint can
+disable Growatt app/cloud access.
+
+### Multiple chargers
+
+Add one integration entry per THOR with a different listen port (for example
+9000 and 9001), and point each charger at its own endpoint. Each entry has its
+own connection, settings, queues and statistics. Select the matching charger in
+each Lovelace Card. See [multi-charger setup and migration](docs/installation.md#multiple-chargers)
+for service targeting and existing-history behaviour.
 
 ## Features
 

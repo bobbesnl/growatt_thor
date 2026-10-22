@@ -131,7 +131,10 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         self.flow = self.module.GrowattThorOptionsFlow()
-        self.entry = SimpleNamespace(data={'port': 9000, 'location': 'Test location'})
+        self.entry = SimpleNamespace(
+            entry_id='entry-test',
+            data={'port': 9000, 'location': 'Test location'},
+        )
         self.flow.config_entry = self.entry
         self.coordinator = SimpleNamespace(
             authorization=self.auth.LocalAuthorization(),
@@ -143,8 +146,25 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
             self.updates.append(data)
             entry.data = data
 
+        # Each loaded config entry owns its runtime under its entry ID.
+        self.runtime_data = {
+            'config_entry_id': 'entry-test',
+            'coordinator': self.coordinator,
+        }
+        self.other_coordinator = SimpleNamespace(
+            authorization=self.auth.LocalAuthorization(),
+            location='Other charger',
+        )
+        self.other_runtime_data = {
+            'config_entry_id': 'entry-other',
+            'coordinator': self.other_coordinator,
+            'poll_interval': 30,
+        }
         self.flow.hass = SimpleNamespace(
-            data={'growatt_thor': {'coordinator': self.coordinator}},
+            data={'growatt_thor': {
+                'entry-test': self.runtime_data,
+                'entry-other': self.other_runtime_data,
+            }},
             states={},
             config_entries=SimpleNamespace(async_update_entry=update),
         )
@@ -385,7 +405,7 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
     async def test_general_options_apply_poll_interval_to_running_schedule(self):
         updates = []
         schedule = SimpleNamespace(update=updates.append)
-        self.flow.hass.data['growatt_thor']['poll_interval_schedule'] = schedule
+        self.runtime_data['poll_interval_schedule'] = schedule
 
         result = await self.flow.async_step_general({
             'poll_interval': '45',
@@ -395,11 +415,11 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['data'], {})
         self.assertEqual(self.entry.data['poll_interval'], 45)
         self.assertEqual(self.coordinator.location, 'Garage')
-        self.assertEqual(
-            self.flow.hass.data['growatt_thor']['poll_interval'],
-            45,
-        )
+        self.assertEqual(self.runtime_data['poll_interval'], 45)
         self.assertEqual(updates, [45])
+        # Another charger's runtime is never touched by this entry's options.
+        self.assertEqual(self.other_runtime_data['poll_interval'], 30)
+        self.assertEqual(self.other_coordinator.location, 'Other charger')
 
     async def test_general_options_reject_ambiguous_poll_intervals(self):
         for invalid, expected in (
@@ -541,21 +561,56 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
 
 
 @unittest.skipUnless(HAS_VOL, 'Install tests/requirements-auth.txt for config-flow tests')
-class SingleInstanceConfigFlowTest(unittest.IsolatedAsyncioTestCase):
-    """The 1.7 domain-global runtime must not accept a second entry."""
+class ConfigFlowSetupTest(unittest.IsolatedAsyncioTestCase):
+    """A second charger is a second entry on a port of its own."""
 
     @classmethod
     def setUpClass(cls):
         cls.module, _auth = load_flow()
 
-    async def test_second_entry_aborts_before_showing_the_form(self):
+    async def test_second_charger_can_be_added_on_its_own_port(self):
         flow = self.module.GrowattThorConfigFlow()
-        flow.current_entries = [SimpleNamespace(entry_id="existing")]
+        flow.current_entries = [
+            SimpleNamespace(entry_id="existing", data={"port": 9000}),
+        ]
 
-        result = await flow.async_step_user()
+        form = await flow.async_step_user()
+        self.assertEqual(form["step_id"], "user")
 
-        self.assertEqual(result["type"], "abort")
-        self.assertEqual(result["reason"], "single_instance_allowed")
+        result = await flow.async_step_user({
+            "port": 9001,
+            "location": "",
+            "poll_interval": 30,
+        })
+
+        self.assertEqual(result["data"]["port"], 9001)
+        self.assertEqual(result["title"], "Growatt THOR EV Charger (port 9001)")
+
+    async def test_port_of_an_existing_entry_is_rejected(self):
+        flow = self.module.GrowattThorConfigFlow()
+        flow.current_entries = [
+            SimpleNamespace(entry_id="existing", data={"port": 9000}),
+        ]
+
+        result = await flow.async_step_user({
+            "port": "9000",
+            "location": "",
+            "poll_interval": 30,
+        })
+
+        self.assertEqual(result["errors"], {"port": "port_already_configured"})
+
+    async def test_first_entry_keeps_the_plain_title(self):
+        flow = self.module.GrowattThorConfigFlow()
+        flow.current_entries = []
+
+        result = await flow.async_step_user({
+            "port": 9000,
+            "location": "",
+            "poll_interval": 30,
+        })
+
+        self.assertEqual(result["title"], "Growatt THOR EV Charger")
 
     async def test_first_entry_can_open_the_setup_form(self):
         flow = self.module.GrowattThorConfigFlow()

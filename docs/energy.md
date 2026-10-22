@@ -209,10 +209,12 @@ This integration is compatible with the Home Assistant Energy Dashboard.
 3. Click **Add device**
 4. Select `sensor.growatt_thor_ev_charger_energy_charged`
 
-> **Note:** This sensor has `state_class: total_increasing`, meaning it resets to zero after each charging session. Home Assistant automatically detects these resets and accumulates all sessions correctly in the Energy Dashboard — including multiple sessions on the same day.
+> **Note:** This sensor has `state_class: total_increasing`, meaning it resets to zero at the start of each new charging session. Home Assistant automatically detects these resets and accumulates all sessions correctly in the Energy Dashboard — including multiple sessions on the same day.
 
 ### Additional sensor (optional)
 
 For real-time power monitoring on the Energy Dashboard:
 
 - Use `sensor.growatt_thor_ev_charger_charging_power` for live wattage display
+
+After a restart or reload, an unavailable charged-energy value remains `unknown` until a sample or new transaction supplies it. A valid retained 2.0 session checkpoint may restore its last observed value. The integration does not fabricate a zero for missing data, avoiding a false meter reset and double-counting.

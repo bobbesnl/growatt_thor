@@ -81,12 +81,12 @@
     "error": {
       "poll_interval_too_low": "Poll interval must be at least {min_interval} seconds",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
-      "invalid_port": "Port must be a whole number from 1 to 65535"
+      "invalid_port": "Port must be a whole number from 1 to 65535",
+      "port_already_configured": "This port is already used by another Growatt THOR charger. Choose a different port."
     },
     "abort": {
       "ap_mode_activated": "✅ AP Mode activated! THOR is broadcasting a WiFi network. Look for SSID with THOR Serialnumber in it.",
-      "ap_mode_failed": "❌ Failed to activate AP Mode. Check logs for details.",
-      "single_instance_allowed": "Only one Growatt THOR integration can be configured."
+      "ap_mode_failed": "❌ Failed to activate AP Mode. Check logs for details."
     }
   },
   "options": {

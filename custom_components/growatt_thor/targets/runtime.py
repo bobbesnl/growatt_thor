@@ -132,7 +132,7 @@ class ChargingTargetRuntime:
         )
         self.coordinator.charging_target_pilot_enabled = True
 
-        self.hass.data.setdefault(DOMAIN, {})["target_handlers"] = {
+        self.coordinator.runtime_data["target_handlers"] = {
             SERVICES[0]: self.preview,
             SERVICES[1]: self.start,
             SERVICES[2]: self.acknowledge,
@@ -204,7 +204,7 @@ class ChargingTargetRuntime:
         if (
             not self.coordinator.connected
             or cp is None
-            or self.hass.data.get(DOMAIN, {}).get("charge_point") is not cp
+            or self.coordinator.runtime_data.get("charge_point") is not cp
         ):
             return "charger_disconnected_or_replaced"
         if self.coordinator.transaction_is_active:
@@ -344,8 +344,8 @@ class ChargingTargetRuntime:
 
     def pause_polling(self, seconds: float = _REQUEST_EXPIRY_SECONDS) -> None:
         pause_until = self.hass.loop.time() + seconds + self.coordinator._poll_pause_after_write
-        self.hass.data[DOMAIN]["skip_polling_until"] = max(
-            self.hass.data[DOMAIN].get("skip_polling_until", 0), pause_until
+        self.coordinator.runtime_data["skip_polling_until"] = max(
+            self.coordinator.runtime_data.get("skip_polling_until", 0), pause_until
         )
 
     async def preview(self, service: ServiceCall) -> dict[str, Any]:
@@ -364,7 +364,7 @@ class ChargingTargetRuntime:
             )
             if self._busy:
                 raise HomeAssistantError("target_request_or_transaction_busy")
-            cp = self.hass.data.get(DOMAIN, {}).get("charge_point")
+            cp = self.coordinator.runtime_data.get("charge_point")
             if reason := self.block_reason(cp, activation):
                 raise HomeAssistantError(reason)
             request = {
@@ -493,7 +493,7 @@ class ChargingTargetRuntime:
         target = ChargingTarget.parse(request["kind"], request["value"])
         recurrence = request.get("recurrence", "once")
         activation = "daily_start" if recurrence == "daily" else "reserved_start"
-        cp = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        cp = self.coordinator.runtime_data.get("charge_point")
         issued = time.monotonic()
         connection_started_at = self.coordinator.connection_started_at
 
@@ -562,7 +562,7 @@ class ChargingTargetRuntime:
             )
             if self._busy:
                 raise HomeAssistantError("target_request_or_transaction_busy")
-            cp = self.hass.data.get(DOMAIN, {}).get("charge_point")
+            cp = self.coordinator.runtime_data.get("charge_point")
             activation = "reserve" if recurrence == "once" else "remote"
             if reason := self.block_reason(cp, activation):
                 raise HomeAssistantError(reason)
@@ -649,12 +649,12 @@ class ChargingTargetRuntime:
                 )
                 return
             reservation_id = request.get("reservation_id")
-            cp = self.hass.data.get(DOMAIN, {}).get("charge_point")
+            cp = self.coordinator.runtime_data.get("charge_point")
             if (
                 not isinstance(reservation_id, int)
                 or not self.coordinator.connected
                 or cp is None
-                or self.hass.data.get(DOMAIN, {}).get("charge_point") is not cp
+                or self.coordinator.runtime_data.get("charge_point") is not cp
             ):
                 raise HomeAssistantError("reservation_cancel_unavailable")
             request = {
@@ -772,11 +772,12 @@ async def async_setup_target_runtime(
     """Attach one controller without changing the public HA service contract."""
     runtime = ChargingTargetRuntime(hass, entry, coordinator, now_utc=now_utc)
     await runtime.async_setup()
-    hass.data.setdefault(DOMAIN, {})["target_runtime"] = runtime
+    coordinator.runtime_data["target_runtime"] = runtime
 
 
-def async_unload_target_runtime(hass: HomeAssistant) -> None:
-    runtime = hass.data.get(DOMAIN, {}).pop("target_runtime", None)
+def async_unload_target_runtime(hass: HomeAssistant, entry) -> None:
+    entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
+    runtime = entry_data.pop("target_runtime", None)
     if runtime is not None:
         runtime.close()
-    hass.data.get(DOMAIN, {}).pop("target_handlers", None)
+    entry_data.pop("target_handlers", None)

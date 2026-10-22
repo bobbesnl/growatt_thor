@@ -8,8 +8,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.const import Platform
 from homeassistant.components.persistent_notification import async_create as pn_create
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.storage import Store
 import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 
@@ -43,8 +45,10 @@ from .energy.sources import (
 from .ocpp.server import start_ocpp_server
 from .runtime.polling import PollIntervalSchedule
 from .runtime.ownership import (
-    claim_runtime_entry,
-    runtime_entry_is_owner,
+    claim_entry_runtime,
+    entry_runtime_data,
+    loaded_entry_runtimes,
+    release_entry_runtime,
 )
 from .runtime.services import (
     ChargerServiceUnavailable,
@@ -81,6 +85,39 @@ PLATFORMS = [
 ]
 
 SESSION_LOG_FILE = "growatt_thor_sessions.csv"
+
+ATTR_CONFIG_ENTRY_ID = "config_entry_id"
+
+# Records which config entries existed when per-entry storage was introduced.
+MIGRATION_STORAGE_KEY = "growatt_thor_migration"
+MIGRATION_STORAGE_VERSION = 1
+
+
+async def _legacy_seed_allowed(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Return whether this entry may inherit the shared legacy statistics.
+
+    Before per-entry storage, all entries wrote one shared file.  Only the
+    entries that existed at the first start with per-entry storage inherit
+    it; a charger added later starts with empty statistics.  Concurrent
+    setups write the same list, so the race between them is harmless.
+    """
+    store = Store(hass, MIGRATION_STORAGE_VERSION, MIGRATION_STORAGE_KEY)
+    data = await store.async_load()
+    if data is None:
+        data = {
+            "legacy_seed_entries": sorted(
+                existing.entry_id
+                for existing in hass.config_entries.async_entries(DOMAIN)
+            )
+        }
+        await store.async_save(data)
+    return entry.entry_id in data.get("legacy_seed_entries", [])
+
+
+async def _owns_legacy_history(hass, entry):
+    """Only an unambiguous pre-upgrade entry may inherit unlabelled totals."""
+    data = await Store(hass, MIGRATION_STORAGE_VERSION, MIGRATION_STORAGE_KEY).async_load()
+    return bool(data and data.get("legacy_seed_entries") == [entry.entry_id])
 
 
 async def async_migrate_entry(
@@ -184,7 +221,7 @@ async def _check_existing_connection(hass, coordinator):
     """Check if THOR is already connected and fetch current data."""
     await asyncio.sleep(2)
 
-    charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
+    charge_point = coordinator.runtime_data.get("charge_point")
     if charge_point:
         _LOGGER.info("THOR already connected at startup, fetching current data")
         try:
@@ -198,7 +235,7 @@ def _get_session_log_path(hass):
     return hass.config.path(SESSION_LOG_FILE)
 
 
-async def _append_session_to_csv(hass, session: dict):
+async def _append_session_to_csv(hass, coordinator, session: dict):
     """Append a completed session to the CSV log."""
     path = _get_session_log_path(hass)
 
@@ -206,10 +243,16 @@ async def _append_session_to_csv(hass, session: dict):
         append_session_row(path, session)
 
     await hass.async_add_executor_job(_write)
-    coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
     if coordinator is not None:
         coordinator.dashboard_sessions = await hass.async_add_executor_job(
-            dashboard_session_data, path
+            lambda: dashboard_session_data(
+                path,
+                source_instance_id=coordinator.source_instance_id,
+                charge_point_id=coordinator.charge_point_id,
+                include_unassigned_archive=coordinator.runtime_data.get(
+                    "owns_legacy_history", False
+                ),
+            )
         )
         coordinator.async_set_updated_data(True)
     _LOGGER.debug("📝 Session appended to CSV: %s", path)
@@ -217,6 +260,7 @@ async def _append_session_to_csv(hass, session: dict):
 
 async def _update_session_events_in_csv(
     hass,
+    coordinator,
     session_id: str,
     events: list[dict[str, str]],
 ) -> None:
@@ -230,10 +274,16 @@ async def _update_session_events_in_csv(
     )
     if not updated:
         return
-    coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
     if coordinator is not None:
         coordinator.dashboard_sessions = await hass.async_add_executor_job(
-            dashboard_session_data, path
+            lambda: dashboard_session_data(
+                path,
+                source_instance_id=coordinator.source_instance_id,
+                charge_point_id=coordinator.charge_point_id,
+                include_unassigned_archive=coordinator.runtime_data.get(
+                    "owns_legacy_history", False
+                ),
+            )
         )
         coordinator.async_set_updated_data(True)
 
@@ -253,21 +303,57 @@ def _register_services(hass: HomeAssistant) -> None:
         return
 
     operations = IntegrationServiceOperations(hass.async_create_task)
+    # Refreshes are single-flight per charger: concurrent calls for the same
+    # entry share one physical read sequence, while different chargers never
+    # wait for, or join, each other's refresh.
+    refresh_operations: dict[str, IntegrationServiceOperations] = {}
 
     async def handle_refresh(call: ServiceCall):
-        """Coalesce concurrent refresh calls and report incomplete reads."""
+        """Coalesce concurrent refresh calls and report incomplete reads.
+
+        Without ``config_entry_id`` every loaded charger is refreshed.  The
+        call succeeds when at least one charger was refreshed and none failed;
+        a charger that is not connected is only logged.  With
+        ``config_entry_id`` the named charger must be loaded and connected.
+        """
         _LOGGER.debug("Manual refresh triggered")
-        try:
-            await operations.async_refresh(hass.data.get(DOMAIN, {}))
-        except ChargerServiceUnavailable:
-            _LOGGER.warning("No charge point connected - cannot refresh")
-            raise_charger_disconnected()
-        except ManualRefreshFailed as exc:
-            _LOGGER.warning("Manual refresh failed during %s", exc.step)
+        targets = loaded_entry_runtimes(hass.data.get(DOMAIN, {}))
+        entry_id = call.data.get(ATTR_CONFIG_ENTRY_ID)
+        if entry_id is not None:
+            # An unknown or unloaded entry has no reachable charger either.
+            targets = [target for target in targets if target[0] == entry_id]
+
+        refreshed = 0
+        failure = None
+        for target_entry_id, runtime_data in targets:
+            entry_operations = refresh_operations.setdefault(
+                target_entry_id,
+                IntegrationServiceOperations(hass.async_create_task),
+            )
+            try:
+                await entry_operations.async_refresh(runtime_data)
+            except ChargerServiceUnavailable:
+                _LOGGER.warning(
+                    "No charge point connected for %s - cannot refresh",
+                    target_entry_id,
+                )
+            except ManualRefreshFailed as exc:
+                _LOGGER.warning(
+                    "Manual refresh of %s failed during %s",
+                    target_entry_id,
+                    exc.step,
+                )
+                failure = failure or exc
+            else:
+                refreshed += 1
+
+        if failure is not None:
             raise_communication_error(
                 "refresh_failed",
-                placeholders={"step": exc.step},
+                placeholders={"step": failure.step},
             )
+        if not refreshed:
+            raise_charger_disconnected()
         _LOGGER.info("Manual refresh completed successfully")
 
     async def handle_export_sessions(call: ServiceCall):
@@ -328,7 +414,14 @@ def _register_services(hass: HomeAssistant) -> None:
             raise_communication_error("session_export_failed")
 
     if not hass.services.has_service(DOMAIN, "refresh"):
-        hass.services.async_register(DOMAIN, "refresh", handle_refresh)
+        hass.services.async_register(
+            DOMAIN,
+            "refresh",
+            handle_refresh,
+            schema=vol.Schema({
+                vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
+            }),
+        )
     if not hass.services.has_service(DOMAIN, "export_sessions"):
         hass.services.async_register(
             DOMAIN,
@@ -359,13 +452,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Growatt THOR from config entry."""
 
-    runtime_data = hass.data.setdefault(DOMAIN, {})
-    if not claim_runtime_entry(runtime_data, entry.entry_id):
+    # Every config entry owns its own runtime (see runtime_ownership): a
+    # second charger is a second entry and never replaces the first one.
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    runtime_data = claim_entry_runtime(domain_data, entry.entry_id)
+    if runtime_data is None:
         _LOGGER.error(
-            "Cannot set up config entry %s: the single Growatt THOR runtime "
-            "is already owned by %s",
+            "Cannot set up config entry %s: it already has a loaded runtime",
             entry.entry_id,
-            runtime_data.get("config_entry_id"),
         )
         return False
 
@@ -374,7 +468,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         from .charging.authorization import CONF_AUTHORIZATION, LocalAuthorization
 
-        coordinator = GrowattCoordinator(hass, source_instance_id=entry.entry_id)
+        coordinator = GrowattCoordinator(
+            hass,
+            source_instance_id=entry.entry_id,
+            seed_from_legacy=await _legacy_seed_allowed(hass, entry),
+        )
+        coordinator.runtime_data = runtime_data
+        runtime_data["owns_legacy_history"] = await _owns_legacy_history(hass, entry)
         coordinator.authorization = LocalAuthorization(
             entry.data.get(CONF_AUTHORIZATION)
         )
@@ -390,11 +490,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         runtime_data["coordinator"] = coordinator
         runtime_data["skip_polling_until"] = 0.0
         runtime_data["append_session_to_csv"] = (
-            lambda session: _append_session_to_csv(hass, session)
+            lambda session: _append_session_to_csv(hass, coordinator, session)
         )
         runtime_data["update_session_events_in_csv"] = (
             lambda session_id, events: _update_session_events_in_csv(
-                hass, session_id, events
+                hass, coordinator, session_id, events
             )
         )
         # Replay checkpointed completions before loading the dashboard summary.
@@ -404,11 +504,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         def _load_retained_dashboard():
             enforce_session_retention(session_log_path)
-            return dashboard_session_data(session_log_path)
+            return dashboard_session_data(
+                session_log_path,
+                source_instance_id=entry.entry_id,
+                charge_point_id=coordinator.charge_point_id,
+                include_unassigned_archive=runtime_data.get("owns_legacy_history", False),
+            )
 
-        coordinator.dashboard_sessions = await hass.async_add_executor_job(
-            _load_retained_dashboard
-        )
+        async def refresh_dashboard():
+            coordinator.dashboard_sessions = await hass.async_add_executor_job(
+                _load_retained_dashboard
+            )
+            coordinator.async_set_updated_data(True)
+
+        runtime_data["refresh_dashboard"] = refresh_dashboard
+        await refresh_dashboard()
 
         # Revalidate persisted entries as well as form submissions.  This
         # covers older or manually altered storage before opening a socket or
@@ -425,24 +535,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         poll_interval_schedule = PollIntervalSchedule(poll_interval)
         runtime_data["poll_interval_schedule"] = poll_interval_schedule
 
-        _LOGGER.info("Configured grid poll interval: %d seconds", poll_interval)
+        _LOGGER.info(
+            "%s: configured grid poll interval: %d seconds",
+            entry.title,
+            poll_interval,
+        )
 
-        server = await start_ocpp_server("0.0.0.0", port, coordinator, hass)
+        try:
+            server = await start_ocpp_server("0.0.0.0", port, coordinator, hass)
+        except OSError as err:
+            # Typically the port is still held by a server that is shutting
+            # down.  Let Home Assistant retry instead of failing permanently.
+            raise ConfigEntryNotReady(
+                f"Cannot open OCPP port {port}: {err}"
+            ) from err
         runtime_data["server"] = server
     except BaseException:
         # A failed setup must release its claim or every future retry would be
-        # mistaken for a second entry.  No server-owned tasks exist yet when
-        # this path runs successfully through the cleanup boundary above.
-        if runtime_entry_is_owner(runtime_data, entry.entry_id):
-            runtime_data.clear()
+        # mistaken for an entry that is already loaded.  No server-owned tasks
+        # exist yet when this path runs successfully through the cleanup
+        # boundary above.
+        release_entry_runtime(domain_data, entry.entry_id, runtime_data)
         raise
 
-    _LOGGER.info("OCPP server started on %s:%s", "0.0.0.0", port)
+    _LOGGER.info("%s: OCPP server started on %s:%s", entry.title, "0.0.0.0", port)
 
     startup_check_task = hass.async_create_background_task(
         _check_existing_connection(hass, coordinator),
-        name="growatt_thor_startup_connection_check",
+        name=f"growatt_thor_startup_connection_check_{entry.entry_id}",
     )
+
+    runtime_data["startup_check_task"] = startup_check_task
 
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -454,8 +577,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await startup_check_task
         server.close()
         await server.wait_closed()
-        if runtime_entry_is_owner(runtime_data, entry.entry_id):
-            runtime_data.clear()
+        release_entry_runtime(domain_data, entry.entry_id, runtime_data)
         raise
 
     async def periodic_external_meter_poll():
@@ -476,7 +598,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 )
                 poll_started = True
             try:
-                skip_until = hass.data[DOMAIN].get("skip_polling_until", 0.0)
+                skip_until = runtime_data.get("skip_polling_until", 0.0)
                 current_time = loop.time()
 
                 while current_time < skip_until:
@@ -492,8 +614,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     current_time = loop.time()
                 periodic_external_meter_poll._skip_logged = False
 
-                charge_point = hass.data.get(DOMAIN, {}).get("charge_point")
-                coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
+                charge_point = runtime_data.get("charge_point")
+                coordinator = runtime_data.get("coordinator")
 
                 if charge_point and coordinator:
                     _LOGGER.debug("Polling external meter (%ds interval)", poll_interval)
@@ -510,9 +632,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except Exception as exc:
                 _LOGGER.error("💥 Smart poll crashed: %s", exc, exc_info=True)
 
-    hass.data[DOMAIN]["polling_task"] = hass.async_create_background_task(
+    runtime_data["polling_task"] = hass.async_create_background_task(
         periodic_external_meter_poll(),
-        name="growatt_thor_external_meter_poll"
+        name=f"growatt_thor_external_meter_poll_{entry.entry_id}",
     )
 
     from .charging.pv_service import async_setup_pv_linkage_service
@@ -529,15 +651,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload Growatt THOR config entry."""
 
-    runtime_data = hass.data.get(DOMAIN, {})
-    if not runtime_entry_is_owner(runtime_data, entry.entry_id):
-        # A stale or rejected entry must never tear down the server and
-        # coordinator belonging to the active entry.
+    domain_data = hass.data.get(DOMAIN, {})
+    runtime_data = entry_runtime_data(domain_data, entry.entry_id)
+    if runtime_data is None:
+        # An entry without a loaded runtime has nothing to tear down, and it
+        # must never touch the server or coordinator of another entry.
         _LOGGER.warning(
-            "Ignoring unload for non-owning config entry %s",
+            "Ignoring unload for config entry %s without a loaded runtime",
             entry.entry_id,
         )
         return True
+
+    # Unload the entities first.  When that does not succeed Home Assistant
+    # keeps the entry loaded, so its poll loop, write queue and OCPP server
+    # must keep running instead of leaving entities without a charger.
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if not unload_ok:
+        _LOGGER.warning(
+            "Unloading the platforms of config entry %s failed; keeping its "
+            "charger connection running",
+            entry.entry_id,
+        )
+        return False
+
+    startup_task = runtime_data.get("startup_check_task")
+    if startup_task is not None:
+        startup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await startup_task
 
     polling_task = runtime_data.get("polling_task")
     if polling_task:
@@ -554,11 +695,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = runtime_data.get("coordinator")
     if coordinator is not None:
         # The write queue may intentionally be waiting for a reconnect.  Stop
-        # that wait before clearing hass.data so no background task survives a
-        # reload of the integration.
+        # that wait before releasing the runtime so no background task
+        # survives a reload of the integration.
         await coordinator.async_shutdown()
-
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     server = runtime_data.get("server")
     if server:
@@ -568,9 +707,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     from .charging.pv_service import async_unload_pv_linkage_service
     from .targets.services import async_unload_target_services
 
-    async_unload_pv_linkage_service(hass)
-    async_unload_target_services(hass)
-    if unload_ok:
-        runtime_data.clear()
-
-    return unload_ok
+    async_unload_pv_linkage_service(hass, entry)
+    async_unload_target_services(hass, entry)
+    release_entry_runtime(domain_data, entry.entry_id, runtime_data)
+    return True

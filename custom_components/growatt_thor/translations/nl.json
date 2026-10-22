@@ -81,12 +81,12 @@
     "error": {
       "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn",
       "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn",
-      "invalid_port": "De poort moet een geheel getal van 1 tot en met 65535 zijn"
+      "invalid_port": "De poort moet een geheel getal van 1 tot en met 65535 zijn",
+      "port_already_configured": "Deze poort wordt al gebruikt door een andere Growatt THOR-lader. Kies een andere poort."
     },
     "abort": {
       "ap_mode_activated": "✅ AP Mode geactiveerd! THOR zendt nu een WiFi netwerk uit. Zoek naar het SSID met daarin het serienummer van de THOR",
-      "ap_mode_failed": "❌ AP Mode activeren mislukt. Controleer de logs.",
-      "single_instance_allowed": "Er kan maar één Growatt THOR-integratie worden geconfigureerd."
+      "ap_mode_failed": "❌ AP Mode activeren mislukt. Controleer de logs."
     }
   },
   "options": {

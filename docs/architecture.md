@@ -2,9 +2,11 @@
 
 [Documentation](../README.md#documentation) · [Start reading the code](CONTRIBUTING.md)
 
-The integration supports one active wallbox and one coordinator. Existing HA
-entity identities, service names, configuration keys and storage keys remain
-stable. The OCPP queue remains the only owner of outbound charger writes.
+The integration owns one runtime and coordinator per config entry. Existing HA
+entity identities, service names and configuration keys remain stable. Statistics
+move to per-entry storage with a one-time legacy migration; charging-target
+storage keeps its existing per-entry keys. The OCPP queue remains the only owner
+of outbound charger writes for each charger.
 
 ## Responsibilities
 

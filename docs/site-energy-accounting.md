@@ -38,7 +38,7 @@ allocation rule:
 
 Load First is an assumption used in the calculation. Selecting it does not
 change priorities or settings on the inverter, battery or other devices.
-The current integration supports one active wallbox.
+Multiple wallboxes have isolated runtimes. Site-energy allocation is calculated independently per wallbox; coordinated allocation of shared PV, battery and grid sources across chargers is not implemented.
 
 ## What happens when data is missing
 

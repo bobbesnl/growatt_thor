@@ -81,12 +81,12 @@
     "error": {
       "poll_interval_too_low": "Interval preverjanja mora biti vsaj {min_interval} sekund",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
-      "invalid_port": "Port must be a whole number from 1 to 65535"
+      "invalid_port": "Port must be a whole number from 1 to 65535",
+      "port_already_configured": "Ta vrata že uporablja drug polnilnik Growatt THOR. Izberite druga vrata."
     },
     "abort": {
       "ap_mode_activated": "✅ Način AP je omogočen. THOR oddaja omrežje Wi-Fi. Poiščite SSID, ki vsebuje serijsko številko THOR.",
-      "ap_mode_failed": "❌ Načina AP ni bilo mogoče omogočiti. Za podrobnosti preverite dnevnike.",
-      "single_instance_allowed": "Nastavite lahko samo eno integracijo Growatt THOR."
+      "ap_mode_failed": "❌ Načina AP ni bilo mogoče omogočiti. Za podrobnosti preverite dnevnike."
     }
   },
   "options": {

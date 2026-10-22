@@ -9,6 +9,7 @@ from homeassistant.core import SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 
 from ..const import DOMAIN
+from ..runtime.ownership import resolve_entry_runtime
 from .runtime import (
     SERVICES,
     async_setup_target_runtime as async_setup_target_services,
@@ -27,7 +28,13 @@ def async_register_target_services(hass: HomeAssistant) -> None:
 
     def dispatch(name: str) -> TargetHandler:
         async def handle(service: ServiceCall) -> dict[str, Any] | None:
-            handler = hass.data.get(DOMAIN, {}).get("target_handlers", {}).get(name)
+            try:
+                runtime = resolve_entry_runtime(
+                    hass.data.get(DOMAIN, {}), service.data.get("entry_id")
+                )
+            except ValueError as exc:
+                raise HomeAssistantError(str(exc)) from exc
+            handler = runtime.get("target_handlers", {}).get(name)
             if handler is None:
                 raise HomeAssistantError("growatt_thor_entry_not_loaded")
             return await handler(service)
@@ -35,6 +42,7 @@ def async_register_target_services(hass: HomeAssistant) -> None:
         return handle
 
     target_schema = {
+        vol.Optional("entry_id"): str,
         vol.Required("kind"): vol.In(["duration", "energy", "budget"]),
         vol.Required("value"): vol.Any(str, int, float),
     }
@@ -79,7 +87,10 @@ def async_register_target_services(hass: HomeAssistant) -> None:
         SERVICES[2],
         dispatch(SERVICES[2]),
         schema=vol.Schema(
-            {vol.Required("confirm_native_target_reset"): vol.All(bool, vol.In([True]))}
+            {
+                vol.Optional("entry_id"): str,
+                vol.Required("confirm_native_target_reset"): vol.All(bool, vol.In([True])),
+            }
         ),
     )
     hass.services.async_register(
@@ -93,7 +104,7 @@ def async_register_target_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICES[4],
         dispatch(SERVICES[4]),
-        schema=vol.Schema({}),
+        schema=vol.Schema({vol.Optional("entry_id"): str}),
         supports_response=SupportsResponse.ONLY,
     )
     hass.services.async_register(
@@ -121,6 +132,7 @@ def async_register_target_services(hass: HomeAssistant) -> None:
         dispatch(SERVICES[7]),
         schema=vol.Schema(
             {
+                vol.Optional("entry_id"): str,
                 vol.Required("request_id"): str,
                 vol.Required("confirm_cancel"): vol.All(bool, vol.In([True])),
             }

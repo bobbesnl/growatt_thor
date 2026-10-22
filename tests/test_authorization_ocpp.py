@@ -33,6 +33,8 @@ class Websocket:
 
 class Coordinator:
     def __init__(self):
+        # Per-entry runtime mapping that owns the active connection slot.
+        self.runtime_data = {}
         self.authorization = auth.LocalAuthorization()
         self.charger_mode = 1
         self.connected = True
@@ -197,7 +199,7 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
     async def test_unsent_remote_start_discards_one_shot_authorization(self):
         """A stale connection is safe to retry and must not leave a grant behind."""
         self.restrict()
-        self.hass.data[server.DOMAIN]['charge_point'] = object()
+        self.coordinator.runtime_data['charge_point'] = object()
 
         with self.assertRaises(server.ChargerConnectionUnavailable):
             await self.cp.remote_start_transaction(1, '12345678')
@@ -229,7 +231,7 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertIs(
-            self.hass.data[server.DOMAIN]['charge_point'],
+            self.coordinator.runtime_data['charge_point'],
             self.cp,
         )
         self.assertEqual(incoming_websocket.closed[0][0], 1008)
@@ -243,7 +245,7 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
             self.hass,
         )
         self.assertIs(
-            self.hass.data[server.DOMAIN]['charge_point'],
+            self.coordinator.runtime_data['charge_point'],
             replacement,
         )
 

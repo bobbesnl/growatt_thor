@@ -31,7 +31,7 @@ class SessionLifecycle:
 
     async def async_flush_pending(self):
         coordinator = self.coordinator
-        append_fn = coordinator.hass.data.get(DOMAIN, {}).get("append_session_to_csv")
+        append_fn = coordinator.runtime_data.get("append_session_to_csv")
         if append_fn is None:
             return
         try:
@@ -466,11 +466,12 @@ class SessionLifecycle:
             )
 
             # CSV logging via __init__.py helper
-            append_fn = coordinator.hass.data.get(DOMAIN, {}).get("append_session_to_csv")
+            append_fn = coordinator.runtime_data.get("append_session_to_csv")
             if append_fn:
                 session_row = {
                     "timestamp": coordinator.now(),
                     "charger_id": coordinator.charge_point_id or "",
+                    "source_instance_id": coordinator.source_instance_id or "",
                     "location": coordinator.location,
                     "start_time": start_str,
                     "end_time": end_str,

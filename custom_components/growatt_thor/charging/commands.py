@@ -75,7 +75,7 @@ class StopChargingCommand:
             )
             return
 
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.runtime_data.get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot stop charging: charger not connected")
             raise_charger_disconnected()
@@ -168,7 +168,7 @@ class StopChargingCommand:
         try:
             # See the matching start helper: delayed work must not retain a
             # websocket that may have been superseded during the wait.
-            charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+            charge_point = self.coordinator.runtime_data.get("charge_point")
             if charge_point is None:
                 return
             await charge_point.trigger_status()

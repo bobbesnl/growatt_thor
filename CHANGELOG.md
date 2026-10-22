@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## 2.0.0-dev.11 — 2026-10-22
+
+### Fixed
+
+- Backport Thijs's PRs [#58](https://github.com/bobbesnl/growatt_thor/pull/58) and [#62](https://github.com/bobbesnl/growatt_thor/pull/62) onto the modular 2.0 architecture.
+- Isolate OCPP connections, write queues, polling, options, diagnostics and persistent statistics per config entry. Each charger uses its own listen port; a duplicate port is rejected in all eight languages.
+- Release only the affected entry after a failed setup. Keep its connection, write queue and background tasks running if platform unload fails.
+- Reset live power and current outside Charging, ignore late live samples until charging resumes, and apply the same display rule to the Lovelace Card while retaining raw diagnostics.
+- Keep charged energy unknown when no value is available instead of manufacturing a zero that could double-count a running session in statistics.
+- Scope 2.0 charging targets, PV profiles, protection stops, history summaries and WebSocket session details to the selected charger. Ambiguous target actions require an entry ID; the card also targets schedule cancellation explicitly.
+
+### Migration and validation
+
+- Seed existing entries once from the shared statistics store; newly added entries start empty. Existing mixed statistics cannot be split retrospectively.
+- Keep the shared CSV export and legacy rows. Card history resolves legacy rows by charger ID; new rows and retained archive totals carry entry ownership. Unlabelled archived totals are inherited only by a sole pre-upgrade entry, otherwise remain in the combined history/export context.
+- Preserve entity IDs, existing 2.0 session checkpoints and charging-target storage. Coordinated load balancing and allocation of shared site energy across chargers remain separate features.
+- Add regression coverage for lifecycle failures with real local server ports, two-charger OCPP routing, target/PV dispatch, history isolation, retention, live card values and the energy sensor. Real-device validation of this 2.0 backport remains outstanding.
+
 ## 2.0.0-dev.10 — 2026-10-19
 
 ### Fixed

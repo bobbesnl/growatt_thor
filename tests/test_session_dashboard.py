@@ -49,5 +49,64 @@ class SessionDashboardTest(unittest.TestCase):
         self.assertEqual(data["items"][0]["power_curve"], [["2026-09-11T10:00:00Z", 7200.0]])
 
 
+
+class MultiChargerHistoryTest(unittest.TestCase):
+    def test_history_totals_and_details_are_scoped_before_limiting(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sessions.csv'
+            for name, energy in [('left', 2), ('right', 7)]:
+                session_csv.append_session_row(path, {
+                    'source_instance_id': name, 'charger_id': 'THOR-' + name,
+                    'session_id': name, 'session_source': 'home_assistant',
+                    'start_time': '2026-10-21T10:00:00Z', 'energy_kwh': energy,
+                })
+            left = session_csv.dashboard_session_data(path, source_instance_id='left', limit=1)
+            self.assertEqual(left['total_energy_kwh'], 2)
+            self.assertEqual([item['session_id'] for item in left['items']], ['left'])
+            self.assertIsNone(session_csv.session_detail_data(path, 'right', source_instance_id='left'))
+            self.assertEqual(session_csv.session_detail_data(path, 'right', source_instance_id='right')['energy_kwh'], 7)
+            self.assertEqual(session_csv.dashboard_session_data(path)['total_energy_kwh'], 9)
+
+    def test_legacy_rows_require_matching_charger_and_explicit_owner_wins(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sessions.csv'
+            for name, owner, energy in [('legacy', '', 2), ('owned', 'right', 7)]:
+                session_csv.append_session_row(path, {
+                    'source_instance_id': owner, 'charger_id': 'THOR',
+                    'session_id': name, 'session_source': 'home_assistant',
+                    'start_time': '2026-10-21T10:00:00Z', 'energy_kwh': energy,
+                })
+            self.assertEqual(session_csv.dashboard_session_data(path, source_instance_id='left')['total_count'], 0)
+            self.assertEqual(session_csv.dashboard_session_data(path, source_instance_id='left', charge_point_id='THOR')['total_energy_kwh'], 2)
+
+    def test_retention_preserves_separate_totals(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sessions.csv'
+            for name, energy in [('left', 2), ('right', 7)]:
+                session_csv.append_session_row(path, {
+                    'source_instance_id': name, 'charger_id': 'THOR-' + name,
+                    'session_id': name, 'session_source': 'home_assistant',
+                    'start_time': '2020-01-01T10:00:00Z', 'energy_kwh': energy,
+                })
+            session_csv.enforce_session_retention(path)
+            for name, energy in [('left', 2), ('right', 7)]:
+                data = session_csv.dashboard_session_data(path, source_instance_id=name)
+                self.assertEqual(data['items'], [])
+                self.assertEqual(data['total_energy_kwh'], energy)
+                self.assertEqual(data['total_count'], 1)
+
+    def test_unlabelled_archive_is_inherited_only_by_the_original_single_entry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sessions.csv'
+            archive = session_csv._empty_archive_summary()
+            archive.update(total_energy_kwh=12.5, total_count=3)
+            session_csv._write_archive_summary(path, archive)
+            inherited = session_csv.dashboard_session_data(path, source_instance_id='original', include_unassigned_archive=True)
+            other = session_csv.dashboard_session_data(path, source_instance_id='new')
+            self.assertEqual(inherited['total_energy_kwh'], 12.5)
+            self.assertEqual(inherited['total_count'], 3)
+            self.assertEqual(other['total_count'], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

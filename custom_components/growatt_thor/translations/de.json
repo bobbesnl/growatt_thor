@@ -81,12 +81,12 @@
     "error": {
       "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen",
       "invalid_poll_interval": "Das Abfrageintervall muss eine endliche ganze Anzahl Sekunden sein",
-      "invalid_port": "Der Port muss eine ganze Zahl zwischen 1 und 65535 sein"
+      "invalid_port": "Der Port muss eine ganze Zahl zwischen 1 und 65535 sein",
+      "port_already_configured": "Dieser Port wird bereits von einer anderen Growatt THOR-Wallbox verwendet. Wähle einen anderen Port."
     },
     "abort": {
       "ap_mode_activated": "✅ AP-Modus aktiviert! Die THOR-Wallbox stellt jetzt ein WLAN bereit. Suche nach einer SSID, die die THOR-Seriennummer enthält.",
-      "ap_mode_failed": "❌ Der AP-Modus konnte nicht aktiviert werden. Weitere Informationen sind in den Protokollen verfügbar.",
-      "single_instance_allowed": "Es kann nur eine Growatt THOR-Integration eingerichtet werden."
+      "ap_mode_failed": "❌ Der AP-Modus konnte nicht aktiviert werden. Weitere Informationen sind in den Protokollen verfügbar."
     }
   },
   "options": {

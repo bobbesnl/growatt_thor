@@ -1,6 +1,14 @@
 refresh:
   name: Refresh data
-  description: Manually refresh all data from the charger
+  description: Manually refresh all data from the charger. Leave the charger empty to refresh every configured charger.
+  fields:
+    config_entry_id:
+      name: Charger
+      description: The Growatt THOR config entry to refresh. Empty means all.
+      required: false
+      selector:
+        config_entry:
+          integration: growatt_thor
 
 apply_pv_linkage_profile:
   name: Apply PV Linkage profile
@@ -48,6 +56,12 @@ preview_charging_target:
   name: Preview native charging target
   description: Read-only capture coverage and wire plan. Does not send commands or reserve a charger.
   fields:
+    entry_id:
+      name: Charger
+      description: Required when more than one charger is loaded.
+      selector:
+        config_entry:
+          integration: growatt_thor
     kind:
       required: true
       selector:
@@ -68,6 +82,12 @@ start_charging_target:
   name: Start native charging target (experimental)
   description: Sends a native duration, energy or budget target followed by RemoteStartTransaction. Requires captured firmware, Fast mode and APP/server or Plug & Charge authorization. Duration and energy stopping are capture-verified; budget stopping remains experimental. Unknown outcomes are never retried.
   fields:
+    entry_id:
+      name: Charger
+      description: Required when more than one charger is loaded.
+      selector:
+        config_entry:
+          integration: growatt_thor
     kind:
       required: true
       selector:
@@ -88,6 +108,12 @@ acknowledge_target_reset:
   name: Acknowledge independent native target reset
   description: Clears only the integration's retained pilot request after you independently clear the wallbox target. Does NOT cancel a target or stop charging. Unavailable during a queued request or active transaction.
   fields:
+    entry_id:
+      name: Charger
+      description: Required when more than one charger is loaded.
+      selector:
+        config_entry:
+          integration: growatt_thor
     confirm_native_target_reset:
       required: true
       description: Confirm the native target has been independently cleared and the charger is safe for another start.
@@ -98,6 +124,12 @@ prepare_rfid_charging_target:
   name: Prepare native target for RFID
   description: Sends only the native duration, energy or budget target. Wait for target_accepted_waiting_for_rfid before presenting the card. Duration and energy stopping are capture-verified; budget remains experimental.
   fields:
+    entry_id:
+      name: Charger
+      description: Required when more than one charger is loaded.
+      selector:
+        config_entry:
+          integration: growatt_thor
     kind:
       required: true
       default: energy
@@ -118,6 +150,13 @@ prepare_rfid_charging_target:
 charging_target_status:
   name: Read charging target pilot status
   description: Read-only request status. Queued is not acceptance; target_accepted_waiting_for_rfid confirms target acceptance, not limit enforcement.
+  fields:
+    entry_id:
+      name: Charger
+      description: Required when more than one charger is loaded.
+      selector:
+        config_entry:
+          integration: growatt_thor
 
 prepare_plug_charging_target:
   name: Prepare native target for Plug & Charge
@@ -191,6 +230,12 @@ cancel_scheduled_charging_target:
   name: Cancel scheduled charging target
   description: Cancels a daily HA timer locally. For an accepted one-time reservation it sends CancelReservation to the wallbox; rejection or an unknown response remains visible for reconciliation. This does not clear a native target already written to the charger.
   fields:
+    entry_id:
+      name: Charger
+      description: Required when more than one charger is loaded.
+      selector:
+        config_entry:
+          integration: growatt_thor
     request_id:
       required: true
       selector:

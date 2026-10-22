@@ -46,7 +46,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Growatt THOR select entities."""
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities(
         [
             WorkingModeSelect(coordinator, entry),
@@ -169,7 +169,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         if block_reason is not None:
             _LOGGER.warning("Cannot change working mode: %s", block_reason)
             raise_write_blocked(block_reason)
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.runtime_data.get("charge_point")
         if charge_point is None:
             _LOGGER.warning("Cannot change working mode: charger not connected")
             raise_charger_disconnected()
