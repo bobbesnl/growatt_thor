@@ -134,11 +134,12 @@ card validation and optional assignment remain pending.
 
 ### F09 — Isolate multiple chargers
 
-Priority: demand-driven.
+Status: implemented. Each config entry owns its runtime, port, write queue,
+entities, statistics and session state; reconnects, commands and refreshes
+for one charger cannot affect another.
 
-- Scope connections, queues, entities, and session state to each charger.
-- Verify that a reconnect or command for one charger cannot affect another.
-- Treat coordinated load distribution as a separate energy-management feature.
+- Remaining: treat coordinated load distribution as a separate
+  energy-management feature.
 
 ## Non-functional requirements
 
@@ -178,7 +179,7 @@ Priority: demand-driven.
    waiting reasons, and reliable reconnect/queue behaviour.
 2. F03/F04: installation limits and a validated external control interface.
 3. F05/F06/F07: native-target usability, automation triggers, and session clarity.
-4. Reassess RFID and multiple chargers when evidence and user demand justify them.
+4. Reassess RFID when evidence and user demand justify it.
 
 ## References
 

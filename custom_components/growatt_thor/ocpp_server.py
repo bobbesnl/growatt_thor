@@ -95,15 +95,16 @@ class GrowattChargePoint(OcppChargePoint):
             ),
         )
 
-        hass.data.setdefault(DOMAIN, {})
-        hass.data[DOMAIN]["charge_point"] = self
+        # The newest connection on this entry's server owns the entry's
+        # connection slot.  Other config entries keep their own slot.
+        self.coordinator.runtime_data["charge_point"] = self
 
         self.coordinator.set_charge_point(cp_id)
         _LOGGER.info("GrowattChargePoint initialised for %s", cp_id)
 
     def _is_current_connection(self):
         """Return whether this charge point owns the active connection slot."""
-        return self.hass.data.get(DOMAIN, {}).get("charge_point") is self
+        return self.coordinator.runtime_data.get("charge_point") is self
 
     def _connection_may_update_coordinator(self, operation_name: str) -> bool:
         """Allow state changes only from the socket that owns the runtime.
@@ -222,8 +223,10 @@ class GrowattChargePoint(OcppChargePoint):
                     exc,
                 )
             finally:
-                domain_data = self.hass.data.get(DOMAIN, {})
-                release_active_charge_point(domain_data, self)
+                release_active_charge_point(
+                    self.coordinator.runtime_data,
+                    self,
+                )
             return
 
     # ─────────────────────────────
@@ -568,9 +571,9 @@ class GrowattChargePoint(OcppChargePoint):
 
             if count >= 2:
                 pause = min(60 * (count - 1), 300)
-                until = self.hass.loop.time() + pause
-                current = self.hass.data[DOMAIN].get("skip_polling_until", 0)
-                self.hass.data[DOMAIN]["skip_polling_until"] = max(current, until)
+                self.coordinator.pause_polling_until(
+                    self.hass.loop.time() + pause
+                )
                 _LOGGER.debug(
                     "External meterval timeout #%d - pausing poll %ds (THOR likely rebooting)",
                     count, pause
@@ -910,8 +913,10 @@ async def _on_connect(websocket, path, coordinator, hass):
             return
 
         cp_id = path.rstrip("/").split("/")[-1]
-        domain_data = hass.data.setdefault(DOMAIN, {})
-        active_charge_point = domain_data.get("charge_point")
+        # Each config entry runs its own server, so this decision only sees
+        # the connection and charger identity of the entry that owns it.
+        runtime_data = coordinator.runtime_data
+        active_charge_point = runtime_data.get("charge_point")
         active_charge_point_id = (
             getattr(active_charge_point, "_cp_id", "<unknown>")
             if active_charge_point is not None
@@ -967,8 +972,7 @@ async def _on_connect(websocket, path, coordinator, hass):
                 except asyncio.CancelledError:
                     pass
 
-            domain_data = hass.data.get(DOMAIN, {})
-            if release_active_charge_point(domain_data, cp):
+            if release_active_charge_point(coordinator.runtime_data, cp):
                 coordinator.set_disconnected()
             else:
                 _LOGGER.debug(

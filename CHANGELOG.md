@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.1] - 2026-10-22
+
+** Minor release, bug fixes but also added a very nice feature: now it's possible to add multiple charges on one HA instance! 🎉 Big thank you to @thijsvanbloemendaal! This release is built end-to-end by him.
+
+### Added
+- **Multiple chargers (backlog F09)**: Each THOR is its own config entry on its own listen port. Every entry owns its runtime under `hass.data[DOMAIN][entry_id]`: coordinator, OCPP server, poll task, poll pause and active connection. Entities, controls, write queues, sessions and statistics stay with their own charger, and a command, refresh or reconnect for one charger cannot reach another. The per-entry charge-point binding from 1.7.0 is kept, so a different charger on an entry's port is still refused.
+- **Optional charger target for `growatt_thor.refresh`**: The new `config_entry_id` field refreshes one charger; without it every loaded charger is refreshed. Refreshes are single-flight per charger.
+
+### Changed
+- **Second entry allowed**: The config flow no longer aborts with `single_instance_allowed`. It refuses only a port that another entry already uses (`port_already_configured`), and titles additional entries with their port until they are renamed.
+- **Busy port is retried**: When an entry's port cannot be opened, setup raises `ConfigEntryNotReady` so Home Assistant retries instead of failing permanently.
+
+### Fixed
+- **Per-entry statistics storage**: Total charged energy, the transaction counter, the last session, the last fault and effective-charging state were written to one shared storage file by every entry. Each entry now has its own file (`growatt_thor_statistics_<entry_id>`). Entries that existed before this change are seeded once from the old shared file (recorded in `growatt_thor_migration`), so their sensors continue without a jump; a charger added later starts empty. The old file is never written, so downgrading stays safe.
+- **Charging power kept its last value after charging ended**: When the car is full with the cable still connected, the THOR reports `SuspendedEV`, keeps the transaction open and stops sending MeterValues, so the last power sample stayed visible until unplugging or a restart. Power and current now reset to 0 on every status other than `Charging`, and on disconnect. Voltages are kept. A MeterValues report that arrives after such a status no longer brings the last charging power back: live power and current follow samples only while the charger reports `Charging` (or before any status is known). The raw samples stay in diagnostics, and measurements apply again as soon as charging resumes.
+- **Unsuccessful unload left an entry without a connection**: The poll loop, write queue and OCPP server were stopped before the platforms were unloaded, and the server was closed even when unloading failed. Platforms are now unloaded first; only after that succeeds are the entry's background tasks, server and runtime released.
+- **Session energy counted twice after a restart or reload during charging**: The charged-energy sensor reported 0 until the charger sent its next MeterValues sample. For this `total_increasing` sensor that drop looks like a meter reset, so the next sample of a running session was counted again by long-term statistics and utility meters. The sensor now stays unknown until the charger reports a value; a new transaction still starts from 0.
+
+---
+
 ## [1.7.0] - 2026-10-20
 
 ** 🎉 Another major release!! Built end-to-end by @felixhix. Huge thanks to him for driving this release from start to finish. Please keep going on!**

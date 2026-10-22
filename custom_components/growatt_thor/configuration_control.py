@@ -130,7 +130,7 @@ class GrowattConfigurationControlMixin:
             # blocked automation visible in its trace instead of reporting a
             # successful call for a command that was never queued.
             raise_write_blocked(block_reason)
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.runtime_data.get("charge_point")
         if charge_point is None:
             _LOGGER.warning(
                 "Cannot change %s: charger not connected",

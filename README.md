@@ -1,7 +1,7 @@
 [!["Buy Us A Coffee"](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/bobbesnl)
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
-![Version](https://img.shields.io/badge/version-1.7.0-blue)
+![Version](https://img.shields.io/badge/version-1.7.1-blue)
 
 
 ⚠️ **Please read this document first before installing this integration!**
@@ -298,6 +298,19 @@ Use this if you cannot find the integration in the default HACS list yet, or if 
 5. Click **Submit**
 
 Home Assistant is now ready and waiting for the charger to connect.
+
+### Multiple chargers
+
+Each THOR is a separate integration entry with its own listen port. Add the
+integration once per charger, give every entry a different **Listen Port**
+(for example `9000` and `9001`), and point each charger's server URL at its
+own port. Entities, controls, sessions, statistics and the external meter
+poll stay with their own charger. The `growatt_thor.refresh` action refreshes
+every charger, or only the one selected in its optional `config_entry_id`
+field.
+
+An entry stays bound to the first charger that connects to its port. A
+different charger on that port is refused until the entry is reloaded.
 
 ---
 

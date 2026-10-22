@@ -1,6 +1,14 @@
 refresh:
   name: Refresh data
-  description: Manually refresh all data from the charger
+  description: Manually refresh all data from the charger. Leave the charger empty to refresh every configured charger.
+  fields:
+    config_entry_id:
+      name: Charger
+      description: The Growatt THOR config entry to refresh. Empty means all.
+      required: false
+      selector:
+        config_entry:
+          integration: growatt_thor
 
 export_sessions:
   name: Export charging sessions

@@ -16,6 +16,7 @@ from .configuration import (
 from .configuration_writes import serialize_configuration_writes
 from .const import DOMAIN
 from .ocpp_diagnostics import redact_ocpp_data
+from .runtime_ownership import entry_runtime_data
 from .session_records import session_record_diagnostics
 
 
@@ -24,7 +25,8 @@ async def async_get_config_entry_diagnostics(
     entry: ConfigEntry,
 ) -> dict[str, Any]:
     """Return redacted diagnostics for a config entry."""
-    coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
+    runtime_data = entry_runtime_data(hass.data.get(DOMAIN, {}), entry.entry_id)
+    coordinator = runtime_data.get("coordinator") if runtime_data else None
     if coordinator is None:
         return {
             "ocpp": {

@@ -135,7 +135,7 @@ def _validated_reported_entity_number(
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
     async_add_entities([
         MaxCurrentNumber(coordinator, entry),
@@ -243,7 +243,7 @@ class MaxCurrentNumber(BaseConfigNumber):
             _LOGGER.warning("Cannot change Max Current: %s", block_reason)
             raise_write_blocked(block_reason)
 
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.runtime_data.get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot change Max Current: charger not connected")
             raise_charger_disconnected()
@@ -469,7 +469,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             )
             raise_write_blocked(block_reason)
 
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.runtime_data.get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot change Load Balancing Limit: charger not connected")
             raise_charger_disconnected()
@@ -655,7 +655,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
             _LOGGER.warning("Cannot change Electricity Price: %s", block_reason)
             raise_write_blocked(block_reason)
 
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.runtime_data.get("charge_point")
         if not charge_point:
             _LOGGER.warning("Cannot change Elektricteitstarief: charger not connected")
             raise_charger_disconnected()

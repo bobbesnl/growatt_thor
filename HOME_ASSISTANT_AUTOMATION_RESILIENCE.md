@@ -172,7 +172,7 @@ Start and Stop must not remain as unrelated commands in the queue for an arbitra
 
 ### Typical scenario
 
-Home Assistant accidentally contains two configuration entries for the integration. Alternatively, a second charger with a different charge-point identity connects to the same endpoint. Without an explicit ownership model, the second runtime or connection could replace the first one in domain-global state.
+Home Assistant contains two configuration entries for the integration, one per physical charger. Alternatively, a second charger with a different charge-point identity connects to the endpoint of an existing entry. Without an explicit ownership model, the second runtime or connection could replace the first one in domain-global state.
 
 Another edge case occurs when the same physical charger reconnects before its old network connection has completely shut down.
 
@@ -180,11 +180,12 @@ Another edge case occurs when the same physical charger reconnects before its ol
 
 An action such as “stop charging” must unambiguously target one charger and one current connection. After a reconnect, an old socket must neither publish state nor remove the replacement connection during its own cleanup.
 
-### Current behavior in the 1.7 line
+### Current behavior
 
-- Exactly one configuration entry is permitted. A second setup attempt is aborted with a translated, explicit reason.
-- Runtime ownership is enforced independently of the config-flow guard, so duplicate legacy entries or concurrent setup calls cannot replace the active coordinator.
-- Unload and failed-setup cleanup are ownership-aware. A rejected or stale entry cannot stop the server or clear state belonging to the active entry.
+- Every configuration entry owns its own runtime, stored as `hass.data[DOMAIN][entry_id]` and referenced by its coordinator. Its coordinator, OCPP server, poll task, poll pause and active connection live there; nothing charger-specific remains in a domain-global slot.
+- Each entry listens on its own port. The config flow refuses a port that another entry already uses, with a translated, explicit reason.
+- Runtime ownership is enforced independently of the config-flow guard: a concurrent second setup of the same entry cannot replace its coordinator, and setting up one entry never touches another.
+- Unload and failed-setup cleanup are ownership-aware. An entry only stops its own server and releases its own runtime.
 - The first connected charge-point identity remains bound for the lifetime of the loaded entry.
 - The same charger may reconnect. A different charge-point identity receives a controlled OCPP policy close and cannot inherit the existing entities, transactions, or session data.
 - Deliberately replacing the physical charger requires reloading the integration, which establishes a new runtime identity boundary.
@@ -194,14 +195,15 @@ An action such as “stop charging” must unambiguously target one charger and 
 
 ### Observable examples
 
-- A second configuration entry cannot stop the active server or replace its coordinator.
+- A second configuration entry gets its own server and coordinator; it cannot stop or replace those of the first entry.
+- A command, refresh or reconnect for one charger never reaches or pauses another charger.
 - Charger `THOR-1` may reconnect, but `THOR-2` cannot silently take over its entities and transaction state.
 - The delayed finalizer of the old `THOR-1` socket cannot remove the new `THOR-1` connection.
 - A superseded socket cannot publish meter values, timeout counters, configuration readbacks, or transaction updates.
 
 ### Deliberate limitation
 
-This does not implement true multi-charger support. That feature requires runtime data to be modeled explicitly per configuration entry and charge-point identity. Until then, an explicit rejection is safer than ambiguous routing.
+Chargers are isolated, not coordinated: the integration does not distribute available power between them. Each charger's own load balancing works as it does for a single charger.
 
 ## 6. Make paired and compound changes predictable
 
@@ -330,7 +332,7 @@ The paired Auto Charge time values deliberately wait 500 ms for each other. By t
 - A 30-second action timeout ends only the Home Assistant caller's wait, not the physical command.
 - An optimistic entity value represents the latest desired value. Automations that require physical confirmation must use the command outcome rather than optimistic state alone.
 - Rapid changes to the same value may replace older changes that are definitely still unsent. This is intentional: the integration should apply the latest meaningful intent instead of replaying an obsolete sequence of slider movements.
-- The 1.7 line deliberately does not support multiple physical chargers in one shared runtime context.
+- Multiple chargers are isolated per configuration entry; coordinated load distribution between them is not part of this integration.
 
 ## Test and documentation expectations
 

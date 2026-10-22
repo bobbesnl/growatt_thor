@@ -29,6 +29,7 @@ from .const import (
     DEFAULT_POLL_INTERVAL,
     MIN_POLL_INTERVAL,
 )
+from .runtime_ownership import entry_runtime_data
 from .value_validation import (
     NumericValidationError,
     NumericValidationReason,
@@ -57,13 +58,10 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         """Handle initial setup."""
-        # The 1.7 runtime has one domain-global coordinator and OCPP socket.
-        # A second entry would therefore expose duplicate entities that both
-        # operate on whichever charger connected last.  Fail explicitly until
-        # runtime state is deliberately keyed by config-entry ID.
-        if self._async_current_entries():
-            return self.async_abort(reason="single_instance_allowed")
-
+        # Every config entry has its own runtime, OCPP server and charger
+        # (see runtime_ownership), so a second charger is a second entry.
+        # Each entry's server listens on its own port, and the port decides
+        # which entry a THOR connects to, so two entries cannot share one.
         errors = {}
 
         if user_input is not None:
@@ -74,6 +72,9 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             except NumericValidationError:
                 errors[CONF_PORT] = "invalid_port"
+            else:
+                if normalized_input[CONF_PORT] in self._configured_ports():
+                    errors[CONF_PORT] = "port_already_configured"
             try:
                 normalized_input[CONF_POLL_INTERVAL] = validate_poll_interval(
                     user_input.get(
@@ -86,8 +87,13 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[CONF_POLL_INTERVAL] = _poll_interval_error(exc)
 
             if not errors:
+                title = "Growatt THOR EV Charger"
+                if self._async_current_entries():
+                    # Keep additional chargers distinguishable in the UI
+                    # until the user gives them a name of their own.
+                    title = f"{title} (port {normalized_input[CONF_PORT]})"
                 return self.async_create_entry(
-                    title="Growatt THOR EV Charger",
+                    title=title,
                     data=normalized_input,
                 )
 
@@ -129,6 +135,22 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
+    def _configured_ports(self) -> set[int]:
+        """Return the OCPP ports already used by existing config entries."""
+        ports = set()
+        for existing in self._async_current_entries():
+            try:
+                ports.add(
+                    validate_tcp_port(
+                        getattr(existing, "data", {}).get(CONF_PORT, DEFAULT_PORT)
+                    )
+                )
+            except NumericValidationError:
+                # An unusable stored port cannot conflict; its own setup
+                # already rejects it.
+                continue
+        return ports
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
@@ -138,6 +160,13 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class GrowattThorOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Growatt THOR."""
+
+    def _entry_runtime_data(self):
+        """Return the runtime of the entry being configured, if it is loaded."""
+        return entry_runtime_data(
+            self.hass.data.get(DOMAIN, {}),
+            self.config_entry.entry_id,
+        )
 
     async def async_step_init(self, user_input=None):
         """Show purpose-based options instead of action checkboxes."""
@@ -168,12 +197,14 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                         CONF_LOCATION: new_location,
                     }
                 )
-                # Update coordinator location live
-                coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
+                # Update this entry's running coordinator and poll loop live.
+                # Without a loaded runtime the saved entry data is enough.
+                runtime_data = self._entry_runtime_data() or {}
+                coordinator = runtime_data.get("coordinator")
                 if coordinator:
                     coordinator.location = new_location
-                runtime_data = self.hass.data.get(DOMAIN, {})
-                runtime_data["poll_interval"] = poll_interval
+                if runtime_data:
+                    runtime_data["poll_interval"] = poll_interval
                 schedule = runtime_data.get("poll_interval_schedule")
                 if schedule is not None:
                     # Wake the active sleep so the new cadence starts from
@@ -229,7 +260,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     self.config_entry,
                     data={**self.config_entry.data, CONF_AUTHORIZATION: updated.as_config()},
                 )
-                coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
+                coordinator = (self._entry_runtime_data() or {}).get("coordinator")
                 if coordinator:
                     coordinator.authorization.policy = updated
                 return self.async_create_entry(title="", data={})
@@ -287,8 +318,9 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
 
     async def _activate_ap_mode(self):
         """Activate AP Mode via OCPP DataTransfer."""
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
-        coordinator = self.hass.data.get(DOMAIN, {}).get("coordinator")
+        runtime_data = self._entry_runtime_data() or {}
+        charge_point = runtime_data.get("charge_point")
+        coordinator = runtime_data.get("coordinator")
 
         if not charge_point or not coordinator:
             _LOGGER.error("Cannot enable AP Mode: not connected")

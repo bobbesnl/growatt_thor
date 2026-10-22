@@ -40,7 +40,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Growatt THOR switches."""
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
     async_add_entities([
         LoadBalancingEnableSwitch(coordinator, entry),
@@ -194,7 +194,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot change Load Balancing: %s", block_reason)
             raise_write_blocked(block_reason)
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.runtime_data.get("charge_point")
 
         if not charge_point:
             _LOGGER.warning("Cannot change Loadbalancing: charger not connected")
@@ -376,7 +376,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot change LCD display: %s", block_reason)
             raise_write_blocked(block_reason)
-        charge_point = self.hass.data.get(DOMAIN, {}).get("charge_point")
+        charge_point = self.coordinator.runtime_data.get("charge_point")
 
         if not charge_point:
             _LOGGER.warning("Cannot change LCD display: charger not connected")
