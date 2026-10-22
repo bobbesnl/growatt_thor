@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.7.1] - 2026-10-22
+
+** Minor release, bug fixes but also added a very nice feature: now it's possible to add multiple charges on one HA instance! 🎉 Big thank you to @thijsvanbloemendaal! This release is built end-to-end by him.
 
 ### Added
 - **Multiple chargers (backlog F09)**: Each THOR is its own config entry on its own listen port. Every entry owns its runtime under `hass.data[DOMAIN][entry_id]`: coordinator, OCPP server, poll task, poll pause and active connection. Entities, controls, write queues, sessions and statistics stay with their own charger, and a command, refresh or reconnect for one charger cannot reach another. The per-entry charge-point binding from 1.7.0 is kept, so a different charger on an entry's port is still refused.
