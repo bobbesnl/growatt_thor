@@ -1,3 +1,4 @@
+import { calendarDay } from '../shared/time';
 import { elapsed, numeric } from '../shared/model';
 import type {
   CardData,
@@ -59,6 +60,7 @@ export function sessionAccountingSummary(row: SessionItem) {
 }
 
 export function sessionTimestamp(value: string): number | null {
+  if (!/[T ][\d:.]+(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return null;
   const timestamp = Date.parse(value.replace(' ', 'T'));
   return Number.isFinite(timestamp) ? timestamp : null;
 }
@@ -233,12 +235,19 @@ export function sessionChartSpansDays(
 ): boolean {
   const timestamps = sessionChartTimestamps(points, markers, ...additionalSeries);
   if (timestamps.length < 2) return false;
-  const first = new Date(timestamps[0]);
-  const last = new Date(timestamps.at(-1)!);
+  return calendarDay(timestamps[0]) !== calendarDay(timestamps.at(-1)!);
+}
+
+export function sessionChartSpansDaysInZone(
+  timeZone: string,
+  points: [number, number][],
+  markers: SessionEventMarker[],
+  ...additionalSeries: [number, number][][]
+): boolean {
+  const timestamps = sessionChartTimestamps(points, markers, ...additionalSeries);
   return (
-    first.getFullYear() !== last.getFullYear() ||
-    first.getMonth() !== last.getMonth() ||
-    first.getDate() !== last.getDate()
+    timestamps.length > 1 &&
+    calendarDay(timestamps[0], timeZone) !== calendarDay(timestamps.at(-1)!, timeZone)
   );
 }
 
@@ -255,11 +264,16 @@ export function formatSessionNumber(
   return value === null ? '—' : value.toLocaleString(language, { maximumFractionDigits });
 }
 
-export function formatSessionDate(value: string | null | undefined, language?: string): string {
+export function formatSessionDate(
+  value: string | null | undefined,
+  language?: string,
+  timeZone = 'UTC',
+): string {
   if (!value) return '—';
   const timestamp = sessionTimestamp(value);
   if (timestamp === null) return '—';
   return new Intl.DateTimeFormat(language, {
+    timeZone,
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',
@@ -274,16 +288,22 @@ export function formatSessionPeriod(
   start: string | null | undefined,
   end: string | null | undefined,
   language?: string,
+  timeZone = 'UTC',
 ): { day: string | null; start: string; end: string } {
   const from = start ? sessionTimestamp(start) : null;
   const to = end ? sessionTimestamp(end) : null;
   if (
     from !== null &&
-    (!end || (to !== null && new Date(from).toDateString() === new Date(to).toDateString()))
+    (!end || (to !== null && calendarDay(from, timeZone) === calendarDay(to, timeZone)))
   ) {
-    const time = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit' });
+    const time = new Intl.DateTimeFormat(language, {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+    });
     return {
       day: new Intl.DateTimeFormat(language, {
+        timeZone,
         weekday: 'long',
         year: 'numeric',
         month: 'numeric',
@@ -295,8 +315,8 @@ export function formatSessionPeriod(
   }
   return {
     day: null,
-    start: formatSessionDate(start, language),
-    end: formatSessionDate(end, language),
+    start: formatSessionDate(start, language, timeZone),
+    end: formatSessionDate(end, language, timeZone),
   };
 }
 
@@ -304,15 +324,17 @@ export function formatSessionChartTick(
   timestamp: number,
   language: string | undefined,
   spansDays: boolean,
+  timeZone = 'UTC',
 ): string {
   if (!Number.isFinite(timestamp)) return '';
   const date = new Date(timestamp);
   const time = new Intl.DateTimeFormat(language, {
+    timeZone,
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
   if (!spansDays) return time;
-  const weekday = new Intl.DateTimeFormat(language, { weekday: 'short' }).format(date);
+  const weekday = new Intl.DateTimeFormat(language, { timeZone, weekday: 'short' }).format(date);
   return `${weekday}\n${time}`;
 }
 

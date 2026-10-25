@@ -10,6 +10,7 @@ import voluptuous as vol
 from ..const import DOMAIN
 from ..runtime.ownership import entry_runtime_data
 from .csv import session_detail_data
+from ..runtime.time import installation_time_zone
 
 
 @websocket_api.websocket_command(
@@ -35,6 +36,7 @@ async def websocket_session_detail(
         partial(
             session_detail_data,
             source_instance_id=msg["entry_id"],
+            time_zone=installation_time_zone(hass),
             charge_point_id=runtime["coordinator"].charge_point_id,
         ),
         hass.config.path("growatt_thor_sessions.csv"),

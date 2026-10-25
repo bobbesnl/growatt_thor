@@ -8,6 +8,7 @@ interface SessionListView {
   rows: SessionItem[];
   selectedId: string | null | undefined;
   language: string;
+  timeZone?: string;
   currency: string;
   showIdentifier: boolean;
   sort: SessionSort;
@@ -50,7 +51,12 @@ export function renderSessionList(view: SessionListView) {
     ${view.rows.length
       ? html`<ul class="session-list" aria-label=${t('sessions')}>
           ${view.rows.map((row) => {
-            const period = formatSessionPeriod(row.start_time, row.end_time, view.language);
+            const period = formatSessionPeriod(
+              row.start_time,
+              row.end_time,
+              view.language,
+              view.timeZone,
+            );
             const metrics = sessionMetricViews(row, view.language, view.currency);
             return html`<li>
               <button

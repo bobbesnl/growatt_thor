@@ -25,7 +25,7 @@ import {
   sessionChartBreaks,
   sessionChartExtent,
   sessionChartPoints,
-  sessionChartSpansDays,
+  sessionChartSpansDaysInZone,
   sessionEventMarkers,
   sessionNumericPoints,
   selectedSession,
@@ -224,6 +224,7 @@ export class ThorSessionCard extends LitElement {
       this._chart?.clear();
       return;
     }
+    const timeZone = this.hass?.config?.time_zone || 'UTC';
     const language = this.hass?.language || this.hass?.locale?.language || 'en';
     const t = sessionTranslate(language);
     const markers = sessionEventMarkers(session?.events);
@@ -233,7 +234,7 @@ export class ThorSessionCard extends LitElement {
       gap: '5%',
       isExpanded: this._expandedBreaks.has(`${axisBreak.start}:${axisBreak.end}`),
     }));
-    const chartSpansDays = sessionChartSpansDays(points, markers, ...chartSeries);
+    const chartSpansDays = sessionChartSpansDaysInZone(timeZone, points, markers, ...chartSeries);
     const powerSeriesName = t('seriesPower');
     const measuredCurrentSeriesName = t('seriesMeasuredCurrentSum');
     const configuredCurrentSeriesName = t('seriesConfiguredCurrentLimit');
@@ -341,7 +342,11 @@ export class ThorSessionCard extends LitElement {
                   opacity: labelOpacity,
                 },
                 tooltip: {
-                  formatter: [label, new Date(marker.at).toLocaleString(language), reason]
+                  formatter: [
+                    label,
+                    new Date(marker.at).toLocaleString(language, { timeZone }),
+                    reason,
+                  ]
                     .filter(Boolean)
                     .join('<br>'),
                 },
@@ -439,7 +444,8 @@ export class ThorSessionCard extends LitElement {
             hideOverlap: true,
             fontSize: compact ? 11 : 12,
             color: dark ? '#a4b3a6' : '#65756b',
-            formatter: (value: number) => formatSessionChartTick(value, language, chartSpansDays),
+            formatter: (value: number) =>
+              formatSessionChartTick(value, language, chartSpansDays, timeZone),
           },
           axisTick: { show: false },
           axisLine: { lineStyle: { color: dark ? '#344039' : '#e5ebe3' } },
@@ -613,6 +619,7 @@ export class ThorSessionCard extends LitElement {
     this._chartSessionKey = undefined;
   }
   render() {
+    const timeZone = this.hass?.config?.time_zone || 'UTC';
     const language = this.hass?.language || this.hass?.locale?.language || 'en';
     const t = sessionTranslate(language);
     const entity = this.hass && resolveEntity(this.hass, this._config);
@@ -642,7 +649,8 @@ export class ThorSessionCard extends LitElement {
       (costEntityId && this.hass?.states[costEntityId]?.attributes.unit_of_measurement) || '€';
     const greenTotal = sessionGreenTotalView(data, language);
     const fmt = (value: number | null) => formatSessionNumber(value, language);
-    const fmtDate = (value: string | null | undefined) => formatSessionDate(value, language);
+    const fmtDate = (value: string | null | undefined) =>
+      formatSessionDate(value, language, timeZone);
     const head = (key: SessionSort, label: string, cls = '') =>
       html`<th class=${cls}>
         <button @click=${() => this.sort(key)}>
@@ -697,7 +705,7 @@ export class ThorSessionCard extends LitElement {
                           : t('noCurve')}
                   </div>`}
             </div>
-            ${renderSessionEvents(selected?.events, language, dark)}
+            ${renderSessionEvents(selected?.events, language, dark, timeZone)}
           </section>`}
       ${selected ? renderSessionAccounting(selected, language, currency) : nothing}
       <div class="table-wrap" ${ref(this._tableRef)}>
@@ -765,6 +773,7 @@ export class ThorSessionCard extends LitElement {
           rows,
           selectedId: selected?.session_id,
           language,
+          timeZone,
           currency,
           showIdentifier: this._config.show_identifier !== false,
           sort: this._sort,

@@ -182,3 +182,11 @@ handle `unavailable` during integration unload or HA shutdown).
 The card contract uses additional entity attributes. Home Assistant only includes
 these attributes for available entities, as implemented in the
 [HA state calculation](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/helpers/entity.py#L1032-L1038).
+
+
+Target start times are entered in Home Assistant's configured time zone, shown
+beside the field. The browser's time zone does not change the selected start.
+A skipped or repeated local time at a DST transition is rejected by the dialog;
+choose an unambiguous time, or use a service with an explicit UTC offset. Daily
+recurrence keeps the requested installation-local clock rather than a fixed UTC
+hour. Device-native reservation times are converted by the integration.

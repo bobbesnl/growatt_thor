@@ -1,3 +1,4 @@
+import { browserTimeZone, localDateTimeInZone, localTimeToUtc } from '../shared/time';
 export type GoalKind = 'energy' | 'duration' | 'budget';
 export type GoalStart = 'now' | 'later';
 export type GoalRecurrence = 'once' | 'daily';
@@ -32,18 +33,17 @@ export function goalValue(value: string, kind: GoalKind): number | null {
     ? number
     : null;
 }
-export function localDateTime(date = new Date()): string {
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+export function localDateTime(date = new Date(), timeZone = browserTimeZone()): string {
+  return localDateTimeInZone(date, timeZone);
 }
-export function nextMinuteDateTime(now = new Date()): string {
-  const next = new Date(now);
-  next.setSeconds(0, 0);
-  next.setMinutes(next.getMinutes() + 1);
-  return localDateTime(next);
+export function nextMinuteDateTime(now = new Date(), timeZone = browserTimeZone()): string {
+  return localDateTime(new Date(Math.floor(now.getTime() / 60000) * 60000 + 60000), timeZone);
 }
-export function futureStart(value: string, now = Date.now()): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return false;
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) && date.getTime() > now && localDateTime(date) === value;
+export function futureStart(
+  value: string,
+  now = Date.now(),
+  timeZone = browserTimeZone(),
+): boolean {
+  const instant = localTimeToUtc(value, timeZone);
+  return instant !== null && Date.parse(instant) > now;
 }

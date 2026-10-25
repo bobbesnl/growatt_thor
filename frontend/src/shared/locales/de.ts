@@ -128,7 +128,7 @@ export const de: Record<Key, string> = {
   goalEveryday: 'Jeden Tag',
   goalEverydayHint: 'Wiederholt sich täglich zur gewählten lokalen Uhrzeit.',
   goalAt: 'Startdatum und Uhrzeit',
-  goalLocalTime: 'Lokale Zeit dieses Geräts. Optional täglich wiederholen.',
+  goalLocalTime: 'Home-Assistant-Zeit. Optional täglich wiederholen.',
   goalInvalidTime: 'Bitte einen zukünftigen Startzeitpunkt wählen (lokale Gerätezeit).',
   goalSummary: 'Vorschau deiner Auswahl',
   goalSummary_energy: '{value} kWh laden',

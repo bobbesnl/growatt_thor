@@ -43,6 +43,7 @@ from .energy.sources import (
     CONF_BATTERY_POWER_SIGN,
 )
 from .ocpp.server import start_ocpp_server
+from .runtime.time import installation_time_zone
 from .runtime.polling import PollIntervalSchedule
 from .runtime.ownership import (
     claim_entry_runtime,
@@ -385,6 +386,7 @@ def _register_services(hass: HomeAssistant) -> None:
                     export_path,
                     date_from=date_from,
                     date_to=date_to,
+                    time_zone=installation_time_zone(hass),
                 )
 
             ensure_export_cleanup(hass)
@@ -520,6 +522,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 source_instance_id=entry.entry_id,
                 charge_point_id=coordinator.charge_point_id,
                 include_unassigned_archive=runtime_data.get("owns_legacy_history", False),
+                time_zone=installation_time_zone(hass),
             )
 
         async def refresh_dashboard():

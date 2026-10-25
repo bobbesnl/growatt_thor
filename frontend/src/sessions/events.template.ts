@@ -1,3 +1,4 @@
+import { calendarDay } from '../shared/time';
 import { html, nothing } from 'lit';
 import { energyStopReason } from '../shared/energy-stop';
 import { translate } from '../shared/strings';
@@ -54,13 +55,15 @@ export function renderSessionEvents(
   events: SessionEvent[] | undefined,
   language: string,
   dark: boolean,
+  timeZone = 'UTC',
 ) {
   const markers = sessionEventMarkers(events);
   if (!markers.length) return nothing;
   const t = sessionTranslate(language);
   const colors = sessionEventColors(dark);
-  const date = new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric' });
+  const date = new Intl.DateTimeFormat(language, { timeZone, month: 'short', day: 'numeric' });
   const time = new Intl.DateTimeFormat(language, {
+    timeZone,
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -72,10 +75,10 @@ export function renderSessionEvents(
       ${markers.flatMap((marker) =>
         marker.events.map((event) => {
           const at = new Date(event.at);
-          const day = at.toDateString();
+          const day = calendarDay(at.getTime(), timeZone);
           const newDay = day !== previousDay;
           previousDay = day;
-          const fullTime = at.toLocaleString(language);
+          const fullTime = at.toLocaleString(language, { timeZone });
           return html`<li style=${`--event-color: ${colors[sessionEventTone([event])]}`}>
             ${newDay ? html`<span class="chart-event-day">${date.format(at)}</span>` : nothing}
             <div class="chart-event-entry">

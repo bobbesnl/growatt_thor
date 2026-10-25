@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .runtime.time import installation_time_zone, utc_timestamp
+
 from dataclasses import dataclass
 
 from homeassistant.components.sensor import (
@@ -982,7 +984,7 @@ class LastSessionStartSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.last_session_start
+        return utc_timestamp(self.coordinator.last_session_start, installation_time_zone(getattr(self.coordinator, "hass", None)))
 
 
 # ─────────────────────────────
@@ -998,7 +1000,7 @@ class LastSessionEndSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.last_session_end
+        return utc_timestamp(self.coordinator.last_session_end, installation_time_zone(getattr(self.coordinator, "hass", None)))
 
 
 # ─────────────────────────────
@@ -1014,7 +1016,7 @@ class LastSessionPlugTimeSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.last_session_plug_time
+        return utc_timestamp(self.coordinator.last_session_plug_time, installation_time_zone(getattr(self.coordinator, "hass", None)))
 
 
 # ─────────────────────────────
@@ -1030,7 +1032,7 @@ class LastSessionUnplugTimeSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return self.coordinator.last_session_unplug_time
+        return utc_timestamp(self.coordinator.last_session_unplug_time, installation_time_zone(getattr(self.coordinator, "hass", None)))
 
 
 # ─────────────────────────────

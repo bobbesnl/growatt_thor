@@ -1,3 +1,4 @@
+import { browserTimeZone, localTimeToUtc } from '../shared/time';
 import { LitElement } from 'lit';
 import { renderGoalDialog, type GoalDialogActions } from './dialog.template';
 import { styles } from '../charger/styles';
@@ -20,6 +21,7 @@ import {
 export class ThorGoalDialog extends LitElement {
   static properties = {
     language: {},
+    timeZone: {},
     dark: { type: Boolean },
     currency: {},
     simulation: { attribute: false },
@@ -36,6 +38,7 @@ export class ThorGoalDialog extends LitElement {
   };
   static styles = [styles, goalDialogStyles];
   language = 'en';
+  timeZone = browserTimeZone();
   dark = false;
   currency = '';
   simulation?: GoalSimulation;
@@ -56,7 +59,8 @@ export class ThorGoalDialog extends LitElement {
     },
     setStart: (start) => {
       this._start = start;
-      if (start === 'later' && !this._at) this._at = nextMinuteDateTime(new Date(this._now));
+      if (start === 'later' && !this._at)
+        this._at = nextMinuteDateTime(new Date(this._now), this.timeZone);
     },
     setAt: (value) => {
       this._at = value;
@@ -105,7 +109,7 @@ export class ThorGoalDialog extends LitElement {
     this._kind = 'energy';
     this._values = createGoalExampleValues();
     this._start = 'now';
-    this._at = nextMinuteDateTime(new Date(this._now));
+    this._at = nextMinuteDateTime(new Date(this._now), this.timeZone);
     this._recurrence = 'once';
     this._confirmed = false;
     this._feedback = '';
@@ -126,7 +130,7 @@ export class ThorGoalDialog extends LitElement {
     const live = this.live;
     if (!live || this._busy || !this._confirmed || !validLiveTarget(this._kind, value)) return;
     const later = this._start === 'later';
-    if (later && !futureStart(this._at, this._now)) return;
+    if (later && !futureStart(this._at, this._now, this.timeZone)) return;
     if (
       later
         ? this._recurrence === 'daily'
@@ -142,7 +146,7 @@ export class ThorGoalDialog extends LitElement {
       await live.save(
         this._kind,
         value!,
-        later ? new Date(this._at).toISOString() : undefined,
+        later ? localTimeToUtc(this._at, this.timeZone)! : undefined,
         this._recurrence,
         live.request?.request_id,
       );
@@ -174,7 +178,7 @@ export class ThorGoalDialog extends LitElement {
   private saveSimulation() {
     const value = goalValue(this._values[this._kind], this._kind);
     if (!this.simulation || value === null) return;
-    if (this._start === 'later' && !futureStart(this._at)) return;
+    if (this._start === 'later' && !futureStart(this._at, this._now, this.timeZone)) return;
     if (this._kind === 'budget' && !/^[A-Z]{3}$/.test(this.currency)) return;
     this.simulation.save({
       kind: this._kind,
@@ -195,7 +199,7 @@ export class ThorGoalDialog extends LitElement {
   render() {
     const t = translate(this.language);
     const value = goalValue(this._values[this._kind], this._kind);
-    const validTime = this._start === 'now' || futureStart(this._at, this._now);
+    const validTime = this._start === 'now' || futureStart(this._at, this._now, this.timeZone);
     const validCurrency = this._kind !== 'budget' || /^[A-Z]{3}$/.test(this.currency);
     const unit =
       this._kind === 'energy' ? 'kWh' : this._kind === 'duration' ? 'min' : this.currency || '—';
@@ -213,6 +217,7 @@ export class ThorGoalDialog extends LitElement {
         recurrence: this._recurrence,
         now: this._now,
         language: this.language,
+        timeZone: this.timeZone,
         dark: this.dark,
         t,
         value,

@@ -94,6 +94,28 @@ flowchart LR
   points per session, with a 12 KiB target. Historical detail is loaded on demand.
   Pagination covers those recent rows, not the full archive.
 
+## Time boundaries
+
+Application timestamps sent to the cards, session-detail WebSocket and CSV
+exports are UTC ISO strings with `Z`. The frontend formats list dates, chart
+axes, events and target notices in `hass.config.time_zone`; target input uses
+that same installation zone regardless of the browser's zone. The timestamp
+sensors for the last session also expose UTC strings.
+
+Growatt wire values, raw diagnostics and retained source CSV times remain as
+reported. UTC presentation is computed after session identity/correlation, so
+existing CSV rows, deduplication keys and session IDs are not rewritten. Existing
+naive local times are interpreted in HA's configured installation zone. A missing
+or ambiguous instant is shown as unknown; spring gaps and autumn folds never get
+a guessed offset. Export date filters still use installation-local calendar days.
+
+Absolute one-time starts carry explicit offsets. Daily schedules keep their
+requested local clock plus zone, including the existing DST recurrence policy;
+Growatt reservation requests are encoded in device-local time at the wire
+boundary. The target dialog rejects nonexistent/ambiguous input times. Services
+can represent an autumn occurrence explicitly using an ISO timestamp with its
+offset. Newly completed session durations use resolved elapsed UTC instants.
+
 ## Persistent completion
 
 The coordinator checkpoint includes totals, the last 50 applied record identities,

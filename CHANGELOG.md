@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Use UTC timestamps at session presentation and export boundaries, and the HA
+  time zone for card displays and target entry. Preserve historical identities
+  and source CSV values; reject ambiguous or nonexistent local input times.
 - Include known solar contributions from partially allocated completed sessions
   in the green-energy total. Mark incomplete totals with `≥` and an explanatory
   tooltip, preserving the qualification through archive retention.

@@ -377,7 +377,7 @@ class SessionCsvTest(unittest.TestCase):
                 reader.fieldnames,
                 session_csv.SESSION_EXPORT_HEADERS,
             )
-            self.assertEqual(rows[0]["start_time"], "2026-08-24 10:00:00")
+            self.assertEqual(rows[0]["start_time"], "2026-08-24T10:00:00Z")
             self.assertTrue(rows[0]["session_id"].startswith("legacy-"))
 
     def test_export_escapes_formulas_without_modifying_history(self):

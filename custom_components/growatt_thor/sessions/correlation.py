@@ -5,6 +5,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
+from ..runtime.time import utc_instant
 from .identity import (
     SOURCE_EXTERNAL_OR_UNKNOWN,
     SOURCE_HOME_ASSISTANT,
@@ -36,34 +37,18 @@ def _optional_float(value: Any) -> float | None:
         return None
 
 
-def _timestamp(value: Any) -> datetime | None:
-    text = _optional_text(value)
-    if text is None:
-        return None
-    try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return None
+def _timestamp(value: Any, time_zone: str | None = None) -> datetime | None:
+    return utc_instant(value, time_zone)
 
 
-def _at_or_after(value: Any, lower_bound: datetime | None) -> bool:
-    timestamp = _timestamp(value)
-    if timestamp is None or lower_bound is None:
-        return True
-    if (timestamp.tzinfo is None) != (lower_bound.tzinfo is None):
-        timestamp = timestamp.replace(tzinfo=None)
-        lower_bound = lower_bound.replace(tzinfo=None)
-    return timestamp >= lower_bound
+def _at_or_after(value: Any, lower_bound: datetime | None, time_zone=None) -> bool:
+    timestamp = _timestamp(value, time_zone)
+    return timestamp is None or lower_bound is None or timestamp >= lower_bound
 
 
-def _at_or_before(value: Any, upper_bound: datetime | None) -> bool:
-    timestamp = _timestamp(value)
-    if timestamp is None or upper_bound is None:
-        return True
-    if (timestamp.tzinfo is None) != (upper_bound.tzinfo is None):
-        timestamp = timestamp.replace(tzinfo=None)
-        upper_bound = upper_bound.replace(tzinfo=None)
-    return timestamp <= upper_bound
+def _at_or_before(value: Any, upper_bound: datetime | None, time_zone=None) -> bool:
+    timestamp = _timestamp(value, time_zone)
+    return timestamp is None or upper_bound is None or timestamp <= upper_bound
 
 
 def _request(snapshot: Any) -> Mapping[str, Any]:
@@ -105,6 +90,7 @@ def _select_records(
     snapshots: Sequence[Any],
     transaction_id: str | None,
     transaction_started_at: str | None,
+    time_zone: str | None = None,
 ) -> list[dict[str, Any]]:
     records = [
         info
@@ -112,12 +98,12 @@ def _select_records(
         if (info := _record_info(snapshot)) is not None
     ]
     if transaction_id is not None:
-        started_at = _timestamp(transaction_started_at)
+        started_at = _timestamp(transaction_started_at, time_zone)
         return [
             info
             for info in records
             if info["transaction_id"] == transaction_id
-            and _at_or_after(info["received_at"], started_at)
+            and _at_or_after(info["received_at"], started_at, time_zone)
         ]
     if not records:
         return []
@@ -156,6 +142,7 @@ def _latest_meter_energy_wh(
     transaction_id: str | None,
     transaction_started_at: str | None,
     transaction_stopped_at: str | None,
+    time_zone: str | None = None,
 ) -> float | None:
     snapshot = _mapping(meter_values)
     meter_transaction_id = _optional_text(snapshot.get("transaction_id"))
@@ -163,10 +150,10 @@ def _latest_meter_energy_wh(
         return None
     if not _at_or_after(
         snapshot.get("received_at"),
-        _timestamp(transaction_started_at),
+        _timestamp(transaction_started_at, time_zone), time_zone,
     ) or not _at_or_before(
         snapshot.get("received_at"),
-        _timestamp(transaction_stopped_at),
+        _timestamp(transaction_stopped_at, time_zone), time_zone,
     ):
         return None
 
@@ -197,6 +184,7 @@ def build_unified_session(
     session_records: Sequence[Any] = (),
     charge_point_id: str | None = None,
     source_instance_id: str | None = None,
+    time_zone: str | None = None,
 ) -> dict[str, Any] | None:
     """Build one diagnostic session view without discarding source values."""
     transaction = _mapping(transaction)
@@ -209,6 +197,7 @@ def build_unified_session(
         session_records,
         transaction_id,
         _optional_text(start_snapshot.get("received_at")),
+        time_zone,
     )
     record = _primary_record(matching_records)
 
@@ -235,6 +224,7 @@ def build_unified_session(
         transaction_id,
         _optional_text(start_snapshot.get("received_at")),
         _optional_text(stop_snapshot.get("received_at")),
+        time_zone,
     )
     growatt_energy = (
         _optional_float(getattr(record, "energy_wh", None))

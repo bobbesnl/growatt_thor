@@ -13,6 +13,9 @@ import stat
 import tempfile
 from typing import Any
 
+from .time import session_times
+from ..runtime.time import utc_timestamp
+from zoneinfo import ZoneInfo
 from .identity import (
     SOURCE_LEGACY_UNKNOWN,
     build_session_id,
@@ -236,7 +239,7 @@ def _write_archive_summary(path: Path, summary: dict[str, Any]) -> None:
     _atomic_json(_archive_summary_path(path), summary)
 
 
-def _session_item(row: dict[str, Any], *, details: bool) -> dict[str, Any]:
+def _session_item(row: dict[str, Any], *, details: bool, time_zone: str = "UTC") -> dict[str, Any]:
     events = _session_events(row.get("events")) if details else []
     item = {
         "session_id": row.get("session_id") or None,
@@ -261,7 +264,7 @@ def _session_item(row: dict[str, Any], *, details: bool) -> dict[str, Any]:
             event_times=(event.get("at") for event in events),
         )
         item["events"] = events
-    return item
+    return session_times(item, time_zone)
 
 
 @_history_operation
@@ -272,6 +275,7 @@ def dashboard_session_data(
     source_instance_id: str | None = None,
     charge_point_id: str | None = None,
     include_unassigned_archive: bool = False,
+    time_zone: str = "UTC",
 ) -> dict[str, Any]:
     """Read a bounded, display-safe history and totals from the session log."""
     csv_path = Path(path)
@@ -319,7 +323,7 @@ def dashboard_session_data(
         # Only the newest completed session is pushed with detail data. Older
         # selected rows are loaded on demand through the integration websocket.
         "items": [
-            _session_item(row, details=index == 0)
+            _session_item(row, details=index == 0, time_zone=time_zone)
             for index, row in enumerate(bounded_rows)
         ],
         "total_energy_kwh": round(total_energy, 3),
@@ -331,7 +335,7 @@ def dashboard_session_data(
 
 
 @_history_operation
-def session_detail_data(path: str | Path, session_id: str, *, source_instance_id=None, charge_point_id=None) -> dict[str, Any] | None:
+def session_detail_data(path: str | Path, session_id: str, *, source_instance_id=None, charge_point_id=None, time_zone="UTC") -> dict[str, Any] | None:
     """Load one retained session with bounded curve and event details."""
     csv_path = Path(path)
     if not csv_path.is_file() or not session_id:
@@ -340,7 +344,7 @@ def session_detail_data(path: str | Path, session_id: str, *, source_instance_id
         rows = [normalize_session_row(row) for row in csv.DictReader(source)]
     for row in reversed(rows):
         if row.get("session_id") == session_id and _belongs_to_entry(row, source_instance_id, charge_point_id):
-            return _session_item(row, details=True)
+            return _session_item(row, details=True, time_zone=time_zone)
     return None
 
 
@@ -640,6 +644,7 @@ def export_session_rows(
     *,
     date_from: datetime,
     date_to: datetime,
+    time_zone: str = "UTC",
 ) -> int:
     """Atomically export normalized rows within one inclusive date range.
 
@@ -657,16 +662,18 @@ def export_session_rows(
             reader = csv.DictReader(source_file)
             for row in reader:
                 try:
-                    row_date = datetime.strptime(
-                        row["start_time"],
-                        "%Y-%m-%d %H:%M:%S",
-                    )
+                    row_date = datetime.fromisoformat(row["start_time"].replace("Z", "+00:00"))
+                    if row_date.tzinfo is not None:
+                        row_date = row_date.astimezone(ZoneInfo(time_zone)).replace(tzinfo=None)
                 except (KeyError, TypeError, ValueError):
                     # One malformed historical row must not prevent all valid
                     # sessions from being exported.
                     continue
                 if date_from <= row_date <= date_to:
-                    rows.append(normalize_session_row(row))
+                    exported = normalize_session_row(row)
+                    for key in ("timestamp", "start_time", "end_time"):
+                        exported[key] = utc_timestamp(exported.get(key), time_zone) or ""
+                    rows.append(exported)
 
     temporary_path = None
     try:

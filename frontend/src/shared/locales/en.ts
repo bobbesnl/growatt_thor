@@ -120,7 +120,7 @@ export const en = {
   goalEveryday: 'Every day',
   goalEverydayHint: 'Repeats daily at the selected local clock time.',
   goalAt: 'Start date and time',
-  goalLocalTime: 'Local time on this device. Optionally repeat every day.',
+  goalLocalTime: 'Home Assistant time. Optionally repeat every day.',
   goalInvalidTime: 'Select a future start date and time (local device time).',
   goalSummary: 'Preview of your selection',
   goalSummary_energy: 'Add {value} kWh',

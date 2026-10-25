@@ -557,7 +557,7 @@ function renderTargetNotice(view: CardViewModel) {
   const scheduledLabel = Number.isFinite(scheduledAt)
     ? new Date(scheduledAt).toLocaleString(
         view.hass.language || view.hass.locale?.language || 'en',
-        { dateStyle: 'medium', timeStyle: 'short' },
+        { dateStyle: 'medium', timeStyle: 'short', timeZone: view.hass.config?.time_zone || 'UTC' },
       )
     : null;
 
@@ -619,6 +619,7 @@ export function renderCard(view: CardViewModel, actions: CardActions, feedback: 
             cancel: actions.cancelGoal,
           }
         : undefined}
+      .timeZone=${hass.config?.time_zone || 'UTC'}
       .language=${hass.language || hass.locale?.language || 'en'}
       .dark=${dark}
       .currency=${currency}

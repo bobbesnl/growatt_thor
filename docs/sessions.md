@@ -229,3 +229,14 @@ download it during that period; treat it as private. Exports may contain RFID
 identifiers and location. Spreadsheet formula prefixes are escaped only in the
 export, preserving the original retained history. Exports from older releases
 are also removed once expired.
+
+
+### Time zone
+
+Session dates, chart labels and events use Home Assistant's configured time
+zone, even when the browser is in another zone. Downloads use UTC timestamps
+with `Z`; the selected export days refer to the Home Assistant time zone.
+Existing source CSV data and session IDs are preserved. A historical local time
+in the repeated autumn hour, or the skipped spring hour, cannot establish an
+instant without an offset and is displayed as unknown. The source value remains
+available in the retained CSV. New durations account for resolved DST transitions.

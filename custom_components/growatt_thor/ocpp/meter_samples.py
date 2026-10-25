@@ -3,11 +3,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, is_dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from enum import Enum
 from math import isfinite
 from typing import Any
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from ..runtime.time import utc_timestamp
 
 
 DEFAULT_MEASURAND = "Energy.Active.Import.Register"
@@ -158,28 +158,7 @@ def normalize_meter_timestamp(value: str | None, time_zone: str | None = None) -
     """
     if not value or not isinstance(value, str) or "T" not in value:
         return None
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is not None:
-        return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
-    if not time_zone:
-        return None
-    try:
-        zone = ZoneInfo(time_zone)
-    except (ValueError, ZoneInfoNotFoundError):
-        return None
-    # Round trips reject nonexistent spring times; two distinct UTC candidates
-    # identify an ambiguous autumn time. Explicit offsets above need no guess.
-    candidates = set()
-    for fold in (0, 1):
-        utc = parsed.replace(tzinfo=zone, fold=fold).astimezone(timezone.utc)
-        if utc.astimezone(zone).replace(tzinfo=None) == parsed:
-            candidates.add(utc)
-    if len(candidates) != 1:
-        return None
-    return candidates.pop().isoformat().replace("+00:00", "Z")
+    return utc_timestamp(value, time_zone)
 
 
 def parse_meter_values(payload: Any, *, time_zone: str | None = None) -> tuple[MeterValue, ...]:

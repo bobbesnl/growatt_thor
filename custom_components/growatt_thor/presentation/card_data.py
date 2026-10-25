@@ -22,6 +22,8 @@ from ..energy.accounting_runtime import parse_at, site_inputs
 from datetime import datetime, timedelta, timezone
 from ..ocpp.diagnostics import boot_notification_field
 from ..ocpp.status import normalize_ocpp_status
+from ..sessions.time import session_times
+from ..runtime.time import installation_time_zone, utc_timestamp
 from ..sessions.identity import SOURCE_HOME_ASSISTANT, build_session_id
 from ..sessions.events import normalize_session_events
 from ..sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
@@ -167,6 +169,8 @@ def dashboard_sessions(coordinator):
         if active is not None
         else items[:DASHBOARD_SESSION_LIMIT]
     )
+    zone = installation_time_zone(getattr(coordinator, "hass", None))
+    history["items"] = [session_times(item, zone) if isinstance(item, Mapping) else item for item in history["items"]]
     return {"schema": 1, **history}
 
 
@@ -364,7 +368,7 @@ def dashboard_attributes(coordinator) -> dict:
         "working_mode": working_mode,
         "auth_mode": configuration_entity_state("G_ChargerMode", coordinator.configuration_values.get("G_ChargerMode")),
         "transaction_active": coordinator.transaction_is_active,
-        "session_started_at": start.get("received_at"),
+        "session_started_at": utc_timestamp(start.get("received_at"), installation_time_zone(getattr(coordinator, "hass", None))),
         "session_energy_kwh": (_number(coordinator.energy) / 1000 if _number(coordinator.energy) is not None else None),
         "meter_received_at": snapshot.get("received_at"),
         "meter_stale_after": coordinator._effective_meter_gap_seconds(),

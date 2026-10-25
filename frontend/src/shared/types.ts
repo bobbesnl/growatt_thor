@@ -18,6 +18,7 @@ export interface ThorStatusEntity extends Entity {
   attributes: EntityAttributes & { thor_card: CardData };
 }
 export interface Hass {
+  config?: { time_zone?: string };
   states: Record<string, Entity | undefined>;
   language?: string;
   locale?: { language?: string };

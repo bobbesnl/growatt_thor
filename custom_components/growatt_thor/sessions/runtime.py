@@ -11,6 +11,7 @@ import json
 from collections.abc import Mapping
 from .outbox import SessionOutbox
 from .completion import completion_transaction
+from ..runtime.time import installation_time_zone, utc_instant
 from .active_state import ActiveSessionState
 from .duration import EffectiveChargingTracker
 from .correlation import CORRELATION_MATCHED, build_unified_session
@@ -360,7 +361,7 @@ class SessionLifecycle:
         completed_transaction = coordinator.last_completed_transaction
         pending_completion = None
         for candidate in reversed(self.pending_completions):
-            session = build_unified_session(candidate["transaction"], session_records=(snapshot,))
+            session = build_unified_session(candidate["transaction"], session_records=(snapshot,), time_zone=installation_time_zone(coordinator.hass))
             if session and session["correlation"]["status"] == CORRELATION_MATCHED:
                 pending_completion = candidate
                 completed_transaction = candidate["transaction"]
@@ -382,6 +383,7 @@ class SessionLifecycle:
                     session_records=(snapshot,),
                     charge_point_id=coordinator.charge_point_id,
                     source_instance_id=coordinator.source_instance_id,
+                    time_zone=installation_time_zone(coordinator.hass),
                 )
                 effective_minutes = None
                 if (
@@ -423,13 +425,21 @@ class SessionLifecycle:
 
             start_str = record.start_time
             end_str = record.end_time
-            duration_minutes = record.duration_minutes
+            zone = installation_time_zone(coordinator.hass)
+            started_at = utc_instant(start_str, zone)
+            ended_at = utc_instant(end_str, zone)
+            duration_minutes = (
+                round((ended_at - started_at).total_seconds() / 60, 1)
+                if started_at is not None and ended_at is not None and ended_at >= started_at
+                else None
+            )
             session = build_unified_session(
                 completed_transaction,
                 meter_values=coordinator.last_meter_values,
                 session_records=(snapshot,),
                 charge_point_id=coordinator.charge_point_id,
                 source_instance_id=coordinator.source_instance_id,
+                    time_zone=installation_time_zone(coordinator.hass),
             )
             matched = (
                 session is not None
@@ -452,6 +462,7 @@ class SessionLifecycle:
                     session_records=(snapshot,),
                     charge_point_id=coordinator.charge_point_id,
                     source_instance_id=coordinator.source_instance_id,
+                    time_zone=installation_time_zone(coordinator.hass),
                 )
             identity = session["identity"]
             start_request = (

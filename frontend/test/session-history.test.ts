@@ -31,7 +31,7 @@ const history: SessionHistoryData = {
     {
       session_id: 'active',
       active: true,
-      start_time: '2026-09-12 08:00:00',
+      start_time: '2026-09-12T08:00:00Z',
       end_time: null,
       energy_kwh: 1.2,
       green_energy_kwh: null,
@@ -42,8 +42,8 @@ const history: SessionHistoryData = {
     },
     {
       session_id: 'a',
-      start_time: '2026-09-11 08:00:00',
-      end_time: '2026-09-11 09:00:00',
+      start_time: '2026-09-11T08:00:00Z',
+      end_time: '2026-09-11T09:00:00Z',
       energy_kwh: 3,
       green_energy_kwh: null,
       cost: 1,
@@ -53,7 +53,7 @@ const history: SessionHistoryData = {
     },
     {
       session_id: 'b',
-      start_time: '2026-09-10 12:00:00',
+      start_time: '2026-09-10T12:00:00Z',
       end_time: null,
       energy_kwh: null,
       green_energy_kwh: null,
@@ -64,8 +64,8 @@ const history: SessionHistoryData = {
     },
     {
       session_id: 'c',
-      start_time: '2026-09-11 18:00:00',
-      end_time: '2026-09-11 19:00:00',
+      start_time: '2026-09-11T18:00:00Z',
+      end_time: '2026-09-11T19:00:00Z',
       energy_kwh: 5,
       green_energy_kwh: null,
       cost: 1,
@@ -241,27 +241,27 @@ test('formats session table values with no more than two decimal places', () => 
 });
 
 test('formats the selected session timestamp for people instead of exposing ISO syntax', () => {
-  assert.equal(formatSessionDate('2026-09-16 10:12:54', 'de'), 'Mi., 16.09.2026, 10:12');
+  assert.equal(formatSessionDate('2026-09-16T10:12:54Z', 'de'), 'Mi., 16.09.2026, 10:12');
   assert.equal(formatSessionDate('invalid', 'de'), '—');
 });
 
 test('adds a localized weekday to chart ticks only when the session spans days', () => {
-  const timestamp = new Date('2026-09-16T10:12:54').getTime();
+  const timestamp = new Date('2026-09-16T10:12:54Z').getTime();
   assert.equal(formatSessionChartTick(timestamp, 'de', false), '10:12');
   assert.equal(formatSessionChartTick(timestamp, 'de', true), 'Mi\n10:12');
 });
 
 test('mobile periods share the date only within the same local calendar day', () => {
-  assert.deepEqual(formatSessionPeriod('2026-10-02T13:01:05', '2026-10-02T17:32:16', 'en-US'), {
+  assert.deepEqual(formatSessionPeriod('2026-10-02T13:01:05Z', '2026-10-02T17:32:16Z', 'en-US'), {
     day: 'Friday, 10/2/2026',
     start: '01:01 PM',
     end: '05:32 PM',
   });
-  const overnight = formatSessionPeriod('2026-10-02T23:00:00', '2026-10-03T01:00:00', 'de');
+  const overnight = formatSessionPeriod('2026-10-02T23:00:00Z', '2026-10-03T01:00:00Z', 'de');
   assert.equal(overnight.day, null);
   assert.equal(overnight.start, 'Fr., 02.10.2026, 23:00');
   assert.equal(overnight.end, 'Sa., 03.10.2026, 01:00');
-  assert.deepEqual(formatSessionPeriod('2026-10-02T13:01:05', null, 'de'), {
+  assert.deepEqual(formatSessionPeriod('2026-10-02T13:01:05Z', null, 'de'), {
     day: 'Freitag, 2.10.2026',
     start: '13:01',
     end: '—',

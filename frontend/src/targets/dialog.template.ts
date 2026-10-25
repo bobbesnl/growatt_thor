@@ -1,3 +1,4 @@
+import { localTimeToUtc } from '../shared/time';
 import { html, nothing } from 'lit';
 import {
   GOAL_KINDS,
@@ -18,6 +19,7 @@ export interface GoalDialogView {
   recurrence: GoalRecurrence;
   now: number;
   language: string;
+  timeZone?: string;
   dark: boolean;
   t: Translator;
   value: number | null;
@@ -105,7 +107,7 @@ function renderStartTime(
             id="goal-at"
             type="datetime-local"
             .value=${view.at}
-            min=${localDateTime(new Date(view.now))}
+            min=${localDateTime(new Date(view.now), view.timeZone)}
             aria-invalid=${validTime ? 'false' : 'true'}
             aria-describedby="time-help"
             @input=${(event: Event) => {
@@ -113,7 +115,7 @@ function renderStartTime(
             }}
           />
           <p id="time-help" class="help ${validTime ? '' : 'error-text'}">
-            ${t(validTime ? 'goalLocalTime' : 'goalInvalidTime')}
+            ${t(validTime ? 'goalLocalTime' : 'goalInvalidTime')} (${view.timeZone || 'UTC'})
           </p>
           <label class="recurrence">
             <input
@@ -216,7 +218,7 @@ export function renderGoalDialog(view: GoalDialogView, actions: GoalDialogAction
           ${view.start === 'now'
             ? t(view.live ? 'goalLiveStartSummary' : 'goalStartNowSummary')
             : validTime
-              ? `${t('goalStart')}: ${new Date(view.at).toLocaleString(view.language, { dateStyle: 'medium', timeStyle: 'short' })}${view.recurrence === 'daily' ? ` · ${t('goalEveryday')}` : ''}`
+              ? `${t('goalStart')}: ${new Date(localTimeToUtc(view.at, view.timeZone || 'UTC')!).toLocaleString(view.language, { timeZone: view.timeZone || 'UTC', dateStyle: 'medium', timeStyle: 'short' })}${view.recurrence === 'daily' ? ` · ${t('goalEveryday')}` : ''}`
               : t('goalInvalidTime')}
         </p>
       </div>

@@ -6,6 +6,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
+from .runtime.time import installation_time_zone
 from .sessions.correlation import build_unified_session
 from .configuration.values import (
     INFORMATIONAL_CONFIGURATION_KEYS,
@@ -150,6 +151,7 @@ async def async_get_config_entry_diagnostics(
                     session_records=session_records,
                     charge_point_id=coordinator.charge_point_id,
                     source_instance_id=coordinator.source_instance_id,
+                time_zone=installation_time_zone(coordinator.hass),
                 )
                 if coordinator.active_transaction is not None
                 else None
@@ -160,6 +162,7 @@ async def async_get_config_entry_diagnostics(
                 session_records=session_records,
                 charge_point_id=coordinator.charge_point_id,
                 source_instance_id=coordinator.source_instance_id,
+                time_zone=installation_time_zone(coordinator.hass),
             ),
         }),
         "configuration": serialize_configuration_values(
