@@ -344,6 +344,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         )
                     except (TypeError, ValueError):
                         continue
+            self.sessions.restore_completions(data.get("pending_completed_sessions"))
             _LOGGER.info(
                 "📦 Loaded from storage: total_energy_charged=%.3f kWh, "
                 "next_transaction_id=%d, last_session_transaction_id=%s",
@@ -373,6 +374,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         active_session = self._active_session_state()
         return {
             "pending_session_rows": self.sessions.outbox.snapshot(),
+            "pending_completed_sessions": self.sessions.pending_completions,
             "last_energy_stop": self.last_energy_stop,
             "total_energy_charged": self.total_energy_charged,
             "next_transaction_id": self._transaction_id_allocator.next_transaction_id,

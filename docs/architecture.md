@@ -96,8 +96,11 @@ flowchart LR
 
 ## Persistent completion
 
-The coordinator checkpoint includes totals, the last applied record identity,
+The coordinator checkpoint includes totals, the last 50 applied record identities,
 active-session state, accounting state and completed rows awaiting delivery.
+Up to ten completed OCPP snapshots retain identifiers, bounded events/curves and
+accounting while waiting for their Growatt records; matching delivery removes
+them from the pending checkpoint.
 The outbox saves this checkpoint before writing CSV, then saves again after
 acknowledgement. A failed append keeps its row available for the next flush;
 setup, later completions and shutdown retry delivery.

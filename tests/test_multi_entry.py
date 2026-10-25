@@ -460,6 +460,40 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(c.sessions.outbox.snapshot()[0], rows[0])
         self.assertEqual(len(c.sessions.outbox.snapshot()), 2)
 
+    async def test_restart_between_stop_and_vendor_record_preserves_details(self):
+        c = self.make_coordinator()
+        c._schedule_storage_save = lambda: None
+        c.start_transaction(1, id_tag="RFID", meter_start=100)
+        c._active_power_curve = [["2026-10-01T10:01:00Z", 7000]]
+        c.site_accounting = coordinator_module.SessionAccumulator("1", meter_start_wh=100)
+        c.stop_transaction(transaction_id=1, meter_stop=5100)
+        stored = c._storage_data()
+        self.assertEqual(len(stored["pending_completed_sessions"]), 1)
+        restored = self.make_coordinator(stored)
+        await restored.async_load_storage()
+        restored.sessions.process_session_record(self.record(1))
+        row = restored.sessions.outbox.snapshot()[0]
+        self.assertEqual(row["authorized_identifier"], "RFID")
+        self.assertEqual(row["session_source"], "home_assistant")
+        self.assertIn("7000", row["power_curve"])
+        self.assertIn("transaction_stopped", row["events"])
+        self.assertEqual(restored.site_accounting_totals["energy_kwh"], 5)
+        self.assertIsNone(restored.last_site_accounting)
+        self.assertEqual(restored._storage_data()["pending_completed_sessions"], [])
+
+    async def test_multiple_pending_completions_are_bounded_and_match_older_record(self):
+        c = self.make_coordinator()
+        c._schedule_storage_save = lambda: None
+        for tx in range(12):
+            c.start_transaction(tx, id_tag=f"RFID-{tx}", meter_start=0)
+            c.stop_transaction(transaction_id=tx, meter_stop=5000)
+        restored = self.make_coordinator(c._storage_data())
+        await restored.async_load_storage()
+        self.assertEqual(len(restored.sessions.pending_completions), 10)
+        restored.sessions.process_session_record(self.record(2))
+        self.assertEqual(restored.sessions.outbox.snapshot()[0]["authorized_identifier"], "RFID-2")
+        self.assertEqual(len(restored.sessions.pending_completions), 9)
+
     async def test_replay_window_is_bounded_and_legacy_last_key_is_migrated(self):
         c = self.make_coordinator()
         for tx in range(55):

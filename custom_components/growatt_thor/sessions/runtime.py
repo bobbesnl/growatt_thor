@@ -10,6 +10,7 @@ import logging
 import json
 from collections.abc import Mapping
 from .outbox import SessionOutbox
+from .completion import completion_transaction
 from .active_state import ActiveSessionState
 from .duration import EffectiveChargingTracker
 from .correlation import CORRELATION_MATCHED, build_unified_session
@@ -28,6 +29,25 @@ class SessionLifecycle:
     def __init__(self, coordinator):
         self.coordinator = coordinator
         self.outbox = SessionOutbox()
+        self.pending_completions = []
+
+    def restore_completions(self, value):
+        self.pending_completions = []
+        for entry in value[-10:] if isinstance(value, list) else ():
+            if not isinstance(entry, Mapping):
+                continue
+            transaction = completion_transaction(entry.get("transaction"))
+            if transaction is None:
+                continue
+            accounting = SessionAccumulator.from_dict(entry.get("accounting"))
+            self.pending_completions.append({
+                "transaction": transaction,
+                "accounting": accounting.as_dict() if accounting else None,
+            })
+        if self.pending_completions:
+            latest = self.pending_completions[-1]
+            self.coordinator.last_completed_transaction = latest["transaction"]
+            self.coordinator.last_site_accounting = SessionAccumulator.from_dict(latest["accounting"])
 
     async def async_flush_pending(self):
         coordinator = self.coordinator
@@ -293,6 +313,13 @@ class SessionLifecycle:
                 coordinator._pending_effective_charging_minutes.pop(oldest)
         coordinator.effective_charging = EffectiveChargingTracker()
         coordinator.last_completed_transaction = completed
+        retained = completion_transaction(completed)
+        if retained is not None:
+            self.pending_completions.append({
+                "transaction": retained,
+                "accounting": coordinator.last_site_accounting.as_dict() if coordinator.last_site_accounting else None,
+            })
+            self.pending_completions = self.pending_completions[-10:]
         coordinator.active_transaction = None
         coordinator._restored_active_session = False
 
@@ -330,6 +357,15 @@ class SessionLifecycle:
         else:
             coordinator.last_frozen_record = snapshot
 
+        completed_transaction = coordinator.last_completed_transaction
+        pending_completion = None
+        for candidate in reversed(self.pending_completions):
+            session = build_unified_session(candidate["transaction"], session_records=(snapshot,))
+            if session and session["correlation"]["status"] == CORRELATION_MATCHED:
+                pending_completion = candidate
+                completed_transaction = candidate["transaction"]
+                break
+
         try:
             if record.parse_errors:
                 _LOGGER.warning(
@@ -342,7 +378,7 @@ class SessionLifecycle:
             dedup_key = record.dedup_key
             if dedup_key is not None and (dedup_key in coordinator._applied_session_record_keys or coordinator._last_session_record_key == dedup_key):
                 duplicate_session = build_unified_session(
-                    coordinator.last_completed_transaction,
+                    completed_transaction,
                     session_records=(snapshot,),
                     charge_point_id=coordinator.charge_point_id,
                     source_instance_id=coordinator.source_instance_id,
@@ -389,7 +425,7 @@ class SessionLifecycle:
             end_str = record.end_time
             duration_minutes = record.duration_minutes
             session = build_unified_session(
-                coordinator.last_completed_transaction,
+                completed_transaction,
                 meter_values=coordinator.last_meter_values,
                 session_records=(snapshot,),
                 charge_point_id=coordinator.charge_point_id,
@@ -419,25 +455,25 @@ class SessionLifecycle:
                 )
             identity = session["identity"]
             start_request = (
-                ((coordinator.last_completed_transaction or {}).get("start") or {})
+                ((completed_transaction or {}).get("start") or {})
                 .get("request") or {}
             )
             authorized_identifier = (
                 start_request.get("id_tag") if matched else None
             )
             events = merge_growatt_record_events(
-                (coordinator.last_completed_transaction or {}).get("events", [])
+                (completed_transaction or {}).get("events", [])
                 if matched else [],
                 plug_time=record.plug_time,
                 start_time=record.start_time,
                 end_time=record.end_time,
                 unplug_time=record.unplug_time,
             )
-            if matched and isinstance(coordinator.last_completed_transaction, dict):
-                coordinator.last_completed_transaction["session_id"] = identity[
+            if matched and isinstance(completed_transaction, dict):
+                completed_transaction["session_id"] = identity[
                     "session_id"
                 ]
-                coordinator.last_completed_transaction["events"] = list(events)
+                completed_transaction["events"] = list(events)
 
             coordinator.last_session_energy = energy_kwh
             coordinator.last_session_cost = cost
@@ -454,7 +490,11 @@ class SessionLifecycle:
             coordinator.last_session_work_mode = record.work_mode
 
             coordinator.total_energy_charged += energy_kwh
-            accounting = coordinator.last_site_accounting if matched and coordinator.last_site_accounting and str(record.transaction_id) == coordinator.last_site_accounting.transaction_id else None
+            accounting = (
+                SessionAccumulator.from_dict(pending_completion.get("accounting"))
+                if matched and pending_completion is not None
+                else coordinator.last_site_accounting if matched and coordinator.last_site_accounting and str(record.transaction_id) == coordinator.last_site_accounting.transaction_id else None
+            )
             if accounting is not None:
                 accounting.reconcile(energy_kwh)
                 coordinator.site_accounting_totals["energy_kwh"] += energy_kwh
@@ -494,7 +534,7 @@ class SessionLifecycle:
                     "authorized_identifier": authorized_identifier or "",
                     **(accounting.as_session_dict() if accounting else {"green_energy_kwh": ""}),
                     "power_curve": json.dumps(
-                        (coordinator.last_completed_transaction or {}).get("power_curve", [])
+                        (completed_transaction or {}).get("power_curve", [])
                         if matched else [],
                         separators=(",", ":"),
                     ),
@@ -502,9 +542,11 @@ class SessionLifecycle:
                 }
                 self.outbox.enqueue(session_row)
                 coordinator.hass.async_create_task(self.async_flush_pending())
-                if accounting is not None:
+                if accounting is not None and coordinator.last_site_accounting is not None and coordinator.last_site_accounting.transaction_id == accounting.transaction_id:
                     coordinator.last_site_accounting = None
 
+            if pending_completion is not None:
+                self.pending_completions.remove(pending_completion)
             coordinator.hass.async_create_task(coordinator.async_save_storage())
             coordinator.async_set_updated_data(True)
 
