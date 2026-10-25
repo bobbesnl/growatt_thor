@@ -96,8 +96,22 @@
       "init": {
         "title": "Options Growatt THOR",
         "description": "Choisissez la zone à configurer. Les sources d’énergie facultatives servent uniquement à la visualisation.",
-        "menu_options": {"general": "Paramètres généraux", "energy_sources": "Sources d’énergie facultatives", "site_accounting": "Site EV accounting", "authorization": "Contrôle d’accès local", "confirm_ap_mode": "Maintenance : mode AP"},
-        "menu_option_descriptions": {"general": "Configurer l’intervalle d’interrogation et l’emplacement.", "energy_sources": "Configurer le flux de batterie facultatif pour les cartes et graphiques.", "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.", "authorization": "Gérer séparément l’accès RFID et les démarrages Home Assistant.", "confirm_ap_mode": "Activer le Wi-Fi de configuration de la borne ; Home Assistant sera déconnecté."}
+        "menu_options": {
+          "general": "Paramètres généraux",
+          "energy_sources": "Sources d’énergie facultatives",
+          "site_accounting": "Site EV accounting",
+          "authorization": "Contrôle d’accès local",
+          "confirm_ap_mode": "Maintenance : mode AP",
+          "learn_rfid": "Apprendre une carte RFID"
+        },
+        "menu_option_descriptions": {
+          "general": "Configurer l’intervalle d’interrogation et l’emplacement.",
+          "energy_sources": "Configurer le flux de batterie facultatif pour les cartes et graphiques.",
+          "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.",
+          "authorization": "Gérer séparément l’accès RFID et les démarrages Home Assistant.",
+          "confirm_ap_mode": "Activer le Wi-Fi de configuration de la borne ; Home Assistant sera déconnecté.",
+          "learn_rfid": "Présentez une carte pour ajouter son identifiant et un nom facultatif à la liste de cette borne."
+        }
       },
       "general": {
         "title": "Paramètres généraux",
@@ -157,7 +171,7 @@
         "data_description": {
           "restrict_authorization": "Enables local checking of physical RFID identifiers. An enabled empty list rejects every card.",
           "allow_ha_remote_start": "Allows starts through HA controls, services, and automations. No technical identifier needs to be added to the RFID list.",
-          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics."
+          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics. Un identifiant par ligne, éventuellement suivi d’une espace, |, une espace et un nom : 00Ab12 | Voiture familiale. Conservez la casse et les zéros initiaux. Noms limités à 80 caractères. Gardez seulement l’identifiant pour effacer le nom ; supprimez la ligne pour retirer la carte."
         }
       },
       "confirm_charger_mode": {
@@ -172,6 +186,20 @@
         "description": "AVERTISSEMENT : le THOR se déconnectera et diffusera un réseau Wi-Fi pour la configuration directe. La connexion avec Home Assistant sera interrompue !",
         "data": {
           "confirm": "Oui, activer le mode AP"
+        }
+      },
+      "learn_rfid": {
+        "title": "Apprendre une carte RFID",
+        "description": "Présentez la carte à cette borne dans les deux minutes, puis validez. Seule la prochaine carte est capturée. Les règles actuelles restent actives : une carte refusée peut être apprise, mais ne sera autorisée qu’après confirmation. La borne doit transmettre la carte à Home Assistant ; utilisez le mode Home Assistant / RFID si le mode RFID seul ne la transmet pas."
+      },
+      "confirm_rfid": {
+        "title": "Confirmer la carte RFID",
+        "description": "Identifiant reçu : {id_tag}. Ajoutez un nom facultatif et validez pour enregistrer cette carte. Les réglages d’accès restent inchangés. L’apprentissage expire deux minutes après son démarrage.",
+        "data": {
+          "alias": "Nom de la carte (facultatif)"
+        },
+        "data_description": {
+          "alias": "80 caractères maximum, par exemple « Voiture familiale ». Ce nom identifie les sessions dans les fichiers CSV."
         }
       }
     },
@@ -194,12 +222,17 @@
       "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
       "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "L'intervalle d'interrogation doit être d'au moins {min_interval} secondes",
-      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
+      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
+      "rfid_not_seen": "Aucune carte reçue. Présentez-la à cette borne, puis validez à nouveau.",
+      "invalid_rfid_alias": "Utilisez un nom de 80 caractères imprimables maximum, sans saut de ligne."
     },
     "abort": {
       "ap_mode_activated": "✅ Mode AP activé ! THOR diffuse un réseau Wi-Fi. Recherchez le SSID contenant le numéro de série THOR.",
       "ap_mode_failed": "❌ Échec de l'activation du mode AP. Consultez les journaux pour plus de détails.",
-      "charger_mode_changed": "✅ Mode modifié. Le THOR va redémarrer. Rebranchez le véhicule si nécessaire."
+      "charger_mode_changed": "✅ Mode modifié. Le THOR va redémarrer. Rebranchez le véhicule si nécessaire.",
+      "rfid_learning_expired": "L’apprentissage a expiré. Rouvrez Apprendre une carte RFID et présentez la carte dans les deux minutes.",
+      "rfid_learning_busy": "Une autre fenêtre apprend déjà une carte pour cette borne. Terminez ou attendez deux minutes.",
+      "rfid_charger_unavailable": "Cette borne doit être connectée pour apprendre une carte. Reconnectez-la et relancez l’apprentissage."
     }
   },
   "exceptions": {

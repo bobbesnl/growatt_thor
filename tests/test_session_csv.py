@@ -47,6 +47,7 @@ LEGACY_HEADERS = [
         "session_id",
         "session_source",
         "authorized_identifier",
+        "authorized_alias",
         "green_energy_kwh",
         "power_curve",
         "events",
@@ -83,6 +84,33 @@ def _legacy_row(**overrides):
 
 
 class SessionCsvTest(unittest.TestCase):
+    def test_card_names_survive_csv_migration_and_are_safely_exported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sessions.csv'
+            with path.open('w', newline='', encoding='utf-8') as stream:
+                writer = csv.DictWriter(stream, fieldnames=LEGACY_HEADERS + ['custom'])
+                writer.writeheader()
+                writer.writerow(_legacy_row(custom='preserved'))
+            alias = '=1+1, "Family car"'
+            session_csv.append_session_row(path, _row(
+                transaction_id='8', session_id='ha-new',
+                authorized_identifier='00AbC', authorized_alias=alias,
+            ))
+            with path.open(newline='', encoding='utf-8') as stream:
+                rows = list(csv.DictReader(stream))
+            self.assertEqual(rows[0]['authorized_alias'], '')
+            self.assertEqual(rows[0]['custom'], 'preserved')
+            self.assertEqual(rows[1]['authorized_identifier'], '00AbC')
+            self.assertEqual(rows[1]['authorized_alias'], alias)
+            target = Path(directory) / 'export.csv'
+            session_csv.export_session_rows(path, target,
+                date_from=datetime(2026, 8, 24), date_to=datetime(2026, 8, 25))
+            with target.open(newline='', encoding='utf-8') as stream:
+                exported = list(csv.DictReader(stream))
+            self.assertEqual(exported[0]['authorized_alias'], '')
+            self.assertEqual(exported[1]['authorized_identifier'], '00AbC')
+            self.assertEqual(exported[1]['authorized_alias'], "'" + alias)
+
     def test_interrupted_retention_replays_result_without_double_counting(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sessions.csv"

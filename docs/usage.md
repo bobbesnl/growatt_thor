@@ -81,7 +81,7 @@ Existing installations remain open until restriction is enabled.
 
 1. **Restrict RFID access.** When enabled, only identifiers on the local allowlist are accepted. An enabled empty list rejects every physical card.
 2. **Allow Home Assistant starts.** A separate permission for starts through HA controls, services and automations. Their technical identifiers need not be added to the RFID list.
-3. **RFID allowlist.** Enter one exact OCPP identifier per line. These are sensitive access identifiers; the screenshot intentionally contains none.
+3. **RFID allowlist.** Enter one exact identifier per line, optionally with a name: `00Ab12 | Family car`. Keep leading zeroes and letter case. These are sensitive access identifiers; the screenshot intentionally contains none.
 4. **Submit.** Saves the local policy. This does not change the wallbox’s authorization mode or cloud bindings and does not stop an active session.
 
 An explicitly enabled HA start permission also works when an older installation
@@ -92,6 +92,20 @@ The editable allowlist is stored in the integration's configuration and included
 in Home Assistant backups. Identifiers are omitted from normal logs and
 downloaded diagnostics. See the [authorization evidence and limits](../reverse_engineering/local_authorization.md)
 for firmware-specific details.
+
+### Learn and name an RFID card
+
+Open **Settings → Devices & Services → Growatt THOR → Configure → Learn RFID card** for the wallbox you want to use. The wallbox must be connected to Home Assistant.
+
+1. Present the card at that wallbox within two minutes, then select **Submit** in the dialog. Only the next card reported by that wallbox is captured. If none has arrived, the dialog lets you try again within the same two-minute window.
+2. Check the detected identifier and optionally enter a card name, such as **Family car**. Select **Submit** again to add it to the local allowlist. Closing the dialog without saving adds nothing; the temporary capture is cleared after two minutes.
+3. Present the card again to use it with the updated allowlist. Learning does not change the access-control switches. If RFID restriction is enabled, an unlisted card remains rejected until you save it. If access is unrestricted, learning does not prevent the card from starting a session.
+
+The wallbox must send the presented card to Home Assistant. Use **Home Assistant / RFID** mode if **RFID only** does not report it; the integration does not switch modes automatically.
+
+To edit or remove names later, open **Local access control**. A line may contain just the identifier or `identifier | name`, with a space on each side of `|`. Names may contain up to 80 characters. Leave just the identifier to remove its name, or delete the whole line to remove the card. The list accepts up to 100 cards and can also be edited while the wallbox is offline.
+
+Names are labels, not access codes; authorization still checks the exact identifier. Names and identifiers are stored locally and included in Home Assistant backups and session CSV files. They remain hidden in normal logs and downloaded diagnostics. See [RFID information in session files](sessions.md#rfid-information-in-session-files) for how names are recorded.
 
 ## Native charging targets
 

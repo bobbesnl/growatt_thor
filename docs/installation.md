@@ -78,6 +78,8 @@ in the image index.
 4. **Local access control.** Manage physical RFID access separately from starts initiated by Home Assistant.
 5. **Maintenance: AP mode.** Opens a confirmation before enabling the charger’s setup Wi-Fi. Activation interrupts its connection to Home Assistant.
 
+The menu also offers **Learn RFID card** to capture the next presented card and save it with an optional name. See [learning and naming cards](usage.md#learn-and-name-an-rfid-card). The screenshot above predates this option.
+
 Go to [energy settings](energy.md) for battery sensors, accounting and automatic
 stop, or [local authorization](usage.md#local-charging-authorization) for RFID
 and Home Assistant permissions.

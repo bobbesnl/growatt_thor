@@ -32,6 +32,7 @@ class ActiveSessionState:
 
     transaction_id: str | None = None
     id_tag: str | None = None
+    id_tag_alias: str | None = None
     start_received_at: str | None = None
     start_timestamp: str | None = None
     connector_id: str | None = None
@@ -52,6 +53,7 @@ class ActiveSessionState:
         return cls(
             transaction_id=_text(data.get("transaction_id"), limit=128),
             id_tag=_text(data.get("id_tag")),
+            id_tag_alias=_text(data.get("id_tag_alias"), limit=80),
             start_received_at=_text(data.get("start_received_at")),
             start_timestamp=_text(data.get("start_timestamp")),
             connector_id=_text(data.get("connector_id"), limit=64),
@@ -71,6 +73,7 @@ class ActiveSessionState:
         return {
             "transaction_id": self.transaction_id,
             "id_tag": self.id_tag,
+            "id_tag_alias": self.id_tag_alias,
             "start_received_at": self.start_received_at,
             "start_timestamp": self.start_timestamp,
             "connector_id": self.connector_id,

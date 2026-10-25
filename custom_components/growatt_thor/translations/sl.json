@@ -96,8 +96,22 @@
       "init": {
         "title": "Možnosti Growatt THOR",
         "description": "Izberite področje, ki ga želite nastaviti. Izbirni viri energije se uporabljajo samo za prikaz.",
-        "menu_options": {"general": "Splošne nastavitve", "energy_sources": "Izbirni viri energije", "site_accounting": "Site EV accounting", "authorization": "Lokalni nadzor dostopa", "confirm_ap_mode": "Vzdrževanje: način AP"},
-        "menu_option_descriptions": {"general": "Nastavite interval preverjanja in lokacijo.", "energy_sources": "Nastavite izbirni pretok baterije za kartice in grafikone.", "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.", "authorization": "Ločeno upravljajte dostop RFID in zagone iz Home Assistanta.", "confirm_ap_mode": "Vklopite nastavitveni Wi-Fi polnilnice; povezava s Home Assistantom bo prekinjena."}
+        "menu_options": {
+          "general": "Splošne nastavitve",
+          "energy_sources": "Izbirni viri energije",
+          "site_accounting": "Site EV accounting",
+          "authorization": "Lokalni nadzor dostopa",
+          "confirm_ap_mode": "Vzdrževanje: način AP",
+          "learn_rfid": "Nauči kartico RFID"
+        },
+        "menu_option_descriptions": {
+          "general": "Nastavite interval preverjanja in lokacijo.",
+          "energy_sources": "Nastavite izbirni pretok baterije za kartice in grafikone.",
+          "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.",
+          "authorization": "Ločeno upravljajte dostop RFID in zagone iz Home Assistanta.",
+          "confirm_ap_mode": "Vklopite nastavitveni Wi-Fi polnilnice; povezava s Home Assistantom bo prekinjena.",
+          "learn_rfid": "Prislonite kartico, da njen identifikator in neobvezno ime dodate na seznam dovoljenih kartic te polnilnice."
+        }
       },
       "general": {
         "title": "Splošne nastavitve",
@@ -157,7 +171,7 @@
         "data_description": {
           "restrict_authorization": "Enables local checking of physical RFID identifiers. An enabled empty list rejects every card.",
           "allow_ha_remote_start": "Allows starts through HA controls, services, and automations. No technical identifier needs to be added to the RFID list.",
-          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics."
+          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics. En identifikator na vrstico, po želji še presledek, |, presledek in ime: 00Ab12 | Družinski avto. Ohranite velike in male črke ter začetne ničle. Imena imajo lahko največ 80 znakov. Za izbris imena pustite samo identifikator; za odstranitev kartice izbrišite vrstico."
         }
       },
       "confirm_charger_mode": {
@@ -172,6 +186,20 @@
         "description": "OPOZORILO: THOR bo izgubil povezavo in oddajal omrežje Wi-Fi za neposredno konfiguracijo. Povezava s Home Assistant bo prekinjena.",
         "data": {
           "confirm": "Da, omogoči način AP"
+        }
+      },
+      "learn_rfid": {
+        "title": "Nauči kartico RFID",
+        "description": "V dveh minutah prislonite kartico k tej polnilnici in nato izberite Pošlji. Zajame se samo naslednja kartica. Obstoječa pravila dostopa ostanejo veljavna: naučite se lahko tudi zavrnjene kartice, vendar je dovoljena šele po potrditvi. Polnilnica mora kartico poslati v Home Assistant; uporabite način Home Assistant / RFID, če je način Samo RFID ne sporoči."
+      },
+      "confirm_rfid": {
+        "title": "Potrdi kartico RFID",
+        "description": "Prejeti identifikator: {id_tag}. Dodajte neobvezno ime in izberite Pošlji za shranjevanje kartice. Nastavitve dostopa ostanejo nespremenjene. Učenje poteče dve minuti po začetku.",
+        "data": {
+          "alias": "Ime kartice (neobvezno)"
+        },
+        "data_description": {
+          "alias": "Največ 80 znakov, na primer »Družinski avto«. Ime pomaga prepoznati seje v datotekah CSV."
         }
       }
     },
@@ -194,12 +222,17 @@
       "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
       "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "Interval preverjanja mora biti vsaj {min_interval} sekund",
-      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
+      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
+      "rfid_not_seen": "Kartica še ni prejeta. Prislonite jo k tej polnilnici in znova izberite Pošlji.",
+      "invalid_rfid_alias": "Uporabite ime z največ 80 natisljivimi znaki brez prelomov vrstic."
     },
     "abort": {
       "ap_mode_activated": "✅ Način AP je omogočen. THOR oddaja omrežje Wi-Fi. Poiščite SSID, ki vsebuje serijsko številko THOR.",
       "ap_mode_failed": "❌ Načina AP ni bilo mogoče omogočiti. Za podrobnosti preverite dnevnike.",
-      "charger_mode_changed": "✅ Način polnilnice je spremenjen. THOR se bo znova zagnal. Po potrebi znova priključite vozilo."
+      "charger_mode_changed": "✅ Način polnilnice je spremenjen. THOR se bo znova zagnal. Po potrebi znova priključite vozilo.",
+      "rfid_learning_expired": "Učenje je poteklo. Znova odprite učenje kartice RFID in jo prislonite v dveh minutah.",
+      "rfid_learning_busy": "Drugo okno že uči kartico za to polnilnico. Dokončajte postopek ali počakajte dve minuti.",
+      "rfid_charger_unavailable": "Za učenje kartice mora biti ta polnilnica povezana. Povežite jo in znova odprite učenje."
     }
   },
   "exceptions": {

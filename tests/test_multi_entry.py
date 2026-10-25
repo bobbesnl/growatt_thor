@@ -432,6 +432,28 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
         c.runtime_data["append_session_to_csv"] = object()
         return c
 
+    async def test_card_name_is_a_restart_safe_session_snapshot_not_a_later_lookup(self):
+        c = self.make_coordinator()
+        c._schedule_storage_save = lambda: None
+        c.authorization.policy = c.authorization.policy.with_card('00RFID', 'Original name')
+        c.start_transaction(1, id_tag='00RFID', meter_start=0)
+        # A restart during charging must retain the name as it was at start.
+        active = self.make_coordinator(c._storage_data())
+        await active.async_load_storage()
+        active._schedule_storage_save = lambda: None
+        active.authorization.policy = active.authorization.policy.with_card('00RFID', 'Renamed later')
+        active.stop_transaction(transaction_id=1, meter_stop=5000)
+        # Another restart before the final vendor record must retain it too.
+        completed = self.make_coordinator(active._storage_data())
+        await completed.async_load_storage()
+        completed.sessions.process_session_record(self.record(2))
+        completed.sessions.process_session_record(self.record(1))
+        unrelated, original = completed.sessions.outbox.snapshot()
+        self.assertEqual(unrelated['authorized_identifier'], '')
+        self.assertEqual(unrelated['authorized_alias'], '')
+        self.assertEqual(original['authorized_identifier'], '00RFID')
+        self.assertEqual(original['authorized_alias'], 'Original name')
+
     async def test_nonconsecutive_replay_after_restart_is_not_applied_twice(self):
         c = self.make_coordinator()
         a, b = self.record(1), self.record(2, 3000)

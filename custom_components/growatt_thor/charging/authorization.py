@@ -1,16 +1,25 @@
 """Local OCPP authorisation policy; independent of card/cloud provisioning."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from hashlib import sha256
 from time import monotonic
 from typing import Mapping
+
+from .rfid_learning import RfidLearning
 
 CONF_AUTHORIZATION = "local_authorization"
 CONF_ALLOW_HA_REMOTE_START = "allow_ha_remote_start"
 CONF_RESTRICT_AUTHORIZATION = "restrict_authorization"
 CONF_AUTHORIZED_TAGS = "authorized_id_tags"
 CONF_STORED_TAGS = "id_tags"
+CONF_TAG_ALIASES = "aliases"
+
+
+def _valid_alias(value: object) -> bool:
+    return isinstance(value, str) and len(value) <= 80 and all(
+        char.isprintable() for char in value
+    )
 
 
 def _valid_id_tag(value: object) -> bool:
@@ -33,6 +42,7 @@ class AuthorizationPolicy:
     allow_ha_remote_start: bool = True
     valid: bool = True
     independent_ha_permission: bool = False
+    aliases: Mapping[str, str] = field(default_factory=dict, repr=False)
 
     @classmethod
     def from_config(cls, data: object) -> AuthorizationPolicy:
@@ -66,10 +76,16 @@ class AuthorizationPolicy:
                     and data.get(CONF_ALLOW_HA_REMOTE_START) is True
                 ),
             )
+        aliases = data.get(CONF_TAG_ALIASES, {})
         return cls(
             restricted=restricted,
             id_tags=frozenset(id_tags),
             allow_ha_remote_start=allow_ha_remote_start,
+            # Names are optional display metadata; corrupt names must not
+            # change which identifiers are authorized.
+            aliases={key: value for key, value in aliases.items()
+                     if key in id_tags and _valid_alias(value)}
+            if isinstance(aliases, dict) else {},
         )
 
     def status(self, id_tag: object) -> str:
@@ -85,7 +101,30 @@ class AuthorizationPolicy:
             "restricted": self.restricted,
             CONF_STORED_TAGS: sorted(self.id_tags),
             CONF_ALLOW_HA_REMOTE_START: self.allow_ha_remote_start,
+            CONF_TAG_ALIASES: dict(self.aliases),
         }
+
+    def editable_tags(self) -> str:
+        return "\n".join(
+            f"{tag} | {self.aliases[tag]}" if self.aliases.get(tag) else tag
+            for tag in sorted(self.id_tags)
+        )
+
+    def with_card(self, id_tag: str, alias: str = "") -> AuthorizationPolicy:
+        """Add a confirmed card without changing either access-control switch."""
+        if not isinstance(alias, str):
+            raise ValueError("invalid_rfid_alias")
+        if not _valid_alias(alias):
+            raise ValueError("invalid_rfid_alias")
+        alias = alias.strip()
+        if not self.valid or not _valid_id_tag(id_tag) or len(self.id_tags | {id_tag}) > 100:
+            raise ValueError("invalid_authorization")
+        aliases = dict(self.aliases)
+        if alias:
+            aliases[id_tag] = alias
+        else:
+            aliases.pop(id_tag, None)
+        return replace(self, id_tags=self.id_tags | {id_tag}, aliases=aliases)
 
     def allows_ha_remote_start(self) -> bool:
         """HA authentication, not a card identifier, controls remote starts."""
@@ -108,17 +147,31 @@ def policy_from_input(
     ):
         raise ValueError("invalid_authorization")
     tags = existing.id_tags
+    aliases = dict(existing.aliases)
     if text is not None:
-        entered_tags = [line.strip() for line in text.splitlines() if line.strip()]
-        if len(entered_tags) > 100 or any(
-            not _valid_id_tag(tag) for tag in entered_tags
-        ):
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if len(lines) > 100:
             raise ValueError("invalid_authorization")
-        tags = frozenset(entered_tags)
+        entered = {}
+        for line in lines:
+            # Spaces cannot occur in an OCPP identifier, so a spaced separator
+            # keeps legacy identifiers containing a bare pipe unambiguous.
+            tag, _, alias = line.partition(" | ")
+            alias = alias.strip()
+            if not _valid_id_tag(tag):
+                raise ValueError("invalid_authorization")
+            if not _valid_alias(alias):
+                raise ValueError("invalid_rfid_alias")
+            if tag in entered and entered[tag] != alias:
+                raise ValueError("invalid_authorization")
+            entered[tag] = alias
+        tags = frozenset(entered)
+        aliases = {tag: alias for tag, alias in entered.items() if alias}
     return AuthorizationPolicy(
         restricted=restricted,
         id_tags=tags,
         allow_ha_remote_start=allow_ha_remote_start,
+        aliases=aliases,
     )
 
 
@@ -128,6 +181,7 @@ class LocalAuthorization:
     def __init__(self, config: object = None):
         self.policy = AuthorizationPolicy.from_config(config)
         self.last_decision: dict | None = None
+        self.learning = RfidLearning()
         self._pending_ha_remote_start: tuple[str, float] | None = None
 
     def begin_ha_remote_start(self, id_tag: object, *, ttl: float = 60.0) -> bool:
@@ -162,6 +216,8 @@ class LocalAuthorization:
         *,
         card_policy_applies: bool = True,
     ) -> str:
+        if action == "Authorize" and _valid_id_tag(id_tag):
+            self.learning.capture(id_tag)
         ha_remote_start = (
             action == "StartTransaction" and self._consume_ha_remote_start(id_tag)
         )

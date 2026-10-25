@@ -210,6 +210,14 @@ XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-21 08:19:03,2026-03-2
 XGJ00003214700CA,"Kerkstraat 1, 1234 AB Amsterdam",2026-03-22 07:05:11,2026-03-22 08:31:44,8.450,1.69,86.5,2,ext-fedcba9876543210,external_or_unknown,
 ```
 
+### RFID information in session files
+
+`growatt_thor_sessions.csv` and date-range CSV downloads contain `authorized_identifier` for the identifier reported at session start and `authorized_alias` for the optional card name. Names can be assigned when [learning a card or editing the allowlist](usage.md#learn-and-name-an-rfid-card).
+
+The name is saved as it was when the session started. Renaming or removing a card later does not change completed sessions, including sessions whose final report arrives after a Home Assistant restart. The alias column is added automatically when the next session is written to an existing CSV file; older rows are preserved and have no name added retrospectively.
+
+If the wallbox has not reported an identifier that can be matched to the session, both fields remain empty. A name is also empty when none was assigned at session start. Home Assistant and Plug & Charge starts may carry a technical identifier rather than a physical card code; these values are not automatically added to the allowlist.
+
 ## Backups and recovery
 
 Completed sessions are checkpointed before CSV delivery. Explicit session IDs

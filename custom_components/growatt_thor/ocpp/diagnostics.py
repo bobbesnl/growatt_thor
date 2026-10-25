@@ -16,6 +16,7 @@ _SENSITIVE_FIELD_NAMES = frozenset(
         "chargepointserialnumber",
         "iccid",
         "idtag",
+        "idtagalias",
         "imsi",
         "meterserialnumber",
         "parentidtag",

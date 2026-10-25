@@ -29,6 +29,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
             pass
         c.async_save_storage = save
         c.transaction_id = 27
+        c.authorization = coordinator_module.LocalAuthorization()
         c.active_transaction = {"start": {"received_at": AT.isoformat(), "response": {"transaction_id": 27}}}
         c.status = "Charging"
         c.connected = True

@@ -11,6 +11,7 @@ from homeassistant.helpers.selector import (
 )
 import voluptuous as vol
 import logging
+from html import escape
 from math import isfinite
 
 from .charging.authorization import (
@@ -201,6 +202,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 "energy_sources",
                 "site_accounting",
                 "authorization",
+                "learn_rfid",
                 "confirm_ap_mode",
             ],
         )
@@ -543,16 +545,10 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             except ValueError as exc:
                 errors["base"] = str(exc)
             else:
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry,
-                    data={**self.config_entry.data, CONF_AUTHORIZATION: updated.as_config()},
-                )
-                coordinator = (self._entry_runtime_data() or {}).get("coordinator")
-                if coordinator:
-                    coordinator.authorization.policy = updated
+                self._save_authorization_policy(updated)
                 return self.async_create_entry(title="", data={})
 
-        visible_tags = "\n".join(sorted(policy.id_tags))
+        visible_tags = policy.editable_tags()
         if user_input is not None and isinstance(
             user_input.get(CONF_AUTHORIZED_TAGS), str
         ):
@@ -583,6 +579,87 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             }),
             errors=errors,
             description_placeholders={"count": str(len(policy.id_tags))},
+        )
+
+    def _save_authorization_policy(self, policy):
+        self.hass.config_entries.async_update_entry(
+            self.config_entry,
+            data={**self.config_entry.data, CONF_AUTHORIZATION: policy.as_config()},
+        )
+        coordinator = (self._entry_runtime_data() or {}).get("coordinator")
+        if coordinator:
+            coordinator.authorization.policy = policy
+
+    def _learning_identifier(self):
+        coordinator = (self._entry_runtime_data() or {}).get("coordinator")
+        learning = getattr(self, "_rfid_learning", None)
+        session = getattr(self, "_rfid_session", None)
+        if (
+            coordinator is None or not coordinator.connected
+            or learning is not coordinator.authorization.learning
+        ):
+            if learning is not None and session is not None:
+                learning.cancel(session)
+            raise ValueError("rfid_charger_unavailable")
+        if session is None:
+            raise ValueError("rfid_learning_expired")
+        return learning.identifier(session)
+
+    async def async_step_learn_rfid(self, user_input=None):
+        """Capture only the next Authorize request on this entry's connection."""
+        errors = {}
+        if getattr(self, "_rfid_session", None) is None:
+            coordinator = (self._entry_runtime_data() or {}).get("coordinator")
+            if coordinator is None or not coordinator.connected:
+                return self.async_abort(reason="rfid_charger_unavailable")
+            self._rfid_learning = coordinator.authorization.learning
+            try:
+                self._rfid_session = self._rfid_learning.begin()
+            except ValueError as exc:
+                return self.async_abort(reason=str(exc))
+        try:
+            tag = self._learning_identifier()
+        except ValueError as exc:
+            return self.async_abort(reason=str(exc))
+        if user_input is not None:
+            if tag is not None:
+                return await self.async_step_confirm_rfid()
+            errors["base"] = "rfid_not_seen"
+        return self.async_show_form(
+            step_id="learn_rfid", data_schema=vol.Schema({}), errors=errors,
+        )
+
+    async def async_step_confirm_rfid(self, user_input=None):
+        """Add the captured identifier only after the user saves its name."""
+        try:
+            tag = self._learning_identifier()
+        except ValueError as exc:
+            return self.async_abort(reason=str(exc))
+        if tag is None:
+            return await self.async_step_learn_rfid()
+        policy = AuthorizationPolicy.from_config(
+            self.config_entry.data.get(CONF_AUTHORIZATION)
+        )
+        errors = {}
+        alias = (user_input or {}).get("alias", policy.aliases.get(tag, ""))
+        if user_input is not None:
+            try:
+                updated = policy.with_card(tag, alias)
+            except ValueError as exc:
+                errors["base"] = str(exc)
+            else:
+                self._save_authorization_policy(updated)
+                self._rfid_learning.cancel(self._rfid_session)
+                return self.async_create_entry(title="", data={})
+        # Identifiers are exact wire values, but the description is Markdown.
+        display_tag = escape(tag, quote=False).translate(str.maketrans({
+            char: "\\" + char for char in "\\`*_{}[]()#+-.!|>"
+        }))
+        return self.async_show_form(
+            step_id="confirm_rfid",
+            data_schema=vol.Schema({vol.Optional("alias", default=alias): str}),
+            errors=errors,
+            description_placeholders={"id_tag": display_tag},
         )
 
     async def async_step_confirm_ap_mode(self, user_input=None):

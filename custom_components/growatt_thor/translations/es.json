@@ -96,8 +96,22 @@
       "init": {
         "title": "Opciones de Growatt THOR",
         "description": "Elige el área que quieres configurar. Las fuentes de energía opcionales solo se usan para la visualización.",
-        "menu_options": {"general": "Ajustes generales", "energy_sources": "Fuentes de energía opcionales", "site_accounting": "Site EV accounting", "authorization": "Control de acceso local", "confirm_ap_mode": "Mantenimiento: modo AP"},
-        "menu_option_descriptions": {"general": "Configura el intervalo de consulta y la ubicación.", "energy_sources": "Configura el flujo opcional de la batería para tarjetas y gráficos.", "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.", "authorization": "Gestiona por separado el acceso RFID y los inicios desde Home Assistant.", "confirm_ap_mode": "Activa la Wi-Fi de configuración del cargador; Home Assistant se desconectará."}
+        "menu_options": {
+          "general": "Ajustes generales",
+          "energy_sources": "Fuentes de energía opcionales",
+          "site_accounting": "Site EV accounting",
+          "authorization": "Control de acceso local",
+          "confirm_ap_mode": "Mantenimiento: modo AP",
+          "learn_rfid": "Aprender tarjeta RFID"
+        },
+        "menu_option_descriptions": {
+          "general": "Configura el intervalo de consulta y la ubicación.",
+          "energy_sources": "Configura el flujo opcional de la batería para tarjetas y gráficos.",
+          "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.",
+          "authorization": "Gestiona por separado el acceso RFID y los inicios desde Home Assistant.",
+          "confirm_ap_mode": "Activa la Wi-Fi de configuración del cargador; Home Assistant se desconectará.",
+          "learn_rfid": "Presente una tarjeta para añadir su identificador y un nombre opcional a la lista de este cargador."
+        }
       },
       "general": {
         "title": "Ajustes generales",
@@ -157,7 +171,7 @@
         "data_description": {
           "restrict_authorization": "Enables local checking of physical RFID identifiers. An enabled empty list rejects every card.",
           "allow_ha_remote_start": "Allows starts through HA controls, services, and automations. No technical identifier needs to be added to the RFID list.",
-          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics."
+          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics. Un identificador por línea, seguido opcionalmente de un espacio, |, un espacio y un nombre: 00Ab12 | Coche familiar. Respete mayúsculas y ceros iniciales. Nombres de hasta 80 caracteres. Deje solo el identificador para borrar el nombre; borre la línea para eliminar la tarjeta."
         }
       },
       "confirm_charger_mode": {
@@ -172,6 +186,20 @@
         "description": "ADVERTENCIA: el THOR quedará sin conexión y transmitirá una red Wi-Fi para la configuración directa. La conexión con Home Assistant se interrumpirá.",
         "data": {
           "confirm": "Sí, activar el modo AP"
+        }
+      },
+      "learn_rfid": {
+        "title": "Aprender tarjeta RFID",
+        "description": "Presente la tarjeta en este cargador en un plazo de dos minutos y pulse Enviar. Solo se captura la siguiente tarjeta. Las reglas actuales siguen vigentes: una tarjeta rechazada puede aprenderse, pero solo se permitirá tras confirmarla. El cargador debe enviar la tarjeta a Home Assistant; use Home Assistant / RFID si el modo Solo RFID no la comunica."
+      },
+      "confirm_rfid": {
+        "title": "Confirmar tarjeta RFID",
+        "description": "Identificador recibido: {id_tag}. Añada un nombre opcional y pulse Enviar para guardar la tarjeta. Los ajustes de acceso no cambian. El aprendizaje caduca dos minutos después de iniciarse.",
+        "data": {
+          "alias": "Nombre de la tarjeta (opcional)"
+        },
+        "data_description": {
+          "alias": "Hasta 80 caracteres, por ejemplo «Coche familiar». El nombre permite identificar las sesiones en archivos CSV."
         }
       }
     },
@@ -194,12 +222,17 @@
       "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
       "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "El intervalo de consulta debe ser de al menos {min_interval} segundos",
-      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
+      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
+      "rfid_not_seen": "Aún no se ha recibido ninguna tarjeta. Preséntela en este cargador y vuelva a pulsar Enviar.",
+      "invalid_rfid_alias": "Use un nombre de hasta 80 caracteres imprimibles sin saltos de línea."
     },
     "abort": {
       "ap_mode_activated": "✅ Modo AP activado. THOR está transmitiendo una red Wi-Fi. Busca el SSID que contiene el número de serie THOR.",
       "ap_mode_failed": "❌ No se pudo activar el modo AP. Consulta los registros para obtener más información.",
-      "charger_mode_changed": "✅ Modo cambiado. El THOR se reiniciará. Vuelve a conectar el vehículo si es necesario."
+      "charger_mode_changed": "✅ Modo cambiado. El THOR se reiniciará. Vuelve a conectar el vehículo si es necesario.",
+      "rfid_learning_expired": "El aprendizaje ha caducado. Abra Aprender tarjeta RFID de nuevo y presente la tarjeta en dos minutos.",
+      "rfid_learning_busy": "Otro diálogo ya está aprendiendo una tarjeta para este cargador. Termínelo o espere dos minutos.",
+      "rfid_charger_unavailable": "Este cargador debe estar conectado para aprender una tarjeta. Conéctelo y abra el aprendizaje de nuevo."
     }
   },
   "exceptions": {

@@ -101,14 +101,16 @@
           "energy_sources": "Optionale Energiequellen",
           "site_accounting": "Standortweite EV-Abrechnung",
           "authorization": "Lokale Zugriffskontrolle",
-          "confirm_ap_mode": "Wartung: AP-Modus"
+          "confirm_ap_mode": "Wartung: AP-Modus",
+          "learn_rfid": "RFID-Karte anlernen"
         },
         "menu_option_descriptions": {
           "general": "Abfrageintervall und Installationsort konfigurieren.",
           "energy_sources": "Optionalen Batteriefluss für Karten und Diagramme konfigurieren.",
           "site_accounting": "EV-Energie und Kosten verbuchen; optionalen automatischen Ladestopp konfigurieren.",
           "authorization": "RFID-Zugriff und Starts durch Home Assistant getrennt verwalten.",
-          "confirm_ap_mode": "Einrichtungs-WLAN der Wallbox aktivieren; Home Assistant wird dabei getrennt."
+          "confirm_ap_mode": "Einrichtungs-WLAN der Wallbox aktivieren; Home Assistant wird dabei getrennt.",
+          "learn_rfid": "Eine Karte vorhalten und ihre Kennung mit optionalem Namen zur Freigabeliste dieser Wallbox hinzufügen."
         }
       },
       "general": {
@@ -169,7 +171,7 @@
         "data_description": {
           "restrict_authorization": "Aktiviert die lokale Prüfung physischer RFID-Kennungen. Eine aktivierte leere Liste lehnt jede Karte ab.",
           "allow_ha_remote_start": "Erlaubt Starts über HA-Steuerelemente, Dienste und Automationen. Die technische Kennung gehört nicht in die RFID-Liste.",
-          "authorized_id_tags": "Maximal 100 exakte OCPP-Kennungen mit je 1–20 Zeichen. Die Liste wird lokal gespeichert und beim nächsten Öffnen wieder angezeigt. Zum Entfernen die jeweilige Zeile löschen; Kennungen erscheinen nicht in normalen Protokollen oder Diagnosedaten."
+          "authorized_id_tags": "Maximal 100 exakte OCPP-Kennungen mit je 1–20 Zeichen. Die Liste wird lokal gespeichert und beim nächsten Öffnen wieder angezeigt. Zum Entfernen die jeweilige Zeile löschen; Kennungen erscheinen nicht in normalen Protokollen oder Diagnosedaten. Eine Kennung pro Zeile, optional gefolgt von Leerzeichen, |, Leerzeichen und einem Namen: 00Ab12 | Familienauto. Groß-/Kleinschreibung und führende Nullen beibehalten. Namen dürfen bis zu 80 Zeichen lang sein. Zum Entfernen des Namens nur die Kennung stehen lassen; zum Entfernen der Karte die Zeile löschen."
         }
       },
       "confirm_charger_mode": {
@@ -184,6 +186,20 @@
         "description": "WARNUNG: Die THOR-Wallbox geht offline und stellt ein WLAN zur direkten Konfiguration bereit. Dadurch wird die Verbindung zu Home Assistant unterbrochen!",
         "data": {
           "confirm": "Ja, AP-Modus aktivieren"
+        }
+      },
+      "learn_rfid": {
+        "title": "RFID-Karte anlernen",
+        "description": "Halte die Karte innerhalb von zwei Minuten an diese Wallbox und wähle danach Absenden. Es wird nur die nächste Karte erfasst. Die bisherigen Zugriffsregeln gelten weiter: Auch eine abgelehnte Karte kann angelernt werden, wird aber erst nach deiner Bestätigung freigegeben. Die Wallbox muss die Karte an Home Assistant melden; nutze Home Assistant / RFID, falls der Modus Nur RFID nichts meldet."
+      },
+      "confirm_rfid": {
+        "title": "RFID-Karte bestätigen",
+        "description": "Erkannte Kennung: {id_tag}. Vergib optional einen Namen und wähle Absenden, um diese Karte zu speichern. Die bisherigen Zugriffseinstellungen bleiben erhalten. Das Anlernen endet zwei Minuten nach dem Start.",
+        "data": {
+          "alias": "Kartenname (optional)"
+        },
+        "data_description": {
+          "alias": "Bis zu 80 Zeichen, zum Beispiel „Familienauto“. Der Name hilft beim Zuordnen von Sitzungen in CSV-Dateien."
         }
       }
     },
@@ -206,12 +222,17 @@
       "invalid_tariff_sensor": "Bitte einen Preissensor mit einer Währung pro kWh als Einheit auswählen.",
       "invalid_battery_power_sign": "Bitte festlegen, ob ein positiver Sensorwert Laden oder Entladen bedeutet.",
       "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen",
-      "invalid_poll_interval": "Das Abfrageintervall muss eine endliche ganze Anzahl Sekunden sein"
+      "invalid_poll_interval": "Das Abfrageintervall muss eine endliche ganze Anzahl Sekunden sein",
+      "rfid_not_seen": "Noch keine Karte empfangen. Halte sie an diese Wallbox und wähle erneut Absenden.",
+      "invalid_rfid_alias": "Einen Namen mit höchstens 80 druckbaren Zeichen ohne Zeilenumbrüche verwenden."
     },
     "abort": {
       "ap_mode_activated": "✅ AP-Modus aktiviert! Die THOR-Wallbox stellt jetzt ein WLAN bereit. Suche nach einer SSID, die die THOR-Seriennummer enthält.",
       "ap_mode_failed": "❌ Der AP-Modus konnte nicht aktiviert werden. Weitere Informationen sind in den Protokollen verfügbar.",
-      "charger_mode_changed": "✅ Lademodus geändert. Die THOR-Wallbox wird neu gestartet. Schließe das Fahrzeug bei Bedarf erneut an."
+      "charger_mode_changed": "✅ Lademodus geändert. Die THOR-Wallbox wird neu gestartet. Schließe das Fahrzeug bei Bedarf erneut an.",
+      "rfid_learning_expired": "Das Anlernen ist abgelaufen. Öffne RFID-Karte anlernen erneut und halte die Karte innerhalb von zwei Minuten vor.",
+      "rfid_learning_busy": "Ein anderer Dialog lernt bereits eine Karte für diese Wallbox an. Schließe ihn ab oder warte zwei Minuten.",
+      "rfid_charger_unavailable": "Diese Wallbox muss zum Anlernen verbunden sein. Verbinde sie und öffne RFID-Karte anlernen erneut."
     }
   },
   "exceptions": {

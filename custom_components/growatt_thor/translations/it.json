@@ -96,8 +96,22 @@
       "init": {
         "title": "Opzioni Growatt THOR",
         "description": "Scegli l’area da configurare. Le fonti di energia opzionali vengono usate solo per la visualizzazione.",
-        "menu_options": {"general": "Impostazioni generali", "energy_sources": "Fonti di energia opzionali", "site_accounting": "Site EV accounting", "authorization": "Controllo accessi locale", "confirm_ap_mode": "Manutenzione: modalità AP"},
-        "menu_option_descriptions": {"general": "Configura l’intervallo di polling e la posizione.", "energy_sources": "Configura il flusso batteria opzionale per schede e grafici.", "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.", "authorization": "Gestisci separatamente l’accesso RFID e gli avvii da Home Assistant.", "confirm_ap_mode": "Abilita il Wi-Fi di configurazione della wallbox; Home Assistant verrà disconnesso."}
+        "menu_options": {
+          "general": "Impostazioni generali",
+          "energy_sources": "Fonti di energia opzionali",
+          "site_accounting": "Site EV accounting",
+          "authorization": "Controllo accessi locale",
+          "confirm_ap_mode": "Manutenzione: modalità AP",
+          "learn_rfid": "Apprendi tessera RFID"
+        },
+        "menu_option_descriptions": {
+          "general": "Configura l’intervallo di polling e la posizione.",
+          "energy_sources": "Configura il flusso batteria opzionale per schede e grafici.",
+          "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.",
+          "authorization": "Gestisci separatamente l’accesso RFID e gli avvii da Home Assistant.",
+          "confirm_ap_mode": "Abilita il Wi-Fi di configurazione della wallbox; Home Assistant verrà disconnesso.",
+          "learn_rfid": "Avvicina una tessera per aggiungere il suo identificativo e un nome facoltativo all’elenco di questa wallbox."
+        }
       },
       "general": {
         "title": "Impostazioni generali",
@@ -157,7 +171,7 @@
         "data_description": {
           "restrict_authorization": "Enables local checking of physical RFID identifiers. An enabled empty list rejects every card.",
           "allow_ha_remote_start": "Allows starts through HA controls, services, and automations. No technical identifier needs to be added to the RFID list.",
-          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics."
+          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics. Un identificativo per riga, seguito facoltativamente da spazio, |, spazio e nome: 00Ab12 | Auto di famiglia. Mantieni maiuscole e zeri iniziali. Nomi di massimo 80 caratteri. Lascia solo l’identificativo per rimuovere il nome; elimina la riga per rimuovere la tessera."
         }
       },
       "confirm_charger_mode": {
@@ -172,6 +186,20 @@
         "description": "AVVERTENZA: il THOR passerà offline e trasmetterà una rete Wi-Fi per la configurazione diretta. La connessione con Home Assistant verrà interrotta!",
         "data": {
           "confirm": "Sì, attiva la modalità AP"
+        }
+      },
+      "learn_rfid": {
+        "title": "Apprendi tessera RFID",
+        "description": "Avvicina la tessera a questa wallbox entro due minuti, poi premi Invia. Viene acquisita solo la prossima tessera. Restano valide le regole attuali: puoi apprendere anche una tessera rifiutata, ma sarà autorizzata solo dopo la conferma. La wallbox deve inviare la tessera a Home Assistant; usa Home Assistant / RFID se la modalità Solo RFID non la comunica."
+      },
+      "confirm_rfid": {
+        "title": "Conferma tessera RFID",
+        "description": "Identificativo ricevuto: {id_tag}. Aggiungi un nome facoltativo e premi Invia per salvare la tessera. Le impostazioni di accesso restano invariate. L’apprendimento scade due minuti dopo l’avvio.",
+        "data": {
+          "alias": "Nome tessera (facoltativo)"
+        },
+        "data_description": {
+          "alias": "Massimo 80 caratteri, ad esempio “Auto di famiglia”. Il nome aiuta a riconoscere le sessioni nei file CSV."
         }
       }
     },
@@ -194,12 +222,17 @@
       "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
       "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "L'intervallo di polling deve essere di almeno {min_interval} secondi",
-      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
+      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
+      "rfid_not_seen": "Nessuna tessera ricevuta. Avvicinala a questa wallbox e premi di nuovo Invia.",
+      "invalid_rfid_alias": "Usa un nome di massimo 80 caratteri stampabili senza interruzioni di riga."
     },
     "abort": {
       "ap_mode_activated": "✅ Modalità AP attivata! THOR sta trasmettendo una rete Wi-Fi. Cerca l'SSID che contiene il numero di serie THOR.",
       "ap_mode_failed": "❌ Impossibile attivare la modalità AP. Controlla i registri per i dettagli.",
-      "charger_mode_changed": "✅ Modalità modificata. Il THOR verrà riavviato. Ricollega il veicolo se necessario."
+      "charger_mode_changed": "✅ Modalità modificata. Il THOR verrà riavviato. Ricollega il veicolo se necessario.",
+      "rfid_learning_expired": "L’apprendimento è scaduto. Riapri Apprendi tessera RFID e avvicina la tessera entro due minuti.",
+      "rfid_learning_busy": "Un’altra finestra sta già apprendendo una tessera per questa wallbox. Completa la procedura o attendi due minuti.",
+      "rfid_charger_unavailable": "Questa wallbox deve essere connessa per apprendere una tessera. Riconnettila e riapri l’apprendimento."
     }
   },
   "exceptions": {

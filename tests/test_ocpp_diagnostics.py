@@ -69,6 +69,7 @@ class OcppDiagnosticsTest(unittest.TestCase):
                 }
             },
             "transaction": {
+                "id_tag_alias": "Private name",
                 "request": {
                     "id_tag": "secret-tag",
                     "meter_stop": 1234,
@@ -81,6 +82,7 @@ class OcppDiagnosticsTest(unittest.TestCase):
         }
 
         redacted = ocpp_diagnostics.redact_ocpp_data(diagnostics)
+        self.assertEqual(redacted['transaction']['id_tag_alias'], ocpp_diagnostics.REDACTED)
         self.assertEqual(redacted["sessions"]["active"]["identity"]["charge_point_id"], ocpp_diagnostics.REDACTED)
 
         self.assertEqual(

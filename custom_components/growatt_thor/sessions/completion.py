@@ -22,6 +22,7 @@ def completion_transaction(value: object) -> dict | None:
         return None
     bounded = ActiveSessionState.from_dict({
         "transaction_id": tx, "id_tag": request.get("id_tag"),
+        "id_tag_alias": value.get("id_tag_alias"),
         "connector_id": request.get("connector_id"), "meter_start": request.get("meter_start"),
         "start_received_at": start.get("received_at"), "start_timestamp": request.get("timestamp"),
         "events": value.get("events"), "power_curve": value.get("power_curve"),
@@ -37,6 +38,7 @@ def completion_transaction(value: object) -> dict | None:
     if not isinstance(minutes, (int, float)) or not isfinite(minutes) or minutes < 0:
         minutes = None
     return {
+        "id_tag_alias": bounded.id_tag_alias,
         "start": {
             "received_at": bounded.start_received_at,
             "request": {"id_tag": bounded.id_tag, "connector_id": bounded.connector_id,

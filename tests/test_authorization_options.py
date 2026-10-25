@@ -16,6 +16,23 @@ if HAS_SERIALIZER:
 
 
 class EnergySourceTranslationTest(unittest.TestCase):
+    def test_rfid_learning_and_alias_help_are_available_in_every_language(self):
+        translations = Path(__file__).parents[1] / 'custom_components/growatt_thor/translations'
+        for path in sorted(translations.glob('*.json')):
+            options = json.loads(path.read_text())['options']
+            with self.subTest(language=path.stem):
+                steps = options['step']
+                self.assertTrue(steps['init']['menu_options']['learn_rfid'])
+                self.assertTrue(steps['init']['menu_option_descriptions']['learn_rfid'])
+                self.assertTrue(steps['learn_rfid']['description'])
+                self.assertIn('{id_tag}', steps['confirm_rfid']['description'])
+                self.assertTrue(steps['confirm_rfid']['data']['alias'])
+                self.assertIn(' | ', steps['authorization']['data_description']['authorized_id_tags'])
+                for key in ('rfid_learning_expired', 'rfid_learning_busy', 'rfid_charger_unavailable'):
+                    self.assertTrue(options['abort'][key])
+                for key in ('rfid_not_seen', 'invalid_rfid_alias'):
+                    self.assertTrue(options['error'][key])
+
     def test_optional_energy_source_step_is_complete_in_every_language(self):
         translation_dir = (
             Path(__file__).parents[1]
@@ -138,6 +155,7 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
         self.flow.config_entry = self.entry
         self.coordinator = SimpleNamespace(
             authorization=self.auth.LocalAuthorization(),
+            connected=True,
             async_set_updated_data=lambda _: None,
         )
         self.updates = []
@@ -174,7 +192,7 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['step_id'], 'init')
         self.assertEqual(
             result['menu_options'],
-            ['general', 'energy_sources', 'site_accounting', 'authorization', 'confirm_ap_mode'],
+            ['general', 'energy_sources', 'site_accounting', 'authorization', 'learn_rfid', 'confirm_ap_mode'],
         )
         general = await self.flow.async_step_general()
         field_names = {marker.schema for marker in general['data_schema'].schema}
@@ -363,6 +381,94 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
                         self.assertEqual(set(translated), set(options))
                         self.assertTrue(all(translated.values()))
         self.assertEqual(self.updates, [])
+
+    async def test_learn_rejected_card_confirms_name_without_changing_permissions(self):
+        await self.flow.async_step_authorization({
+            'restrict_authorization': True, 'allow_ha_remote_start': False,
+            'authorized_id_tags': 'OLD | Existing card',
+        })
+        self.updates.clear()
+        form = await self.flow.async_step_learn_rfid()
+        self.assertEqual(form['step_id'], 'learn_rfid')
+        self.other_coordinator.authorization.decide('OTHER', 'Authorize', 'now')
+        waiting = await self.flow.async_step_learn_rfid({})
+        self.assertEqual(waiting['errors'], {'base': 'rfid_not_seen'})
+        runtime = self.coordinator.authorization
+        self.assertEqual(runtime.decide('00AbC', 'Authorize', 'now'), 'Invalid')
+        runtime.decide('SECOND', 'Authorize', 'now')
+        confirmation = await self.flow.async_step_learn_rfid({})
+        self.assertEqual(confirmation['step_id'], 'confirm_rfid')
+        self.assertEqual(confirmation['description_placeholders']['id_tag'], '00AbC')
+        self.assertEqual(self.updates, [])
+        self.assertEqual(runtime.policy.status('00AbC'), 'Invalid')
+        invalid = await self.flow.async_step_confirm_rfid({'alias': 'x' * 81})
+        self.assertEqual(invalid['errors'], {'base': 'invalid_rfid_alias'})
+        self.assertEqual(self.updates, [])
+        result = await self.flow.async_step_confirm_rfid({'alias': 'Family car'})
+        self.assertEqual(result['data'], {})
+        self.assertEqual(runtime.policy.status('00AbC'), 'Accepted')
+        self.assertEqual(runtime.policy.status('SECOND'), 'Invalid')
+        self.assertEqual(runtime.policy.aliases, {'OLD': 'Existing card', '00AbC': 'Family car'})
+        self.assertFalse(runtime.policy.allow_ha_remote_start)
+        self.assertTrue(runtime.policy.restricted)
+        self.assertEqual(self.entry.data['location'], 'Test location')
+        self.assertEqual(self.other_coordinator.authorization.policy.id_tags, set())
+        self.assertIsNone(self.flow._rfid_session.id_tag)
+        reopened = await self.flow.async_step_authorization()
+        self.assertEqual(reopened['data_schema']({})['authorized_id_tags'],
+                         '00AbC | Family car\nOLD | Existing card')
+
+    async def test_learning_timeout_and_disconnect_never_save(self):
+        await self.flow.async_step_learn_rfid()
+        self.coordinator.authorization.decide('SECRET', 'Authorize', 'now')
+        self.flow._rfid_session.expires_at = 0
+        expired = await self.flow.async_step_learn_rfid({})
+        self.assertEqual(expired, {'type': 'abort', 'reason': 'rfid_learning_expired'})
+        self.assertIsNone(self.flow._rfid_session.id_tag)
+        self.assertEqual(self.updates, [])
+        self.flow._rfid_session = None
+        await self.flow.async_step_learn_rfid()
+        self.coordinator.authorization.decide('SECRET', 'Authorize', 'now')
+        self.coordinator.connected = False
+        result = await self.flow.async_step_confirm_rfid({'alias': 'Never saved'})
+        self.assertEqual(result, {'type': 'abort', 'reason': 'rfid_charger_unavailable'})
+        self.assertIsNone(self.flow._rfid_session.id_tag)
+        self.assertEqual(self.updates, [])
+
+    async def test_learning_requires_loaded_connected_entry(self):
+        self.flow.hass.data = {}
+        result = await self.flow.async_step_learn_rfid()
+        self.assertEqual(result, {'type': 'abort', 'reason': 'rfid_charger_unavailable'})
+
+    async def test_learning_does_not_overwrite_newer_policy_or_use_reloaded_runtime(self):
+        await self.flow.async_step_learn_rfid()
+        self.coordinator.authorization.decide('NEW', 'Authorize', 'now')
+        policy = self.auth.policy_from_input(self.auth.AuthorizationPolicy(), {
+            'restrict_authorization': True, 'allow_ha_remote_start': False,
+            'authorized_id_tags': 'CONCURRENT | Saved elsewhere',
+        })
+        self.entry.data['local_authorization'] = policy.as_config()
+        await self.flow.async_step_confirm_rfid({'alias': 'New card'})
+        self.assertEqual(self.coordinator.authorization.policy.id_tags, {'NEW', 'CONCURRENT'})
+        self.assertFalse(self.coordinator.authorization.policy.allow_ha_remote_start)
+        self.flow._rfid_session = None
+        await self.flow.async_step_learn_rfid()
+        previous = self.coordinator.authorization
+        previous.decide('NEVER-SAVE', 'Authorize', 'now')
+        self.coordinator.authorization = self.auth.LocalAuthorization()
+        self.updates.clear()
+        result = await self.flow.async_step_confirm_rfid({'alias': 'Reloaded'})
+        self.assertEqual(result['reason'], 'rfid_charger_unavailable')
+        self.assertEqual(self.updates, [])
+        self.assertIsNone(self.flow._rfid_session.id_tag)
+
+    async def test_named_allowlist_can_be_edited_offline(self):
+        self.flow.hass.data = {}
+        await self.flow.async_step_authorization({
+            'restrict_authorization': True, 'authorized_id_tags': '00AbC | Family car',
+        })
+        reopened = await self.flow.async_step_authorization()
+        self.assertEqual(reopened['data_schema']({})['authorized_id_tags'], '00AbC | Family car')
 
     async def test_save_preserves_existing_data_and_applies_live(self):
         result = await self.flow.async_step_authorization({

@@ -101,14 +101,16 @@
           "energy_sources": "Optional energy sources",
           "site_accounting": "Site EV accounting",
           "authorization": "Local access control",
-          "confirm_ap_mode": "Maintenance: AP mode"
+          "confirm_ap_mode": "Maintenance: AP mode",
+          "learn_rfid": "Learn RFID card"
         },
         "menu_option_descriptions": {
           "general": "Configure polling and location.",
           "energy_sources": "Configure optional battery flow for cards and charts.",
           "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.",
           "authorization": "Manage RFID access and Home Assistant remote starts separately.",
-          "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant."
+          "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant.",
+          "learn_rfid": "Present a card to add its identifier and an optional name to this wallbox’s allowlist."
         }
       },
       "general": {
@@ -169,7 +171,7 @@
         "data_description": {
           "restrict_authorization": "Enables local checking of physical RFID identifiers. An enabled empty list rejects every card.",
           "allow_ha_remote_start": "Allows starts through HA controls, services, and automations. No technical identifier needs to be added to the RFID list.",
-          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics."
+          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics. One identifier per line, optionally followed by a space, |, a space and a name: 00Ab12 | Family car. Keep case and leading zeroes. Names may contain up to 80 characters. Remove a name by leaving only the identifier; delete the line to remove the card."
         }
       },
       "confirm_charger_mode": {
@@ -184,6 +186,20 @@
         "description": "WARNING: The THOR will go offline and broadcast a WiFi network for direct configuration. This will interrupt the connection with Home Assistant!",
         "data": {
           "confirm": "Yes, enable AP Mode"
+        }
+      },
+      "learn_rfid": {
+        "title": "Learn RFID card",
+        "description": "Present the card at this wallbox within two minutes, then select Submit. Only the next card is captured. Existing access rules still apply: a rejected card can be learned, but is not allowed until you confirm. The wallbox must send the card to Home Assistant; use Home Assistant / RFID mode if RFID-only mode does not report it."
+      },
+      "confirm_rfid": {
+        "title": "Confirm RFID card",
+        "description": "Detected identifier: {id_tag}. Add an optional name and select Submit to save this card. Existing access settings stay as they are. Learning expires two minutes after it starts.",
+        "data": {
+          "alias": "Card name (optional)"
+        },
+        "data_description": {
+          "alias": "Up to 80 characters, for example “Family car”. Names help identify sessions in CSV files."
         }
       }
     },
@@ -206,12 +222,17 @@
       "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
       "invalid_battery_power_sign": "Choose whether a positive sensor value means battery charging or discharging.",
       "poll_interval_too_low": "Poll interval must be at least {min_interval} seconds",
-      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
+      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
+      "rfid_not_seen": "No card received yet. Present it at this wallbox, then select Submit again.",
+      "invalid_rfid_alias": "Use a name of at most 80 printable characters without line breaks."
     },
     "abort": {
       "ap_mode_activated": "✅ AP Mode activated! THOR is broadcasting a WiFi network. Look for SSID with THOR Serialnumber in it.",
       "ap_mode_failed": "❌ Failed to activate AP Mode. Check logs for details.",
-      "charger_mode_changed": "✅ Charger mode changed. The THOR will reboot. Re-plug the EV if needed."
+      "charger_mode_changed": "✅ Charger mode changed. The THOR will reboot. Re-plug the EV if needed.",
+      "rfid_learning_expired": "Learning expired. Open Learn RFID card again and present the card within two minutes.",
+      "rfid_learning_busy": "Another dialog is already learning a card for this wallbox. Finish it or wait two minutes.",
+      "rfid_charger_unavailable": "This wallbox must be connected to learn a card. Reconnect it and open Learn RFID card again."
     }
   },
   "exceptions": {

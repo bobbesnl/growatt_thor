@@ -96,8 +96,22 @@
       "init": {
         "title": "Growatt THOR beállítások",
         "description": "Válaszd ki a beállítandó területet. Az opcionális energiaforrások csak a megjelenítést szolgálják.",
-        "menu_options": {"general": "Általános beállítások", "energy_sources": "Opcionális energiaforrások", "site_accounting": "Site EV accounting", "authorization": "Helyi hozzáférés-vezérlés", "confirm_ap_mode": "Karbantartás: AP mód"},
-        "menu_option_descriptions": {"general": "A lekérdezési időköz és a hely beállítása.", "energy_sources": "Opcionális akkumulátoráramlás beállítása a kártyákhoz és diagramokhoz.", "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.", "authorization": "Az RFID-hozzáférés és a Home Assistant-indítások külön kezelése.", "confirm_ap_mode": "A töltő beállítási Wi-Fi-jének engedélyezése; a Home Assistant kapcsolata megszakad."}
+        "menu_options": {
+          "general": "Általános beállítások",
+          "energy_sources": "Opcionális energiaforrások",
+          "site_accounting": "Site EV accounting",
+          "authorization": "Helyi hozzáférés-vezérlés",
+          "confirm_ap_mode": "Karbantartás: AP mód",
+          "learn_rfid": "RFID-kártya betanítása"
+        },
+        "menu_option_descriptions": {
+          "general": "A lekérdezési időköz és a hely beállítása.",
+          "energy_sources": "Opcionális akkumulátoráramlás beállítása a kártyákhoz és diagramokhoz.",
+          "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.",
+          "authorization": "Az RFID-hozzáférés és a Home Assistant-indítások külön kezelése.",
+          "confirm_ap_mode": "A töltő beállítási Wi-Fi-jének engedélyezése; a Home Assistant kapcsolata megszakad.",
+          "learn_rfid": "Tartson oda egy kártyát, hogy az azonosítója és egy választható név bekerüljön a töltő engedélylistájába."
+        }
       },
       "general": {
         "title": "Általános beállítások",
@@ -157,7 +171,7 @@
         "data_description": {
           "restrict_authorization": "Enables local checking of physical RFID identifiers. An enabled empty list rejects every card.",
           "allow_ha_remote_start": "Allows starts through HA controls, services, and automations. No technical identifier needs to be added to the RFID list.",
-          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics."
+          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics. Soronként egy azonosító, utána opcionálisan szóköz, |, szóköz és név: 00Ab12 | Családi autó. Őrizze meg a kis- és nagybetűket és a kezdő nullákat. A név legfeljebb 80 karakter. A név törléséhez csak az azonosítót hagyja meg; a kártya törléséhez törölje a sort."
         }
       },
       "confirm_charger_mode": {
@@ -172,6 +186,20 @@
         "description": "FIGYELEM: a THOR kapcsolat nélküli állapotba kerül, és Wi-Fi-hálózatot sugároz a közvetlen konfiguráláshoz. Ez megszakítja a Home Assistant kapcsolatát.",
         "data": {
           "confirm": "Igen, az AP mód engedélyezése"
+        }
+      },
+      "learn_rfid": {
+        "title": "RFID-kártya betanítása",
+        "description": "Tartsa a kártyát ehhez a töltőhöz két percen belül, majd válassza a Küldés gombot. Csak a következő kártyát rögzítjük. A meglévő hozzáférési szabályok érvényben maradnak: elutasított kártya is betanítható, de csak jóváhagyás után engedélyezett. A töltőnek továbbítania kell a kártyát a Home Assistant felé; ha a Csak RFID mód nem továbbítja, használja a Home Assistant / RFID módot."
+      },
+      "confirm_rfid": {
+        "title": "RFID-kártya jóváhagyása",
+        "description": "Észlelt azonosító: {id_tag}. Adjon meg egy választható nevet, majd mentse a Küldés gombbal. A hozzáférési beállítások változatlanok maradnak. A betanítás az indítástól számított két perc után lejár.",
+        "data": {
+          "alias": "Kártyanév (választható)"
+        },
+        "data_description": {
+          "alias": "Legfeljebb 80 karakter, például „Családi autó”. A név segít a CSV-fájlok munkameneteinek azonosításában."
         }
       }
     },
@@ -194,12 +222,17 @@
       "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
       "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "A lekérdezési időköz legalább {min_interval} másodperc legyen",
-      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds"
+      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
+      "rfid_not_seen": "Még nem érkezett kártya. Tartsa ehhez a töltőhöz, majd válassza újra a Küldés gombot.",
+      "invalid_rfid_alias": "Legfeljebb 80 nyomtatható karakterből álló nevet adjon meg sortörés nélkül."
     },
     "abort": {
       "ap_mode_activated": "✅ Az AP mód aktiválva. A THOR Wi-Fi-hálózatot sugároz. Keresse azt az SSID-t, amely tartalmazza a THOR sorozatszámát.",
       "ap_mode_failed": "❌ Az AP mód aktiválása sikertelen. További részletekért ellenőrizze a naplókat.",
-      "charger_mode_changed": "✅ A töltő üzemmódja megváltozott. A THOR újraindul. Szükség esetén csatlakoztassa újra a járművet."
+      "charger_mode_changed": "✅ A töltő üzemmódja megváltozott. A THOR újraindul. Szükség esetén csatlakoztassa újra a járművet.",
+      "rfid_learning_expired": "A betanítás lejárt. Nyissa meg újra az RFID-kártya betanítását, és tartsa oda a kártyát két percen belül.",
+      "rfid_learning_busy": "Egy másik ablak már kártyát tanít ehhez a töltőhöz. Fejezze be, vagy várjon két percet.",
+      "rfid_charger_unavailable": "A kártya betanításához a töltőnek csatlakoznia kell. Csatlakoztassa, majd nyissa meg újra a betanítást."
     }
   },
   "exceptions": {

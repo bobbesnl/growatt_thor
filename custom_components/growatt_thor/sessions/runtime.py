@@ -96,6 +96,7 @@ class SessionLifecycle:
             {
                 "transaction_id": transaction_id,
                 "id_tag": request.get("id_tag") or coordinator.id_tag,
+                "id_tag_alias": transaction.get("id_tag_alias"),
                 "start_received_at": start.get("received_at"),
                 "start_timestamp": request.get("timestamp"),
                 "connector_id": request.get("connector_id"),
@@ -141,6 +142,7 @@ class SessionLifecycle:
             energy_flowing=state.energy_flowing,
         )
         coordinator.active_transaction = {
+            "id_tag_alias": state.id_tag_alias,
             "start": {
                 "received_at": state.start_received_at,
                 "request": request,
@@ -214,6 +216,7 @@ class SessionLifecycle:
         )
         coordinator._pending_plugged_event = None
         coordinator.active_transaction = {
+            "id_tag_alias": coordinator.authorization.policy.aliases.get(id_tag),
             "start": start_snapshot,
             "events": coordinator._session_event_tracker.events,
         }
@@ -543,6 +546,9 @@ class SessionLifecycle:
                     "session_id": coordinator.last_session_id,
                     "session_source": coordinator.last_session_source,
                     "authorized_identifier": authorized_identifier or "",
+                    "authorized_alias": (
+                        (completed_transaction or {}).get("id_tag_alias") or ""
+                    ) if matched else "",
                     **(accounting.as_session_dict() if accounting else {"green_energy_kwh": ""}),
                     "power_curve": json.dumps(
                         (completed_transaction or {}).get("power_curve", [])

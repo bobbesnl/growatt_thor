@@ -132,6 +132,29 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
             result = await self.request('Authorize', {'idTag': tag})
             self.assertEqual(result['idTagInfo']['status'], expected)
 
+    async def test_learning_captures_rejected_wire_identifier_without_logging_or_granting_it(self):
+        self.restrict('OLD | Existing')
+        learning = self.coordinator.authorization.learning
+        session = learning.begin()
+        with self.assertLogs(server.__name__, level='DEBUG') as logs:
+            result = await self.request('Authorize', {'idTag': '00SecretAbC'})
+        self.assertEqual(result['idTagInfo']['status'], 'Invalid')
+        self.assertEqual(learning.identifier(session), '00SecretAbC')
+        self.assertNotIn('00SecretAbC', '\n'.join(logs.output))
+        self.assertNotIn('00SecretAbC', json.dumps(self.coordinator.authorization.diagnostics()))
+        self.assertEqual((await self.start('00SecretAbC'))['idTagInfo']['status'], 'Invalid')
+        self.coordinator.authorization.policy = self.coordinator.authorization.policy.with_card('00SecretAbC', 'Family car')
+        learning.cancel(session)
+        self.assertEqual((await self.request('Authorize', {'idTag': '00SecretAbC'}))['idTagInfo']['status'], 'Accepted')
+
+    async def test_superseded_connection_cannot_supply_learned_card(self):
+        session = self.coordinator.authorization.learning.begin()
+        self.coordinator.runtime_data['charge_point'] = object()
+        await self.cp.route_message(json.dumps([2, 'stale-message', 'Authorize', {'idTag': 'OLD-SOCKET'}]))
+        self.assertEqual(self.ws.sent, [])
+        self.assertIsNone(self.coordinator.authorization.learning.identifier(session))
+        self.coordinator.authorization.learning.cancel(session)
+
     async def test_direct_start_denied_but_transaction_retained(self):
         self.restrict()
         result = await self.start('UNKNOWN-CARD')

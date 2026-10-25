@@ -96,8 +96,22 @@
       "init": {
         "title": "Growatt THOR Opties",
         "description": "Kies welk onderdeel je wilt configureren. Optionele energiebronnen worden alleen voor visualisatie gebruikt.",
-        "menu_options": {"general": "Algemene instellingen", "energy_sources": "Optionele energiebronnen", "site_accounting": "Site EV accounting", "authorization": "Lokale toegangscontrole", "confirm_ap_mode": "Onderhoud: AP-modus"},
-        "menu_option_descriptions": {"general": "Configureer het pollinginterval en de locatie.", "energy_sources": "Configureer optionele batterijstroom voor kaarten en grafieken.", "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.", "authorization": "Beheer RFID-toegang en starts vanuit Home Assistant afzonderlijk.", "confirm_ap_mode": "Schakel de configuratie-wifi van de lader in; Home Assistant wordt hierbij losgekoppeld."}
+        "menu_options": {
+          "general": "Algemene instellingen",
+          "energy_sources": "Optionele energiebronnen",
+          "site_accounting": "Site EV accounting",
+          "authorization": "Lokale toegangscontrole",
+          "confirm_ap_mode": "Onderhoud: AP-modus",
+          "learn_rfid": "RFID-kaart inleren"
+        },
+        "menu_option_descriptions": {
+          "general": "Configureer het pollinginterval en de locatie.",
+          "energy_sources": "Configureer optionele batterijstroom voor kaarten en grafieken.",
+          "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.",
+          "authorization": "Beheer RFID-toegang en starts vanuit Home Assistant afzonderlijk.",
+          "confirm_ap_mode": "Schakel de configuratie-wifi van de lader in; Home Assistant wordt hierbij losgekoppeld.",
+          "learn_rfid": "Houd een kaart voor om de code en een optionele naam aan de toegangslijst van deze lader toe te voegen."
+        }
       },
       "general": {
         "title": "Algemene instellingen",
@@ -157,7 +171,7 @@
         "data_description": {
           "restrict_authorization": "Enables local checking of physical RFID identifiers. An enabled empty list rejects every card.",
           "allow_ha_remote_start": "Allows starts through HA controls, services, and automations. No technical identifier needs to be added to the RFID list.",
-          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics."
+          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics. Eén code per regel, eventueel gevolgd door een spatie, |, een spatie en een naam: 00Ab12 | Gezinsauto. Behoud hoofdletters en voorloopnullen. Namen mogen maximaal 80 tekens bevatten. Laat alleen de code staan om de naam te verwijderen; verwijder de regel om de kaart te verwijderen."
         }
       },
       "confirm_charger_mode": {
@@ -172,6 +186,20 @@
         "description": "WAARSCHUWING: De THOR gaat offline en zendt een WiFi netwerk uit voor directe configuratie. Dit onderbreekt de verbinding met Home Assistant!",
         "data": {
           "confirm": "Ja, activeer AP Mode"
+        }
+      },
+      "learn_rfid": {
+        "title": "RFID-kaart inleren",
+        "description": "Houd de kaart binnen twee minuten bij deze lader en kies daarna Verzenden. Alleen de volgende kaart wordt vastgelegd. De bestaande toegangsregels blijven gelden: ook een geweigerde kaart kan worden ingeleerd, maar wordt pas na bevestiging toegestaan. De lader moet de kaart naar Home Assistant sturen; gebruik Home Assistant / RFID als Alleen RFID niets doorgeeft."
+      },
+      "confirm_rfid": {
+        "title": "RFID-kaart bevestigen",
+        "description": "Ontvangen code: {id_tag}. Geef eventueel een naam op en kies Verzenden om de kaart op te slaan. De bestaande toegangsinstellingen blijven behouden. Het inleren verloopt twee minuten na de start.",
+        "data": {
+          "alias": "Kaartnaam (optioneel)"
+        },
+        "data_description": {
+          "alias": "Maximaal 80 tekens, bijvoorbeeld “Gezinsauto”. De naam helpt sessies in CSV-bestanden te herkennen."
         }
       }
     },
@@ -194,12 +222,17 @@
       "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
       "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn",
-      "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn"
+      "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn",
+      "rfid_not_seen": "Nog geen kaart ontvangen. Houd deze bij deze lader en kies opnieuw Verzenden.",
+      "invalid_rfid_alias": "Gebruik een naam van maximaal 80 afdrukbare tekens zonder regeleinden."
     },
     "abort": {
       "ap_mode_activated": "✅ AP Mode geactiveerd! THOR zendt nu een WiFi netwerk uit. Zoek naar het SSID met daarin het serienummer van de THOR",
       "ap_mode_failed": "❌ AP Mode activeren mislukt. Controleer de logs.",
-      "charger_mode_changed": "✅ Oplaadmodus gewijzigd. De THOR herstart. Plug de EV indien nodig opnieuw in."
+      "charger_mode_changed": "✅ Oplaadmodus gewijzigd. De THOR herstart. Plug de EV indien nodig opnieuw in.",
+      "rfid_learning_expired": "Het inleren is verlopen. Open RFID-kaart inleren opnieuw en houd de kaart binnen twee minuten voor.",
+      "rfid_learning_busy": "Een ander venster leert al een kaart voor deze lader in. Rond dit af of wacht twee minuten.",
+      "rfid_charger_unavailable": "Deze lader moet verbonden zijn om een kaart in te leren. Verbind deze en open RFID-kaart inleren opnieuw."
     }
   },
   "exceptions": {
