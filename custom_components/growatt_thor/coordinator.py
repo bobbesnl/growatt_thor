@@ -1655,6 +1655,18 @@ class GrowattCoordinator(DataUpdateCoordinator):
         transaction_id=None,
     ):
         """Retain all MeterValues samples and update known live sensors."""
+        if transaction_id is not None:
+            active_id = self.transaction_id
+            if active_id is None:
+                # Reconnect recovery requires a charging observation; late
+                # telemetry alone cannot resurrect an ended transaction.
+                if normalize_ocpp_status(self.status) not in {"charging", "suspended_ev", "suspended_evse"}:
+                    return
+                self.transaction_id = transaction_id
+                self._schedule_storage_save()
+            elif str(transaction_id) != str(active_id):
+                _LOGGER.info("Ignoring MeterValues for inactive transaction %s", transaction_id)
+                return
         parsed_values = parse_meter_values(
             meter_values,
             time_zone=getattr(getattr(self.hass, "config", None), "time_zone", None),

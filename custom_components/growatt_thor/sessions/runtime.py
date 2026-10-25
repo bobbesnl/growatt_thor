@@ -237,6 +237,12 @@ class SessionLifecycle:
         stopped_transaction_id = (
             coordinator.transaction_id if transaction_id is None else transaction_id
         )
+        # A delayed or repeated stop must never close a newer session or
+        # replace its retained completion details. The protocol still ACKs it.
+        active_id = coordinator.transaction_id
+        if active_id is None or str(stopped_transaction_id) != str(active_id):
+            _LOGGER.info("Ignoring StopTransaction for inactive transaction %s", stopped_transaction_id)
+            return
         _LOGGER.info(
             "Transaction stopped: %s (reason=%s)",
             stopped_transaction_id,

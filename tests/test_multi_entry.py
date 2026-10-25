@@ -373,3 +373,49 @@ class PerEntryWiringSourceTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TransactionBindingTest(unittest.IsolatedAsyncioTestCase):
+    def make_coordinator(self):
+        c = _build_coordinator()
+        c.hass.async_create_task = lambda coro: coro.close()
+        c._schedule_storage_save = lambda: None
+        c.start_transaction(42, id_tag="private", meter_start=0)
+        return c
+
+    async def test_foreign_and_duplicate_stops_preserve_session(self):
+        c = self.make_coordinator()
+        active = c.active_transaction
+        c.stop_transaction(transaction_id=41, meter_stop=100)
+        self.assertIs(c.active_transaction, active)
+        self.assertEqual(c.transaction_id, 42)
+        c.stop_transaction(transaction_id=42, meter_stop=200)
+        completed = c.last_completed_transaction
+        c.stop_transaction(transaction_id=42, meter_stop=200)
+        c.stop_transaction(transaction_id=999, meter_stop=300)
+        self.assertIs(c.last_completed_transaction, completed)
+        c.start_transaction(43, meter_start=200)
+        c.stop_transaction(transaction_id=42, meter_stop=200)
+        self.assertEqual(c.transaction_id, 43)
+
+    async def test_stale_meter_values_do_not_replace_or_resurrect_transaction(self):
+        c = self.make_coordinator()
+        c.process_meter_values([], transaction_id=41)
+        self.assertEqual(c.transaction_id, 42)
+        self.assertIsNone(c.last_meter_values)
+        c.stop_transaction(transaction_id=42)
+        c.process_meter_values([], transaction_id=42)
+        self.assertIsNone(c.transaction_id)
+        self.assertFalse(c.transaction_is_active)
+
+    async def test_reconnect_recovers_id_only_after_charging_status(self):
+        c = self.make_coordinator()
+        c.transaction_id = None
+        c.active_transaction = None
+        c.status = "Available"
+        c.process_meter_values([], transaction_id=42)
+        self.assertIsNone(c.transaction_id)
+        c.status = "Charging"
+        c.process_meter_values([], transaction_id=42)
+        self.assertEqual(c.transaction_id, 42)
+        self.assertEqual(c.last_meter_values["transaction_id"], 42)

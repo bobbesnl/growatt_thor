@@ -423,11 +423,6 @@ class GrowattChargePoint(OcppChargePoint):
             return call_result.MeterValues()
         try:
             transaction_id = kwargs.get('transaction_id')
-            if transaction_id is not None:
-                if self.coordinator.transaction_id != transaction_id:
-                    self.coordinator.transaction_id = transaction_id
-                    _LOGGER.info("✅ Transaction ID captured from MeterValues: %s", transaction_id)
-                    self.coordinator.async_set_updated_data(True)
             self.coordinator.process_meter_values(
                 meter_value,
                 connector_id=connector_id,
