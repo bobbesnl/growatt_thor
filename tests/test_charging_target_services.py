@@ -282,6 +282,33 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(RuntimeError, "not_authorized"):
             await self.start()
 
+    async def test_restart_normalizes_every_incomplete_write_state(self):
+        for state in ("queued", "reservation_queued", "sending_reservation", "sending_target", "target_accepted", "sending_start", "cancellation_queued", "sending_cancellation"):
+            with self.subTest(state=state):
+                Store.retained = {"request_id": "pending", "state": state}
+                await self.module.async_setup_target_services(self.hass, SimpleNamespace(entry_id="TEST"), self.coordinator)
+                self.assertEqual(Store.retained["state"], "outcome_unknown")
+                await self.hass.services.invoke("acknowledge_target_reset", entry_id="TEST", confirm_native_target_reset=True)
+                self.assertIsNone(Store.retained)
+                self.assertFalse(self.queue)
+
+    async def test_unexecuted_queue_completion_releases_busy(self):
+        queue_module = importlib.import_module("thor_target_service_test.runtime.write_queue")
+        for cancellation in (False, True):
+            for status in (queue_module.ChargerCommandStatus.SKIPPED, queue_module.ChargerCommandStatus.EXPIRED):
+                with self.subTest(cancellation=cancellation, status=status):
+                    instance = self.runtime.ChargingTargetRuntime(self.hass, SimpleNamespace(entry_id="TEST"), self.coordinator)
+                    instance._busy = True
+                    self.coordinator.charging_target_request = {"request_id": "pending", "state": "cancellation_queued" if cancellation else "queued"}
+                    handle = queue_module.create_command_handle()
+                    self.coordinator.queue_write = AsyncMock(return_value=handle)
+                    await instance.enqueue(AsyncMock(), "pending")
+                    handle._completion.set_result(SimpleNamespace(status=status))
+                    await asyncio.sleep(0)
+                    await asyncio.sleep(0)
+                    self.assertFalse(instance._busy)
+                    self.assertEqual(self.coordinator.charging_target_request["state"], "outcome_unknown" if cancellation else "blocked_before_target")
+
     async def test_restart_restores_uncertain_request_without_replaying(self):
         await self.start()
         await self.module.async_setup_target_services(

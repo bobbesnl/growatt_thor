@@ -34,6 +34,7 @@ from .model import (
 )
 from ..configuration.values import configuration_entity_state
 from ..const import DOMAIN
+from ..runtime.write_queue import ChargerCommandStatus
 from ..ocpp.diagnostics import boot_notification_field
 
 if TYPE_CHECKING:
@@ -157,15 +158,52 @@ class ChargingTargetRuntime:
                     {**retained, "state": "scheduled_missed", "updated_at": self.coordinator.now()}
                 )
         elif isinstance(retained, dict) and retained.get("state") in {
+            "queued",
             "reservation_queued",
             "sending_reservation",
             "sending_target",
+            "target_accepted",
+            "sending_start",
+            "cancellation_queued",
+            "sending_cancellation",
         }:
             # HA may have stopped after sending but before saving the reply.
             # Replaying a native target could change the charger twice; retain doubt.
             await self.persist(
                 {**retained, "state": "outcome_unknown", "updated_at": self.coordinator.now()}
             )
+
+    async def enqueue(self, operation, request_id: str) -> None:
+        """Release busy and reconcile requests the shared queue never executes."""
+        started = False
+
+        async def execute():
+            nonlocal started
+            started = True
+            await operation()
+
+        async def reconcile(result):
+            async with self._lock:
+                request = self.coordinator.charging_target_request
+                if not isinstance(request, dict) or request.get("request_id") != request_id:
+                    return
+                self._busy = False
+                # An unsent cancellation leaves a native reservation in place.
+                # Preserve that doubt rather than claiming it was cancelled.
+                state = "outcome_unknown"
+                if request.get("state") != "cancellation_queued" and result.status in {
+                    ChargerCommandStatus.SKIPPED, ChargerCommandStatus.EXPIRED,
+                }:
+                    state = "blocked_before_target"
+                await self.persist({**request, "state": state, "updated_at": self.coordinator.now()})
+
+        def completed(result):
+            if not started:
+                self.hass.async_create_task(reconcile(result))
+
+        handle = await self.coordinator.queue_write(execute)
+        if handle is not None:
+            handle.add_done_callback(completed)
 
     async def persist(self, record: TargetRecord | None) -> None:
         await self._store.async_save(record)
@@ -424,7 +462,7 @@ class ChargingTargetRuntime:
                 self._busy = False
 
         try:
-            await self.coordinator.queue_write(execute)
+            await self.enqueue(execute, request["request_id"])
         except Exception:  # noqa: BLE001 - persist sanitized outcome only
             self._busy = False
             await save("queue_failed")
@@ -539,7 +577,7 @@ class ChargingTargetRuntime:
                 self._busy = False
 
         try:
-            await self.coordinator.queue_write(execute)
+            await self.enqueue(execute, request["request_id"])
         except Exception:  # noqa: BLE001 - retained state explains uncertainty
             self._busy = False
             await save("queue_failed")
@@ -626,7 +664,7 @@ class ChargingTargetRuntime:
                 self._busy = False
 
         try:
-            await self.coordinator.queue_write(execute)
+            await self.enqueue(execute, request["request_id"])
         except Exception:  # noqa: BLE001 - persist sanitized outcome only
             self._busy = False
             await save("queue_failed")
@@ -696,7 +734,7 @@ class ChargingTargetRuntime:
                 self._busy = False
 
         try:
-            await self.coordinator.queue_write(execute_cancel)
+            await self.enqueue(execute_cancel, request["request_id"])
         except Exception:  # noqa: BLE001
             self._busy = False
             await self.persist({**request, "state": "queue_failed"})
