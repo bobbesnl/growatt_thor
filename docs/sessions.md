@@ -218,3 +218,11 @@ together when backing up or restoring. Existing stores without these new
 fields continue to load. Missing historical accounting values remain unknown.
 
 The [architecture reference](architecture.md#persistent-completion) explains the checkpoint, outbox and recovery journal.
+
+
+CSV download links use a random token and expire after 15 minutes (cleanup runs
+once per minute and resumes after an HA restart). Anyone holding the link can
+download it during that period; treat it as private. Exports may contain RFID
+identifiers and location. Spreadsheet formula prefixes are escaped only in the
+export, preserving the original retained history. Exports from older releases
+are also removed once expired.

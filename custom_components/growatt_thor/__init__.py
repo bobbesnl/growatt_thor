@@ -55,6 +55,7 @@ from .runtime.services import (
     IntegrationServiceOperations,
     ManualRefreshFailed,
 )
+from .sessions.exports import new_export_path, ensure_export_cleanup
 from .sessions.csv import (
     append_session_row,
     dashboard_session_data,
@@ -373,10 +374,8 @@ def _register_services(hass: HomeAssistant) -> None:
             raise_action_validation("invalid_export_date")
 
         source_path = _get_session_log_path(hass)
-        export_filename = (
-            f"growatt_thor_export_{date_from_str}_{date_to_str}.csv"
-        )
-        export_path = hass.config.path("www", export_filename)
+        export_path = new_export_path(hass.config.path("www"))
+        export_filename = export_path.name
         target_key = str(Path(export_path).resolve())
 
         async def _export_and_notify() -> int:
@@ -388,15 +387,16 @@ def _register_services(hass: HomeAssistant) -> None:
                     date_to=date_to,
                 )
 
+            ensure_export_cleanup(hass)
             count = await hass.async_add_executor_job(_export)
             pn_create(
                 hass,
                 (
-                    f"Export klaar: **{count} sessies** van "
-                    f"{date_from_str} t/m {date_to_str}\n\n"
+                    f"Export ready: **{count} sessions** from "
+                    f"{date_from_str} to {date_to_str}. Link expires in 15 minutes.\n\n"
                     f"[⬇️ Download CSV](/local/{export_filename})"
                 ),
-                title="Growatt THOR sessie-export",
+                title="Growatt THOR session export",
                 notification_id=(
                     f"growatt_thor_export_{date_from_str}_{date_to_str}"
                 ),
@@ -438,6 +438,7 @@ def _register_services(hass: HomeAssistant) -> None:
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register integration-level services independently from config entries."""
     _register_services(hass)
+    ensure_export_cleanup(hass)
     from .presentation.frontend import async_register_frontend
     from .charging.pv_service import async_register_pv_linkage_service
     from .targets.services import async_register_target_services

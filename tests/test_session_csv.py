@@ -380,6 +380,22 @@ class SessionCsvTest(unittest.TestCase):
             self.assertEqual(rows[0]["start_time"], "2026-08-24 10:00:00")
             self.assertTrue(rows[0]["session_id"].startswith("legacy-"))
 
+    def test_export_escapes_formulas_without_modifying_history(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "sessions.csv"
+            target = Path(directory) / "export.csv"
+            values = ["=1+1", "+cmd", "-1+2", "@SUM(A1)", "\tformula", "\rformula"]
+            with source.open("w", newline="", encoding="utf-8") as stream:
+                writer = csv.DictWriter(stream, fieldnames=session_csv.SESSION_LOG_HEADERS)
+                writer.writeheader()
+                for value in values:
+                    writer.writerow(_row(start_time="2026-08-24 10:00:00", location=value))
+            before = source.read_bytes()
+            session_csv.export_session_rows(source, target, date_from=datetime(2026, 8, 24), date_to=datetime(2026, 8, 25))
+            with target.open(newline="", encoding="utf-8") as stream:
+                self.assertEqual([row["location"] for row in csv.DictReader(stream)], ["'" + value for value in values])
+            self.assertEqual(source.read_bytes(), before)
+
     def test_export_without_source_still_creates_complete_empty_csv(self):
         with tempfile.TemporaryDirectory() as directory:
             source_path = Path(directory) / "missing.csv"

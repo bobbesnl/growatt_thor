@@ -661,7 +661,10 @@ def export_session_rows(
                 extrasaction="ignore",
             )
             writer.writeheader()
-            writer.writerows(rows)
+            writer.writerows(
+                {key: sanitize_export_cell(value) for key, value in row.items()}
+                for row in rows
+            )
             temporary.flush()
             os.fsync(temporary.fileno())
         os.replace(temporary_path, target)
@@ -670,3 +673,10 @@ def export_session_rows(
             temporary_path.unlink()
 
     return len(rows)
+
+
+def sanitize_export_cell(value: Any) -> Any:
+    """Keep spreadsheet applications from treating user data as formulas."""
+    if isinstance(value, str) and value.startswith(("=", "+", "-", "@", "\t", "\r", "\n")):
+        return "'" + value
+    return value
