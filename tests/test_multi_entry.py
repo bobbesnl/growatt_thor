@@ -98,7 +98,7 @@ def _build_coordinator(store=None, legacy_store=None, entry_id="entry_test"):
     coordinator.runtime_data = {}
     coordinator.source_instance_id = entry_id
     coordinator.connected = True
-    coordinator._connection_changed = asyncio.Event()
+    coordinator._connection_changed.clear()
     coordinator.charge_point_id = "XGJ0000000000001"
     coordinator.status = None
     coordinator.power = None

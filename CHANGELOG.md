@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Move charger-write execution into a dedicated per-entry queue owner with
+  typed pending entries, preserving command ordering, reconnect policies,
+  completion results and the coordinator's existing caller API.
 - The status sensor now reports `offline` when its wallbox connection is lost
   and retains the card data and session history. Automations that previously
   tested this sensor for `unavailable` must also handle `offline`. Other sensor

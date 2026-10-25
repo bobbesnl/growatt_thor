@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import ast
 import asyncio
-from collections import deque
 import importlib.util
 from pathlib import Path
 import sys
@@ -76,21 +75,14 @@ def _build_coordinator(loop):
     # The coordinator reads its active connection and poll pause from its own
     # per-entry runtime mapping, never from a domain-global slot.
     coordinator.runtime_data = {}
-    coordinator._write_queue = deque()
-    coordinator._write_lock = asyncio.Lock()
-    coordinator._write_task = None
-    coordinator._write_queue_changed = asyncio.Event()
-    coordinator._write_queue_idle = asyncio.Event()
-    coordinator._write_queue_idle.set()
     coordinator._connection_changed = asyncio.Event()
     coordinator._connection_changed.set()
-    coordinator._active_write_item = None
+    coordinator.write_queue = coordinator_module.ChargerWriteQueue(coordinator, coordinator._connection_changed)
     coordinator._shutting_down = False
     coordinator._configuration_refresh_task = None
     coordinator._auto_charge_schedule_task = None
-    coordinator._last_write_monotonic = None
-    coordinator._min_write_interval = 0.0
-    coordinator._poll_pause_after_write = 0.0
+    coordinator.write_queue.min_write_interval = 0.0
+    coordinator.write_queue.poll_pause_after_write = 0.0
     coordinator.connected = True
     coordinator.configuration_writes = {}
     coordinator.last_command_result = None
@@ -198,7 +190,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         """Create a short-lived policy so timing tests stay fast."""
         if reconnect is None:
             reconnect = (
-                coordinator_module.ChargerWriteReconnectPolicy.RETAIN_UNTIL_EXPIRY
+                write_queue_module.ChargerWriteReconnectPolicy.RETAIN_UNTIL_EXPIRY
             )
         return coordinator_module.ChargerWriteQueuePolicy(
             expires_after=expires_after,
@@ -221,20 +213,20 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         coordinator = _build_coordinator(asyncio.get_running_loop())
 
         async def write():
-            return coordinator_module.ChargerWriteResult.success("Accepted")
+            return write_queue_module.ChargerWriteResult.success("Accepted")
 
         first = await coordinator.queue_write(
             write,
             command_name="FirstCommand",
         )
-        await coordinator._write_task
+        await coordinator.write_queue.task
         result = await first.async_wait(timeout=0.1)
 
         second = await coordinator.queue_write(
             write,
             command_name="SecondCommand",
         )
-        await coordinator._write_task
+        await coordinator.write_queue.task
 
         self.assertNotEqual(first.command_id, second.command_id)
         self.assertEqual(result.command_id, first.command_id)
@@ -259,7 +251,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         async def write():
             started.set()
             await release.wait()
-            return coordinator_module.ChargerWriteResult.success("Accepted")
+            return write_queue_module.ChargerWriteResult.success("Accepted")
 
         handle = await coordinator.queue_write(write)
         await started.wait()
@@ -268,7 +260,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(handle.done)
 
         release.set()
-        await coordinator._write_task
+        await coordinator.write_queue.task
         self.assertEqual(
             (await handle.async_wait(timeout=0.1)).status,
             write_queue_module.ChargerCommandStatus.CONFIRMED,
@@ -278,7 +270,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         coordinator = _build_coordinator(asyncio.get_running_loop())
 
         async def write(value):
-            return coordinator_module.ChargerWriteResult.success(value)
+            return write_queue_module.ChargerWriteResult.success(value)
 
         replaced = await coordinator.queue_write(
             write,
@@ -316,7 +308,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(cancelled_result.reason, "cancelled_by_test")
 
-        await coordinator._write_task
+        await coordinator.write_queue.task
         self.assertEqual(
             (await current.async_wait(timeout=0.1)).status,
             write_queue_module.ChargerCommandStatus.CONFIRMED,
@@ -328,9 +320,9 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         async def fail():
             raise RuntimeError("boom")
 
-        with self.assertLogs(coordinator_module._LOGGER, level="ERROR"):
+        with self.assertLogs("custom_components.growatt_thor", level="ERROR"):
             failed = await coordinator.queue_write(fail)
-            await coordinator._write_task
+            await coordinator.write_queue.task
         self.assertEqual(
             (await failed.async_wait(timeout=0.1)).status,
             write_queue_module.ChargerCommandStatus.FAILED,
@@ -340,7 +332,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             return None
 
         legacy = await coordinator.queue_write(legacy_callback)
-        await coordinator._write_task
+        await coordinator.write_queue.task
         legacy_result = await legacy.async_wait(timeout=0.1)
         self.assertEqual(
             legacy_result.status,
@@ -352,13 +344,13 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         coordinator = _build_coordinator(asyncio.get_running_loop())
 
         async def write():
-            return coordinator_module.ChargerWriteResult.partial(
+            return write_queue_module.ChargerWriteResult.partial(
                 "second_step_rejected"
             )
 
-        with self.assertLogs(coordinator_module._LOGGER, level="ERROR"):
+        with self.assertLogs("custom_components.growatt_thor", level="ERROR"):
             handle = await coordinator.queue_write(write)
-            await coordinator._write_task
+            await coordinator.write_queue.task
         result = await handle.async_wait(timeout=0.1)
 
         self.assertEqual(
@@ -377,7 +369,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             await asyncio.Event().wait()
 
         async def queued_write():
-            return coordinator_module.ChargerWriteResult.success()
+            return write_queue_module.ChargerWriteResult.success()
 
         active = await coordinator.queue_write(
             active_write,
@@ -407,7 +399,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             write_queue_module.ChargerCommandStatus.SKIPPED,
         )
         self.assertEqual(queued_result.reason, "integration_unloaded")
-        self.assertTrue(coordinator._write_queue_idle.is_set())
+        self.assertTrue(coordinator.write_queue.idle.is_set())
 
     async def test_late_enqueue_after_shutdown_is_resolved_without_task(self):
         coordinator = _build_coordinator(asyncio.get_running_loop())
@@ -426,7 +418,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             write_queue_module.ChargerCommandStatus.SKIPPED,
         )
         self.assertEqual(result.reason, "integration_unloaded")
-        self.assertIsNone(coordinator._write_task)
+        self.assertIsNone(coordinator.write_queue.task)
 
     async def test_duplicate_configuration_write_keeps_latest_value(self):
         coordinator = _build_coordinator(asyncio.get_running_loop())
@@ -445,7 +437,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             "new",
             dedupe_key="G_LCDCloseEnable",
         )
-        await coordinator._write_task
+        await coordinator.write_queue.task
 
         self.assertEqual(calls, ["new"])
 
@@ -491,7 +483,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             configuration_key="G_MaxCurrent",
             configuration_generation=new_generation,
         )
-        await coordinator._write_task
+        await coordinator.write_queue.task
 
         tracked = coordinator.configuration_writes["G_MaxCurrent"]
         self.assertEqual(calls, ["17"])
@@ -516,7 +508,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             "G_MaxCurrent",
             "17",
         )
-        with self.assertLogs(coordinator_module._LOGGER, level="WARNING"):
+        with self.assertLogs("custom_components.growatt_thor", level="WARNING"):
             handle = await coordinator.queue_write(
                 write,
                 object(),
@@ -525,7 +517,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
                 configuration_generation=generation,
                 policy=self._policy(0.01),
             )
-            await coordinator._write_task
+            await coordinator.write_queue.task
 
         tracked = coordinator.configuration_writes["G_MaxCurrent"]
         self.assertEqual(calls, [])
@@ -555,7 +547,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
                 accepted=True,
                 result="Accepted",
             )
-            return coordinator_module.ChargerWriteResult.success("Accepted")
+            return write_queue_module.ChargerWriteResult.success("Accepted")
 
         generation = coordinator.begin_configuration_write(
             "G_MaxCurrent",
@@ -571,7 +563,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         await request_started.wait()
         await asyncio.sleep(0.02)
         release_response.set()
-        await coordinator._write_task
+        await coordinator.write_queue.task
 
         self.assertEqual(
             coordinator.configuration_writes["G_MaxCurrent"].status,
@@ -588,7 +580,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
 
         async def write(charge_point):
             calls.append(charge_point)
-            return coordinator_module.ChargerWriteResult.success("Accepted")
+            return write_queue_module.ChargerWriteResult.success("Accepted")
 
         await coordinator.queue_write(
             write,
@@ -603,7 +595,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         ] = current_charge_point
         coordinator.connected = True
         coordinator._connection_changed.set()
-        await coordinator._write_task
+        await coordinator.write_queue.task
 
         self.assertEqual(calls, [current_charge_point])
 
@@ -617,7 +609,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             calls.append(charge_point)
 
         with self.assertLogs(
-            coordinator_module._LOGGER,
+            "custom_components.growatt_thor",
             level="WARNING",
         ) as logs:
             await coordinator.queue_write(
@@ -627,10 +619,10 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
                 command_name="RemoteStartTransaction",
                 policy=self._policy(
                     1.0,
-                    coordinator_module.ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED,
+                    write_queue_module.ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED,
                 ),
             )
-            await coordinator._write_task
+            await coordinator.write_queue.task
 
         self.assertEqual(calls, [])
         self.assertTrue(
@@ -664,13 +656,13 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             command_name="RemoteStartTransaction",
             policy=self._policy(
                 0.01,
-                coordinator_module.ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED,
+                write_queue_module.ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED,
             ),
         )
         await asyncio.sleep(0.02)
         release_blocker.set()
-        with self.assertLogs(coordinator_module._LOGGER, level="WARNING"):
-            await coordinator._write_task
+        with self.assertLogs("custom_components.growatt_thor", level="WARNING"):
+            await coordinator.write_queue.task
 
         self.assertEqual(calls, ["blocker"])
 
@@ -683,7 +675,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
 
         async def write(charge_point, value):
             calls.append(value)
-            return coordinator_module.ChargerWriteResult.success("Accepted")
+            return write_queue_module.ChargerWriteResult.success("Accepted")
 
         old_generation = coordinator.begin_configuration_write(
             "G_MaxCurrent",
@@ -725,7 +717,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             configuration_generation=new_generation,
             policy=self._policy(0.2),
         )
-        with self.assertLogs(coordinator_module._LOGGER, level="WARNING"):
+        with self.assertLogs("custom_components.growatt_thor", level="WARNING"):
             await asyncio.sleep(0.04)
 
         tracked = coordinator.configuration_writes["G_MaxCurrent"]
@@ -744,7 +736,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         coordinator.runtime_data["charge_point"] = object()
         coordinator.connected = True
         coordinator._connection_changed.set()
-        await coordinator._write_task
+        await coordinator.write_queue.task
         self.assertEqual(calls, ["17"])
 
     async def test_delayed_command_is_revalidated_before_execution(self):
@@ -762,14 +754,14 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             on_unsent=cleanup_results.append,
         )
         still_valid = False
-        with self.assertLogs(coordinator_module._LOGGER, level="WARNING"):
-            await coordinator._write_task
+        with self.assertLogs("custom_components.growatt_thor", level="WARNING"):
+            await coordinator.write_queue.task
 
         self.assertEqual(calls, [])
         self.assertEqual(len(cleanup_results), 1)
         self.assertEqual(
             cleanup_results[0].status,
-            coordinator_module.ChargerWriteStatus.SKIPPED,
+            write_queue_module.ChargerWriteStatus.SKIPPED,
         )
         self.assertEqual(cleanup_results[0].reason, "transaction_changed")
 
@@ -778,16 +770,16 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         cleanup_results = []
 
         async def write():
-            return coordinator_module.ChargerWriteResult.skipped(
+            return write_queue_module.ChargerWriteResult.skipped(
                 "active_transaction"
             )
 
-        with self.assertLogs(coordinator_module._LOGGER, level="WARNING"):
+        with self.assertLogs("custom_components.growatt_thor", level="WARNING"):
             await coordinator.queue_write(
                 write,
                 on_unsent=cleanup_results.append,
             )
-            await coordinator._write_task
+            await coordinator.write_queue.task
 
         self.assertEqual(len(cleanup_results), 1)
         self.assertEqual(cleanup_results[0].reason, "active_transaction")
@@ -800,13 +792,13 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         async def write():
             calls.append("sent")
 
-        with self.assertLogs(coordinator_module._LOGGER, level="ERROR"):
+        with self.assertLogs("custom_components.growatt_thor", level="ERROR"):
             await coordinator.queue_write(
                 write,
                 revalidate=lambda: False,
                 on_unsent=cleanup_results.append,
             )
-            await coordinator._write_task
+            await coordinator.write_queue.task
 
         self.assertEqual(calls, [])
         self.assertEqual(cleanup_results[0].reason, "revalidation_error")
@@ -836,7 +828,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             )
             if outcome_is_current:
                 visible_values.append(value)
-            return coordinator_module.ChargerWriteResult.success("Accepted")
+            return write_queue_module.ChargerWriteResult.success("Accepted")
 
         old_generation = coordinator.begin_configuration_write(
             "G_MaxCurrent",
@@ -865,7 +857,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             configuration_generation=new_generation,
         )
         release_first.set()
-        await coordinator._write_task
+        await coordinator.write_queue.task
 
         tracked = coordinator.configuration_writes["G_MaxCurrent"]
         self.assertEqual(tracked.generation, new_generation)
@@ -910,7 +902,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             command_name="ChangeConfiguration(G_MaxCurrent)",
         )
 
-        with self.assertLogs(coordinator_module._LOGGER, level="INFO"):
+        with self.assertLogs("custom_components.growatt_thor", level="INFO"):
             cancelled_count = coordinator.cancel_queued_writes(
                 dedupe_key="charging_session_control",
                 command_name="RemoteStartTransaction",
@@ -921,7 +913,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(cancelled_results), 1)
         self.assertEqual(
             cancelled_results[0].status,
-            coordinator_module.ChargerWriteStatus.SKIPPED,
+            write_queue_module.ChargerWriteStatus.SKIPPED,
         )
         self.assertEqual(
             cancelled_results[0].reason,
@@ -929,7 +921,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         )
 
         release_blocker.set()
-        await coordinator._write_task
+        await coordinator.write_queue.task
         self.assertEqual(calls, ["blocker", "configuration"])
 
     async def test_cancel_does_not_claim_an_active_start_was_retracted(self):
@@ -960,7 +952,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cancelled_count, 0)
 
         release_response.set()
-        await coordinator._write_task
+        await coordinator.write_queue.task
         self.assertEqual(calls, ["start"])
 
     async def test_new_start_replaces_stale_unsent_stop_on_shared_lane(self):
@@ -1006,13 +998,13 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         )
 
         release_blocker.set()
-        await coordinator._write_task
+        await coordinator.write_queue.task
         self.assertEqual(calls, ["blocker", "start"])
 
     async def test_control_interrupts_configuration_rate_limit(self):
         coordinator = _build_coordinator(asyncio.get_running_loop())
-        coordinator._min_write_interval = 0.2
-        coordinator._last_write_monotonic = coordinator.hass.loop.time()
+        coordinator.write_queue.min_write_interval = 0.2
+        coordinator.write_queue._last_write_monotonic = coordinator.hass.loop.time()
         calls = []
 
         async def write(name):
@@ -1035,7 +1027,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.05)
 
         self.assertEqual(calls, ["start"])
-        await coordinator._write_task
+        await coordinator.write_queue.task
         self.assertEqual(calls, ["start", "configuration"])
 
     async def test_priority_controls_preserve_fifo_order(self):
@@ -1058,7 +1050,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             priority=True,
             rate_limited=False,
         )
-        await coordinator._write_task
+        await coordinator.write_queue.task
 
         self.assertEqual(calls, ["start", "stop", "configuration"])
 
@@ -1073,7 +1065,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
 
         async def write(charge_point, value):
             calls.append((charge_point, value))
-            return coordinator_module.ChargerWriteResult.success("Accepted")
+            return write_queue_module.ChargerWriteResult.success("Accepted")
 
         await coordinator.queue_write(
             write,
@@ -1084,12 +1076,12 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         )
         await asyncio.sleep(0)
         self.assertEqual(calls, [])
-        self.assertEqual(len(coordinator._write_queue), 1)
+        self.assertEqual(len(coordinator.write_queue._pending), 1)
 
         coordinator.runtime_data["charge_point"] = new_charge_point
         coordinator.connected = True
         coordinator._connection_changed.set()
-        await coordinator._write_task
+        await coordinator.write_queue.task
 
         self.assertEqual(calls, [(new_charge_point, "17")])
 
@@ -1104,7 +1096,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
 
         async def write(charge_point, value):
             calls.append((charge_point, value))
-            return coordinator_module.ChargerWriteResult.success("Accepted")
+            return write_queue_module.ChargerWriteResult.success("Accepted")
 
         await coordinator.queue_write(
             write,
@@ -1125,7 +1117,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         coordinator.runtime_data["charge_point"] = new_charge_point
         coordinator.connected = True
         coordinator._connection_changed.set()
-        await coordinator._write_task
+        await coordinator.write_queue.task
 
         self.assertEqual(calls, [(new_charge_point, "13")])
 
@@ -1143,17 +1135,17 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
                 coordinator.runtime_data[
                     "charge_point"
                 ] = second_charge_point
-                raise coordinator_module.ChargerConnectionUnavailable(
+                raise write_queue_module.ChargerConnectionUnavailable(
                     "connection replaced before send"
                 )
-            return coordinator_module.ChargerWriteResult.success("Accepted")
+            return write_queue_module.ChargerWriteResult.success("Accepted")
 
         await coordinator.queue_write(
             write,
             first_charge_point,
             requires_connection=True,
         )
-        await coordinator._write_task
+        await coordinator.write_queue.task
 
         self.assertEqual(calls, [first_charge_point, second_charge_point])
 
@@ -1165,13 +1157,13 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         async def write():
             nonlocal calls
             calls += 1
-            raise coordinator_module.ChargerRequestOutcomeUncertain(
+            raise write_queue_module.ChargerRequestOutcomeUncertain(
                 "connection lost after send"
             )
 
-        with self.assertLogs(coordinator_module._LOGGER, level="WARNING") as logs:
+        with self.assertLogs("custom_components.growatt_thor", level="WARNING") as logs:
             await coordinator.queue_write(write, command_name="ChangeConfiguration")
-            await coordinator._write_task
+            await coordinator.write_queue.task
 
         self.assertEqual(calls, 1)
         self.assertTrue(any("outcome uncertain" in line for line in logs.output))
@@ -1180,14 +1172,14 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         coordinator = _build_coordinator(asyncio.get_running_loop())
 
         async def write():
-            return coordinator_module.ChargerWriteResult.failed(
+            return write_queue_module.ChargerWriteResult.failed(
                 "charger_rejected",
                 "Rejected",
             )
 
-        with self.assertLogs(coordinator_module._LOGGER, level="INFO") as logs:
+        with self.assertLogs("custom_components.growatt_thor", level="INFO") as logs:
             await coordinator.queue_write(write, command_name="ChangeConfiguration")
-            await coordinator._write_task
+            await coordinator.write_queue.task
 
         combined = "\n".join(logs.output)
         self.assertIn("Write failed", combined)
@@ -1195,7 +1187,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_post_write_readbacks_are_coalesced_until_queue_is_idle(self):
         coordinator = _build_coordinator(asyncio.get_running_loop())
-        coordinator._write_queue_idle.clear()
+        coordinator.write_queue.idle.clear()
         calls = 0
 
         class ChargePoint:
@@ -1214,7 +1206,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0)
         self.assertEqual(calls, 0)
 
-        coordinator._write_queue_idle.set()
+        coordinator.write_queue.idle.set()
         self.assertTrue(await first)
         self.assertEqual(calls, 1)
         self.assertTrue(charge_point.skip_if_writes_pending)
@@ -1283,7 +1275,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         async def fail_to_queue_schedule():
             raise RuntimeError("queue unavailable")
 
-        with self.assertLogs(coordinator_module._LOGGER, level="ERROR") as logs:
+        with self.assertLogs("custom_components.growatt_thor", level="ERROR") as logs:
             task = coordinator.schedule_auto_charge_schedule_write(
                 fail_to_queue_schedule,
                 delay=0,
@@ -1327,17 +1319,17 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         coordinator = _build_coordinator(asyncio.get_running_loop())
 
         async def write():
-            return coordinator_module.ChargerWriteResult.partial(
+            return write_queue_module.ChargerWriteResult.partial(
                 "G_PeriodTime_rejected",
                 "Rejected",
             )
 
-        with self.assertLogs(coordinator_module._LOGGER, level="INFO") as logs:
+        with self.assertLogs("custom_components.growatt_thor", level="INFO") as logs:
             await coordinator.queue_write(
                 write,
                 command_name="ApplyPvLinkage",
             )
-            await coordinator._write_task
+            await coordinator.write_queue.task
 
         combined = "\n".join(logs.output)
         self.assertIn("partially applied", combined)

@@ -54,8 +54,12 @@ validation and calculations as typed functions or data models. Package initializ
 stay free of runtime side effects. Domain code must not depend on HA platform
 entities or frontend projections to perform charger commands.
 
-The coordinator retains public observations, the queue, storage and OCPP meter
-processing. Session transitions are delegated to `SessionLifecycle`; this is
+The coordinator retains public observations, storage and OCPP meter processing.
+`ChargerWriteQueue` owns pending typed `ChargerWriteItem` entries, the processor
+task, monotonic expiry/spacing, completion and shutdown. The coordinator delegates
+its existing queue/cancel/pending API to that owner. A narrow owner protocol
+supplies connection observations, polling pauses, configuration readback and
+result publication; the queue does not import the coordinator. Session transitions are delegated to `SessionLifecycle`; this is
 an incremental boundary, not a replacement of the established runtime owner.
 
 ```mermaid
@@ -93,6 +97,21 @@ flowchart LR
 - The view contract is bounded: at most 20 recent rows, 24 events and 96 curve
   points per session, with a 12 KiB target. Historical detail is loaded on demand.
   Pagination covers those recent rows, not the full archive.
+
+## Charger write queue
+
+Each runtime creates one `runtime/charger_write_queue.py::ChargerWriteQueue`.
+The shared connection-change event wakes both the queue and configuration
+readback; the queue's idle event lets readback wait without owning the write
+processor. Intent replacement and cancellation touch only pending entries.
+Connection-bound commands are rebound to the current socket immediately before
+execution, and uncertain commands are never automatically replayed.
+
+Shutdown first closes queue admission and cancels active work, then resolves
+pending entries as unsent. Active work stays uncertain because it may already
+have reached OCPP. Every handle gets one terminal result, including late work
+during unload. Result models, policies and transport exceptions remain in
+`runtime/write_queue.py` so consumers keep their established imports.
 
 ## Time boundaries
 

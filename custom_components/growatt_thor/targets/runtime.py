@@ -387,7 +387,7 @@ class ChargingTargetRuntime:
         return self.block_reason(cp, activation)
 
     def pause_polling(self, seconds: float = _REQUEST_EXPIRY_SECONDS) -> None:
-        pause_until = self.hass.loop.time() + seconds + self.coordinator._poll_pause_after_write
+        pause_until = self.hass.loop.time() + seconds + self.coordinator.write_queue.poll_pause_after_write
         self.coordinator.runtime_data["skip_polling_until"] = max(
             self.coordinator.runtime_data.get("skip_polling_until", 0), pause_until
         )

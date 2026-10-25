@@ -124,8 +124,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
             now=lambda: "2026-09-10T10:00:00Z",
             async_set_updated_data=lambda value: None,
             queue_write=queue_write,
-            _poll_pause_after_write=10,
-            _min_write_interval=0,
+            write_queue=SimpleNamespace(poll_pause_after_write=10),
         )
         self.hass = SimpleNamespace(
             services=Services(),
