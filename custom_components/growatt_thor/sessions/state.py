@@ -21,7 +21,7 @@ def _optional_text(value: Any) -> str | None:
     return str(value)
 
 
-def _record_key(value: Any) -> tuple[str, str] | None:
+def normalize_record_key(value: Any) -> tuple[str, str] | None:
     if not isinstance(value, (list, tuple)) or len(value) != 2:
         return None
     transaction_id = _optional_text(value[0])
@@ -70,7 +70,7 @@ class LastSessionState:
             transaction_id=_optional_text(data.get("transaction_id")),
             charge_mode=_optional_text(data.get("charge_mode")),
             work_mode=_optional_text(data.get("work_mode")),
-            record_key=_record_key(data.get("record_key")),
+            record_key=normalize_record_key(data.get("record_key")),
         )
 
     def as_dict(self) -> dict[str, Any]:

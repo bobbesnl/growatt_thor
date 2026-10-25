@@ -64,7 +64,7 @@ from .sessions.events import (
     merge_growatt_record_events,
     session_event,
 )
-from .sessions.state import LastSessionState
+from .sessions.state import LastSessionState, normalize_record_key
 from .sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 from .sessions.transaction_ids import TransactionIdAllocator
 from .runtime.write_queue import (
@@ -225,6 +225,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_session_charge_mode = None      # str
         self.last_session_work_mode = None        # str
         self._last_session_record_key = None
+        self._applied_session_record_keys = deque(maxlen=50)
         self.dashboard_sessions = {
             "items": [], "total_energy_kwh": 0.0, "total_cost": 0.0,
             "total_green_energy_kwh": None, "total_count": 0,
@@ -293,6 +294,14 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self._restore_last_session_state(
                 LastSessionState.from_dict(data.get("last_session"))
             )
+            stored_keys = data.get("applied_session_record_keys", [])
+            if isinstance(stored_keys, list):
+                for value in stored_keys[-50:]:
+                    key = normalize_record_key(value)
+                    if key is not None and key not in self._applied_session_record_keys:
+                        self._applied_session_record_keys.append(key)
+            if self._last_session_record_key is not None and self._last_session_record_key not in self._applied_session_record_keys:
+                self._applied_session_record_keys.append(self._last_session_record_key)
             self.last_charger_fault = ChargerFault.from_dict(
                 data.get("last_charger_fault")
             )
@@ -368,6 +377,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             "total_energy_charged": self.total_energy_charged,
             "next_transaction_id": self._transaction_id_allocator.next_transaction_id,
             "last_session": self._last_session_state().as_dict(),
+            "applied_session_record_keys": [list(key) for key in self._applied_session_record_keys],
             "last_charger_fault": (
                 self.last_charger_fault.as_dict()
                 if self.last_charger_fault is not None

@@ -340,7 +340,7 @@ class SessionLifecycle:
 
             # The charger can send the same completed session as both message types.
             dedup_key = record.dedup_key
-            if dedup_key is not None and coordinator._last_session_record_key == dedup_key:
+            if dedup_key is not None and (dedup_key in coordinator._applied_session_record_keys or coordinator._last_session_record_key == dedup_key):
                 duplicate_session = build_unified_session(
                     coordinator.last_completed_transaction,
                     session_records=(snapshot,),
@@ -383,6 +383,7 @@ class SessionLifecycle:
 
             if dedup_key is not None:
                 coordinator._last_session_record_key = dedup_key
+                coordinator._applied_session_record_keys.append(dedup_key)
 
             start_str = record.start_time
             end_str = record.end_time

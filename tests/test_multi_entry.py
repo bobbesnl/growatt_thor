@@ -419,3 +419,55 @@ class TransactionBindingTest(unittest.IsolatedAsyncioTestCase):
         c.process_meter_values([], transaction_id=42)
         self.assertEqual(c.transaction_id, 42)
         self.assertEqual(c.last_meter_values["transaction_id"], 42)
+
+
+class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
+    def record(self, tx, energy=5000):
+        from custom_components.growatt_thor.sessions.records import parse_growatt_session_record
+        return parse_growatt_session_record("currentrecord", f"transactionId={tx}&starttime=2026-10-01 10:00:00&endtime=2026-10-01 11:00:00&costenergy={energy}&costmoney=100")
+
+    def make_coordinator(self, data=None):
+        c = _build_coordinator(_MemoryStore(data))
+        c.hass.async_create_task = lambda coro: coro.close()
+        c.runtime_data["append_session_to_csv"] = object()
+        return c
+
+    async def test_nonconsecutive_replay_after_restart_is_not_applied_twice(self):
+        c = self.make_coordinator()
+        a, b = self.record(1), self.record(2, 3000)
+        c.sessions.process_session_record(a)
+        c.sessions.process_session_record(b)
+        self.assertEqual(c.total_energy_charged, 8)
+        restored = self.make_coordinator(c._storage_data())
+        await restored.async_load_storage()
+        restored.sessions.process_session_record(a)
+        self.assertEqual(restored.total_energy_charged, 8)
+        self.assertEqual(restored.last_session_transaction_id, "2")
+        self.assertEqual(len(restored.sessions.outbox.snapshot()), 2)
+
+    async def test_replay_with_changed_correlation_keeps_original_history_identity(self):
+        c = self.make_coordinator()
+        c._schedule_storage_save = lambda: None
+        c.start_transaction(1, id_tag="private", meter_start=0)
+        c.stop_transaction(transaction_id=1, meter_stop=5000)
+        record = self.record(1)
+        c.sessions.process_session_record(record)
+        rows = c.sessions.outbox.snapshot()
+        c.last_completed_transaction = None
+        c.sessions.process_session_record(self.record(2, 3000))
+        c.sessions.process_session_record(record)
+        self.assertEqual(c.total_energy_charged, 8)
+        self.assertEqual(c.sessions.outbox.snapshot()[0], rows[0])
+        self.assertEqual(len(c.sessions.outbox.snapshot()), 2)
+
+    async def test_replay_window_is_bounded_and_legacy_last_key_is_migrated(self):
+        c = self.make_coordinator()
+        for tx in range(55):
+            c.sessions.process_session_record(self.record(tx))
+        self.assertEqual(len(c._storage_data()["applied_session_record_keys"]), 50)
+        data = c._storage_data()
+        data.pop("applied_session_record_keys")
+        restored = self.make_coordinator(data)
+        await restored.async_load_storage()
+        restored.sessions.process_session_record(self.record(54))
+        self.assertEqual(restored.total_energy_charged, 275)
