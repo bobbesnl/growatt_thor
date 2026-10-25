@@ -1,5 +1,5 @@
 import { html, nothing } from 'lit';
-import type { SessionItem } from '../shared/types';
+import type { SessionItem, SessionHistoryData } from '../shared/types';
 import { accountingTranslate } from './accounting.locales';
 import { sessionTranslate } from './locales';
 import { formatSessionNumber, sessionRowMetrics } from './model';
@@ -31,5 +31,16 @@ export function sessionMetricViews(row: SessionItem, language: string, currency:
       >${fmt(metrics.cost)} ${currency}</span
     >`,
     costBasis: costLabel ? html`<small class="metric-basis">${costLabel}</small>` : nothing,
+  };
+}
+
+/** The summary uses the backend's all-history total, never just visible rows. */
+export function sessionGreenTotalView(data: SessionHistoryData, language: string) {
+  const value = data.total_green_energy_kwh;
+  const known = value !== null && Number.isFinite(value) && value >= 0;
+  const partial = known && data.total_green_partial === true;
+  return {
+    text: `${partial ? '≥ ' : ''}${formatSessionNumber(known ? value : null, language)} kWh`,
+    title: partial ? sessionTranslate(language)('greenPartialHint') : '',
   };
 }

@@ -47,10 +47,13 @@ The history totals above the chart cover completed sessions only. The cost
 total is labelled **Charger-reported cost**: it includes older and archived
 wallbox amounts, so it is not an accounting grid-cost total.
 
-Totals include archived completed-session totals. Green energy adds only known
-values: direct solar energy from fully allocated sessions. Unknown battery
-origin is not classified as green, and missing historical values are not
-estimated. See [energy and cost semantics](energy.md#understand-energy-and-costs).
+Totals include archived completed-session totals. Green energy includes the
+known direct solar contribution from both fully and partly allocated sessions.
+If any included session has missing source data, the total is labelled `≥` with
+an explanation. Unknown battery origin is not classified as green, and missing
+historical values are not estimated. New archives retain this qualification;
+older archives keep their existing known total as a lower bound because their
+pruned source details cannot be reconstructed. See [energy and cost semantics](energy.md#understand-energy-and-costs).
 
 ## Use the mobile layout
 

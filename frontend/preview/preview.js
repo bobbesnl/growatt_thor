@@ -344,9 +344,11 @@ function update() {
       item.green_energy_kwh = item.accounting_coverage >= 0.999999 ? solar : null;
     }
     // Like the backend, the summary includes known values from completed sessions.
-    const green = data.sessions.items
-      .filter((item) => !item.active && item.green_energy_kwh !== null)
-      .map((item) => item.green_energy_kwh);
+    const completed = data.sessions.items.filter((item) => !item.active);
+    const green = completed
+      .filter((item) => item.green_energy_kwh !== null || item.accounting_coverage > 0)
+      .map((item) => item.green_energy_kwh ?? item.source_energy_kwh.direct_solar);
+    data.sessions.total_green_partial = completed.some((item) => item.accounting_coverage < 1);
     data.sessions.total_green_energy_kwh = green.length
       ? green.reduce((sum, value) => sum + value, 0)
       : null;

@@ -105,6 +105,7 @@ export interface SessionHistoryData {
   items: SessionItem[];
   total_energy_kwh: number;
   total_green_energy_kwh: number | null;
+  total_green_partial?: boolean;
   total_cost: number;
   total_count: number;
 }

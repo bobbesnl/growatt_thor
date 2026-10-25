@@ -137,6 +137,7 @@ def _empty_archive_summary() -> dict[str, Any]:
         "total_cost": 0.0,
         "total_green_energy_kwh": 0.0,
         "has_green_energy": False,
+        "green_partial_count": 0,
         "total_count": 0,
         "recent_session_ids": [],
         "owners": {},
@@ -163,6 +164,7 @@ def _load_archive_summary(path: Path) -> dict[str, Any]:
             _csv_float(decoded.get("total_green_energy_kwh")) or 0.0
         ),
         "has_green_energy": bool(decoded.get("has_green_energy")),
+        "green_partial_count": _archive_partial_count(decoded),
         "total_count": max(0, int(_csv_float(decoded.get("total_count")) or 0)),
     }
 
@@ -175,10 +177,33 @@ def _belongs_to_entry(row, source_instance_id, charge_point_id):
     return bool(charge_point_id and row.get("charger_id") == charge_point_id)
 
 
+def _archive_partial_count(bucket: dict[str, Any]) -> int:
+    # Older summaries discarded source details, so their completeness cannot
+    # be reconstructed. Preserve the known total as a qualified lower bound.
+    count = max(0, int(_csv_float(bucket.get("total_count")) or 0))
+    value = _csv_float(bucket.get("green_partial_count"))
+    return min(count, max(0, int(value))) if value is not None and isfinite(value) else count
+
+
+def _session_green(row: dict[str, Any]) -> tuple[float | None, bool]:
+    """Match the row display: exact green or balanced known solar as a floor."""
+    reported = _csv_float(row.get("green_energy_kwh"))
+    if reported is not None and isfinite(reported) and reported >= 0:
+        return reported, False
+    energy = _csv_float(row.get("energy_kwh"))
+    sources = _accounting_sources(row.get("source_energy_kwh"))
+    if (sources is not None and energy is not None and isfinite(energy) and energy > 0
+            and abs(sum(sources.values()) - energy) <= 0.001
+            and sum(sources[key] for key in ("direct_solar", "direct_grid", "battery_unknown")) > 0):
+        return sources["direct_solar"], sources["unknown"] > 1e-9
+    return None, energy is None or not isfinite(energy) or energy > 0
+
+
 def _add_archive_row(bucket, row):
+    green, partial = _session_green(row)
+    bucket["green_partial_count"] = _archive_partial_count(bucket) + int(partial)
     bucket["total_energy_kwh"] += _csv_float(row.get("energy_kwh")) or 0.0
     bucket["total_cost"] += _csv_float(row.get("cost")) or 0.0
-    green = _csv_float(row.get("green_energy_kwh"))
     if green is not None:
         bucket["total_green_energy_kwh"] += green
         bucket["has_green_energy"] = True
@@ -193,7 +218,8 @@ def _scoped_archive(archive, entry_id, charge_point_id, include_unassigned=False
         owners = archive.get("owners", {}).values()
         for field in ("total_energy_kwh", "total_cost", "total_green_energy_kwh", "total_count"):
             result[field] = archive[field] - sum(_csv_float(bucket.get(field)) or 0 for bucket in owners)
-        result["has_green_energy"] = bool(archive.get("has_green_energy"))
+        result["has_green_energy"] = bool(archive.get("has_green_energy")) and result["total_count"] > 0
+        result["green_partial_count"] = max(0, _archive_partial_count(archive) - sum(_archive_partial_count(bucket) for bucket in owners))
     keys = ["entry:" + entry_id]
     if charge_point_id:
         keys.append("charger:" + charge_point_id)
@@ -202,6 +228,7 @@ def _scoped_archive(archive, entry_id, charge_point_id, include_unassigned=False
         for field in ("total_energy_kwh", "total_cost", "total_green_energy_kwh", "total_count"):
             result[field] += _csv_float(bucket.get(field)) or 0
         result["has_green_energy"] |= bool(bucket.get("has_green_energy"))
+        result["green_partial_count"] += _archive_partial_count(bucket)
     return result
 
 
@@ -262,6 +289,7 @@ def dashboard_session_data(
                 else None
             ),
             "total_count": archive["total_count"],
+            "total_green_partial": _archive_partial_count(archive) > 0,
         }
 
     items: list[dict[str, Any]] = []
@@ -269,6 +297,7 @@ def dashboard_session_data(
     total_cost = float(archive["total_cost"])
     total_green = float(archive["total_green_energy_kwh"])
     has_green = bool(archive["has_green_energy"])
+    partial_count = _archive_partial_count(archive)
     with csv_path.open("r", newline="", encoding="utf-8") as source:
         for raw in csv.DictReader(source):
             row = normalize_session_row(raw)
@@ -276,7 +305,8 @@ def dashboard_session_data(
                 continue
             energy = _csv_float(row.get("energy_kwh"))
             cost = _csv_float(row.get("cost"))
-            green = _csv_float(row.get("green_energy_kwh"))
+            green, partial = _session_green(row)
+            partial_count += int(partial)
             total_energy += energy or 0.0
             total_cost += cost or 0.0
             if green is not None:
@@ -295,6 +325,7 @@ def dashboard_session_data(
         "total_energy_kwh": round(total_energy, 3),
         "total_cost": round(total_cost, 2),
         "total_green_energy_kwh": round(total_green, 3) if has_green else None,
+        "total_green_partial": partial_count > 0,
         "total_count": archive["total_count"] + len(items),
     }
 
@@ -515,13 +546,7 @@ def enforce_session_retention(
         owner = ("entry:" + row["source_instance_id"]) if row.get("source_instance_id") else ("charger:" + str(row.get("charger_id", "")))
         bucket = archive.setdefault("owners", {}).setdefault(owner, _empty_archive_summary())
         _add_archive_row(bucket, row)
-        archive["total_energy_kwh"] += _csv_float(row.get("energy_kwh")) or 0.0
-        archive["total_cost"] += _csv_float(row.get("cost")) or 0.0
-        green = _csv_float(row.get("green_energy_kwh"))
-        if green is not None:
-            archive["total_green_energy_kwh"] += green
-            archive["has_green_energy"] = True
-        archive["total_count"] += 1
+        _add_archive_row(archive, row)
 
     archive["total_energy_kwh"] = round(archive["total_energy_kwh"], 3)
     archive["total_cost"] = round(archive["total_cost"], 2)

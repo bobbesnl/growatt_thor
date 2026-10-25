@@ -1,7 +1,7 @@
 import { renderSessionAccounting } from './accounting.template';
 import { cardInitialization } from '../shared/card-initialization';
 import { cardNoticeStyles, renderCardNotice } from '../shared/card-notice';
-import { sessionMetricViews } from './metrics.template';
+import { sessionMetricViews, sessionGreenTotalView } from './metrics.template';
 import { LitElement, html, nothing, unsafeCSS } from 'lit';
 import { createRef, ref, type Ref } from 'lit/directives/ref.js';
 import * as echarts from 'echarts/core';
@@ -640,6 +640,7 @@ export class ThorSessionCard extends LitElement {
     const costEntityId = entity?.attributes.thor_card?.entities.last_session_cost;
     const currency =
       (costEntityId && this.hass?.states[costEntityId]?.attributes.unit_of_measurement) || '€';
+    const greenTotal = sessionGreenTotalView(data, language);
     const fmt = (value: number | null) => formatSessionNumber(value, language);
     const fmtDate = (value: string | null | undefined) => formatSessionDate(value, language);
     const head = (key: SessionSort, label: string, cls = '') =>
@@ -655,7 +656,7 @@ export class ThorSessionCard extends LitElement {
           <span>${t('energy')}</span><strong>${fmt(data.total_energy_kwh)} kWh</strong>
         </div>
         <div class="kpi green">
-          <span>${t('green')}</span><strong>${fmt(data.total_green_energy_kwh)} kWh</strong>
+          <span>${t('green')}</span><strong title=${greenTotal.title}>${greenTotal.text}</strong>
         </div>
         <div class="kpi">
           <span>${t('chargerCost')}</span><strong>${fmt(data.total_cost)} ${currency}</strong>

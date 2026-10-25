@@ -110,3 +110,98 @@ class MultiChargerHistoryTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PartialGreenSummaryTest(unittest.TestCase):
+    def write_rows(self, path, rows):
+        import json
+        with path.open('w', newline='', encoding='utf-8') as stream:
+            writer = csv.DictWriter(stream, fieldnames=session_csv.SESSION_LOG_HEADERS)
+            writer.writeheader()
+            for index, row in enumerate(rows):
+                value = {'session_id': f'session-{index}', 'session_source': 'home_assistant',
+                         'source_instance_id': 'left', 'start_time': '2026-10-24 10:00:00',
+                         'energy_kwh': 10, 'cost': 1, **row}
+                if isinstance(value.get('source_energy_kwh'), dict):
+                    value['source_energy_kwh'] = json.dumps(value['source_energy_kwh'])
+                writer.writerow(value)
+
+    def sources(self, solar=6, grid=3, battery=0.9, unknown=0.1):
+        return {'direct_solar': solar, 'direct_grid': grid,
+                'battery_unknown': battery, 'unknown': unknown}
+
+    def test_partial_sessions_contribute_solar_without_rewriting_strict_values(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sessions.csv'
+            self.write_rows(path, [
+                {'source_energy_kwh': self.sources(), 'accounting_coverage': .99},
+                {'source_energy_kwh': self.sources(solar=0, grid=0, battery=9, unknown=1)},
+                {'green_energy_kwh': 2},
+            ])
+            before = path.read_bytes()
+            data = session_csv.dashboard_session_data(path, limit=1)
+            self.assertEqual(data['total_green_energy_kwh'], 8)
+            self.assertTrue(data['total_green_partial'])
+            self.assertIsNone(data['items'][0]['green_energy_kwh'])
+            self.assertEqual(path.read_bytes(), before)
+
+    def test_full_zero_unknown_and_invalid_sources_keep_distinct_meanings(self):
+        cases = [
+            ({'green_energy_kwh': 0}, 0, False),
+            ({'source_energy_kwh': self.sources(solar=6, grid=3, battery=1, unknown=0)}, 6, False),
+            ({'source_energy_kwh': self.sources(solar=0, grid=0, battery=10, unknown=0)}, 0, False),
+            ({'source_energy_kwh': self.sources(solar=0, grid=0, battery=0, unknown=10)}, None, True),
+            ({}, None, True),
+            ({'source_energy_kwh': self.sources(solar=20)}, None, True),
+            ({'source_energy_kwh': self.sources(solar=-1)}, None, True),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sessions.csv'
+            for row, expected, partial in cases:
+                with self.subTest(row=row):
+                    self.write_rows(path, [row])
+                    data = session_csv.dashboard_session_data(path)
+                    self.assertEqual(data['total_green_energy_kwh'], expected)
+                    self.assertEqual(data['total_green_partial'], partial)
+            self.write_rows(path, [{'green_energy_kwh': 2}, {}])
+            data = session_csv.dashboard_session_data(path)
+            self.assertEqual(data['total_green_energy_kwh'], 2)
+            self.assertTrue(data['total_green_partial'])
+
+    def test_retention_restart_and_entry_scope_preserve_partial_totals(self):
+        from datetime import date
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sessions.csv'
+            self.write_rows(path, [
+                {'source_energy_kwh': self.sources()},
+                {'source_instance_id': 'right', 'green_energy_kwh': 2},
+            ])
+            self.assertEqual(session_csv.enforce_session_retention(path, today=date(2026, 10, 25), max_rows=0), 2)
+            for owner, expected, partial in [('left', 6, True), ('right', 2, False)]:
+                with self.subTest(owner=owner):
+                    data = session_csv.dashboard_session_data(path, source_instance_id=owner)
+                    self.assertEqual(data['items'], [])
+                    self.assertEqual(data['total_green_energy_kwh'], expected)
+                    self.assertEqual(data['total_green_partial'], partial)
+            self.assertEqual(session_csv.enforce_session_retention(path, today=date(2026, 10, 25), max_rows=0), 0)
+            data = session_csv.dashboard_session_data(path)
+            self.assertEqual(data['total_green_energy_kwh'], 8)
+            self.assertTrue(data['total_green_partial'])
+            path.unlink()
+            self.assertEqual(session_csv.dashboard_session_data(path)['total_green_energy_kwh'], 8)
+            self.assertTrue(session_csv.dashboard_session_data(path)['total_green_partial'])
+
+    def test_old_archives_remain_qualified_without_inventing_pruned_solar(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sessions.csv'
+            summary = session_csv._empty_archive_summary()
+            summary.pop('green_partial_count')
+            summary.update(total_count=2, total_energy_kwh=20, total_green_energy_kwh=3, has_green_energy=True)
+            summary['owners'] = {'entry:left': {key: value for key, value in summary.items() if key != 'owners'}}
+            session_csv._write_archive_summary(path, summary)
+            data = session_csv.dashboard_session_data(path, source_instance_id='left')
+            self.assertEqual(data['total_green_energy_kwh'], 3)
+            self.assertTrue(data['total_green_partial'])
+            other = session_csv.dashboard_session_data(path, source_instance_id='right')
+            self.assertIsNone(other['total_green_energy_kwh'])
+            self.assertFalse(other['total_green_partial'])

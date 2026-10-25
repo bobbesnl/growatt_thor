@@ -1,4 +1,6 @@
 const en = {
+  greenPartialHint:
+    'Known solar contribution only. Some sessions have incomplete source data; battery energy of unknown origin is not counted as green.',
   title: 'Charging history',
   energy: 'Total energy',
   green: 'Green energy',
@@ -50,6 +52,8 @@ export type SessionKey = keyof typeof en;
 type SessionMessages = Record<SessionKey, string>;
 
 const de: SessionMessages = {
+  greenPartialHint:
+    'Nur der bekannte Solaranteil. Für einige Sitzungen fehlen Herkunftsdaten; Batterieenergie unbekannter Herkunft zählt nicht als grün.',
   title: 'Ladehistorie',
   energy: 'Gesamtenergie',
   green: 'Grüne Energie',
@@ -98,6 +102,8 @@ const de: SessionMessages = {
 };
 
 const nl: SessionMessages = {
+  greenPartialHint:
+    'Alleen het bekende zonnestroomaandeel. Voor sommige sessies ontbreken brongegevens; batterijenergie van onbekende herkomst telt niet als groen.',
   title: 'Laadgeschiedenis',
   energy: 'Totale energie',
   green: 'Groene energie',
@@ -146,6 +152,8 @@ const nl: SessionMessages = {
 };
 
 const fr: SessionMessages = {
+  greenPartialHint:
+    'Part solaire connue uniquement. Certaines sessions ont des données de provenance incomplètes ; la batterie d’origine inconnue ne compte pas comme énergie verte.',
   title: 'Historique de charge',
   energy: 'Énergie totale',
   green: 'Énergie verte',
@@ -194,6 +202,8 @@ const fr: SessionMessages = {
 };
 
 const es: SessionMessages = {
+  greenPartialHint:
+    'Solo el aporte solar conocido. Algunas sesiones tienen datos de origen incompletos; la energía de batería de origen desconocido no cuenta como verde.',
   title: 'Historial de carga',
   energy: 'Energía total',
   green: 'Energía verde',
@@ -242,6 +252,8 @@ const es: SessionMessages = {
 };
 
 const it: SessionMessages = {
+  greenPartialHint:
+    'Solo la quota solare nota. Alcune sessioni hanno dati di origine incompleti; l’energia della batteria di origine sconosciuta non conta come verde.',
   title: 'Cronologia di ricarica',
   energy: 'Energia totale',
   green: 'Energia verde',
@@ -290,6 +302,8 @@ const it: SessionMessages = {
 };
 
 const hu: SessionMessages = {
+  greenPartialHint:
+    'Csak az ismert napenergia-rész. Egyes töltések forrásadatai hiányosak; az ismeretlen eredetű akkumulátorenergia nem számít zöldnek.',
   title: 'Töltési előzmények',
   energy: 'Összes energia',
   green: 'Zöld energia',
@@ -338,6 +352,8 @@ const hu: SessionMessages = {
 };
 
 const sl: SessionMessages = {
+  greenPartialHint:
+    'Samo znani delež sončne energije. Nekatere seje imajo nepopolne podatke o virih; baterijska energija neznanega izvora ne šteje kot zelena.',
   title: 'Zgodovina polnjenja',
   energy: 'Skupna energija',
   green: 'Zelena energija',

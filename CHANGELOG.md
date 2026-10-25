@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Include known solar contributions from partially allocated completed sessions
+  in the green-energy total. Mark incomplete totals with `≥` and an explanatory
+  tooltip, preserving the qualification through archive retention.
 - Exclude the live card projection and connection timestamps from recorded
   status attributes, and external-meter freshness timestamps from recorded
   meter attributes. Live cards, status history and meter values remain available.

@@ -23,8 +23,12 @@ The result uses four categories:
 For example, a session with **10 kWh** might contain **6 kWh solar**, **2 kWh
 grid**, **1 kWh battery** and **1 kWh unknown**. Its source coverage is **90%**:
 9 of the 10 kWh could be assigned. Coverage describes how much energy has an
-assignment, not how accurate the sensors are. The green-energy total is shown
-only when the whole session has valid source coverage.
+assignment, not how accurate the sensors are. The row and history total include
+known direct solar even with incomplete coverage: this example contributes
+**≥ 6 kWh**. A tooltip explains the lower bound. The stored per-session
+`green_energy_kwh` field still requires complete coverage; the display can use
+the separately retained source breakdown. Battery energy of unknown origin is
+not counted as green.
 
 ## How the energy is divided
 
