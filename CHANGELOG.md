@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+- Exclude the live card projection and connection timestamps from recorded
+  status attributes, and external-meter freshness timestamps from recorded
+  meter attributes. Live cards, status history and meter values remain available.
+
 ### Changed
 
 - The status sensor now reports `offline` when its wallbox connection is lost

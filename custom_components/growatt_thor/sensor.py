@@ -560,6 +560,8 @@ class LastCommandResultSensor(BaseSensor):
 
 class BaseExternalMeterSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
+    # Poll freshness belongs to the live state, not every historical sample.
+    _unrecorded_attributes = frozenset({"last_updated_at"})
 
     def __init__(self, coordinator, entry, key):
         super().__init__(coordinator)
@@ -689,6 +691,15 @@ class ServerUrlSensor(BaseSensor):
 # ─────────────────────────────
 
 class StatusSensor(BaseSensor):
+    # The card projection and connection activity change on most OCPP frames.
+    # Keep them live without storing a fresh large attribute blob each time.
+    _unrecorded_attributes = frozenset({
+        "thor_card",
+        "last_message_at",
+        "last_heartbeat_at",
+        "last_message_action",
+        "connection_started_at",
+    })
     _attr_translation_key = "status"
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = (*OCPP_STATUS_OPTIONS, "offline")
