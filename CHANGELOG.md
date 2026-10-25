@@ -2,34 +2,36 @@
 
 All notable changes to the Growatt THOR EV Charger integration will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## Unreleased
+## Unreleased — after 2.0.0-alpha.1
+
+### Added
+
+- Choose which local Home Assistant IP address accepts connections from the wallbox. This setting is available during setup and in General settings, and is useful when Home Assistant has more than one network connection.
 
 ### Fixed
 
-- Use UTC timestamps at session presentation and export boundaries, and the HA
-  time zone for card displays and target entry. Preserve historical identities
-  and source CSV values; reject ambiguous or nonexistent local input times.
-- Include known solar contributions from partially allocated completed sessions
-  in the green-energy total. Mark incomplete totals with `≥` and an explanatory
-  tooltip, preserving the qualification through archive retention.
-- Exclude the live card projection and connection timestamps from recorded
-  status attributes, and external-meter freshness timestamps from recorded
-  meter attributes. Live cards, status history and meter values remain available.
+- Prevent delayed wallbox messages from ending the wrong charging session or bringing an already finished session back into the display.
+- Keep automatic charging protection working if a stop request expires or is skipped before reaching the wallbox. The configured waiting period starts again before another stop is attempted.
+- Remember the assigned wallbox after a Home Assistant restart, so a wallbox with a different charger ID cannot take its place. Hide charger IDs in downloaded session diagnostics.
+- Show the correct integration version in the dashboard card.
+- Give CSV downloads unique links and remove the files automatically after 15 minutes. Protect text fields against being interpreted as spreadsheet formulas. Anyone with the download link can access the file until it is removed.
+- Prevent charging targets from remaining stuck as busy when a request could not be sent. After a restart, interrupted requests are shown as having an unknown outcome and are not repeated automatically.
+- Keep daily charging schedules at the chosen local time after a change between summer and winter time.
+- Prevent repeated reports of recent completed sessions from adding the same energy twice or creating duplicate history entries.
+- Keep recent session details, including RFID information, events and charging curves, across Home Assistant restarts while waiting for the wallbox's final session report.
+- Reduce unnecessary requests to the wallbox when it connects to Home Assistant.
+- Restore session charts correctly after closing a notice, showing curves again or reconnecting the dashboard.
+- Use the Home Assistant time zone consistently for session displays and charging-target entry, even when the browser uses a different time zone. CSV exports include UTC timestamps. Reject charging-target times that do not exist or occur twice when clocks change.
+- Include the known solar share in the green-energy total even when part of a session's energy source is unknown. Show `≥` with an explanation when the total is a minimum estimate, including for older archived sessions.
 
 ### Changed
 
-- Move charger-write execution into a dedicated per-entry queue owner with
-  typed pending entries, preserving command ordering, reconnect policies,
-  completion results and the coordinator's existing caller API.
-- The status sensor now reports `offline` when its wallbox connection is lost
-  and retains the card data and session history. Automations that previously
-  tested this sensor for `unavailable` must also handle `offline`. Other sensor
-  availability rules are unchanged.
+- Keep the dashboard cards and session history accessible when the wallbox is disconnected. The status sensor now shows `offline`; automations that check for `unavailable` must also handle `offline`.
+- Reduce unnecessary data stored in Home Assistant's history database by leaving out frequently changing dashboard data and update timestamps. Current dashboard information, connection status history and recorded meter readings remain available.
 
 ## 2.0.0-alpha.1 — 2026-10-25
 
@@ -211,23 +213,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Transaction and charger ownership**: Opposing Start and Stop intents are serialized without invented transaction IDs, duplicate configuration entries are rejected, and stale or different charger connections cannot replace or update the active runtime.
 - **Predictable compound changes and service bursts**: Paired Auto Charge times settle into one combined schedule, partial PV Linkage writes remain visible and trigger readback, concurrent refreshes share one operation, and same-target CSV exports are serialized and replaced atomically.
 - **Strict automation input validation**: Non-finite, out-of-range, and off-step values are rejected instead of being rounded or truncated. TCP ports, polling intervals, and export date ranges receive equivalent validation, and polling interval changes take effect without a reload.
-- **Reliable charger writes across reconnects**: Serialize integration-initiated
-  OCPP operations, keep commands that were definitely not sent in the queue,
-  and rebind them to the current charger connection after reconnecting. A lost
-  acknowledgement is shown as uncertain and resolved through configuration
-  readback instead of being reported as a rejection or blindly retried.
-- **Write/readback request collisions**: Coalesce post-write configuration
-  refreshes and wait until the write queue is idle. Periodic external-meter
-  polling yields to pending writes so both tasks no longer wake together and
-  send a burst of requests to sensitive THOR firmware.
-- **Stable configuration controls**: Keep reported values visible while an
-  active transaction or fault temporarily blocks writes, show the LCD's pending
-  state, and restore rejected numeric changes from the last charger-reported
-  value rather than an earlier optimistic UI value.
-- **Power Distribution readback**: Normalize the charger's Fast-with-load-balancing
-  report to Fast while preserving the original value in diagnostics. Working
-  and solar mode are part of the first operational configuration request, so a
-  later diagnostic timeout cannot leave charging strategy unknown.
+- **Reliable charger writes across reconnects**: Serialize integration-initiated OCPP operations, keep commands that were definitely not sent in the queue, and rebind them to the current charger connection after reconnecting. A lost acknowledgement is shown as uncertain and resolved through configuration readback instead of being reported as a rejection or blindly retried.
+- **Write/readback request collisions**: Coalesce post-write configuration refreshes and wait until the write queue is idle. Periodic external-meter polling yields to pending writes so both tasks no longer wake together and send a burst of requests to sensitive THOR firmware.
+- **Stable configuration controls**: Keep reported values visible while an active transaction or fault temporarily blocks writes, show the LCD's pending state, and restore rejected numeric changes from the last charger-reported value rather than an earlier optimistic UI value.
+- **Power Distribution readback**: Normalize the charger's Fast-with-load-balancing report to Fast while preserving the original value in diagnostics. Working and solar mode are part of the first operational configuration request, so a later diagnostic timeout cannot leave charging strategy unknown.
 - **Home Assistant 2026.8 compatibility**: Removes a warning when upgrading an existing External Meter device while keeping the existing device and entities intact.
 - **Controls while the charger has a fault**: Settings and Start Charging are unavailable while the charger reports a fault. Stop Charging remains available, and the other controls return automatically after recovery.
 - **PV Linkage with a meter fault**: PV Linkage cannot be newly selected while the external meter reports a fault or repeatedly stops responding. One or two temporary timeouts do not block the mode, and an active mode is never changed automatically.
@@ -366,8 +355,7 @@ data:
   date_to: "2026-12-31"
 ```
 
-After the action completes, a notification appears with a direct download link to the generated CSV file.
-See README.md for full documentation including a Lovelace UI export panel example.
+After the action completes, a notification appears with a direct download link to the generated CSV file. See README.md for full documentation including a Lovelace UI export panel example.
 
 ---
 
