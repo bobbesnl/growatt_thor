@@ -222,10 +222,26 @@ class StopGuardRuntimeTest(unittest.TestCase):
                 self.coordinator.configuration_values = mode_values(working, solar)
                 self.assertEqual(self.guard._still_eligible(33), 'auto_stop_no_longer_eligible')
 
+    def test_only_definitely_unsent_results_rearm_the_guard(self):
+        for status in runtime.ChargerCommandStatus:
+            with self.subTest(status=status):
+                tracker = self.guard.tracker
+                tracker.evaluate(AT, "battery", obs(battery=300))
+                tracker.evaluate(AT + timedelta(seconds=90), "battery", obs(battery=300))
+                self.guard._stop_completed(33, types.SimpleNamespace(status=status))
+                unsent = status.value in {"skipped", "expired"}
+                self.assertEqual(tracker.fired, not unsent)
+                if unsent:
+                    self.assertIsNone(tracker.above_since)
+                    later = AT + timedelta(minutes=4)
+                    self.assertIsNone(tracker.evaluate(later, "battery", obs(battery=300)))
+                    self.assertEqual(tracker.evaluate(later + timedelta(seconds=90), "battery", obs(battery=300)), "battery")
+                self.guard._configure()
+
     def test_sustained_battery_flow_invokes_existing_stop_once(self):
         requested = []
 
-        async def press(*, auto_guard, stop_reason):
+        async def press(*, auto_guard, stop_reason, on_result):
             self.assertEqual(stop_reason, "energy_guard_battery")
             requested.append(auto_guard())
 

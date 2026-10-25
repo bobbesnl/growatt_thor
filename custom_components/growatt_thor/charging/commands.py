@@ -47,7 +47,7 @@ class StopChargingCommand:
             transaction_active=self.coordinator.transaction_is_active,
         )
 
-    async def async_request(self, *, auto_guard=None, stop_reason=None) -> None:
+    async def async_request(self, *, auto_guard=None, stop_reason=None, on_result=None) -> None:
         """Stop a charging session via queue."""
         from ..runtime.action_errors import (
             async_require_command_completion,
@@ -112,6 +112,8 @@ class StopChargingCommand:
                 or (auto_guard() if auto_guard is not None else None)
             ),
         )
+        if on_result is not None:
+            handle.add_done_callback(on_result)
         await async_require_command_completion(handle)
 
     async def _stop_charging(

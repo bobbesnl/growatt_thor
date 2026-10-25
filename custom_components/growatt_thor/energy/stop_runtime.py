@@ -7,6 +7,7 @@ import logging
 from math import isfinite
 
 from ..ocpp.status import normalize_ocpp_status
+from ..runtime.write_queue import ChargerCommandStatus
 from .meter_observations import charging_meter_values
 from ..charging.commands import StopChargingCommand
 from ..charging.controls import selected_working_mode
@@ -126,6 +127,15 @@ class EnergyStopGuard:
                 and value.grid_import_w >= self.tracker.threshold_w)
         return None if battery or grid else "auto_stop_condition_cleared"
 
+    def _stop_completed(self, transaction_id, result) -> None:
+        # Only these terminal results prove that nothing reached the charger.
+        # Keep the latch after rejection or uncertainty to avoid blind retries.
+        if (self.tracker.transaction_id == transaction_id and result.status in {
+            ChargerCommandStatus.SKIPPED, ChargerCommandStatus.EXPIRED,
+        }):
+            self.tracker.fired = False
+            self.tracker.above_since = None
+
     async def _run(self) -> None:
         while True:
             at = datetime.now(timezone.utc)
@@ -144,6 +154,7 @@ class EnergyStopGuard:
                     await self.stop_command.async_request(
                         auto_guard=lambda: self._still_eligible(transaction_id),
                         stop_reason=f"energy_guard_{reason}",
+                        on_result=lambda result, tx=transaction_id: self._stop_completed(tx, result),
                     )
                     # Store only an accepted protection Stop, not an expired
                     # queued intention. The event keeps its reason in history.

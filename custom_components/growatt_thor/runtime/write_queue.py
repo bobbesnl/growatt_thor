@@ -226,6 +226,10 @@ class ChargerCommandHandle:
         """Return whether the queue has published a terminal result."""
         return self._completion.done()
 
+    def add_done_callback(self, callback) -> None:
+        """Observe the terminal result even after a caller stops waiting."""
+        self._completion.add_done_callback(lambda future: callback(future.result()))
+
     async def async_wait(
         self,
         *,
