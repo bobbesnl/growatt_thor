@@ -283,6 +283,7 @@
       "status": {
         "name": "Estado",
         "state": {
+          "offline": "Sin conexión",
           "available": "Disponible",
           "preparing": "Preparando",
           "charging": "Cargando",

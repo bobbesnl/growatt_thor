@@ -283,6 +283,7 @@
       "status": {
         "name": "Állapot",
         "state": {
+          "offline": "Offline",
           "available": "Elérhető",
           "preparing": "Előkészítés",
           "charging": "Töltés",

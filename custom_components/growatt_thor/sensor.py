@@ -691,7 +691,7 @@ class ServerUrlSensor(BaseSensor):
 class StatusSensor(BaseSensor):
     _attr_translation_key = "status"
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = OCPP_STATUS_OPTIONS
+    _attr_options = (*OCPP_STATUS_OPTIONS, "offline")
     _attr_icon = "mdi:ev-station"
 
     def __init__(self, coordinator, entry):
@@ -699,15 +699,16 @@ class StatusSensor(BaseSensor):
 
     @property
     def native_value(self):
+        if not self.coordinator.connected:
+            return "offline"
         return normalize_ocpp_status(self.coordinator.status)
 
     @property
     def available(self):
-        return (
-            super().available
-            and self.coordinator.connected
-            and self.coordinator.status is not None
-        )
+        # This entity also carries retained history and the card contract.
+        # HA omits extra_state_attributes on unavailable entities, so transport
+        # loss must be represented as an explicit state instead.
+        return True
 
     @property
     def extra_state_attributes(self):

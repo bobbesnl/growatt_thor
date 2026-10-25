@@ -339,6 +339,7 @@
       "status": {
         "name": "Status",
         "state": {
+          "offline": "Offline",
           "available": "Available",
           "preparing": "Preparing",
           "charging": "Charging",

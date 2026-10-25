@@ -620,6 +620,7 @@ class EntityTranslationTest(unittest.TestCase):
                 self.assertEqual(
                     tuple(sensors["status"]["state"]),
                     (
+                        "offline",
                         "available",
                         "preparing",
                         "charging",

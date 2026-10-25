@@ -88,3 +88,20 @@ test('Unsupported data contracts produce a compatibility hint instead of endless
   };
   assert.equal(cardInitialization(unsupportedHistory, configured, true), 'incompatible');
 });
+
+test('offline status with retained backend contract keeps both cards ready', () => {
+  const offline = {
+    ...hass,
+    states: {
+      'sensor.renamed': {
+        ...entity('offline', makeData({ sessions: history })),
+        attributes: {
+          ...entity('offline', makeData({ sessions: history })).attributes,
+          connected: false,
+        },
+      },
+    },
+  };
+  assert.equal(cardInitialization(offline, configured), 'ready');
+  assert.equal(cardInitialization(offline, configured, true), 'ready');
+});

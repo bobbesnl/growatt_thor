@@ -168,3 +168,17 @@ Use the [entity and automation reference](entities.md) for maximum-current
 controls, reported configuration values, diagnostics and YAML examples.
 For unavailable readings, delayed commands or firmware limitations, follow
 [troubleshooting](troubleshooting.md).
+
+
+### Connection loss
+
+The status sensor stays available with state `offline` when the OCPP connection
+is lost. Both cards retain their data and session history; controls remain
+blocked until the wallbox reconnects. Before the first charger status arrives,
+the connected status sensor can be `unknown` while still carrying the card data.
+Automations monitoring connection loss should test for `offline` (and may also
+handle `unavailable` during integration unload or HA shutdown).
+
+The card contract uses additional entity attributes. Home Assistant only includes
+these attributes for available entities, as implemented in the
+[HA state calculation](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/helpers/entity.py#L1032-L1038).

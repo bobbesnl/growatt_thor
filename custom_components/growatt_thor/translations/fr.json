@@ -283,6 +283,7 @@
       "status": {
         "name": "État",
         "state": {
+          "offline": "Hors ligne",
           "available": "Disponible",
           "preparing": "Préparation",
           "charging": "En charge",

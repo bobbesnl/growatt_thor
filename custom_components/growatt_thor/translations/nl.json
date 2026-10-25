@@ -327,6 +327,7 @@
       "status": {
         "name": "Status",
         "state": {
+          "offline": "Offline",
           "available": "Beschikbaar",
           "preparing": "Voorbereiden",
           "charging": "Laden",

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## Unreleased
+
+### Changed
+
+- The status sensor now reports `offline` when its wallbox connection is lost
+  and retains the card data and session history. Automations that previously
+  tested this sensor for `unavailable` must also handle `offline`. Other sensor
+  availability rules are unchanged.
+
 ## 2.0.0-alpha.1 — 2026-10-25
 
 ### Fixed

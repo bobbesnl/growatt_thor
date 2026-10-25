@@ -283,6 +283,7 @@
       "status": {
         "name": "Stanje",
         "state": {
+          "offline": "Brez povezave",
           "available": "Na voljo",
           "preparing": "Priprava",
           "charging": "Polnjenje",
