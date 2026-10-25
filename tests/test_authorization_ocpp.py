@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 from types import ModuleType, SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 HAS_OCPP = importlib.util.find_spec('ocpp') is not None and importlib.util.find_spec('websockets') is not None
 if HAS_OCPP:
@@ -95,6 +95,31 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
             'connectorId': 1, 'idTag': tag, 'meterStart': 0,
             'timestamp': '2026-09-04T10:00:00Z',
         })
+
+    async def test_boot_and_heartbeat_initialize_each_connection_once(self):
+        for heartbeat_first in (False, True):
+            with self.subTest(heartbeat_first=heartbeat_first):
+                tasks = []
+                self.hass.async_create_task = lambda coro: tasks.append(asyncio.create_task(coro))
+                self.coordinator.boot_notification = None
+                def record(payload):
+                    self.coordinator.boot_notification = payload
+                self.coordinator.record_boot_notification = record
+                cp = server.GrowattChargePoint('TEST-CHARGER', Websocket(), self.coordinator, self.hass)
+                cp.trigger_get_configuration = AsyncMock()
+                cp.trigger_external_meterval = AsyncMock()
+                cp.trigger_boot_notification = AsyncMock()
+                with patch.object(server.asyncio, 'sleep', AsyncMock()):
+                    if heartbeat_first:
+                        await cp.on_heartbeat()
+                    await cp.on_boot_notification(charge_point_model="THOR", charge_point_vendor="Growatt")
+                    await cp.on_heartbeat()
+                    await cp.on_boot_notification(charge_point_model="THOR", charge_point_vendor="Growatt")
+                    await asyncio.gather(*tasks)
+                self.assertEqual(len(tasks), 1)
+                cp.trigger_get_configuration.assert_awaited_once()
+                cp.trigger_external_meterval.assert_awaited_once()
+                cp.trigger_boot_notification.assert_not_awaited()
 
     async def test_default_accepts_authorize_and_start(self):
         result = await self.request('Authorize', {'idTag': 'TEST-CARD'})

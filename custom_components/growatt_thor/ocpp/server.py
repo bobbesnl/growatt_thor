@@ -85,6 +85,7 @@ class GrowattChargePoint(OcppChargePoint):
         self._websocket = websocket
         self._activity = OcppConnectionActivity(hass.loop.time())
         self._boot_notification_requested = False
+        self._post_connect_init_started = False
         self._outbound_requests = SerializedOcppRequestGate(
             connection_is_current=self._is_current_connection,
             connection_is_available=lambda: self.coordinator.connected,
@@ -244,8 +245,7 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             _LOGGER.info("BootNotification payload: %s", payload)
             self.coordinator.record_boot_notification(payload)
-            if not self._boot_notification_requested:
-                self.hass.async_create_task(self._post_connect_init())
+            self._schedule_post_connect_init()
             return call_result.BootNotification(
                 current_time=self.coordinator.now(),
                 interval=OCPP_HEARTBEAT_INTERVAL_SECONDS,
@@ -264,10 +264,7 @@ class GrowattChargePoint(OcppChargePoint):
         if not self._connection_may_update_coordinator("Heartbeat"):
             return call_result.Heartbeat(current_time=self.coordinator.now())
         try:
-            if not hasattr(self, '_heartbeat_done'):
-                self._heartbeat_done = True
-                _LOGGER.info("⭐ First Heartbeat → Auto fetching configuration...")
-                self.hass.async_create_task(self._post_connect_init())
+            self._schedule_post_connect_init()
             return call_result.Heartbeat(
                 current_time=self.coordinator.now()
             )
@@ -278,6 +275,13 @@ class GrowattChargePoint(OcppChargePoint):
     # ─────────────────────────────
     # Helper: Post-connect init
     # ─────────────────────────────
+
+    def _schedule_post_connect_init(self):
+        # Latch synchronously: BootNotification and Heartbeat may both arrive
+        # before the delayed task starts. Reconnect creates a fresh latch.
+        if not self._post_connect_init_started:
+            self._post_connect_init_started = True
+            self.hass.async_create_task(self._post_connect_init())
 
     async def _post_connect_init(self):
         try:
