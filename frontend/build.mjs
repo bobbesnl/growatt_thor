@@ -5,6 +5,12 @@ import { previewIconCatalog } from './preview/icon-catalog.ts';
 const { version } = JSON.parse(
   await readFile(new URL('../custom_components/growatt_thor/manifest.json', import.meta.url)),
 );
+const packageVersion = JSON.parse(
+  await readFile(new URL('../package.json', import.meta.url)),
+).version;
+if (packageVersion !== version) {
+  throw new Error('Package and manifest versions differ; run npm run release:version -- <version>');
+}
 const translationDir = new URL('../custom_components/growatt_thor/translations/', import.meta.url);
 const translations = Object.fromEntries(
   await Promise.all(

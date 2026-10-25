@@ -36,6 +36,13 @@ order. Review and include generated asset changes in the same commit as their
 sources. For focused iteration, run `npm run typecheck`, `npm test` or
 `npm run build` separately.
 
+## Release versions
+
+Run `npm run release:version -- 2.0.0-alpha.1` with the desired milestone version.
+This updates the integration manifest, package metadata and lockfile, then rebuilds
+all generated assets. The normal build rejects mismatched package and manifest
+versions. Commit metadata and generated assets together and run `npm run check`.
+
 ## Frontend structure
 
 Paths in this table are relative to `frontend/`.
