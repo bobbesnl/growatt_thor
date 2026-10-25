@@ -10,6 +10,7 @@ import secrets
 import time
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.storage import Store
@@ -132,6 +133,11 @@ class ChargingTargetRuntime:
             retained if isinstance(retained, dict) else None
         )
         self.coordinator.charging_target_pilot_enabled = True
+        if isinstance(retained, dict) and retained.get("recurrence") == "daily" and not retained.get("local_time"):
+            start_at = stored_start_at(retained.get("scheduled_for"))
+            if start_at is not None:
+                retained = {**retained, "local_time": start_at.astimezone(ZoneInfo(retained["time_zone"])).strftime("%H:%M:%S")}
+                await self.persist(retained)
 
         self.coordinator.runtime_data["target_handlers"] = {
             SERVICES[0]: self.preview,
@@ -503,6 +509,7 @@ class ChargingTargetRuntime:
             start_at,
             now=self._now_utc(),
             time_zone=request["time_zone"],
+            local_time=request.get("local_time"),
         )
         updated = {
             **request,
@@ -619,6 +626,8 @@ class ChargingTargetRuntime:
                     else "daily_remote_start"
                 ),
             }
+            if recurrence == "daily":
+                request["local_time"] = start_at.astimezone(ZoneInfo(time_zone)).strftime("%H:%M:%S")
             if recurrence == "once":
                 request["reservation_id"] = secrets.randbelow(2_000_000_000) + 1
                 try:

@@ -670,6 +670,13 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(type(self.cp.call.call_args_list[1].args[0]).__name__, "RemoteStartTransaction")
         self.assertEqual(Store.retained["last_run_state"], "start_accepted")
 
+    async def test_daily_requested_clock_survives_gap_and_restart(self):
+        Store.retained = {"request_id": "dst", "kind": "energy", "value": "1", "state": "scheduled", "recurrence": "daily", "time_zone": "Europe/Berlin", "local_time": "02:30:00", "scheduled_for": "2026-03-29T01:30:00Z"}
+        self.now_utc = datetime(2026, 3, 29, 2, 0, tzinfo=timezone.utc)
+        await self.module.async_setup_target_services(self.hass, SimpleNamespace(entry_id="TEST"), self.coordinator, now_utc=lambda: self.now_utc)
+        self.assertEqual(Store.retained["scheduled_for"], "2026-03-30T00:30:00Z")
+        self.assertEqual(Store.retained["local_time"], "02:30:00")
+
     async def test_daily_cancel_is_local_and_restart_advances_a_missed_run(self):
         await self.schedule(recurrence="daily")
         request_id = Store.retained["request_id"]

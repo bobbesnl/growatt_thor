@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 MAX_SCHEDULE_AHEAD = timedelta(days=30)
@@ -66,6 +66,7 @@ def next_daily_start(
     *,
     now: datetime,
     time_zone: str,
+    local_time: str | None = None,
 ) -> datetime:
     """Return the next future occurrence of a local wall-clock time."""
     try:
@@ -74,11 +75,13 @@ def next_daily_start(
         raise ValueError("invalid_time_zone") from exc
     local_previous = previous.astimezone(zone)
     local_now = now.astimezone(zone)
-    candidate = datetime.combine(
-        local_now.date(),
-        local_previous.timetz().replace(tzinfo=None),
-        tzinfo=zone,
-    )
-    while candidate <= local_now:
-        candidate += timedelta(days=1)
-    return candidate.astimezone(timezone.utc)
+    clock = time.fromisoformat(local_time) if local_time is not None else local_previous.time()
+    if clock.tzinfo is not None:
+        raise ValueError("local_time_must_be_naive")
+    day = local_now.date()
+    while True:
+        candidate = datetime.combine(day, clock, tzinfo=zone).astimezone(timezone.utc)
+        # Compare actual instants, including nonexistent spring clock times.
+        if candidate > now.astimezone(timezone.utc):
+            return candidate
+        day += timedelta(days=1)

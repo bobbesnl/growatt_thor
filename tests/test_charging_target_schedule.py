@@ -53,6 +53,20 @@ class ChargingTargetScheduleTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_time_zone"):
             schedule.reservation_expiry(start, "Mars/Olympus")
 
+    def test_spring_gap_does_not_change_subsequent_daily_clock(self):
+        previous = datetime(2026, 3, 28, 1, 30, tzinfo=timezone.utc)
+        shifted = schedule.next_daily_start(previous, now=previous, time_zone="Europe/Amsterdam", local_time="02:30")
+        self.assertEqual(shifted, datetime(2026, 3, 29, 1, 30, tzinfo=timezone.utc))
+        following = schedule.next_daily_start(shifted, now=shifted, time_zone="Europe/Amsterdam", local_time="02:30")
+        self.assertEqual(following, datetime(2026, 3, 30, 0, 30, tzinfo=timezone.utc))
+
+    def test_autumn_fold_runs_once_and_preserves_requested_time(self):
+        previous = datetime(2026, 10, 24, 0, 30, tzinfo=timezone.utc)
+        first = schedule.next_daily_start(previous, now=previous, time_zone="Europe/Berlin", local_time="02:30")
+        self.assertEqual(first, datetime(2026, 10, 25, 0, 30, tzinfo=timezone.utc))
+        following = schedule.next_daily_start(first, now=first, time_zone="Europe/Berlin", local_time="02:30")
+        self.assertEqual(following, datetime(2026, 10, 26, 1, 30, tzinfo=timezone.utc))
+
     def test_daily_recurrence_preserves_local_clock_across_dst(self):
         previous = datetime(2026, 10, 24, 18, 30, tzinfo=timezone.utc)  # 20:30 CEST
         now = datetime(2026, 10, 25, 20, 0, tzinfo=timezone.utc)
