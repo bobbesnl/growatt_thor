@@ -1091,6 +1091,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def set_charge_point(self, cp_id):
         """Set charge point ID and notify sensors."""
+        if persist := self.runtime_data.get("persist_charger_identity"):
+            persist(cp_id)
         self.charge_point_id = cp_id
         if refresh := self.runtime_data.get("refresh_dashboard"):
             self.hass.async_create_task(refresh())

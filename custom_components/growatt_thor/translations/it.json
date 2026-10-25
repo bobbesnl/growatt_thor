@@ -72,6 +72,7 @@
         "title": "Configurazione Growatt THOR",
         "description": "Configura la connessione OCPP della stazione di ricarica Growatt THOR",
         "data": {
+          "bind_address": "OCPP bind address (local IP)",
           "port": "Porta",
           "location": "Luogo di installazione",
           "poll_interval": "Intervallo di polling della rete (secondi, min. {min_interval})"
@@ -81,6 +82,7 @@
     "error": {
       "poll_interval_too_low": "L'intervallo di polling deve essere di almeno {min_interval} secondi",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
+      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
       "invalid_port": "Port must be a whole number from 1 to 65535",
       "port_already_configured": "Questa porta è già usata da un altro caricatore Growatt THOR. Scegli una porta diversa."
     },
@@ -101,6 +103,7 @@
         "title": "Impostazioni generali",
         "description": "Queste impostazioni riguardano la connessione tra Home Assistant e la wallbox.",
         "data": {
+          "bind_address": "OCPP bind address (local IP)",
           "poll_interval": "Intervallo di polling della rete (secondi, attualmente: {current_interval})",
           "location": "Luogo di installazione"
         },
@@ -173,6 +176,7 @@
       }
     },
     "error": {
+      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
       "duplicate_power_source": "Scegliere sensori diversi per rete, fotovoltaico, casa e batteria.",
       "profile_requires_battery": "Selezionare un sensore di potenza della batteria nelle fonti energetiche opzionali prima di scegliere questo profilo.",

@@ -273,6 +273,24 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
     def runtime(self, entry_id):
         return self.hass.data.get(integration.DOMAIN, {}).get(entry_id)
 
+    async def test_saved_charger_identity_survives_setup_and_rejects_foreign_id(self):
+        from unittest.mock import AsyncMock
+        entry = self.entry("bound", _free_port())
+        entry.data["bind_address"] = "127.0.0.1"
+        self.assertTrue(await integration.async_setup_entry(self.hass, entry))
+        runtime = self.runtime("bound")
+        runtime["persist_charger_identity"]("EXPECTED")
+        self.assertEqual(entry.data["charge_point_id"], "EXPECTED")
+        self.assertTrue(await integration.async_unload_entry(self.hass, entry))
+        self.assertTrue(await integration.async_setup_entry(self.hass, entry))
+        c = self.runtime("bound")["coordinator"]
+        self.assertEqual(c.charge_point_id, "EXPECTED")
+        server_module = sys.modules[PACKAGE_NAME + ".ocpp.server"]
+        ws = SimpleNamespace(close=AsyncMock())
+        await server_module._on_connect(ws, "/ocpp/ws/FOREIGN", c, self.hass)
+        self.assertEqual(ws.close.call_args.kwargs["code"], 1008)
+        self.assertNotIn("charge_point", c.runtime_data)
+
     async def test_failed_platform_setup_frees_its_port_and_keeps_the_other_charger(self):
         right = self.entry("entry-right", _free_port())
         left = self.entry("entry-left", _free_port())

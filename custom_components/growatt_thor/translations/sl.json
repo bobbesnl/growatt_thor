@@ -72,6 +72,7 @@
         "title": "Nastavitve Growatt THOR",
         "description": "Nastavite svojo povezavo Growatt THOR EV Charger OCPP",
         "data": {
+          "bind_address": "OCPP bind address (local IP)",
           "port": "Vrata",
           "location": "Lokacija namestitve",
           "poll_interval": "Interval preverjanja omrežja (sekunde, najmanj {min_interval})"
@@ -81,6 +82,7 @@
     "error": {
       "poll_interval_too_low": "Interval preverjanja mora biti vsaj {min_interval} sekund",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
+      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
       "invalid_port": "Port must be a whole number from 1 to 65535",
       "port_already_configured": "Ta vrata že uporablja drug polnilnik Growatt THOR. Izberite druga vrata."
     },
@@ -101,6 +103,7 @@
         "title": "Splošne nastavitve",
         "description": "Te nastavitve vplivajo na povezavo med Home Assistantom in polnilnico.",
         "data": {
+          "bind_address": "OCPP bind address (local IP)",
           "poll_interval": "Interval preverjanja omrežja (sekunde, trenutno: {current_interval})",
           "location": "Lokacija namestitve"
         },
@@ -173,6 +176,7 @@
       }
     },
     "error": {
+      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
       "duplicate_power_source": "Za moč omrežja, sončne elektrarne, gospodinjstva in baterije izberite različne senzorje.",
       "profile_requires_battery": "Pred izbiro tega profila izberite senzor moči baterije med izbirnimi viri energije.",

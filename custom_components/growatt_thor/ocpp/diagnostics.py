@@ -11,6 +11,7 @@ REDACTED = "<redacted>"
 
 _SENSITIVE_FIELD_NAMES = frozenset(
     {
+        "chargepointid",
         "chargeboxserialnumber",
         "chargepointserialnumber",
         "iccid",

@@ -175,3 +175,12 @@ class ExportDateRangeValidationTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BindAddressValidationTest(unittest.TestCase):
+    def test_accepts_ip_literals_only(self):
+        for value in ('0.0.0.0', '192.168.1.2', '::1'):
+            self.assertEqual(validation.validate_bind_address(value), value)
+        for value in ('', 'localhost', '192.168.1.999', None, 123):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                validation.validate_bind_address(value)

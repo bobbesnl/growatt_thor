@@ -72,6 +72,7 @@
         "title": "Growatt THOR Setup",
         "description": "Configure your Growatt THOR EV Charger OCPP connection",
         "data": {
+          "bind_address": "OCPP bind address (local IP)",
           "port": "Port",
           "location": "Installation location",
           "poll_interval": "Grid poll interval (seconds, min {min_interval})"
@@ -81,6 +82,7 @@
     "error": {
       "poll_interval_too_low": "Poll interval must be at least {min_interval} seconds",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
+      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
       "invalid_port": "Port must be a whole number from 1 to 65535",
       "port_already_configured": "This port is already used by another Growatt THOR charger. Choose a different port."
     },
@@ -113,6 +115,7 @@
         "title": "General settings",
         "description": "These settings affect the connection between Home Assistant and the charger.",
         "data": {
+          "bind_address": "OCPP bind address (local IP)",
           "poll_interval": "Grid poll interval (seconds, currently: {current_interval})",
           "location": "Installation location"
         },
@@ -185,6 +188,7 @@
       }
     },
     "error": {
+      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
       "duplicate_power_source": "Choose different sensors for grid, solar, household and battery power.",
       "profile_requires_battery": "Select a battery power sensor under Optional energy sources before choosing this profile.",

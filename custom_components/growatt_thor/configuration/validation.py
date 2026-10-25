@@ -196,3 +196,9 @@ def parse_export_date_range(
             DateRangeValidationReason.REVERSED_RANGE
         )
     return date_from, date_to
+
+
+def validate_bind_address(value: object) -> str:
+    """Accept explicit local IP literals, avoiding DNS-dependent listeners."""
+    from ipaddress import ip_address
+    return str(ip_address(value)) if isinstance(value, str) else str(ip_address("invalid"))

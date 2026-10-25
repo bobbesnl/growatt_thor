@@ -58,6 +58,7 @@ from .configuration.validation import (
     NumericValidationReason,
     validate_poll_interval,
     validate_tcp_port,
+    validate_bind_address,
 )
 from .runtime.write_queue import (
     VOLATILE_CONTROL_WRITE_POLICY,
@@ -89,6 +90,10 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             normalized_input = dict(user_input)
+            try:
+                normalized_input["bind_address"] = validate_bind_address(user_input.get("bind_address", "0.0.0.0"))
+            except ValueError:
+                errors["bind_address"] = "invalid_bind_address"
             try:
                 normalized_input[CONF_PORT] = validate_tcp_port(
                     user_input.get(CONF_PORT, DEFAULT_PORT)
@@ -132,6 +137,7 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             min=1, max=65535, step=1, mode=NumberSelectorMode.BOX,
                         )
                     ),
+                    vol.Optional("bind_address", default="0.0.0.0"): str,
                     vol.Required(CONF_LOCATION, default=""): str,
                     vol.Required(
                         CONF_POLL_INTERVAL,
@@ -204,6 +210,11 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         errors = {}
 
         if user_input is not None:
+            old_bind = self.config_entry.data.get("bind_address", "0.0.0.0")
+            try:
+                bind_address = validate_bind_address(user_input.get("bind_address", old_bind))
+            except ValueError:
+                errors["bind_address"] = "invalid_bind_address"
             try:
                 poll_interval = validate_poll_interval(
                     user_input.get(CONF_POLL_INTERVAL),
@@ -218,6 +229,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     **self.config_entry.data,
                     CONF_POLL_INTERVAL: poll_interval,
                     CONF_LOCATION: new_location,
+                    "bind_address": bind_address,
                 }
                 self.hass.config_entries.async_update_entry(
                     self.config_entry,
@@ -238,6 +250,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     # Wake the active sleep so the new cadence starts from
                     # this options save, without reloading the integration.
                     schedule.update(poll_interval)
+                if bind_address != old_bind:
+                    await self.hass.config_entries.async_reload(self.config_entry.entry_id)
                 return self.async_create_entry(title="", data={})
 
         current_poll_interval = self.config_entry.data.get(
@@ -248,6 +262,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             step_id="general",
             data_schema=vol.Schema(
                 {
+                    vol.Optional("bind_address", default=self.config_entry.data.get("bind_address", "0.0.0.0")): str,
                     vol.Required(
                         CONF_POLL_INTERVAL,
                         default=current_poll_interval,

@@ -68,6 +68,7 @@ from .configuration.validation import (
     parse_export_date_range,
     validate_poll_interval,
     validate_tcp_port,
+    validate_bind_address,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -474,6 +475,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             seed_from_legacy=await _legacy_seed_allowed(hass, entry),
         )
         coordinator.runtime_data = runtime_data
+        coordinator.charge_point_id = entry.data.get("charge_point_id")
+
+        def persist_charger_identity(cp_id):
+            if entry.data.get("charge_point_id") != cp_id:
+                hass.config_entries.async_update_entry(
+                    entry, data={**entry.data, "charge_point_id": cp_id}
+                )
+
+        runtime_data["persist_charger_identity"] = persist_charger_identity
         runtime_data["owns_legacy_history"] = await _owns_legacy_history(hass, entry)
         coordinator.authorization = LocalAuthorization(
             entry.data.get(CONF_AUTHORIZATION)
@@ -541,8 +551,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             poll_interval,
         )
 
+        bind_address = validate_bind_address(entry.data.get("bind_address", "0.0.0.0"))
         try:
-            server = await start_ocpp_server("0.0.0.0", port, coordinator, hass)
+            server = await start_ocpp_server(bind_address, port, coordinator, hass)
         except OSError as err:
             # Typically the port is still held by a server that is shutting
             # down.  Let Home Assistant retry instead of failing permanently.
@@ -558,7 +569,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         release_entry_runtime(domain_data, entry.entry_id, runtime_data)
         raise
 
-    _LOGGER.info("%s: OCPP server started on %s:%s", entry.title, "0.0.0.0", port)
+    _LOGGER.info("%s: OCPP server started on %s:%s", entry.title, bind_address, port)
 
     startup_check_task = hass.async_create_background_task(
         _check_existing_connection(hass, coordinator),

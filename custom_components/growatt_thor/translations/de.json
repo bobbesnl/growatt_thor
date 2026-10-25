@@ -72,6 +72,7 @@
         "title": "Growatt THOR einrichten",
         "description": "OCPP-Verbindung der Growatt THOR-Wallbox konfigurieren",
         "data": {
+          "bind_address": "OCPP-Bind-Adresse (lokale IP)",
           "port": "Port",
           "location": "Installationsort",
           "poll_interval": "Netzdaten-Abfrageintervall (Sekunden, mindestens {min_interval})"
@@ -81,6 +82,7 @@
     "error": {
       "poll_interval_too_low": "Das Abfrageintervall muss mindestens {min_interval} Sekunden betragen",
       "invalid_poll_interval": "Das Abfrageintervall muss eine endliche ganze Anzahl Sekunden sein",
+      "invalid_bind_address": "Gültige lokale IPv4- oder IPv6-Adresse eingeben",
       "invalid_port": "Der Port muss eine ganze Zahl zwischen 1 und 65535 sein",
       "port_already_configured": "Dieser Port wird bereits von einer anderen Growatt THOR-Wallbox verwendet. Wähle einen anderen Port."
     },
@@ -113,6 +115,7 @@
         "title": "Allgemeine Einstellungen",
         "description": "Diese Einstellungen betreffen die Verbindung zwischen Home Assistant und der Wallbox.",
         "data": {
+          "bind_address": "OCPP-Bind-Adresse (lokale IP)",
           "poll_interval": "Netzdaten-Abfrageintervall (Sekunden, aktuell: {current_interval})",
           "location": "Installationsort"
         },
@@ -185,6 +188,7 @@
       }
     },
     "error": {
+      "invalid_bind_address": "Gültige lokale IPv4- oder IPv6-Adresse eingeben",
       "invalid_authorization": "Höchstens 100 Kennungen mit je 1–20 druckbaren ASCII-Zeichen ohne Leerzeichen eingeben.",
       "duplicate_power_source": "Für Netz, Solar, Haushalt und Batterie jeweils unterschiedliche Sensoren wählen.",
       "profile_requires_battery": "Vor diesem Profil unter Optionale Energiequellen einen Batterieleistungssensor auswählen.",

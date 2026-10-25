@@ -142,7 +142,7 @@ async def async_get_config_entry_diagnostics(
                 ),
             }
         },
-        "sessions": {
+        "sessions": redact_ocpp_data({
             "active": (
                 build_unified_session(
                     active_transaction,
@@ -161,7 +161,7 @@ async def async_get_config_entry_diagnostics(
                 charge_point_id=coordinator.charge_point_id,
                 source_instance_id=coordinator.source_instance_id,
             ),
-        },
+        }),
         "configuration": serialize_configuration_values(
             coordinator.configuration_values,
             redact=True,

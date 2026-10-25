@@ -72,6 +72,7 @@
         "title": "Growatt THOR Installatie",
         "description": "Configureer je Growatt THOR EV Charger OCPP verbinding",
         "data": {
+          "bind_address": "OCPP bind address (local IP)",
           "port": "Poort",
           "location": "Installatielocatie",
           "poll_interval": "Grid poll interval (seconden, min {min_interval})"
@@ -81,6 +82,7 @@
     "error": {
       "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn",
       "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn",
+      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
       "invalid_port": "De poort moet een geheel getal van 1 tot en met 65535 zijn",
       "port_already_configured": "Deze poort wordt al gebruikt door een andere Growatt THOR-lader. Kies een andere poort."
     },
@@ -101,6 +103,7 @@
         "title": "Algemene instellingen",
         "description": "Deze instellingen beïnvloeden de verbinding tussen Home Assistant en de lader.",
         "data": {
+          "bind_address": "OCPP bind address (local IP)",
           "poll_interval": "Grid poll interval (seconden, nu: {current_interval})",
           "location": "Installatielocatie"
         },
@@ -173,6 +176,7 @@
       }
     },
     "error": {
+      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
       "duplicate_power_source": "Kies verschillende sensoren voor net-, zonne-, huishoudelijk en batterijvermogen.",
       "profile_requires_battery": "Selecteer eerst een batterijvermogenssensor onder Optionele energiebronnen.",

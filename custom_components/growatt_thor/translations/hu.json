@@ -72,6 +72,7 @@
         "title": "Growatt THOR beállítás",
         "description": "Growatt THOR EV töltő OCPP kapcsolat beállítása",
         "data": {
+          "bind_address": "OCPP bind address (local IP)",
           "port": "Port",
           "location": "Telepítés helye",
           "poll_interval": "Hálózati lekérdezési időköz (másodperc, min. {min_interval})"
@@ -81,6 +82,7 @@
     "error": {
       "poll_interval_too_low": "A lekérdezési időköz legalább {min_interval} másodperc legyen",
       "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
+      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
       "invalid_port": "Port must be a whole number from 1 to 65535",
       "port_already_configured": "Ezt a portot már egy másik Growatt THOR töltő használja. Válassz másik portot."
     },
@@ -101,6 +103,7 @@
         "title": "Általános beállítások",
         "description": "Ezek a beállítások a Home Assistant és a töltő közötti kapcsolatot érintik.",
         "data": {
+          "bind_address": "OCPP bind address (local IP)",
           "poll_interval": "Hálózati lekérdezési időköz (másodperc, jelenleg: {current_interval})",
           "location": "Telepítés helye"
         },
@@ -173,6 +176,7 @@
       }
     },
     "error": {
+      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
       "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
       "duplicate_power_source": "A hálózat, a napelem, a háztartás és az akkumulátor teljesítményéhez külön érzékelőt válasszon.",
       "profile_requires_battery": "A profil kiválasztása előtt válasszon akkumulátorteljesítmény-érzékelőt az opcionális energiaforrásoknál.",

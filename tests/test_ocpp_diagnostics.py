@@ -59,6 +59,7 @@ class OcppDiagnosticsTest(unittest.TestCase):
 
     def test_redaction_keeps_structure_and_diagnostic_fields(self):
         diagnostics = {
+            "sessions": {"active": {"identity": {"charge_point_id": "secret-id"}}},
             "boot": {
                 "request": {
                     "charge_point_model": "THOR_22AS",
@@ -80,6 +81,7 @@ class OcppDiagnosticsTest(unittest.TestCase):
         }
 
         redacted = ocpp_diagnostics.redact_ocpp_data(diagnostics)
+        self.assertEqual(redacted["sessions"]["active"]["identity"]["charge_point_id"], ocpp_diagnostics.REDACTED)
 
         self.assertEqual(
             redacted["boot"]["request"]["charge_point_serial_number"],

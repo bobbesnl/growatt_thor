@@ -216,3 +216,20 @@ first connection identifies the wallbox, those legacy rows may not yet appear.
 Old archived totals without an owner are preserved for the sole entry present
 at migration. If several entries existed, those totals remain unassigned in
 the combined summary rather than being duplicated across cards.
+
+
+### OCPP network trust
+
+The local OCPP listener trusts connections from the network; charger IDs are
+identifiers, not credentials. Put the charger in a dedicated VLAN or allow only
+the charger's IP to reach the OCPP port in your firewall. A client claiming the
+same ID can still replace the current socket. HTTP Basic authentication against
+a custom server has not been verified for the supported firmware.
+
+The first connected charger ID is saved in the integration configuration and
+remains bound after HA restarts. To pair a different charger, remove and recreate
+the integration entry. In setup or General settings, set **OCPP bind address** to
+a local interface IP to restrict the listener (default `0.0.0.0`, all IPv4
+interfaces). Changing it reloads the integration; it must be an address assigned
+to the HA host. This complements firewall isolation and does not authenticate
+a charger.
