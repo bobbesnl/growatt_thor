@@ -43,6 +43,7 @@ import {
   sessionEventReason,
 } from './events.template';
 import { SessionDetailStore } from './detail-store';
+import { SessionChartHost } from './chart-host';
 import type {
   Hass,
   SessionCardConfig,
@@ -84,7 +85,13 @@ export class ThorSessionCard extends LitElement {
     this._chartSessionKey = undefined;
     this.requestUpdate();
   });
-  private _chart?: echarts.ECharts;
+  private readonly _chartHost = new SessionChartHost<echarts.ECharts>(
+    (element) => echarts.init(element),
+    () => this.drawChart(),
+  );
+  private get _chart() {
+    return this._chartHost.chart;
+  }
   private _legendSelected: Record<string, boolean> = {};
   private _dataZoomRange = { start: 0, end: 100 };
   private _expandedBreaks = new Set<string>();
@@ -93,7 +100,6 @@ export class ThorSessionCard extends LitElement {
   private _labelFadeFrame?: number;
   private _chartRef: Ref<HTMLDivElement> = createRef();
   private _tableRef: Ref<HTMLDivElement> = createRef();
-  private _resizeObserver?: ResizeObserver;
   setConfig(config: SessionCardConfig) {
     if (!config) throw new Error('Invalid configuration');
     if (
@@ -120,19 +126,8 @@ export class ThorSessionCard extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._details.clear();
-    this._resizeObserver?.disconnect();
     if (this._labelFadeFrame !== undefined) cancelAnimationFrame(this._labelFadeFrame);
-    this._chart?.dispose();
-    this._chart = undefined;
-  }
-  firstUpdated() {
-    this._resizeObserver = new ResizeObserver(() => {
-      this._chart?.resize();
-      // Recompute label density and event placement for dashboard-column changes,
-      // not only viewport changes. drawChart retains the current zoom and legend.
-      this.drawChart();
-    });
-    if (this._chartRef.value) this._resizeObserver.observe(this._chartRef.value);
+    this._chartHost.disconnect();
   }
   willUpdate() {
     // Scope the cache before render() can merge details into the new entry's rows.
@@ -169,15 +164,17 @@ export class ThorSessionCard extends LitElement {
     const entity = this.hass && resolveEntity(this.hass, this._config);
     const data = entity?.attributes.thor_card?.sessions;
     const el = this._chartRef.value;
-    if (!el || !data || this._config.show_curve === false) return;
-    if (!this._chart) {
-      this._chart = echarts.init(el);
-      this._chart.on('legendselectchanged', (event: unknown) => {
+    if (!el || !data || this._config.show_curve === false) {
+      this._chartHost.disconnect();
+      return;
+    }
+    if (this._chartHost.attach(el)) {
+      this._chart!.on('legendselectchanged', (event: unknown) => {
         const selected = (event as { selected?: Record<string, boolean> }).selected;
         this._legendSelected = { ...(selected || {}) };
         this.drawChart();
       });
-      this._chart.on('datazoom', (event: unknown) => {
+      this._chart!.on('datazoom', (event: unknown) => {
         const zoomEvent = event as {
           start?: number;
           end?: number;
@@ -187,7 +184,7 @@ export class ThorSessionCard extends LitElement {
         if (Number.isFinite(range.start) && Number.isFinite(range.end))
           this._dataZoomRange = { start: range.start!, end: range.end! };
       });
-      this._chart.on('axisbreakchanged', (event: unknown) => {
+      this._chart!.on('axisbreakchanged', (event: unknown) => {
         const breaks = (
           event as { breaks?: Array<{ start: unknown; end: unknown; isExpanded: boolean }> }
         ).breaks;
@@ -353,7 +350,7 @@ export class ThorSessionCard extends LitElement {
           }
         : undefined;
     const initialEventMarkLine = eventMarkLine(fadeEventLabels ? 0 : 1);
-    this._chart.setOption(
+    this._chart!.setOption(
       {
         animation: !reducedMotion,
         legend: {
