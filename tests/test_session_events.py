@@ -149,6 +149,26 @@ class SessionEventTrackerTest(unittest.TestCase):
         )
         self.assertNotIn("unplugged", {event["type"] for event in events})
 
+    def test_vendor_unplugtime_after_remote_stop_is_not_a_disconnect(self):
+        tracker = session_events.SessionEventTracker.start("2026-10-27T11:01:25Z")
+        tracker.observe_power("2026-10-27T11:01:23Z", 7300)
+        tracker.observe_suspension("2026-10-27T13:54:13Z", "suspended_ev")
+        tracker.record_stop_requested("2026-10-27T14:07:32Z")
+        tracker.stop("2026-10-27T14:07:38Z", reason="Remote")
+        legacy_unplug = session_events.session_event(
+            "unplugged", "2026-10-27 16:07:37", "growatt", "observed"
+        )
+        events = session_events.merge_growatt_record_events(
+            tracker.events + [legacy_unplug], plug_time=None, start_time=None,
+            end_time="2026-10-27 16:07:37", unplug_time="2026-10-27 16:07:37",
+        )
+        self.assertNotIn("unplugged", {event["type"] for event in events})
+        self.assertEqual(next(event["at"] for event in events if event["type"] == "energy_flow_stopped"), "2026-10-27T13:54:13Z")
+        real_unplug = session_events.session_event(
+            "unplugged", "2026-10-27T15:00:00Z", "ocpp", "derived"
+        )
+        self.assertEqual(session_events.normalize_session_events([legacy_unplug, real_unplug]), [real_unplug])
+
     def test_invalid_or_oversized_event_payload_is_filtered_and_bounded(self):
         payload = [
             {

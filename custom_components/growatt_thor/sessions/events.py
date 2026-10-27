@@ -115,7 +115,11 @@ def normalize_session_events(value: Any) -> list[dict[str, str]]:
             raw.get("certainty"),
             reason=raw.get("reason"),
         )
-        if event is not None:
+        # THOR also fills unplugtime when a remote stop leaves the cable in.
+        # Drop this unsupported inference from previously retained histories.
+        if event is not None and not (
+            event["type"] == "unplugged" and event["source"] == "growatt"
+        ):
             result.append(event)
     return _bounded_events(result)
 
@@ -152,13 +156,12 @@ def merge_growatt_record_events(
     end_time: object | None,
     unplug_time: object | None,
 ) -> list[dict[str, str]]:
-    """Add only timestamps explicitly reported by a Growatt session record."""
+    """Add vendor charging anchors, never infer disconnection from unplugtime."""
     merged = normalize_session_events(events)
     for event_type, at in (
         ("plugged_in", plug_time),
         ("energy_flow_started", start_time),
         ("energy_flow_stopped", end_time),
-        ("unplugged", unplug_time),
     ):
         append_session_event(
             merged,

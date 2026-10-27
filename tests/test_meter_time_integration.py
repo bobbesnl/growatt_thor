@@ -125,14 +125,15 @@ class MeterTimeIntegrationTest(unittest.TestCase):
     def test_status_notification_persists_session_pause_without_meter_sample(self):
         c = self.c
         tracker = c._session_event_tracker = coordinator_module.SessionEventTracker.start(AT.isoformat())
-        c.active_transaction["start"]["request"] = {"connector_id": 1}
+        # ActiveSessionState retains identifiers as text across a Core restart.
+        c.active_transaction["start"]["request"] = {"connector_id": "1"}
         c.active_transaction["events"] = tracker.events
         self.receive()
         curve = list(c._active_power_curve)
         saved = []
         c._schedule_storage_save = lambda: saved.append(True)
         self.at += timedelta(minutes=5)
-        for connector in (0, 2):
+        for connector in (None, 0, "0", 2, "2"):
             c.record_status_notification(connector, "SuspendedEV", "NoError")
         self.assertFalse(saved)
         c.record_status_notification(1, "SuspendedEV", "NoError")
@@ -143,6 +144,21 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         self.assertEqual(c.transaction_id, 27)
         c.record_status_notification(1, "SuspendedEV", "NoError")
         self.assertEqual(saved, [True])
+
+    def test_only_session_connector_available_adds_unplugged_marker(self):
+        c = self.c
+        c.sessions = coordinator_module.SessionLifecycle(c)
+        c.runtime_data = {}
+        c._restored_active_session = False
+        c.active_transaction["start"]["request"] = {"connector_id": "1"}
+        c.active_transaction["events"] = []
+        for connector in (None, 0, "0", 2, "2"):
+            c.record_status_notification(connector, "Available", "NoError")
+        self.assertEqual(c.active_transaction["events"], [])
+        c.record_status_notification(1, "Preparing", "NoError")
+        self.assertEqual(c.active_transaction["events"], [])
+        c.record_status_notification(1, "Available", "NoError")
+        self.assertEqual(c.active_transaction["events"][0]["type"], "unplugged")
 
     def test_local_sample_reaches_gauge_accounting_curve_and_stop_guard(self):
         self.receive()

@@ -958,18 +958,28 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_status_notification = create_ocpp_snapshot(self.now(), request)
         received_at = self.last_status_notification["received_at"]
         normalized_status = normalize_ocpp_status(status)
+        target = self.active_transaction or self.last_completed_transaction
+        target_connector = (
+            target.get("start", {}).get("request", {}).get("connector_id")
+            if isinstance(target, dict) else None
+        )
+        session_connector = (
+            connector_id is not None and str(connector_id) != "0"
+            and (target_connector is None or str(target_connector) == str(connector_id))
+        )
         if normalized_status in {"charging", "suspended_ev", "suspended_evse"}:
             self._restored_active_session = False
         elif normalized_status == "available":
             self._discard_unconfirmed_restored_session()
         if (
             normalized_status == "preparing"
+            and session_connector
             and previous_status in (None, "available", "idle")
         ):
             self._pending_plugged_event = session_event(
                 "plugged_in", received_at, "ocpp", "derived"
             )
-        elif normalized_status == "available":
+        elif normalized_status == "available" and session_connector:
             unplugged = session_event(
                 "unplugged", received_at, "ocpp", "derived"
             )
@@ -993,9 +1003,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         # final power sample or the unknown time at which the car became full.
         transaction = self.active_transaction
         tracker = self._session_event_tracker
-        if transaction and tracker is not None and connector_id not in (None, 0):
-            active_connector = transaction.get("start", {}).get("request", {}).get("connector_id")
-            if active_connector in (None, connector_id) and tracker.observe_suspension(
+        if transaction and tracker is not None and session_connector:
+            if tracker.observe_suspension(
                 received_at, normalized_status
             ):
                 self._schedule_storage_save()
