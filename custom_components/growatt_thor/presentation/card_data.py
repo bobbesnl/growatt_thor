@@ -21,6 +21,7 @@ from ..energy.accounting import EVEnergyDelta, allocate
 from ..energy.accounting_runtime import parse_at, site_inputs
 from datetime import datetime, timedelta, timezone
 from ..ocpp.diagnostics import boot_notification_field
+from ..ocpp.meter_samples import meter_time_zone, normalize_meter_timestamp
 from ..ocpp.status import normalize_ocpp_status
 from ..sessions.time import session_times
 from ..runtime.time import installation_time_zone, utc_timestamp
@@ -127,7 +128,14 @@ def dashboard_active_session(coordinator):
             started_at=start_time,
         ),
         "active": True,
-        "start_time": start_time,
+        # Keep the raw start in the identity above; normalize only the display.
+        "start_time": normalize_meter_timestamp(
+            start_time,
+            meter_time_zone(
+                getattr(coordinator, "configuration_values", {}),
+                installation_time_zone(getattr(coordinator, "hass", None)),
+            ),
+        ),
         "end_time": None,
         "energy_kwh": (
             metered_kwh if metered_kwh is not None and metered_kwh > 0

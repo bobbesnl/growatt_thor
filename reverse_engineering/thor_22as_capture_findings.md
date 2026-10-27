@@ -187,6 +187,8 @@ Read-only live diagnostics on 2026-10-27 confirmed this behavior on `THOR_22AS-V
 
 Live meter normalization now uses the reported fixed offset for the observed disabled-DST setting. The same sample becomes `11:18:04Z`, one second before receipt. Explicit offsets in a payload remain authoritative, raw timestamps are preserved, and packet arrival is never used to infer or renew a sample's timestamp. Missing or unsupported clock/DST settings retain the installation-zone fallback; seasonal vendor encodings other than the observed disabled form are not interpreted. This correction applies to incoming MeterValues; it does not change charger settings, retrofit historical CSV times or alter charging schedules.
 
+The active session's displayed start time uses the same reported clock basis, after its stable identity has been computed from the original timestamp. Updating the parser during a session can leave a saved curve containing both the previous, shifted points and new, correct points. Such a mixed curve is not repaired by sorting it or silently shifting timestamps: a one-off correction needs the known old/new clock bases and a backup. Existing source-accounting gaps cannot be reconstructed from charging power alone.
+
 ## Growatt DataTransfer payloads
 
 Growatt encodes these payloads as query-string-like data. The raw value should

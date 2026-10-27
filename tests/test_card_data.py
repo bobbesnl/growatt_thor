@@ -25,6 +25,30 @@ def sample(value, phase=None, unit="W", measurand="Power.Active.Import"):
 
 
 class CardDataTest(unittest.TestCase):
+    def test_fixed_wallbox_clock_normalizes_active_start_without_changing_identity(self):
+        request = {'timestamp': '2026-10-27T13:01:23'}
+        c = types.SimpleNamespace(
+            transaction_is_active=True, transaction_id=7,
+            active_transaction={'start': {
+                'received_at': '2026-10-27T11:01:25Z',
+                'request': request, 'response': {'transaction_id': 7},
+            }},
+            hass=types.SimpleNamespace(config=types.SimpleNamespace(time_zone='Europe/Berlin')),
+            configuration_values={},
+        )
+        before = module.dashboard_active_session(c)
+        self.assertEqual(before['start_time'], '2026-10-27T12:01:23Z')
+        c.configuration_values = {
+            'G_TimeZone': types.SimpleNamespace(raw_value='UTC+2'),
+            'G_DaylightSavingTime': types.SimpleNamespace(raw_value='00-00&00-00'),
+        }
+        after = module.dashboard_active_session(c)
+        self.assertEqual(after['start_time'], '2026-10-27T11:01:23Z')
+        self.assertEqual(before['session_id'], after['session_id'])
+        self.assertEqual(request, {'timestamp': '2026-10-27T13:01:23'})
+        request['timestamp'] = '2026-10-27T11:01:23Z'
+        self.assertEqual(module.dashboard_active_session(c)['start_time'], '2026-10-27T11:01:23Z')
+
     def test_live_sources_balance_fresh_charger_power_and_disappear_when_stale(self):
         at = "2026-09-22T12:00:00Z"
         coordinator = types.SimpleNamespace(
