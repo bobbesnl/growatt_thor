@@ -50,8 +50,84 @@ test('PV Linkage adds only its configured grid allowance', () => {
   );
   assert.equal(flow.target?.label, 'pvControlPoint');
   assert.equal(flow.target?.kw, 6.2);
+  assert.equal(flow.target?.zeroGridKw, 4.2);
+  assert.ok(Math.abs((flow.target?.allowanceFraction ?? 0) - (2 / 11) * 100) < 0.001);
   assert.equal(flow.gridImportLimitKw, 2);
   assert.equal(flow.overflow, null);
+});
+
+test('An idle evening with battery discharge labels the grid permission, not solar availability', () => {
+  const flow = powerFlowView(
+    makeData({
+      working_mode: 'pv_linkage',
+      transaction_active: false,
+      power_w: 0,
+      sample_at: null,
+      power_flow: {
+        ...makeData().power_flow!,
+        grid_w: 0,
+        grid_import_limit_kw: 3.96,
+        battery_w: 890,
+        battery_sign: 'positive_discharge',
+      },
+    }),
+    null,
+    22,
+    true,
+    now,
+  );
+  assert.equal(flow.target?.label, 'gridImportAllowed');
+  assert.equal(flow.target?.hint, 'gridImportAllowedHint');
+  assert.equal(flow.target?.kw, 3.96);
+  assert.equal(flow.target?.zeroGridFraction, 0);
+  assert.equal(flow.target?.allowanceFraction, flow.target?.fraction);
+  assert.deepEqual(flow.sources, []);
+});
+
+test('Battery-supported zero grid exchange remains distinct from the grid allowance and actual sources', () => {
+  const data = makeData({
+    working_mode: 'pv_linkage',
+    power_flow: {
+      ...makeData().power_flow!,
+      grid_w: 0,
+      grid_import_limit_kw: 4,
+      charging_sources: { solar_w: 0, battery_w: 7000, grid_w: 0 },
+    },
+  });
+  const flow = powerFlowView(data, 7, 22, true, now);
+  assert.equal(flow.target?.kw, 11);
+  assert.equal(flow.target?.zeroGridKw, 7);
+  assert.ok(Math.abs((flow.target?.allowanceFraction ?? 0) - (4 / 22) * 100) < 0.001);
+  assert.deepEqual(
+    flow.sources.map(({ source, kw }) => [source, kw]),
+    [['battery', 7]],
+  );
+  const capped = powerFlowView(data, 7, 8, true, now);
+  assert.equal(capped.target?.fraction, 100);
+  assert.equal(capped.target?.allowanceFraction, 12.5);
+});
+
+test('Household grid import consumes allowance before estimating remaining EV power', () => {
+  for (const [gridW, targetKw] of [
+    [2000, 2],
+    [6000, 0],
+  ]) {
+    const flow = powerFlowView(
+      makeData({
+        working_mode: 'pv_linkage',
+        transaction_active: false,
+        power_flow: { ...makeData().power_flow!, grid_w: gridW, grid_import_limit_kw: 4 },
+      }),
+      0,
+      22,
+      true,
+      now,
+    );
+    assert.equal(flow.gridImportLimitKw, 4);
+    assert.equal(flow.target?.kw, targetKw);
+    assert.equal(flow.target?.zeroGridKw, 0);
+    assert.equal(flow.target?.label, 'pvControlPoint');
+  }
 });
 
 test('PV modes expose only the measured gauge segment above their grid target', () => {

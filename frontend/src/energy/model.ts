@@ -8,8 +8,11 @@ export type ChargingSource = 'solar' | 'battery' | 'grid' | 'unknown';
 export interface GaugeTarget {
   fraction: number;
   kw: number;
-  label: 'zeroGridPoint' | 'pvControlPoint';
-  hint: 'zeroGridPointHint' | 'pvControlPointHint';
+  zeroGridKw: number;
+  zeroGridFraction: number;
+  allowanceFraction: number;
+  label: 'zeroGridPoint' | 'pvControlPoint' | 'gridImportAllowed';
+  hint: 'zeroGridPointHint' | 'pvControlPointHint' | 'gridImportAllowedHint';
 }
 
 export interface GaugeOverflow {
@@ -164,14 +167,28 @@ export function powerFlowView(
   if (pvMode && available && measuredPowerKw !== null && maximumKw) {
     // At otherwise unchanged site load/generation, subtracting current grid import
     // (or adding current export) yields the charging power at zero grid exchange.
-    const zeroGridKw = Math.max(0, measuredPowerKw - gridW! / 1000);
-    const targetKw = Math.min(maximumKw, zeroGridKw + (gridImportLimitKw ?? 0));
+    const gridHeadroomKw = measuredPowerKw - gridW! / 1000;
+    const zeroGridKw = Math.min(maximumKw, Math.max(0, gridHeadroomKw));
+    const targetKw = Math.max(0, Math.min(maximumKw, gridHeadroomKw + (gridImportLimitKw ?? 0)));
     const fraction = clamp((targetKw / maximumKw) * 100);
+    const zeroGridFraction = clamp((zeroGridKw / maximumKw) * 100);
+    const allowanceOnly = zeroGridKw === 0 && targetKw > 0 && targetKw === gridImportLimitKw;
     target = {
       fraction,
       kw: targetKw,
-      label: gridImportLimitKw === null ? 'zeroGridPoint' : 'pvControlPoint',
-      hint: gridImportLimitKw === null ? 'zeroGridPointHint' : 'pvControlPointHint',
+      zeroGridKw,
+      zeroGridFraction,
+      allowanceFraction: Math.max(0, fraction - zeroGridFraction),
+      label: allowanceOnly
+        ? 'gridImportAllowed'
+        : gridImportLimitKw === null
+          ? 'zeroGridPoint'
+          : 'pvControlPoint',
+      hint: allowanceOnly
+        ? 'gridImportAllowedHint'
+        : gridImportLimitKw === null
+          ? 'zeroGridPointHint'
+          : 'pvControlPointHint',
     };
 
     // Only paint the measured portion beyond the controller target. The same

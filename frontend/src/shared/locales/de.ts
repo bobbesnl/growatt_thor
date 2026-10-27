@@ -220,12 +220,15 @@ export const de: Record<Key, string> = {
   gridExport: 'Überschuss',
   gridBalanced: 'Netz ausgeglichen',
   gridPowerUnavailable: 'Netzleistung unbekannt',
-  zeroGridPoint: 'Netz-Nullpunkt',
+  zeroGridPoint: 'Ohne Netzbezug',
   zeroGridPointHint:
-    'Geschätzte Ladeleistung für 0 W am Netzanschluss, wenn die übrigen Hauslasten unverändert bleiben.',
-  pvControlPoint: 'Regelziel',
+    'Geschätzte Ladeleistung bei 0 W am Netzanschluss und unveränderten übrigen Hauslasten. Auch die Hausbatterie kann den Netzbezug ausgleichen; der Wert belegt keinen verfügbaren Solarüberschuss.',
+  pvControlPoint: 'Geschätztes Ladeziel',
   pvControlPointHint:
-    'Geschätzter Netz-Nullpunkt plus der bei PV-Kopplung erlaubte Netzbezug, begrenzt durch das Gauge-Maximum.',
+    'Geschätzte Ladeleistung aus dem aktuellen Netzsaldo und dem erlaubten Netzbezug, begrenzt durch die Anzeigeskala. Bereits vorhandener Netzbezug des Haushalts verringert den Spielraum. Das ist kein Solar-Messwert; auch die Hausbatterie kann das Haus versorgen.',
+  gridImportAllowed: 'Netzbezug erlaubt',
+  gridImportAllowedHint:
+    'Für PV-Kopplung erlaubter Netzbezug. Das ist eine Freigabe, kein aktueller Verbrauch und kein verfügbarer Solarüberschuss.',
   sourceMix: 'Ladequellen',
   sourceSolar: 'PV',
   sourceBattery: 'Batterie',

@@ -94,6 +94,8 @@ accumulated over a session. Green means direct PV, purple means battery of
 unknown origin, amber means grid, and a grey hatched segment means unidentified
 energy. Empty categories are omitted. [Compare the source examples](screenshots.md#charging-card-and-sources).
 
+The gauge distinguishes actual charging sources from the estimated charging target. A blue range marks the estimated charging power without grid import; a home battery can also maintain this balance, so it does not establish available solar power. In regular PV Linkage, an amber hatched range shows the additional charging power within the configured grid import allowance. Grid import already used by the household reduces this remaining charging allowance. The two contributions are labelled separately when both are present. If only the allowance remains, for example in the evening while the wallbox is idle, the label reads **Allowed grid import**. This is permission to import, not measured grid consumption or a promise that charging will start.
+
 The wallbox's energy counter measures EV energy. Each increase is allocated
 using the site readings and price valid at that time. An `≈` beside live session
 energy marks a power-based estimate while no usable counter increase is available.

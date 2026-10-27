@@ -468,6 +468,23 @@ function update() {
     data.meter_received_at = null;
     data.sample_at = null;
   }
+  if (scenario === 'evening_grid_allowance') {
+    state = 'available';
+    data.transaction_active = false;
+    data.working_mode = 'pv_linkage';
+    data.power_w = 0;
+    data.currents_a = [0, 0, 0];
+    data.sample_at = null;
+    data.meter_received_at = null;
+    data.power_flow.grid_w = 0;
+    data.power_flow.grid_import_limit_kw = 3.96;
+    data.power_flow.battery_w = 890;
+    data.power_flow.battery_sign = 'positive_discharge';
+    data.power_flow.battery_received_at = new Date(now - 3000).toISOString();
+    delete data.power_flow.charging_sources;
+    data.pv_linkage.working_mode = 'pv_linkage';
+    data.pv_linkage.grid_import_limit_kw = 3.96;
+  }
   data.pv_linkage.blocked_reason =
     scenario === 'offline'
       ? 'charger_disconnected'

@@ -212,12 +212,15 @@ export const en = {
   gridExport: 'Surplus',
   gridBalanced: 'Grid balanced',
   gridPowerUnavailable: 'Grid reading unavailable',
-  zeroGridPoint: 'Zero-grid point',
+  zeroGridPoint: 'Without grid import',
   zeroGridPointHint:
-    'Estimated charging power for zero exchange at the grid connection if the other site loads remain unchanged.',
-  pvControlPoint: 'Control target',
+    'Estimated charging power with zero exchange at the grid connection if other household loads remain unchanged. A home battery can also balance the grid; this does not establish available solar power.',
+  pvControlPoint: 'Estimated charging target',
   pvControlPointHint:
-    'Estimated zero-grid point plus the grid import allowed by PV Linkage, capped by the gauge maximum.',
+    'Estimated charging power from the current grid balance and allowed grid import, capped by the gauge maximum. Existing household grid import reduces the remaining allowance. This is not a solar-power reading; a home battery may also be supplying the house.',
+  gridImportAllowed: 'Allowed grid import',
+  gridImportAllowedHint:
+    'Configured grid import allowance for PV Linkage. This is permission, not current grid consumption or available solar power.',
   sourceMix: 'Charging sources',
   sourceSolar: 'PV',
   sourceBattery: 'Battery',

@@ -36,6 +36,17 @@ const IMAGE = new URL(`thor-front.png?v=${VERSION}`, import.meta.url).href;
 // Every gauge path has length 100. A longer gap prevents a repeated round cap
 // at the far endpoint when a tiny dash is rounded to zero by the SVG renderer.
 const GAUGE_DASH_GAP = 200;
+const gaugePatternIds = new WeakMap<object, string>();
+let gaugePatternSequence = 0;
+
+function gaugePatternId(config: object): string {
+  let id = gaugePatternIds.get(config);
+  if (!id) {
+    id = `thor-grid-allowance-${++gaugePatternSequence}`;
+    gaugePatternIds.set(config, id);
+  }
+  return id;
+}
 
 function renderHeader({ config, t, data, auth, entity }: CardViewModel, actions: CardActions) {
   return html`
@@ -128,6 +139,7 @@ function renderHero({
   powerFlow,
 }: CardViewModel) {
   const suspended = ['suspended_ev', 'suspended_evse'].includes(status.key);
+  const hatchId = gaugePatternId(config);
   // Source segments cover the base arc. Paint the wave last, limited to the PV
   // share so battery/grid colours remain visible. Without a mix, animate all power.
   const animatedFraction = powerFlow.sources.length
@@ -177,17 +189,29 @@ function renderHero({
             : `${format(kw)} kW`}
         >
           <svg viewBox="0 0 200 112" aria-hidden="true">
+            ${powerFlow.target && powerFlow.target.allowanceFraction > 0
+              ? svg`<defs><pattern id=${hatchId} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                  <rect class="allowance-hatch-background" width="5" height="5" />
+                  <path class="allowance-hatch-line" d="M 0 0 V 5" />
+                </pattern></defs>`
+              : nothing}
             ${animate
               ? svg`<defs><linearGradient class="charge-gradient" id="charge-gradient" gradientUnits="userSpaceOnUse" x1="10" y1="100" x2="190" y2="100">${[0, 20, 40, 60, 80, 100].map((offset) => svg`<stop offset="${offset}%" />`)}</linearGradient></defs>`
               : nothing}
             <path class="track" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100" />
-            ${powerFlow.target && powerFlow.target.fraction > 0
+            ${powerFlow.target && powerFlow.target.zeroGridFraction > 0
               ? svg`<path
                   class="target-range"
                   d="M 10 100 A 90 90 0 0 1 190 100"
                   pathLength="100"
-                  stroke-dasharray="${powerFlow.target.fraction} ${GAUGE_DASH_GAP}"
+                  stroke-dasharray="${powerFlow.target.zeroGridFraction} ${GAUGE_DASH_GAP}"
                 />`
+              : nothing}
+            ${powerFlow.target && powerFlow.target.allowanceFraction > 0
+              ? svg`<path class="target-allowance" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100"
+                  stroke="url(#${hatchId})"
+                  stroke-dasharray="${powerFlow.target.allowanceFraction} ${GAUGE_DASH_GAP}"
+                  stroke-dashoffset="${-powerFlow.target.zeroGridFraction}" />`
               : nothing}
             <path
               class="arc"
@@ -219,6 +243,7 @@ function renderHero({
             ${powerFlow.target
               ? svg`<g
                   class="target-marker"
+                  data-kind=${powerFlow.target.allowanceFraction > 0 ? 'grid-allowance' : 'zero-grid'}
                   style="transform:rotate(${powerFlow.target.fraction * 1.8}deg)"
                 >
                   <line x1="18" y1="100" x2="2" y2="100" />
@@ -261,8 +286,37 @@ function renderHero({
           </div>
           ${powerFlow.target
             ? html`<div class="gauge-target" title=${t(powerFlow.target.hint)}>
-                <span><span class="target-key"></span>${t(powerFlow.target.label)}</span
-                ><strong>${format(powerFlow.target.kw)} kW</strong>
+                <span
+                  ><span
+                    class="target-key ${powerFlow.target.allowanceFraction > 0
+                      ? 'grid-allowance'
+                      : ''}"
+                  ></span
+                  >${t(powerFlow.target.label)}</span
+                ><strong
+                  >${format(
+                    powerFlow.target.label === 'gridImportAllowed'
+                      ? powerFlow.gridImportLimitKw
+                      : powerFlow.target.kw,
+                  )}
+                  kW</strong
+                >
+              </div>`
+            : nothing}
+          ${powerFlow.target &&
+          powerFlow.target.label !== 'gridImportAllowed' &&
+          (powerFlow.gridImportLimitKw ?? 0) > 0
+            ? html`<div class="target-breakdown">
+                ${powerFlow.target.zeroGridKw > 0
+                  ? html`<span title=${t('zeroGridPointHint')}
+                      ><i class="target-key"></i>${t('zeroGridPoint')}
+                      <strong>${format(powerFlow.target.zeroGridKw)} kW</strong></span
+                    >`
+                  : nothing}
+                <span title=${t('gridImportAllowedHint')}
+                  ><i class="target-key grid-allowance"></i>${t('gridImportAllowed')}
+                  <strong>${format(powerFlow.gridImportLimitKw)} kW</strong></span
+                >
               </div>`
             : nothing}
           ${powerFlow.sourcesUnassigned

@@ -305,6 +305,21 @@ ha-icon {
   stroke-linecap: round;
   transition: stroke-dasharray var(--meter-motion-duration) var(--meter-motion-easing);
 }
+.target-allowance {
+  fill: none;
+  stroke-width: 10;
+  stroke-linecap: butt;
+  transition:
+    stroke-dasharray var(--meter-motion-duration) var(--meter-motion-easing),
+    stroke-dashoffset var(--meter-motion-duration) var(--meter-motion-easing);
+}
+.allowance-hatch-background {
+  fill: color-mix(in srgb, var(--flow-grid-import) 12%, var(--surface));
+}
+.allowance-hatch-line {
+  stroke: var(--flow-grid-import);
+  stroke-width: 2;
+}
 .arc {
   fill: none;
   stroke: var(--tone);
@@ -315,20 +330,24 @@ ha-icon {
     stroke 300ms ease;
 }
 .target-marker {
+  --target-marker-color: var(--flow-target);
   transform-box: view-box;
   transform-origin: 100px 100px;
   transition: transform var(--meter-motion-duration) var(--meter-motion-easing);
   will-change: transform;
 }
+.target-marker[data-kind='grid-allowance'] {
+  --target-marker-color: var(--flow-grid-import);
+}
 .target-marker line {
-  stroke: var(--flow-target);
+  stroke: var(--target-marker-color);
   stroke-width: 2.5;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--flow-target) 60%, transparent));
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--target-marker-color) 60%, transparent));
 }
 .target-marker circle {
   fill: var(--surface);
-  stroke: var(--flow-target);
+  stroke: var(--target-marker-color);
   stroke-width: 2;
 }
 [data-tone='green'] .arc {
@@ -496,6 +515,33 @@ ha-icon {
   border-radius: 50%;
   background: var(--flow-target);
   flex: 0 0 auto;
+}
+.target-key.grid-allowance {
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--flow-grid-import) 0 2px,
+    color-mix(in srgb, var(--flow-grid-import) 12%, var(--surface)) 2px 4px
+  );
+}
+.target-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.target-breakdown > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.target-breakdown strong {
+  color: var(--ink);
+  font-weight: 650;
+  white-space: nowrap;
 }
 .source-note {
   margin-top: 8px;
