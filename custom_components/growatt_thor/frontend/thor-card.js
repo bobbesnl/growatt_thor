@@ -107,36 +107,44 @@ var ND=Object.defineProperty;var BD=(r,e)=>{for(var t in e)ND(r,t,{get:e[t],enum
   color: var(--muted);
 }
 header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   margin-bottom: 18px;
 }
 .eyebrow {
-  grid-column: 1/-1;
+  flex: 0 0 100%;
 }
 .pills {
   display: flex;
+  flex: 0 1 auto;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: 6px;
-  max-width: 230px;
+  width: max-content;
+  max-width: 100%;
+  margin-left: auto;
 }
 .pill-label {
   color: var(--muted);
   font-weight: 400;
 }
 h2 {
+  flex: 1 1 80px;
+  min-width: 0;
   margin: 5px 0 0;
   font-size: 21px;
   font-weight: 650;
   letter-spacing: -0.6px;
   line-height: 1.2;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .mode {
+  flex: 0 0 auto;
   border: 1px solid transparent;
   border-radius: 99px;
   padding: 7px 10px;
@@ -996,12 +1004,6 @@ dd {
     font-size: 25px;
     margin: 0;
   }
-  .pills {
-    flex-direction: column;
-    align-items: flex-end;
-    max-width: 160px;
-    gap: 5px;
-  }
   .mode {
     font-size: 12px;
     padding: 6px 10px;
@@ -1118,9 +1120,6 @@ dd {
   h2 {
     font-size: 21px;
   }
-  .pills {
-    max-width: 140px;
-  }
   .mode {
     font-size: 10px;
     padding: 6px 8px;
@@ -1179,7 +1178,7 @@ ${n}`:n}function aM(r){let e=Ds(r);if(e===null)return"\u2014";let t=Math.floor(e
   </div>`}var yM=new Set(["blocked_before_target","completed","scheduled_cancelled","scheduled_missed","target_rejected"]),_M=new Set(["target_accepted_waiting_for_rfid","target_accepted_waiting_for_plug"]),bM=new Set(["blocked_before_target","completed","scheduled_cancelled","scheduled_missed","target_rejected"]),xM=1800*1e3;function l0(r,e){if(!r)return!1;if(!bM.has(r.state))return!0;let t=Date.parse(r.updated_at||"");return Number.isFinite(t)?e-t<xM:!0}function Qn(r,e,t){return!r||yM.has(r.state)?!0:r.kind===e&&Number(r.value)===t&&_M.has(r.state)}function Jn(r,e){if(e===null||!Number.isFinite(e))return!1;if(r==="duration")return Number.isInteger(e)&&e>=1&&e<=1440;let t=Math.abs(e*100-Math.round(e*100))<1e-8;return r==="budget"?t&&e>=1&&e<=1e3:t&&e>=.01&&e<=100}function u0(r,e,t){return t.charging_target_pilot===!0&&r.connected!==!1&&e.attributes.connected===!0&&!t.transaction_active&&t.working_mode==="fast"}function Hu(r,e,t){let i=["available","preparing"].includes(e.state),a=["plug_and_charge","home_assistant_rfid","rfid_only"].includes(t.auth_mode||"");return u0(r,e,t)&&i&&a}function Ms(r,e,t){return u0(r,e,t)&&["available","preparing"].includes(e.state)&&["plug_and_charge","home_assistant_rfid"].includes(t.auth_mode||"")}function Fu(r,e,t){return Ms(r,e,t)&&e.state==="available"}function Vf(r){let e=r.charging_target;return e?e.state==="scheduled"?e.recurrence==="daily"?"goalLiveScheduledDaily":"goalLiveScheduled":e.state==="scheduled_cancelled"?"goalLiveScheduleCancelled":e.state==="scheduled_missed"?"goalLiveScheduleMissed":e.state==="blocked_before_target"?"goalLiveScheduleBlocked":e.state==="completed"?"goalLiveCompleted":e.state==="active"?e.enforcement_verified?"goalLiveChargingVerified":"goalLiveCharging":e.connection_started_at&&e.connection_started_at!==r.connection_started_at&&!["reservation_queued","scheduled"].includes(e.state)||e.state==="target_accepted_waiting_for_plug"&&r.auth_mode!=="plug_and_charge"?"goalLiveRetained":e.state==="target_accepted_waiting_for_plug"?r.transaction_active?"goalLiveCharging":"goalLiveAccepted":e.state==="target_accepted_waiting_for_rfid"&&r.auth_mode!=="rfid_only"?"goalLiveRetained":e.state==="target_accepted_waiting_for_rfid"?"goalLiveAcceptedRfid":["queued","reservation_queued","sending_target","target_accepted","sending_reservation","sending_start","cancellation_queued","sending_cancellation"].includes(e.state)?"goalLiveQueued":e.state==="start_accepted"?"goalLiveStartAccepted":e.state==="reservation_rejected_target_may_remain"?"goalLiveReservationRejected":e.state==="cancellation_rejected_reservation_may_remain"?"goalLiveCancellationRejected":"goalLiveUncertain":"goalLiveNoTarget"}var SM="2.0.0-alpha.1",wM=new URL(`thor-front.png?v=${SM}`,import.meta.url).href,Ls=200,c0=new WeakMap,CM=0;function kM(r){let e=c0.get(r);return e||(e=`thor-grid-allowance-${++CM}`,c0.set(r,e)),e}function TM({config:r,t:e,data:t,auth:i,entity:a},n){return R`
     <header>
       <div class="eyebrow">GROWATT · THOR</div>
-      <h2>${r.name||e("statusEntity")}</h2>
+      <h2 title=${r.name||e("statusEntity")}>${r.name||e("statusEntity")}</h2>
       <div class="pills">
         ${t.pv_linkage?R`<button
               class="mode strategy"

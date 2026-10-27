@@ -52,7 +52,7 @@ function renderHeader({ config, t, data, auth, entity }: CardViewModel, actions:
   return html`
     <header>
       <div class="eyebrow">GROWATT · THOR</div>
-      <h2>${config.name || t('statusEntity')}</h2>
+      <h2 title=${config.name || t('statusEntity')}>${config.name || t('statusEntity')}</h2>
       <div class="pills">
         ${data.pv_linkage
           ? html`<button
