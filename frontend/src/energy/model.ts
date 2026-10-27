@@ -11,8 +11,8 @@ export interface GaugeTarget {
   zeroGridKw: number;
   zeroGridFraction: number;
   allowanceFraction: number;
-  label: 'zeroGridPoint' | 'pvControlPoint' | 'gridImportAllowed';
-  hint: 'zeroGridPointHint' | 'pvControlPointHint' | 'gridImportAllowedHint';
+  label: 'zeroGridPoint' | 'pvControlPoint';
+  hint: 'zeroGridPointHint' | 'pvControlPointHint';
 }
 
 export interface GaugeOverflow {
@@ -172,23 +172,14 @@ export function powerFlowView(
     const targetKw = Math.max(0, Math.min(maximumKw, gridHeadroomKw + (gridImportLimitKw ?? 0)));
     const fraction = clamp((targetKw / maximumKw) * 100);
     const zeroGridFraction = clamp((zeroGridKw / maximumKw) * 100);
-    const allowanceOnly = zeroGridKw === 0 && targetKw > 0 && targetKw === gridImportLimitKw;
     target = {
       fraction,
       kw: targetKw,
       zeroGridKw,
       zeroGridFraction,
       allowanceFraction: Math.max(0, fraction - zeroGridFraction),
-      label: allowanceOnly
-        ? 'gridImportAllowed'
-        : gridImportLimitKw === null
-          ? 'zeroGridPoint'
-          : 'pvControlPoint',
-      hint: allowanceOnly
-        ? 'gridImportAllowedHint'
-        : gridImportLimitKw === null
-          ? 'zeroGridPointHint'
-          : 'pvControlPointHint',
+      label: gridImportLimitKw === null ? 'zeroGridPoint' : 'pvControlPoint',
+      hint: gridImportLimitKw === null ? 'zeroGridPointHint' : 'pvControlPointHint',
     };
 
     // Only paint the measured portion beyond the controller target. The same

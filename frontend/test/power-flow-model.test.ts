@@ -56,7 +56,7 @@ test('PV Linkage adds only its configured grid allowance', () => {
   assert.equal(flow.overflow, null);
 });
 
-test('An idle evening with battery discharge labels the grid permission, not solar availability', () => {
+test('An idle evening keeps the estimated target separate from grid permission and actual power', () => {
   const flow = powerFlowView(
     makeData({
       working_mode: 'pv_linkage',
@@ -76,8 +76,8 @@ test('An idle evening with battery discharge labels the grid permission, not sol
     true,
     now,
   );
-  assert.equal(flow.target?.label, 'gridImportAllowed');
-  assert.equal(flow.target?.hint, 'gridImportAllowedHint');
+  assert.equal(flow.target?.label, 'pvControlPoint');
+  assert.equal(flow.target?.hint, 'pvControlPointHint');
   assert.equal(flow.target?.kw, 3.96);
   assert.equal(flow.target?.zeroGridFraction, 0);
   assert.equal(flow.target?.allowanceFraction, flow.target?.fraction);

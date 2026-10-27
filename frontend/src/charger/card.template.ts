@@ -188,90 +188,82 @@ function renderHero({
             ? t(expectedTelemetryPause ? pauseHint : 'missing')
             : `${format(kw)} kW`}
         >
-          <svg viewBox="0 0 200 112" aria-hidden="true">
-            ${powerFlow.target && powerFlow.target.allowanceFraction > 0
-              ? svg`<defs><pattern id=${hatchId} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <div class="gauge-face">
+            <svg viewBox="-12 -12 224 124" aria-hidden="true">
+              ${powerFlow.target && powerFlow.target.allowanceFraction > 0
+                ? svg`<defs><pattern id=${hatchId} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
                   <rect class="allowance-hatch-background" width="5" height="5" />
                   <path class="allowance-hatch-line" d="M 0 0 V 5" />
                 </pattern></defs>`
-              : nothing}
-            ${animate
-              ? svg`<defs><linearGradient class="charge-gradient" id="charge-gradient" gradientUnits="userSpaceOnUse" x1="10" y1="100" x2="190" y2="100">${[0, 20, 40, 60, 80, 100].map((offset) => svg`<stop offset="${offset}%" />`)}</linearGradient></defs>`
-              : nothing}
-            <path class="track" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100" />
-            ${powerFlow.target && powerFlow.target.zeroGridFraction > 0
-              ? svg`<path
-                  class="target-range"
-                  d="M 10 100 A 90 90 0 0 1 190 100"
-                  pathLength="100"
-                  stroke-dasharray="${powerFlow.target.zeroGridFraction} ${GAUGE_DASH_GAP}"
-                />`
-              : nothing}
-            ${powerFlow.target && powerFlow.target.allowanceFraction > 0
-              ? svg`<path class="target-allowance" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100"
+                : nothing}
+              ${animate
+                ? svg`<defs><linearGradient class="charge-gradient" id="charge-gradient" gradientUnits="userSpaceOnUse" x1="10" y1="100" x2="190" y2="100">${[0, 20, 40, 60, 80, 100].map((offset) => svg`<stop offset="${offset}%" />`)}</linearGradient></defs>`
+                : nothing}
+              <path class="track" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100" />
+              ${powerFlow.target && powerFlow.target.allowanceFraction > 0
+                ? svg`<path class="target-allowance" d="M 0 100 A 100 100 0 0 1 200 100" pathLength="100"
                   stroke="url(#${hatchId})"
                   stroke-dasharray="${powerFlow.target.allowanceFraction} ${GAUGE_DASH_GAP}"
                   stroke-dashoffset="${-powerFlow.target.zeroGridFraction}" />`
-              : nothing}
-            <path
-              class="arc"
-              d="M 10 100 A 90 90 0 0 1 190 100"
-              pathLength="100"
-              stroke-dasharray="${fraction} ${GAUGE_DASH_GAP}"
-              opacity=${kw !== null && fraction > 0 ? 1 : 0}
-            />
-            ${[...powerFlow.sources].reverse().map(
-              (segment) => svg`<path
+                : nothing}
+              <path
+                class="arc"
+                d="M 10 100 A 90 90 0 0 1 190 100"
+                pathLength="100"
+                stroke-dasharray="${fraction} ${GAUGE_DASH_GAP}"
+                opacity=${kw !== null && fraction > 0 ? 1 : 0}
+              />
+              ${[...powerFlow.sources].reverse().map(
+                (segment) => svg`<path
                 class="source-segment source-${segment.source}"
                 d="M 10 100 A 90 90 0 0 1 190 100"
                 pathLength="100"
                 stroke-dasharray="${segment.startFraction + segment.fraction} ${GAUGE_DASH_GAP}"
               />`,
-            )}
-            ${animate && animatedFraction > 0
-              ? svg`<path class="charge-wave" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100" stroke-dasharray="${animatedFraction} ${GAUGE_DASH_GAP}" />`
-              : nothing}
-            ${powerFlow.overflow
-              ? svg`<path
+              )}
+              ${animate && animatedFraction > 0
+                ? svg`<path class="charge-wave" d="M 10 100 A 90 90 0 0 1 190 100" pathLength="100" stroke-dasharray="${animatedFraction} ${GAUGE_DASH_GAP}" />`
+                : nothing}
+              ${powerFlow.overflow
+                ? svg`<path
                   class="over-target ${powerFlow.overflow.severity}"
                   d="M 4 100 A 96 96 0 0 1 196 100"
                   pathLength="100"
                   stroke-dasharray="${powerFlow.overflow.fraction} ${GAUGE_DASH_GAP}"
                   stroke-dashoffset="${-powerFlow.overflow.startFraction}"
                 />`
-              : nothing}
-            ${powerFlow.target
-              ? svg`<g
+                : nothing}
+              ${powerFlow.target
+                ? svg`<g
                   class="target-marker"
-                  data-kind=${powerFlow.target.allowanceFraction > 0 ? 'grid-allowance' : 'zero-grid'}
-                  style="transform:rotate(${powerFlow.target.fraction * 1.8}deg)"
+                  transform="rotate(${powerFlow.target.fraction * 1.8} 100 100)"
                 >
-                  <line x1="18" y1="100" x2="2" y2="100" />
-                  <circle cx="2" cy="100" r="3" />
+                  <polygon points="-5,100 -11,95.5 -11,104.5" />
                 </g>`
-              : nothing}
-          </svg>
-          <div class="reading">
-            ${kw === null
-              ? html`<ha-icon
-                    class="rest-icon"
-                    .icon=${expectedTelemetryPause
-                      ? status.icon
-                      : resting
-                        ? 'mdi:power-sleep'
-                        : 'mdi:cloud-question-outline'}
-                  ></ha-icon
-                  ><strong class="rest-label"
-                    >${t(
-                      expectedTelemetryPause ? pauseLabel : resting ? 'standby' : 'noData',
-                    )}</strong
-                  ><small
-                    >${t(
-                      expectedTelemetryPause ? pauseHint : resting ? 'noCharging' : 'missing',
-                    )}</small
-                  >`
-              : html`<strong>${format(kw)}</strong><span class="unit">kW</span
-                  ><small>${t('power')}</small>`}
+                : nothing}
+            </svg>
+            <div class="reading">
+              ${kw === null
+                ? html`<ha-icon
+                      class="rest-icon"
+                      .icon=${expectedTelemetryPause
+                        ? status.icon
+                        : resting
+                          ? 'mdi:power-sleep'
+                          : 'mdi:cloud-question-outline'}
+                    ></ha-icon
+                    ><strong class="rest-label"
+                      >${t(
+                        expectedTelemetryPause ? pauseLabel : resting ? 'standby' : 'noData',
+                      )}</strong
+                    ><small
+                      >${t(
+                        expectedTelemetryPause ? pauseHint : resting ? 'noCharging' : 'missing',
+                      )}</small
+                    >`
+                : html`<strong>${format(kw)}</strong><span class="unit">kW</span
+                    ><small>${t('power')}</small>`}
+            </div>
           </div>
           <div
             class="gauge-scale"
@@ -286,30 +278,15 @@ function renderHero({
           </div>
           ${powerFlow.target
             ? html`<div class="gauge-target" title=${t(powerFlow.target.hint)}>
-                <span
-                  ><span
-                    class="target-key ${powerFlow.target.allowanceFraction > 0
-                      ? 'grid-allowance'
-                      : ''}"
-                  ></span
-                  >${t(powerFlow.target.label)}</span
-                ><strong
-                  >${format(
-                    powerFlow.target.label === 'gridImportAllowed'
-                      ? powerFlow.gridImportLimitKw
-                      : powerFlow.target.kw,
-                  )}
-                  kW</strong
-                >
+                <span><span class="target-key"></span>${t(powerFlow.target.label)}</span
+                ><strong>${format(powerFlow.target.kw)} kW</strong>
               </div>`
             : nothing}
-          ${powerFlow.target &&
-          powerFlow.target.label !== 'gridImportAllowed' &&
-          (powerFlow.gridImportLimitKw ?? 0) > 0
+          ${powerFlow.target && (powerFlow.gridImportLimitKw ?? 0) > 0
             ? html`<div class="target-breakdown">
                 ${powerFlow.target.zeroGridKw > 0
                   ? html`<span title=${t('zeroGridPointHint')}
-                      ><i class="target-key"></i>${t('zeroGridPoint')}
+                      ><i class="target-key zero-grid"></i>${t('zeroGridPoint')}
                       <strong>${format(powerFlow.target.zeroGridKw)} kW</strong></span
                     >`
                   : nothing}

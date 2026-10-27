@@ -38,7 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
-- Distinguish allowed grid import from the estimated charging target with an amber hatched range in the charging gauge. An idle wallbox now labels this value as allowed grid import, and the display explains that zero grid import can also be maintained by a home battery.
+- Keep measured charging power on the broad gauge arc, show the estimated target with a freestanding blue marker, and place the allowed grid contribution in a thin amber hatched band outside it. Label the grid allowance separately, including while idle, and explain that zero grid import can also be maintained by a home battery.
 - Keep the dashboard cards and session history accessible when the wallbox is disconnected. The status sensor now shows `offline`; automations that check for `unavailable` must also handle `offline`.
 - Reduce unnecessary data stored in Home Assistant's history database by leaving out frequently changing dashboard data and update timestamps. Current dashboard information, connection status history and recorded meter readings remain available.
 

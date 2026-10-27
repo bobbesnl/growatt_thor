@@ -33,7 +33,7 @@ are available separately.
 
 1. **Charging and authorization modes.** Open the badges to review or change charging strategy and how a session is authorized.
 2. **Status and grid balance.** The left label is the charger state. The right badge describes site grid import or export, not total charging power.
-3. **Power and charging sources.** The gauge shows EV charging power. Green, purple and amber indicate direct PV, battery and grid contributions. The blue marker indicates the control target; battery origin remains unknown.
+3. **Power and charging sources.** The gauge shows EV charging power. Green, purple and amber indicate direct PV, battery and grid contributions. A freestanding blue marker indicates the estimated control target. A thin amber hatched band outside the power arc indicates the allowed grid contribution; battery origin remains unknown.
 4. **Phase currents.** See active phases and current per phase, alongside the configured maximum.
 5. **Current session.** Energy added and elapsed session duration. A vehicle pause does not necessarily end the transaction.
 6. **Charging controls.** Available controls depend on the authorization mode and charger state. Stop charging requests an OCPP stop.

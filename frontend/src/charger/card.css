@@ -298,16 +298,9 @@ ha-icon {
   stroke: var(--line);
   stroke-width: 10;
 }
-.target-range {
-  fill: none;
-  stroke: color-mix(in srgb, var(--flow-target) 68%, var(--line));
-  stroke-width: 4;
-  stroke-linecap: round;
-  transition: stroke-dasharray var(--meter-motion-duration) var(--meter-motion-easing);
-}
 .target-allowance {
   fill: none;
-  stroke-width: 10;
+  stroke-width: 3;
   stroke-linecap: butt;
   transition:
     stroke-dasharray var(--meter-motion-duration) var(--meter-motion-easing),
@@ -330,25 +323,13 @@ ha-icon {
     stroke 300ms ease;
 }
 .target-marker {
-  --target-marker-color: var(--flow-target);
-  transform-box: view-box;
-  transform-origin: 100px 100px;
-  transition: transform var(--meter-motion-duration) var(--meter-motion-easing);
-  will-change: transform;
+  pointer-events: none;
 }
-.target-marker[data-kind='grid-allowance'] {
-  --target-marker-color: var(--flow-grid-import);
-}
-.target-marker line {
-  stroke: var(--target-marker-color);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--target-marker-color) 60%, transparent));
-}
-.target-marker circle {
-  fill: var(--surface);
-  stroke: var(--target-marker-color);
-  stroke-width: 2;
+.target-marker polygon {
+  fill: var(--flow-target);
+  stroke: var(--surface);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
 }
 [data-tone='green'] .arc {
   stroke: var(--lime);
@@ -438,9 +419,12 @@ ha-icon {
     opacity: 1;
   }
 }
+.gauge-face {
+  position: relative;
+}
 .reading {
   position: absolute;
-  top: 39%;
+  bottom: 13%;
   width: 100%;
   text-align: center;
 }
@@ -463,7 +447,7 @@ ha-icon {
   margin-top: 4px;
 }
 .empty-gauge .reading {
-  top: 30%;
+  bottom: 12%;
 }
 .reading .rest-icon {
   display: flex;
@@ -515,6 +499,9 @@ ha-icon {
   border-radius: 50%;
   background: var(--flow-target);
   flex: 0 0 auto;
+}
+.target-key.zero-grid {
+  background: var(--neutral);
 }
 .target-key.grid-allowance {
   border-radius: 2px;

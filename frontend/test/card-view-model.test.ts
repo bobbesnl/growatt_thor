@@ -260,3 +260,31 @@ test('Battery discharge warning requires active charging and recent signed readi
   assert.equal(view(data, 'charging', false).batteryDrain, null);
   assert.equal(JSON.stringify(data), before);
 });
+
+test('Changing grid permission moves the independent target without extending the measured gauge', () => {
+  const data = makeData({
+    working_mode: 'pv_linkage',
+    power_w: 5000,
+    power_flow: {
+      ...makeData().power_flow!,
+      grid_w: 800,
+      grid_import_limit_kw: 2,
+      charging_sources: { solar_w: 3000, battery_w: 1200, grid_w: 800 },
+    },
+  });
+  const first = buildCardViewModel(hass, config, entity('charging', data), data, now, idleCommand);
+  const changed = { ...data, power_flow: { ...data.power_flow!, grid_import_limit_kw: 4 } };
+  const second = buildCardViewModel(
+    hass,
+    config,
+    entity('charging', changed),
+    changed,
+    now,
+    idleCommand,
+  );
+  assert.equal(first.kw, 5);
+  assert.equal(second.fraction, first.fraction);
+  assert.deepEqual(second.powerFlow.sources, first.powerFlow.sources);
+  assert.notEqual(first.powerFlow.target?.fraction, first.fraction);
+  assert.ok(second.powerFlow.target!.fraction > first.powerFlow.target!.fraction);
+});
