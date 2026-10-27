@@ -13,6 +13,8 @@ These observations justify controlling responses to inbound OCPP authorization
 requests. They do not prove that an `Invalid` response physically prevents every
 firmware and mode from charging.
 
+Maintainer RFID testing also confirmed the use of compatible non-Growatt NFC/RFID cards and key fobs for identifier-based authorization. This is evidence for the tested cards and reader, not universal compatibility with every NFC/RFID technology or THOR variant. It does not establish support for Growatt-specific card balance/credit features on those cards. Local allowlist matching uses the identifier received over OCPP and does not read or write a card balance. The [user guide](../docs/usage.md#use-other-rfid-cards-and-fobs) describes how to check a card or fob with the connected wallbox.
+
 ## Integration behavior
 
 Local authorization is disabled by default, preserving existing installations.

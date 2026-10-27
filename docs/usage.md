@@ -105,7 +105,15 @@ The wallbox must send the presented card to Home Assistant. Use **Home Assistant
 
 To edit or remove names later, open **Local access control**. A line may contain just the identifier or `identifier | name`, with a space on each side of `|`. Names may contain up to 80 characters. Leave just the identifier to remove its name, or delete the whole line to remove the card. The list accepts up to 100 cards and can also be edited while the wallbox is offline.
 
+Use a name that helps you recognize the card's sessions. For example, keep one card for a particular vehicle and call it **Family car**, or give family members their own cards named **Alex** and **Sam**. The name follows the card used to start charging; it does not automatically identify the vehicle or the person holding it. If you always use the same card for one vehicle, its sessions can be identified by that name in the CSV file.
+
 Names are labels, not access codes; authorization still checks the exact identifier. Names and identifiers are stored locally and included in Home Assistant backups and session CSV files. They remain hidden in normal logs and downloaded diagnostics. See [RFID information in session files](sessions.md#rfid-information-in-session-files) for how names are recorded.
+
+### Use other RFID cards and fobs
+
+You can also use compatible NFC/RFID cards and key fobs instead of the supplied Growatt cards. Other cards and fobs were successfully used in our RFID testing. Compatibility depends on what the wallbox's reader supports; an NFC/RFID label alone does not mean that every card or fob will work. Present it in **Home Assistant / RFID** mode and use **Learn RFID card** to check whether Home Assistant receives its identifier, then save and test it with the intended access settings.
+
+For local access control, the card or fob supplies an identifier that Home Assistant checks against the allowlist. This use does not require the Growatt card's balance/credit features. Those Growatt-specific features are not provided for other cards or fobs by learning their identifier, and a card name does not add a balance or billing account.
 
 ## Native charging targets
 
