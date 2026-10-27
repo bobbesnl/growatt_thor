@@ -1,7 +1,16 @@
 """Normalize only the presentation of retained sessions, preserving raw identities."""
 from __future__ import annotations
 
-from ..runtime.time import utc_timestamp
+from ..runtime.time import installation_time_zone, utc_timestamp
+from ..ocpp.meter_samples import meter_time_zone
+
+
+def session_time_zone(coordinator):
+    """Use the same verified wallbox clock for session and meter timestamps."""
+    return meter_time_zone(
+        getattr(coordinator, "configuration_values", {}),
+        installation_time_zone(getattr(coordinator, "hass", None)),
+    )
 
 _CURVES = (
     "power_curve", "measured_current_sum_curve_a", "configured_current_limit_curve_a",

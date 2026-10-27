@@ -11,7 +11,8 @@ import json
 from collections.abc import Mapping
 from .outbox import SessionOutbox
 from .completion import completion_transaction
-from ..runtime.time import installation_time_zone, utc_instant
+from ..runtime.time import utc_instant, utc_timestamp
+from .time import session_time_zone
 from .active_state import ActiveSessionState
 from .duration import EffectiveChargingTracker
 from .correlation import CORRELATION_MATCHED, build_unified_session
@@ -364,7 +365,7 @@ class SessionLifecycle:
         completed_transaction = coordinator.last_completed_transaction
         pending_completion = None
         for candidate in reversed(self.pending_completions):
-            session = build_unified_session(candidate["transaction"], session_records=(snapshot,), time_zone=installation_time_zone(coordinator.hass))
+            session = build_unified_session(candidate["transaction"], session_records=(snapshot,), time_zone=session_time_zone(coordinator))
             if session and session["correlation"]["status"] == CORRELATION_MATCHED:
                 pending_completion = candidate
                 completed_transaction = candidate["transaction"]
@@ -386,7 +387,7 @@ class SessionLifecycle:
                     session_records=(snapshot,),
                     charge_point_id=coordinator.charge_point_id,
                     source_instance_id=coordinator.source_instance_id,
-                    time_zone=installation_time_zone(coordinator.hass),
+                    time_zone=session_time_zone(coordinator),
                 )
                 effective_minutes = None
                 if (
@@ -428,7 +429,7 @@ class SessionLifecycle:
 
             start_str = record.start_time
             end_str = record.end_time
-            zone = installation_time_zone(coordinator.hass)
+            zone = session_time_zone(coordinator)
             started_at = utc_instant(start_str, zone)
             ended_at = utc_instant(end_str, zone)
             duration_minutes = (
@@ -442,7 +443,7 @@ class SessionLifecycle:
                 session_records=(snapshot,),
                 charge_point_id=coordinator.charge_point_id,
                 source_instance_id=coordinator.source_instance_id,
-                    time_zone=installation_time_zone(coordinator.hass),
+                time_zone=session_time_zone(coordinator),
             )
             matched = (
                 session is not None
@@ -465,7 +466,7 @@ class SessionLifecycle:
                     session_records=(snapshot,),
                     charge_point_id=coordinator.charge_point_id,
                     source_instance_id=coordinator.source_instance_id,
-                    time_zone=installation_time_zone(coordinator.hass),
+                    time_zone=session_time_zone(coordinator),
                 )
             identity = session["identity"]
             start_request = (
@@ -482,6 +483,7 @@ class SessionLifecycle:
                 start_time=record.start_time,
                 end_time=record.end_time,
                 unplug_time=record.unplug_time,
+                time_zone=zone,
             )
             if matched and isinstance(completed_transaction, dict):
                 completed_transaction["session_id"] = identity[
@@ -534,8 +536,11 @@ class SessionLifecycle:
                     "charger_id": coordinator.charge_point_id or "",
                     "source_instance_id": coordinator.source_instance_id or "",
                     "location": coordinator.location,
-                    "start_time": start_str,
-                    "end_time": end_str,
+                    # Identity above uses the original reported times. Store new
+                    # history instants explicitly so later clock settings cannot
+                    # reinterpret them, while retaining the raw vendor record.
+                    "start_time": utc_timestamp(start_str, zone) or start_str,
+                    "end_time": utc_timestamp(end_str, zone) or end_str,
                     "energy_kwh": round(energy_kwh, 3),
                     "cost": round(cost, 2),
                     "duration_minutes": duration_minutes if duration_minutes is not None else "",

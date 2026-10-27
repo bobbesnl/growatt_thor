@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 
+- Keep completed session dates and event markers aligned with the charging curve when the wallbox uses a different clock offset after a clock change.
 - Keep vehicle pauses in the charging history after a Home Assistant restart. A manual stop no longer appears as unplugging when the cable remains connected.
 - Keep live charging power, phase readings and source accounting available after a clock change when the wallbox still uses a fixed time zone. Interpret its reported clock setting before checking whether measurements are current.
 - Show the active session's start time in the correct time zone when the wallbox uses a fixed clock offset, keeping the session identity and original reported timestamp unchanged.

@@ -116,14 +116,7 @@ its value. The accounting model does not control devices.
 
 ### Missing or delayed readings
 
-THOR firmware may send meter timestamps without a UTC offset. The integration
-interprets these as local time in Home Assistant's configured time zone and
-normalizes new meter samples to UTC before display, accounting and automatic
-stop checks. Configure HA's time zone to match the wallbox clock. Explicit
-offsets are honored; invalid times, nonexistent spring-transition times and
-ambiguous autumn-transition times without an offset are rejected. The original
-timestamp remains in the raw diagnostic payload. Receipt time never replaces
-a missing or stale measurement time. Existing historical rows are not rewritten.
+THOR firmware may send timestamps without a UTC offset. When the wallbox reports a valid fixed time zone and disabled daylight saving, the integration uses that setting for measurements and session reports. Otherwise it uses Home Assistant's configured time zone. New measurements and completed session times are normalized to UTC before display, accounting and automatic stop checks. Explicit offsets are honored; invalid times, nonexistent spring-transition times and ambiguous autumn-transition times without an offset are rejected. The original timestamp remains in the raw diagnostic payload. Receipt time never replaces a missing or stale measurement time. Existing historical rows are not rewritten.
 
 The live gauge evaluates current site readings, since the wallbox,
 inverter and battery sensors update independently. Historical accounting still

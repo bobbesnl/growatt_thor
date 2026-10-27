@@ -6,6 +6,8 @@ from datetime import datetime
 from math import isfinite
 from typing import Any
 
+from ..runtime.time import utc_timestamp
+
 
 ACTIVE_POWER_THRESHOLD_W = 100.0
 # A normal session needs only a handful of semantic anchors.  Keep enough room
@@ -155,6 +157,7 @@ def merge_growatt_record_events(
     start_time: object | None,
     end_time: object | None,
     unplug_time: object | None,
+    time_zone=None,
 ) -> list[dict[str, str]]:
     """Add vendor charging anchors, never infer disconnection from unplugtime."""
     merged = normalize_session_events(events)
@@ -163,6 +166,8 @@ def merge_growatt_record_events(
         ("energy_flow_started", start_time),
         ("energy_flow_stopped", end_time),
     ):
+        if time_zone is not None:
+            at = utc_timestamp(at, time_zone)
         append_session_event(
             merged,
             session_event(event_type, at, "growatt", "observed"),

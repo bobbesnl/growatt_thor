@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from .runtime.time import installation_time_zone, utc_timestamp
+from .runtime.time import utc_timestamp
+from .sessions.time import session_time_zone
 
 from dataclasses import dataclass
 
@@ -984,7 +985,7 @@ class LastSessionStartSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return utc_timestamp(self.coordinator.last_session_start, installation_time_zone(getattr(self.coordinator, "hass", None)))
+        return utc_timestamp(self.coordinator.last_session_start, session_time_zone(self.coordinator))
 
 
 # ─────────────────────────────
@@ -1000,7 +1001,7 @@ class LastSessionEndSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return utc_timestamp(self.coordinator.last_session_end, installation_time_zone(getattr(self.coordinator, "hass", None)))
+        return utc_timestamp(self.coordinator.last_session_end, session_time_zone(self.coordinator))
 
 
 # ─────────────────────────────
@@ -1016,7 +1017,7 @@ class LastSessionPlugTimeSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return utc_timestamp(self.coordinator.last_session_plug_time, installation_time_zone(getattr(self.coordinator, "hass", None)))
+        return utc_timestamp(self.coordinator.last_session_plug_time, session_time_zone(self.coordinator))
 
 
 # ─────────────────────────────
@@ -1032,7 +1033,7 @@ class LastSessionUnplugTimeSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return utc_timestamp(self.coordinator.last_session_unplug_time, installation_time_zone(getattr(self.coordinator, "hass", None)))
+        return utc_timestamp(self.coordinator.last_session_unplug_time, session_time_zone(self.coordinator))
 
 
 # ─────────────────────────────

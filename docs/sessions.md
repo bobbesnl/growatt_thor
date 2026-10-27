@@ -95,6 +95,8 @@ translated reason identifies the vehicle or wallbox. Repeated notifications
 do not duplicate the event. The transaction stays open; later measured power
 can mark a charging resume. A pause does not establish that the battery is full.
 
+A manual stop ends the transaction but does not mean the cable was unplugged. The history adds an unplugging marker only when the session's connector reports that it is available again. The wallbox's final session report alone cannot establish disconnection, because it also fills its unplugging time after a remote stop.
+
 When current readings are absent during a reported pause, the charger card shows
 **Paused** and the reason instead of **No data** and a stale-meter warning.
 Readings from before suspension are not shown as current charging power. Unknown
@@ -248,7 +250,6 @@ are also removed once expired.
 Session dates, chart labels and events use Home Assistant's configured time
 zone, even when the browser is in another zone. Downloads use UTC timestamps
 with `Z`; the selected export days refer to the Home Assistant time zone.
-Existing source CSV data and session IDs are preserved. A historical local time
-in the repeated autumn hour, or the skipped spring hour, cannot establish an
-instant without an offset and is displayed as unknown. The source value remains
-available in the retained CSV. New durations account for resolved DST transitions.
+New completed sessions store resolved start, end and event times in UTC, using the same wallbox clock setting as the charging measurements. The original wallbox report remains available in diagnostics, and the session keeps its original identity. This prevents a completed session from moving by an hour when the wallbox keeps a fixed offset after a clock change.
+
+Existing source CSV rows and session IDs are preserved. A historical local time in the repeated autumn hour, or the skipped spring hour, cannot establish an instant without an offset and is displayed as unknown. The source value remains available in the retained CSV. New durations account for resolved DST transitions.

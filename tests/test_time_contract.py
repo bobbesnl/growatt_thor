@@ -17,6 +17,60 @@ history = importlib.import_module(package.__name__ + '.sessions.csv')
 
 
 class UtcTimeContractTest(unittest.TestCase):
+    def test_completed_fixed_clock_session_retains_identity_and_roundtrips_as_utc(self):
+        import json
+        from test_multi_entry import _build_coordinator
+        from custom_components.growatt_thor.configuration.values import configuration_value_from_item
+        from custom_components.growatt_thor.sessions.records import parse_growatt_session_record
+        from custom_components.growatt_thor.presentation.card_data import dashboard_active_session
+
+        c = _build_coordinator()
+        c.hass.config = types.SimpleNamespace(time_zone='Europe/Berlin')
+        c.hass.async_create_task = lambda coro: coro.close()
+        c._schedule_storage_save = lambda: None
+        c.now = lambda: '2026-10-27T11:01:25Z'
+        c.configuration_values = {
+            key: configuration_value_from_item({'key': key, 'value': value})
+            for key, value in {'G_TimeZone': 'UTC+2', 'G_DaylightSavingTime': '00-00&00-00'}.items()
+        }
+        c.start_transaction(51, connector_id=1, meter_start=0, timestamp='2026-10-27T13:01:23')
+        active = dashboard_active_session(c)
+        c._active_power_curve = [['2026-10-27T11:01:23Z', 7300], ['2026-10-27T13:54:08Z', 7350]]
+        c._session_event_tracker.observe_power('2026-10-27T11:01:23Z', 7300)
+        c.now = lambda: '2026-10-27T13:54:13Z'
+        c.record_status_notification(1, 'SuspendedEV', 'NoError')
+        c.now = lambda: '2026-10-27T14:07:38Z'
+        c.stop_transaction(transaction_id=51, reason='Remote', meter_stop=20252, timestamp='2026-10-27T16:07:37')
+        c.runtime_data['append_session_to_csv'] = object()
+        record = parse_growatt_session_record('currentrecord', 'transactionId=51&plugtime=2026-10-27 13:01:17&starttime=2026-10-27 13:01:23&endtime=2026-10-27 16:07:37&unplugtime=2026-10-27 16:07:37&costenergy=20252&costmoney=465')
+        c.sessions.process_session_record(record)
+        row, = c.sessions.outbox.snapshot()
+        self.assertEqual(row['session_id'], active['session_id'])
+        self.assertEqual(row['start_time'], active['start_time'])
+        self.assertEqual(row['start_time'], '2026-10-27T11:01:23Z')
+        self.assertEqual(row['end_time'], '2026-10-27T14:07:37Z')
+        self.assertEqual(c.last_session_start, record.start_time)
+        self.assertEqual(c.last_session_end, record.end_time)
+        self.assertEqual(row['energy_kwh'], 20.252)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sessions.csv'
+            history.append_session_row(path, row)
+            detail = history.session_detail_data(path, row['session_id'], time_zone='Europe/Berlin')
+            self.assertEqual(detail['power_curve'], json.loads(row['power_curve']))
+            self.assertEqual(detail['start_time'], active['start_time'])
+            self.assertEqual(next(e['at'] for e in detail['events'] if e['type'] == 'charging_paused'), '2026-10-27T13:54:13Z')
+            self.assertNotIn('unplugged', {e['type'] for e in detail['events']})
+            # A later configuration change cannot reinterpret newly stored instants.
+            self.assertEqual(history.session_detail_data(path, row['session_id'], time_zone='America/New_York'), detail)
+
+    def test_vendor_only_session_anchors_use_the_explicit_device_clock(self):
+        from datetime import timedelta, timezone
+        from test_session_events import session_events
+        events = session_events.merge_growatt_record_events([], plug_time='2026-10-27 13:01:17',
+            start_time='2026-10-27 13:01:23', end_time='2026-10-27 16:07:37',
+            unplug_time='2026-10-27 16:07:37', time_zone=timezone(timedelta(hours=2)))
+        self.assertEqual([e['at'] for e in events], ['2026-10-27T11:01:17Z', '2026-10-27T11:01:23Z', '2026-10-27T14:07:37Z'])
+
     def test_offsets_and_unique_local_instants_normalize_to_utc(self):
         for raw, zone, expected in (
             ('2026-07-01 10:00:00', 'Europe/Berlin', '2026-07-01T08:00:00Z'),
