@@ -85,6 +85,8 @@ export interface SessionItem {
   cost: number | null;
   duration_minutes: number | null;
   authorized_identifier: string | null;
+  /** Card name captured at session start; absent for older backend/history data. */
+  authorized_alias?: string | null;
   power_curve?: [string, number][];
   /** Whether retained chart details can be loaded on demand. */
   detail_available?: boolean;

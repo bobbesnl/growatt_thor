@@ -3,6 +3,7 @@ import type { SessionItem } from '../shared/types';
 import { formatSessionPeriod, formatSessionNumber, type SessionSort } from './model';
 import { sessionTranslate } from './locales';
 import { sessionMetricViews } from './metrics.template';
+import { renderSessionIdentifier } from './identifier.template';
 
 interface SessionListView {
   rows: SessionItem[];
@@ -89,11 +90,7 @@ export function renderSessionList(view: SessionListView) {
                     ${metric(t('green'), metrics.green)}
                   </span>
                   ${view.showIdentifier
-                    ? metric(
-                        t('identifier'),
-                        row.authorized_identifier || '—',
-                        'session-identifier',
-                      )
+                    ? metric(t('identifier'), renderSessionIdentifier(row), 'session-identifier')
                     : nothing}
                 </span>
               </button>

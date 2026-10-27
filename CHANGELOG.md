@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Show RFID card names in the dashboard session history, with the identifier in a smaller line underneath. Unnamed cards still show only their identifier; search finds both names and IDs.
 - Learn an RFID card from the wallbox in the integration settings, including cards rejected by the current allowlist. Confirm the detected card before saving it, and optionally give it a name such as “Family car”.
 - Add optional card names to the RFID allowlist. Session CSV files and downloads include the reported card identifier and its name at the time the session started.
 - Choose which local Home Assistant IP address accepts connections from the wallbox. This setting is available during setup and in General settings, and is useful when Home Assistant has more than one network connection.

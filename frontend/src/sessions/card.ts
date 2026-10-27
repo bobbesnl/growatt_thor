@@ -36,6 +36,7 @@ import {
 } from './model';
 import { sessionTranslate } from './locales';
 import { renderSessionList } from './list.template';
+import { renderSessionIdentifier } from './identifier.template';
 import {
   renderSessionEvents,
   sessionEventLabel,
@@ -761,7 +762,7 @@ export class ThorSessionCard extends LitElement {
                     <td class="num">${metrics.cost}${metrics.costBasis}</td>
                     ${this._config.show_identifier === false
                       ? nothing
-                      : html`<td>${row.authorized_identifier || '—'}</td>`}
+                      : html`<td>${renderSessionIdentifier(row)}</td>`}
                   </tr>`;
                 })
               : html`<tr>

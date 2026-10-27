@@ -25,6 +25,31 @@ session_csv = load(f"{PACKAGE_NAME}.sessions.csv", "sessions/csv.py")
 
 
 class SessionDashboardTest(unittest.TestCase):
+    def test_summary_and_detail_expose_saved_names_without_inventing_legacy_names(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sessions.csv'
+            with path.open('w', newline='', encoding='utf-8') as stream:
+                writer = csv.DictWriter(stream, fieldnames=session_csv.SESSION_LOG_HEADERS)
+                writer.writeheader()
+                writer.writerow({
+                    'session_id': 'named', 'session_source': 'home_assistant',
+                    'start_time': '2026-10-27T10:00:00Z',
+                    'authorized_identifier': '00AbC', 'authorized_alias': 'Family car',
+                })
+                writer.writerow({
+                    'session_id': 'unnamed', 'session_source': 'home_assistant',
+                    'start_time': '2026-10-26T10:00:00Z', 'authorized_identifier': 'OLD',
+                })
+            history = session_csv.dashboard_session_data(path)
+            named, unnamed = history['items']
+            self.assertEqual(named['authorized_identifier'], '00AbC')
+            self.assertEqual(named['authorized_alias'], 'Family car')
+            self.assertEqual(unnamed['authorized_identifier'], 'OLD')
+            self.assertIsNone(unnamed['authorized_alias'])
+            detail = session_csv.session_detail_data(path, 'named')
+            self.assertEqual(detail['authorized_alias'], 'Family car')
+            self.assertEqual(detail['authorized_identifier'], '00AbC')
+
     def test_missing_log_has_known_zero_totals_and_unknown_green_energy(self):
         with tempfile.TemporaryDirectory() as directory:
             data = session_csv.dashboard_session_data(Path(directory) / "missing.csv")

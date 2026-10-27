@@ -92,8 +92,8 @@ upgrade.
 
 The status sensor's versioned `thor_card` attribute supplies bounded display data
 and registry-resolved entity IDs. It excludes raw transactions and configured
-authorization lists. A session may expose its observed identifier; this does not
-expose the RFID allowlist.
+authorization lists. A session may expose its observed identifier and the card
+name captured at session start; this does not expose the RFID allowlist.
 
 The session card reads recent rows from that projection and loads historical
 curves on demand. Its page-size setting applies within those bounded rows.

@@ -14,6 +14,7 @@ import {
   sessionNumericPoints,
   sessionSignedChartPoints,
   sessionRows,
+  sessionIdentifierView,
   sessionPage,
   sessionAccountingSummary,
   sessionEnergyBreakdown,
@@ -75,6 +76,56 @@ const history: SessionHistoryData = {
     },
   ],
 };
+
+test('card names lead the identity while legacy and unnamed rows keep only their ID', () => {
+  const row = { ...history.items[1], authorized_alias: 'Family car' };
+  const before = JSON.stringify(row);
+  assert.deepEqual(sessionIdentifierView(row), { primary: 'Family car', secondary: 'RFID-A' });
+  for (const alias of [undefined, null, '', '   ']) {
+    assert.deepEqual(sessionIdentifierView({ ...row, authorized_alias: alias }), {
+      primary: 'RFID-A',
+      secondary: null,
+    });
+  }
+  assert.deepEqual(sessionIdentifierView(history.items[2]), { primary: '—', secondary: null });
+  assert.deepEqual(sessionIdentifierView({ ...row, authorized_identifier: null }), {
+    primary: 'Family car',
+    secondary: null,
+  });
+  const longName = 'A'.repeat(80);
+  assert.equal(sessionIdentifierView({ ...row, authorized_alias: longName }).primary, longName);
+  assert.equal(JSON.stringify(row), before);
+});
+
+test('filters card names and raw IDs and sorts by the visible name with active sessions first', () => {
+  const data = {
+    ...history,
+    items: [
+      { ...history.items[0], authorized_alias: 'Zoe active' },
+      { ...history.items[1], authorized_alias: 'Zoe' },
+      { ...history.items[2], authorized_alias: 'Alex', authorized_identifier: 'RFID-B' },
+      history.items[3],
+    ],
+  };
+  const before = JSON.stringify(data);
+  assert.deepEqual(
+    sessionRows(data, 'zOE', 'identifier', true).map((row) => row.session_id),
+    ['active', 'a'],
+  );
+  assert.deepEqual(
+    sessionRows(data, 'RFID-a', 'identifier', true).map((row) => row.session_id),
+    ['a'],
+  );
+  assert.deepEqual(
+    sessionRows(data, '', 'identifier', true).map((row) => row.session_id),
+    ['active', 'b', 'c', 'a'],
+  );
+  assert.deepEqual(
+    sessionRows(data, '', 'identifier', false).map((row) => row.session_id),
+    ['active', 'a', 'c', 'b'],
+  );
+  assert.equal(JSON.stringify(data), before);
+});
 
 test('Live row metrics advance known solar and grid cost despite incomplete coverage', () => {
   const row = {

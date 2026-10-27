@@ -361,6 +361,16 @@ export function sessionDisplay(hass: Hass, data: CardData, now: number) {
   };
 }
 export type SessionSort = 'start' | 'end' | 'energy' | 'green' | 'cost' | 'identifier';
+
+export function sessionIdentifierView(row: SessionItem) {
+  const alias = row.authorized_alias?.trim() || null;
+  const identifier = row.authorized_identifier || null;
+  return {
+    primary: alias || identifier || '—',
+    secondary: alias && identifier ? identifier : null,
+  };
+}
+
 export function sessionRows(
   data: SessionHistoryData,
   query: string,
@@ -371,9 +381,13 @@ export function sessionRows(
   const filtered = data.items.filter(
     (row) =>
       !needle ||
-      [row.start_time, row.end_time, row.session_id, row.authorized_identifier].some((value) =>
-        value?.toLocaleLowerCase().includes(needle),
-      ),
+      [
+        row.start_time,
+        row.end_time,
+        row.session_id,
+        row.authorized_identifier,
+        row.authorized_alias,
+      ].some((value) => value?.toLocaleLowerCase().includes(needle)),
   );
   const value = (row: SessionItem): string | number =>
     ({
@@ -382,7 +396,7 @@ export function sessionRows(
       energy: row.energy_kwh ?? -1,
       green: sessionRowMetrics(row).green ?? -1,
       cost: sessionRowMetrics(row).cost ?? -1,
-      identifier: row.authorized_identifier || '',
+      identifier: row.authorized_alias?.trim() || row.authorized_identifier || '',
     })[sort];
   return filtered.sort((a, b) => {
     if (!!a.active !== !!b.active) return a.active ? -1 : 1;

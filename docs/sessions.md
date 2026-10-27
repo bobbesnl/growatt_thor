@@ -31,10 +31,12 @@ are available in the image index.
 <a href="images/annotated/session-desktop.png"><img src="images/annotated/session-desktop.png" alt="Session card on desktop with numbered annotations" width="800"></a>
 
 1. **History totals.** Completed-session totals: energy, known green energy, reported cost and session count. Missing green values are not estimated.
-2. **Filter.** Search session dates or identifiers. Sorting and paging remain available in the table.
+2. **Filter.** Search session dates, card names or identifiers. Sorting and paging remain available in the table.
 3. **Selected session curve.** Shows the power history and recorded events. Use the timeline zoom to inspect a period; event colors have the same meaning as in the mobile list.
 4. **Charging energy breakdown.** Source shares and kWh for the selected session. Grid cost is separate from the wallbox-reported total cost. Open “About this breakdown” for allocation details.
 5. **Session table.** Select a row to inspect that session. RFID identifiers shown here are fictitious. The same information becomes a card list at narrow widths.
+
+Named RFID cards show their name first, with the identifier in a smaller, compact line underneath. Cards without a name continue to show only the identifier. Both the table and the narrow card layout use the name saved at session start, and the identifier column sorts by that displayed name when present. The **Show identifier** setting hides both the name and the ID together.
 
 During charging, both row layouts update the recorded energy, assigned solar
 energy and calculated grid cost. If some energy remains unassigned, `≥` marks

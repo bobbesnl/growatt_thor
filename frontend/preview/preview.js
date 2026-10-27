@@ -269,6 +269,12 @@ function update() {
         cost,
         duration_minutes: null,
         authorized_identifier: identifier,
+        authorized_alias:
+          identifier === '04A1B2C3D4E580'
+            ? 'Family car'
+            : identifier === '0478ABCDEF1290'
+              ? 'Sam – shared household card for the family car and occasional visiting relatives'
+              : null,
         ...sessionProfile(start, effectiveEnd || end, index),
         events: sessionEvents(start, end, effectiveEnd || end),
       })),
@@ -290,6 +296,7 @@ function update() {
       cost: null,
       duration_minutes: null,
       authorized_identifier: data.auth_mode === 'plug_and_charge' ? 'freevenID' : '04A1B2C3D4E580',
+      authorized_alias: data.auth_mode === 'plug_and_charge' ? null : 'Family car',
       ...sessionProfile(start, activeEnd, 0, false),
       events: [
         {

@@ -63,6 +63,7 @@ export function documentationHistory(): SessionHistoryData {
         cost: Math.round(energy * 0.3 * 100) / 100,
         duration_minutes: (to - from) / 60000,
         authorized_identifier: identifier,
+        authorized_alias: ['Family car', 'Alex', null, 'Family car'][index],
         power_curve,
         source_energy_kwh: {
           direct_solar: solar,

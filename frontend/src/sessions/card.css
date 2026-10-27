@@ -450,6 +450,26 @@ th.num {
 .session-identifier {
   grid-column: 1 / -1;
 }
+.session-card-identity {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+  max-width: min(100%, 20ch);
+  vertical-align: middle;
+  line-height: 1.15;
+}
+.session-card-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-card-id {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: normal;
+  line-height: 1.1;
+  white-space: nowrap;
+}
 @container (max-width:600px) {
   .kpis {
     grid-template-columns: repeat(2, 1fr);

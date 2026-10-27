@@ -258,6 +258,7 @@ def _session_item(row: dict[str, Any], *, details: bool, time_zone: str = "UTC")
         "cost": _csv_float(row.get("cost")),
         "duration_minutes": _csv_float(row.get("duration_minutes")),
         "authorized_identifier": row.get("authorized_identifier") or None,
+        "authorized_alias": row.get("authorized_alias") or None,
         "detail_available": bool(row.get("power_curve") or row.get("events")),
     }
     if details:

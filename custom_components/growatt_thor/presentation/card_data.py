@@ -2,8 +2,8 @@
 
 Use the latest MeterValues packet, not the accumulated sensor dictionaries:
 otherwise an omitted phase can incorrectly look active from an earlier packet.
-Only the identifier observed for a session is exposed; authorisation policy,
-configured allowlists, raw packets and credentials remain private.
+Only the identifier and card name retained for a session are exposed;
+authorisation policy, configured allowlists, raw packets and credentials remain private.
 """
 from __future__ import annotations
 
@@ -147,6 +147,7 @@ def dashboard_active_session(coordinator):
         "authorized_identifier": _text(
             request.get("id_tag") or getattr(coordinator, "id_tag", None)
         ),
+        "authorized_alias": _text(transaction.get("id_tag_alias")),
         "power_curve": _dashboard_power_curve(
             getattr(coordinator, "_active_power_curve", None),
             event_times=(event.get("at") for event in events),

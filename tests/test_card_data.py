@@ -68,6 +68,7 @@ class CardDataTest(unittest.TestCase):
         coordinator = types.SimpleNamespace(
             transaction_is_active=True,
             active_transaction={
+                "id_tag_alias": "Family car",
                 "start": {
                     "received_at": "2026-09-14T08:00:00Z",
                     "request": {"id_tag": "RFID-LIVE"},
@@ -105,6 +106,7 @@ class CardDataTest(unittest.TestCase):
         self.assertEqual(active["energy_kwh"], 2.45)
         self.assertIsNone(active["cost"])
         self.assertEqual(active["authorized_identifier"], "RFID-LIVE")
+        self.assertEqual(active["authorized_alias"], "Family car")
         self.assertEqual(
             active["power_curve"],
             [
