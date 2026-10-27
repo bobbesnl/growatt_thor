@@ -522,6 +522,7 @@ function update() {
   };
   currentHass = {
     states,
+    config: { currency: 'EUR', time_zone: 'Europe/Berlin' },
     language: document.querySelector('#language').value,
     connected: true,
     callWS: async (message) => {

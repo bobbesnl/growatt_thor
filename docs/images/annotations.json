@@ -199,42 +199,42 @@
       "source": "06-sources-mixed.png",
       "source_size": [
         1040,
-        1734
+        1794
       ],
       "callouts": [
         {
-          "top": 0.049,
-          "bottom": 0.099,
+          "top": 0.051312,
+          "bottom": 0.089239,
           "title": "Charging and authorization modes"
         },
         {
-          "top": 0.111,
-          "bottom": 0.155,
+          "top": 0.109318,
+          "bottom": 0.142782,
           "title": "Status and grid balance"
         },
         {
-          "top": 0.18,
-          "bottom": 0.44,
+          "top": 0.168439,
+          "bottom": 0.434483,
           "title": "Power and charging sources"
         },
         {
-          "top": 0.448,
-          "bottom": 0.53,
+          "top": 0.450099,
+          "bottom": 0.525953,
           "title": "Phase currents"
         },
         {
-          "top": 0.616,
-          "bottom": 0.716,
+          "top": 0.612507,
+          "bottom": 0.705511,
           "title": "Current session"
         },
         {
-          "top": 0.73,
-          "bottom": 0.793,
+          "top": 0.723359,
+          "bottom": 0.774671,
           "title": "Charging controls"
         },
         {
-          "top": 0.83,
-          "bottom": 0.905,
+          "top": 0.840485,
+          "bottom": 0.905184,
           "title": "Charging target"
         }
       ],
@@ -246,32 +246,32 @@
       "source": "27-history-light.png",
       "source_size": [
         2000,
-        1630
+        1742
       ],
       "callouts": [
         {
-          "top": 0.072,
-          "bottom": 0.146,
+          "top": 0.068966,
+          "bottom": 0.133333,
           "title": "History totals"
         },
         {
-          "top": 0.166,
-          "bottom": 0.205,
+          "top": 0.147126,
+          "bottom": 0.186207,
           "title": "Filter"
         },
         {
-          "top": 0.225,
-          "bottom": 0.546,
+          "top": 0.195402,
+          "bottom": 0.505747,
           "title": "Selected session curve"
         },
         {
-          "top": 0.568,
-          "bottom": 0.708,
+          "top": 0.514943,
+          "bottom": 0.677011,
           "title": "Charging energy breakdown"
         },
         {
-          "top": 0.728,
-          "bottom": 0.936,
+          "top": 0.677011,
+          "bottom": 0.934483,
           "title": "Session table"
         }
       ],
@@ -283,32 +283,32 @@
       "source": "29-history-mobile.png",
       "source_size": [
         780,
-        2742
+        2790
       ],
       "callouts": [
         {
-          "top": 0.037,
-          "bottom": 0.14,
+          "top": 0.041612,
+          "bottom": 0.127704,
           "title": "History totals"
         },
         {
-          "top": 0.172,
-          "bottom": 0.347,
+          "top": 0.173621,
+          "bottom": 0.357285,
           "title": "Charging curve and zoom"
         },
         {
-          "top": 0.354,
-          "bottom": 0.485,
+          "top": 0.348676,
+          "bottom": 0.479228,
           "title": "Event timeline"
         },
         {
-          "top": 0.505,
-          "bottom": 0.624,
+          "top": 0.486402,
+          "bottom": 0.621999,
           "title": "Energy sources"
         },
         {
-          "top": 0.67,
-          "bottom": 0.945,
+          "top": 0.621999,
+          "bottom": 0.949062,
           "title": "Session items"
         }
       ],
@@ -324,28 +324,28 @@
       ],
       "callouts": [
         {
-          "top": 0.194,
-          "bottom": 0.307,
+          "top": 0.192944,
+          "bottom": 0.298787,
           "title": "Target type"
         },
         {
-          "top": 0.322,
-          "bottom": 0.427,
+          "top": 0.323043,
+          "bottom": 0.450937,
           "title": "Energy to add"
         },
         {
-          "top": 0.47,
-          "bottom": 0.554,
+          "top": 0.475193,
+          "bottom": 0.555678,
           "title": "Start now"
         },
         {
-          "top": 0.576,
-          "bottom": 0.71,
+          "top": 0.579934,
+          "bottom": 0.711136,
           "title": "Selection preview"
         },
         {
-          "top": 0.78,
-          "bottom": 0.91,
+          "top": 0.733186,
+          "bottom": 0.972437,
           "title": "Confirmation and action"
         }
       ],
@@ -361,38 +361,38 @@
       ],
       "callouts": [
         {
-          "top": 0.161,
-          "bottom": 0.257,
+          "top": 0.16044,
+          "bottom": 0.248453,
           "title": "Duration target"
         },
         {
-          "top": 0.268,
-          "bottom": 0.355,
+          "top": 0.268623,
+          "bottom": 0.374971,
           "title": "Charging duration"
         },
         {
-          "top": 0.39,
-          "bottom": 0.466,
+          "top": 0.395141,
+          "bottom": 0.462067,
           "title": "At a set time"
         },
         {
-          "top": 0.481,
-          "bottom": 0.565,
+          "top": 0.482237,
+          "bottom": 0.573,
           "title": "Start date and time"
         },
         {
-          "top": 0.578,
-          "bottom": 0.64,
+          "top": 0.584002,
+          "bottom": 0.636947,
           "title": "Every day unchecked"
         },
         {
-          "top": 0.652,
-          "bottom": 0.759,
+          "top": 0.655283,
+          "bottom": 0.745129,
           "title": "Review the reservation"
         },
         {
-          "top": 0.828,
-          "bottom": 0.927,
+          "top": 0.763466,
+          "bottom": 0.97708,
           "title": "Confirm and reserve"
         }
       ],
@@ -408,33 +408,33 @@
       ],
       "callouts": [
         {
-          "top": 0.165,
-          "bottom": 0.253,
+          "top": 0.168216,
+          "bottom": 0.251243,
           "title": "Budget target"
         },
         {
-          "top": 0.269,
-          "bottom": 0.369,
+          "top": 0.27027,
+          "bottom": 0.370595,
           "title": "Cost limit"
         },
         {
-          "top": 0.39,
-          "bottom": 0.555,
+          "top": 0.389622,
+          "bottom": 0.557405,
           "title": "Scheduled start"
         },
         {
-          "top": 0.567,
-          "bottom": 0.619,
+          "top": 0.567784,
+          "bottom": 0.61773,
           "title": "Every day enabled"
         },
         {
-          "top": 0.634,
-          "bottom": 0.719,
+          "top": 0.635027,
+          "bottom": 0.719784,
           "title": "Selection preview"
         },
         {
-          "top": 0.8,
-          "bottom": 0.93,
+          "top": 0.737081,
+          "bottom": 0.978378,
           "title": "Experimental behavior and confirmation"
         }
       ],

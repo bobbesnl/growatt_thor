@@ -10,11 +10,9 @@ Click any image name to open its full-resolution PNG.
 
 ## About these images
 
-Images **1–29** show the English simulator UI with illustrative readings,
-prices, source shares and fictitious RFID identifiers. Images **30–35** were
-captured from Home Assistant with integration **2.0.0-dev.13**; the installation
-address and personal price-sensor identifier were anonymized. No settings were
-submitted and AP mode was not activated.
+Images **1–29** show the current **2.0.0-alpha.1** English simulator UI with illustrative readings, prices, source shares and fictitious RFID identifiers. They use the simulator's Home Assistant time zone, Europe/Berlin. The [capture manifest](images/screenshots.json) records the card build hash, fixed example clock and exact PNG dimensions.
+
+Images **30–35** are historical captures from Home Assistant with integration **2.0.0-dev.13**; the installation address and personal price-sensor identifier were anonymized. They are separate from the simulator generator. No settings were submitted and AP mode was not activated.
 
 All are real UI captures at 2× resolution, with transparent outer corners.
 Annotated copies add a transparent margin and preserve the original UI pixels.

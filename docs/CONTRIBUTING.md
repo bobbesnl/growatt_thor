@@ -122,3 +122,22 @@ in those chapters. `screenshots.md` is an index of original images, while
 `entities.md` holds the entity table and automation examples. Avoid a second
 visual manual. The annotation generator writes images only; its geometry
 manifest links each image to the chapter that owns its explanation.
+
+### Regenerate simulator screenshots
+
+The screenshot tools require Chrome, Playwright and Pillow. Start the preview server in a separate terminal:
+
+```sh
+python3 -m http.server 8362 --bind 127.0.0.1
+```
+
+Then regenerate the current card, all 29 simulator captures, the combined theme preview and the numbered handbook images:
+
+```sh
+npm run build
+node frontend/scripts/capture-docs.cjs
+python3 frontend/scripts/compose-theme-preview.py
+python3 frontend/scripts/annotate-docs.py
+```
+
+Use `THOR_PLAYWRIGHT_PACKAGE` to point to a shared Playwright `package.json`, `THOR_PREVIEW_URL` for a different preview address, and `THOR_SCREENSHOT_DIR` for a staging directory. The capture script writes the screenshot manifest and updates the corresponding annotation geometry from the rendered UI. Move staged captures and both manifests together before generating the annotated images. Review the results after layout changes; historical Home Assistant settings captures require a separate capture workflow.

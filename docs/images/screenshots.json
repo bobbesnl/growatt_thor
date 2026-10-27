@@ -1,4 +1,8 @@
 {
+  "integration_version": "2.0.0-alpha.1",
+  "card_sha256": "2508e3268cf0ac957574de31b05009ca1ff991bb44327d93c17a2aa2fcb9d15b",
+  "fixed_time": "2026-10-02T17:04:05+02:00",
+  "time_zone": "Europe/Berlin",
   "locale": "en-GB",
   "scale": 2,
   "source": "Local simulator; illustrative data, not a Home Assistant export",
@@ -8,203 +12,413 @@
       "file": "01-charger-light.png",
       "title": "Charging card · light",
       "width": 520,
-      "height": 890
+      "height": 864,
+      "pixel_width": 1040,
+      "pixel_height": 1730
     },
     {
       "number": 2,
       "file": "02-charger-dark.png",
       "title": "Charging card · dark",
       "width": 520,
-      "height": 890
+      "height": 864,
+      "pixel_width": 1040,
+      "pixel_height": 1730
     },
     {
       "number": 3,
       "file": "03-sources-solar.png",
       "title": "Charging sources · Solar only",
       "width": 520,
-      "height": 906
+      "height": 880,
+      "pixel_width": 1040,
+      "pixel_height": 1762
     },
     {
       "number": 4,
       "file": "04-sources-solar-battery.png",
       "title": "Charging sources · Solar + battery",
       "width": 520,
-      "height": 906
+      "height": 880,
+      "pixel_width": 1040,
+      "pixel_height": 1762
     },
     {
       "number": 5,
       "file": "05-sources-solar-grid.png",
       "title": "Charging sources · Solar + grid",
       "width": 520,
-      "height": 866
+      "height": 896,
+      "pixel_width": 1040,
+      "pixel_height": 1794
     },
     {
       "number": 6,
       "file": "06-sources-mixed.png",
       "title": "Charging sources · Solar + battery + grid",
       "width": 520,
-      "height": 866
+      "height": 896,
+      "pixel_width": 1040,
+      "pixel_height": 1794,
+      "annotation_regions": [
+        {
+          "top": 0.051312,
+          "bottom": 0.089239
+        },
+        {
+          "top": 0.109318,
+          "bottom": 0.142782
+        },
+        {
+          "top": 0.168439,
+          "bottom": 0.434483
+        },
+        {
+          "top": 0.450099,
+          "bottom": 0.525953
+        },
+        {
+          "top": 0.612507,
+          "bottom": 0.705511
+        },
+        {
+          "top": 0.723359,
+          "bottom": 0.774671
+        },
+        {
+          "top": 0.840485,
+          "bottom": 0.905184
+        }
+      ]
     },
     {
       "number": 7,
       "file": "07-goal-energy-now.png",
       "title": "Energy target · now",
       "width": 520,
-      "height": 907
+      "height": 907,
+      "pixel_width": 1040,
+      "pixel_height": 1816,
+      "annotation_regions": [
+        {
+          "top": 0.192944,
+          "bottom": 0.298787
+        },
+        {
+          "top": 0.323043,
+          "bottom": 0.450937
+        },
+        {
+          "top": 0.475193,
+          "bottom": 0.555678
+        },
+        {
+          "top": 0.579934,
+          "bottom": 0.711136
+        },
+        {
+          "top": 0.733186,
+          "bottom": 0.972437
+        }
+      ]
     },
     {
       "number": 8,
       "file": "08-goal-energy-once.png",
       "title": "Energy target · scheduled once",
       "width": 520,
-      "height": 1091
+      "height": 1091,
+      "pixel_width": 1040,
+      "pixel_height": 2184
     },
     {
       "number": 9,
       "file": "09-goal-energy-daily.png",
       "title": "Energy target · every day",
       "width": 520,
-      "height": 1110
+      "height": 1110,
+      "pixel_width": 1040,
+      "pixel_height": 2224
     },
     {
       "number": 10,
       "file": "10-goal-duration-now.png",
       "title": "Duration target · now",
       "width": 520,
-      "height": 907
+      "height": 907,
+      "pixel_width": 1040,
+      "pixel_height": 1816
     },
     {
       "number": 11,
       "file": "11-goal-duration-once.png",
       "title": "Duration target · scheduled once",
       "width": 520,
-      "height": 1091
+      "height": 1091,
+      "pixel_width": 1040,
+      "pixel_height": 2184,
+      "annotation_regions": [
+        {
+          "top": 0.16044,
+          "bottom": 0.248453
+        },
+        {
+          "top": 0.268623,
+          "bottom": 0.374971
+        },
+        {
+          "top": 0.395141,
+          "bottom": 0.462067
+        },
+        {
+          "top": 0.482237,
+          "bottom": 0.573
+        },
+        {
+          "top": 0.584002,
+          "bottom": 0.636947
+        },
+        {
+          "top": 0.655283,
+          "bottom": 0.745129
+        },
+        {
+          "top": 0.763466,
+          "bottom": 0.97708
+        }
+      ]
     },
     {
       "number": 12,
       "file": "12-goal-duration-daily.png",
       "title": "Duration target · every day",
       "width": 520,
-      "height": 1110
+      "height": 1110,
+      "pixel_width": 1040,
+      "pixel_height": 2224
     },
     {
       "number": 13,
       "file": "13-goal-budget-now.png",
       "title": "Budget target · now",
       "width": 520,
-      "height": 953
+      "height": 953,
+      "pixel_width": 1040,
+      "pixel_height": 1908
     },
     {
       "number": 14,
       "file": "14-goal-budget-once.png",
       "title": "Budget target · scheduled once",
       "width": 520,
-      "height": 1137
+      "height": 1137,
+      "pixel_width": 1040,
+      "pixel_height": 2276
     },
     {
       "number": 15,
       "file": "15-goal-budget-daily.png",
       "title": "Budget target · every day",
       "width": 520,
-      "height": 1156
+      "height": 1156,
+      "pixel_width": 1040,
+      "pixel_height": 2316,
+      "annotation_regions": [
+        {
+          "top": 0.168216,
+          "bottom": 0.251243
+        },
+        {
+          "top": 0.27027,
+          "bottom": 0.370595
+        },
+        {
+          "top": 0.389622,
+          "bottom": 0.557405
+        },
+        {
+          "top": 0.567784,
+          "bottom": 0.61773
+        },
+        {
+          "top": 0.635027,
+          "bottom": 0.719784
+        },
+        {
+          "top": 0.737081,
+          "bottom": 0.978378
+        }
+      ]
     },
     {
       "number": 16,
       "file": "16-authorization-home-assistant-rfid.png",
       "title": "Authorization · home assistant rfid",
       "width": 420,
-      "height": 325
+      "height": 325,
+      "pixel_width": 840,
+      "pixel_height": 652
     },
     {
       "number": 17,
       "file": "17-authorization-rfid-only.png",
       "title": "Authorization · rfid only",
       "width": 420,
-      "height": 325
+      "height": 325,
+      "pixel_width": 840,
+      "pixel_height": 652
     },
     {
       "number": 18,
       "file": "18-authorization-plug-and-charge.png",
       "title": "Authorization · plug and charge",
       "width": 420,
-      "height": 325
+      "height": 325,
+      "pixel_width": 840,
+      "pixel_height": 652
     },
     {
       "number": 19,
       "file": "19-charging-mode-prerequisites.png",
       "title": "Charging mode · prerequisites",
       "width": 680,
-      "height": 370
+      "height": 370,
+      "pixel_width": 1360,
+      "pixel_height": 744
     },
     {
       "number": 20,
       "file": "20-charging-mode-solar-only-disabled.png",
       "title": "PV Linkage+ · no boost",
       "width": 680,
-      "height": 454
+      "height": 454,
+      "pixel_width": 1360,
+      "pixel_height": 908
     },
     {
       "number": 21,
       "file": "21-charging-mode-solar-only-manual.png",
       "title": "PV Linkage+ · time-window boost",
       "width": 680,
-      "height": 593
+      "height": 593,
+      "pixel_width": 1360,
+      "pixel_height": 1188
     },
     {
       "number": 22,
       "file": "22-charging-mode-solar-only-smart.png",
       "title": "PV Linkage+ · ready-by-time boost",
       "width": 680,
-      "height": 679
+      "height": 679,
+      "pixel_width": 1360,
+      "pixel_height": 1360
     },
     {
       "number": 23,
       "file": "23-charging-mode-grid-allowed-disabled.png",
       "title": "PV Linkage · no boost",
       "width": 680,
-      "height": 555
+      "height": 555,
+      "pixel_width": 1360,
+      "pixel_height": 1112
     },
     {
       "number": 24,
       "file": "24-charging-mode-grid-allowed-manual.png",
       "title": "PV Linkage · time-window boost",
       "width": 680,
-      "height": 694
+      "height": 694,
+      "pixel_width": 1360,
+      "pixel_height": 1392
     },
     {
       "number": 25,
       "file": "25-charging-mode-grid-allowed-smart.png",
       "title": "PV Linkage · ready-by-time boost",
       "width": 680,
-      "height": 781
+      "height": 781,
+      "pixel_width": 1360,
+      "pixel_height": 1564
     },
     {
       "number": 26,
       "file": "26-charging-mode-review.png",
       "title": "Charging mode · review before applying",
       "width": 680,
-      "height": 479
+      "height": 479,
+      "pixel_width": 1360,
+      "pixel_height": 960
     },
     {
       "number": 27,
       "file": "27-history-light.png",
       "title": "Charging history · desktop light",
       "width": 1000,
-      "height": 814
+      "height": 870,
+      "pixel_width": 2000,
+      "pixel_height": 1742,
+      "annotation_regions": [
+        {
+          "top": 0.068966,
+          "bottom": 0.133333
+        },
+        {
+          "top": 0.147126,
+          "bottom": 0.186207
+        },
+        {
+          "top": 0.195402,
+          "bottom": 0.505747
+        },
+        {
+          "top": 0.514943,
+          "bottom": 0.677011
+        },
+        {
+          "top": 0.677011,
+          "bottom": 0.934483
+        }
+      ]
     },
     {
       "number": 28,
       "file": "28-history-dark.png",
       "title": "Charging history · desktop dark",
       "width": 1000,
-      "height": 814
+      "height": 870,
+      "pixel_width": 2000,
+      "pixel_height": 1742
     },
     {
       "number": 29,
       "file": "29-history-mobile.png",
       "title": "Charging history · mobile",
       "width": 390,
-      "height": 1370
+      "height": 1394,
+      "pixel_width": 780,
+      "pixel_height": 2790,
+      "annotation_regions": [
+        {
+          "top": 0.041612,
+          "bottom": 0.127704
+        },
+        {
+          "top": 0.173621,
+          "bottom": 0.357285
+        },
+        {
+          "top": 0.348676,
+          "bottom": 0.479228
+        },
+        {
+          "top": 0.486402,
+          "bottom": 0.621999
+        },
+        {
+          "top": 0.621999,
+          "bottom": 0.949062
+        }
+      ]
     }
   ]
 }

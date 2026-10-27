@@ -11,6 +11,7 @@
 const { createRequire } = require('node:module');
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { createHash } = require('node:crypto');
 
 const repositoryRoot = path.resolve(__dirname, '../..');
 const previewUrl = process.env.THOR_PREVIEW_URL || 'http://127.0.0.1:8362/frontend/preview/';
@@ -18,6 +19,76 @@ const previewUrl = process.env.THOR_PREVIEW_URL || 'http://127.0.0.1:8362/fronte
 const outputDirectory = process.env.THOR_SCREENSHOT_DIR || path.join(repositoryRoot, 'docs/images');
 const fixedTime = '2026-10-02T17:04:05+02:00';
 const scheduledStart = '2026-10-03T22:00';
+
+// Match the numbered handbook explanations. Read their positions from the UI
+// instead of scaling old brackets after a card or dialog changes height.
+const annotationSelectors = {
+  'sources-mixed': [
+    '.pills',
+    '.status-strip',
+    '.gauge',
+    '.phases',
+    '.session',
+    '.actions',
+    '.goal-entry',
+  ],
+  'history-light': ['.kpis', '.toolbar', '.curve', '.accounting', '.table-wrap'],
+  'history-mobile': [
+    '.kpis',
+    '.curve-title, .chart-area',
+    '.chart-events',
+    '.accounting',
+    '.session-list-view',
+  ],
+  'goal-energy-now': [
+    'fieldset:first-of-type',
+    '.value-field',
+    'fieldset:nth-of-type(2)',
+    '.summary',
+    '.body > p.help:not([id]), .body > label:has(input[type="checkbox"]):not(.recurrence), .dialog-actions',
+  ],
+  'goal-duration-once': [
+    'fieldset:first-of-type',
+    '.value-field',
+    'fieldset:nth-of-type(2)',
+    '[for="goal-at"], #goal-at, #time-help',
+    '.recurrence',
+    '.summary',
+    '.body > p.help:not([id]), .body > label:has(input[type="checkbox"]):not(.recurrence), .dialog-actions',
+  ],
+  'goal-budget-daily': [
+    'fieldset:first-of-type',
+    '.value-field',
+    'fieldset:nth-of-type(2), [for="goal-at"], #goal-at, #time-help',
+    '.recurrence',
+    '.summary',
+    '.body > p.help:not([id]), .body > label:has(input[type="checkbox"]):not(.recurrence), .dialog-actions',
+  ],
+};
+
+async function annotationRegions(element, slug) {
+  const selectors = annotationSelectors[slug];
+  if (!selectors) return undefined;
+  return element.evaluate((node, groups) => {
+    const bounds = node.getBoundingClientRect();
+    return groups.map((selector) => {
+      const visible = [...node.querySelectorAll(selector)]
+        .map((part) => part.getBoundingClientRect())
+        .filter((box) => box.width > 0 && box.height > 0);
+      if (!visible.length) throw new Error(`Missing annotation target: ${selector}`);
+      const top = Math.max(
+        0,
+        (Math.min(...visible.map((box) => box.top)) - bounds.top) / bounds.height,
+      );
+      const bottom = Math.min(
+        1,
+        (Math.max(...visible.map((box) => box.bottom)) - bounds.top) / bounds.height,
+      );
+      if (!(top < bottom)) throw new Error(`Invalid annotation target: ${selector}`);
+      return { top: Number(top.toFixed(6)), bottom: Number(bottom.toFixed(6)) };
+    });
+  }, selectors);
+}
 
 function loadPlaywright() {
   // Also support a shared Playwright installation outside this repository.
@@ -70,7 +141,7 @@ async function captureScreenshot(session, element, slug, title) {
     // The handbook links to these numbered filenames. Keep the group order in main stable.
     const number = captures.length + 1;
     const file = `${String(number).padStart(2, '0')}-${slug}.png`;
-    await element.screenshot({
+    const png = await element.screenshot({
       path: path.join(outputDirectory, file),
       omitBackground: true,
       animations: 'disabled',
@@ -83,6 +154,9 @@ async function captureScreenshot(session, element, slug, title) {
       title,
       width: Math.round(bounds.width),
       height: Math.round(bounds.height),
+      pixel_width: png.readUInt32BE(16),
+      pixel_height: png.readUInt32BE(20),
+      annotation_regions: await annotationRegions(element, slug),
     });
     console.log(`${String(number).padStart(2, '0')}: ${title}`);
   } finally {
@@ -354,6 +428,12 @@ async function main() {
     await selectPreviewOption(page, 'auth', 'plug_and_charge');
     await selectPreviewOption(page, 'scenario', 'charging');
     await selectPreviewOption(page, 'source-mix', 'none');
+    const installationTimeZone = await page
+      .locator('growatt-thor-card')
+      .first()
+      .evaluate((node) => node.hass.config?.time_zone);
+    if (!installationTimeZone)
+      throw new Error('The simulator must declare its Home Assistant time zone');
 
     // Capture order determines the existing handbook filenames (01–29).
     const session = { page, captures: [] };
@@ -365,6 +445,21 @@ async function main() {
 
     if (pageErrors.length) throw new Error(pageErrors.join('\n'));
     const manifest = {
+      integration_version: JSON.parse(
+        await fs.readFile(
+          path.join(repositoryRoot, 'custom_components/growatt_thor/manifest.json'),
+          'utf8',
+        ),
+      ).version,
+      card_sha256: createHash('sha256')
+        .update(
+          await fs.readFile(
+            path.join(repositoryRoot, 'custom_components/growatt_thor/frontend/thor-card.js'),
+          ),
+        )
+        .digest('hex'),
+      fixed_time: fixedTime,
+      time_zone: installationTimeZone,
       locale: 'en-GB',
       scale: 2,
       source: 'Local simulator; illustrative data, not a Home Assistant export',
@@ -373,6 +468,24 @@ async function main() {
     await fs.writeFile(
       path.join(outputDirectory, 'screenshots.json'),
       JSON.stringify(manifest, null, 2) + '\n',
+    );
+    const annotations = JSON.parse(
+      await fs.readFile(path.join(repositoryRoot, 'docs/images/annotations.json'), 'utf8'),
+    );
+    for (const capture of session.captures) {
+      if (!capture.annotation_regions) continue;
+      const figure = annotations.figures.find((item) => item.source === capture.file);
+      if (!figure || figure.callouts.length !== capture.annotation_regions.length) {
+        throw new Error(`Handbook annotations do not match ${capture.file}`);
+      }
+      figure.source_size = [capture.pixel_width, capture.pixel_height];
+      figure.callouts.forEach((note, index) =>
+        Object.assign(note, capture.annotation_regions[index]),
+      );
+    }
+    await fs.writeFile(
+      path.join(outputDirectory, 'annotations.json'),
+      JSON.stringify(annotations, null, 2) + '\n',
     );
     console.log(`Captured ${session.captures.length} PNGs in ${outputDirectory}.`);
   } finally {
