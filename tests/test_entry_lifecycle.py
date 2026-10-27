@@ -219,7 +219,9 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
             "GrowattCoordinator": integration.GrowattCoordinator,
             "Store": integration.Store,
             "dr": integration.dr,
+            "async_setup_session_history": integration.async_setup_session_history,
         }
+        integration.async_setup_session_history = lambda *args: lambda: None
         integration.GrowattCoordinator = _Coordinator
         integration.Store = _MemoryStore
         integration.dr = SimpleNamespace(async_get=lambda hass: _DeviceRegistry())

@@ -146,6 +146,23 @@ export function sessionNumericPoints(
   });
 }
 
+/** Retain explicit gaps; missing context is never a measured zero. */
+export function sessionContextPoints(
+  points: [string, number | null][] = [],
+  divisor = 1,
+  signed = false,
+): [number, number | null][] {
+  const result = points.flatMap<[number, number | null]>(([at, value]) => {
+    const timestamp = sessionTimestamp(at);
+    if (timestamp === null || divisor <= 0) return [];
+    if (value === null) return [[timestamp, null] as [number, null]];
+    return !Number.isFinite(value) || (!signed && value < 0)
+      ? []
+      : [[timestamp, value / divisor] as [number, number]];
+  });
+  return result.some(([, value]) => value !== null) ? result : [];
+}
+
 export function sessionEventTone(events: SessionEvent[]): SessionEventTone {
   const types = new Set(events.map((event) => event.type));
   if (types.has('stop_requested')) return 'coral';
@@ -179,7 +196,7 @@ export function sessionEventMarkers(events: SessionEvent[] = []): SessionEventMa
 export function sessionChartExtent(
   points: [number, number][],
   markers: SessionEventMarker[],
-  ...additionalSeries: [number, number][][]
+  ...additionalSeries: [number, number | null][][]
 ): [number, number] | undefined {
   const timestamps = sessionChartTimestamps(points, markers, ...additionalSeries);
   if (!timestamps.length) return undefined;
@@ -192,12 +209,12 @@ export function sessionChartExtent(
 function sessionChartTimestamps(
   points: [number, number][],
   markers: SessionEventMarker[],
-  ...additionalSeries: [number, number][][]
+  ...additionalSeries: [number, number | null][][]
 ): number[] {
   return Array.from(
     new Set(
       [points, ...additionalSeries]
-        .flatMap((series) => series.map(([at]) => at))
+        .flatMap((series) => series.filter(([, value]) => value !== null).map(([at]) => at))
         .concat(markers.map((marker) => marker.at))
         .filter(Number.isFinite),
     ),
@@ -208,7 +225,7 @@ function sessionChartTimestamps(
 export function sessionChartBreaks(
   points: [number, number][],
   markers: SessionEventMarker[],
-  ...additionalSeries: [number, number][][]
+  ...additionalSeries: [number, number | null][][]
 ): SessionChartBreak[] {
   const timestamps = sessionChartTimestamps(points, markers, ...additionalSeries);
   return timestamps
@@ -231,7 +248,7 @@ export function sessionChartBreaks(
 export function sessionChartSpansDays(
   points: [number, number][],
   markers: SessionEventMarker[],
-  ...additionalSeries: [number, number][][]
+  ...additionalSeries: [number, number | null][][]
 ): boolean {
   const timestamps = sessionChartTimestamps(points, markers, ...additionalSeries);
   if (timestamps.length < 2) return false;
@@ -242,7 +259,7 @@ export function sessionChartSpansDaysInZone(
   timeZone: string,
   points: [number, number][],
   markers: SessionEventMarker[],
-  ...additionalSeries: [number, number][][]
+  ...additionalSeries: [number, number | null][][]
 ): boolean {
   const timestamps = sessionChartTimestamps(points, markers, ...additionalSeries);
   return (

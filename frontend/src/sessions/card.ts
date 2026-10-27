@@ -27,9 +27,8 @@ import {
   sessionChartPoints,
   sessionChartSpansDaysInZone,
   sessionEventMarkers,
-  sessionNumericPoints,
+  sessionContextPoints,
   selectedSession,
-  sessionSignedChartPoints,
   sessionRows,
   sessionPage,
   type SessionSort,
@@ -209,11 +208,11 @@ export class ThorSessionCard extends LitElement {
       this._expandedBreaks.clear();
     }
     const points = sessionChartPoints(session?.power_curve || []);
-    const measuredCurrents = sessionNumericPoints(session?.measured_current_sum_curve_a);
-    const configuredCurrents = sessionNumericPoints(session?.configured_current_limit_curve_a);
-    const pvSurplus = sessionChartPoints(session?.site_pv_surplus_curve_w || []);
-    const houseLoad = sessionChartPoints(session?.site_house_load_curve_w || []);
-    const batteryFlow = sessionSignedChartPoints(session?.site_battery_curve_w);
+    const measuredCurrents = sessionContextPoints(session?.measured_current_sum_curve_a);
+    const configuredCurrents = sessionContextPoints(session?.configured_current_limit_curve_a);
+    const pvSurplus = sessionContextPoints(session?.site_pv_surplus_curve_w, 1000);
+    const houseLoad = sessionContextPoints(session?.site_house_load_curve_w, 1000);
+    const batteryFlow = sessionContextPoints(session?.site_battery_curve_w, 1000, true);
     if (
       !points.length &&
       !measuredCurrents.length &&
@@ -240,7 +239,7 @@ export class ThorSessionCard extends LitElement {
     const measuredCurrentSeriesName = t('seriesMeasuredCurrentSum');
     const configuredCurrentSeriesName = t('seriesConfiguredCurrentLimit');
     const pvSurplusSeriesName = t('seriesPvSurplus');
-    const houseLoadSeriesName = t('seriesHouseLoad');
+    const houseLoadSeriesName = `${['site_balance', 'mixed'].includes(session?.site_house_load_source || '') ? '≈ ' : ''}${t('seriesHouseLoad')}`;
     const batteryFlowSeriesName = t('seriesBatteryFlow');
     const eventSeriesName = t('seriesEvents');
     const powerVisible = this._legendSelected[powerSeriesName] !== false;
@@ -547,10 +546,11 @@ export class ThorSessionCard extends LitElement {
           {
             name: configuredCurrentSeriesName,
             id: 'configured-current',
+            step: 'end',
             type: 'line',
             yAxisIndex: 1,
             data: configuredCurrents,
-            smooth: 0.25,
+            smooth: false,
             showSymbol: false,
             symbolSize: 3,
             lineStyle: { width: 1.5, color: palette.target, opacity: 0.55 },

@@ -23,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 from ..ocpp.diagnostics import boot_notification_field
 from ..ocpp.meter_samples import meter_time_zone, normalize_meter_timestamp
 from ..ocpp.status import normalize_ocpp_status
+from ..sessions.telemetry import CONTEXT_CURVES, context_curves
 from ..sessions.time import session_times
 from ..runtime.time import installation_time_zone, utc_timestamp
 from ..sessions.identity import SOURCE_HOME_ASSISTANT, build_session_id
@@ -35,15 +36,7 @@ DASHBOARD_SESSION_LIMIT = 20
 # HA state updates carry this projection repeatedly. Full history belongs in
 # CSV/WebSocket detail; increasing this budget also increases recorder traffic.
 CARD_ATTRIBUTE_TARGET_BYTES = 12 * 1024
-_SESSION_DETAIL_FIELDS = (
-    "power_curve",
-    "events",
-    "measured_current_sum_curve_a",
-    "configured_current_limit_curve_a",
-    "site_pv_surplus_curve_w",
-    "site_house_load_curve_w",
-    "site_battery_curve_w",
-)
+_SESSION_DETAIL_FIELDS = ("power_curve", "events", *CONTEXT_CURVES)
 
 
 def live_dashboard_meter_values(coordinator):
@@ -119,6 +112,7 @@ def dashboard_active_session(coordinator):
     accounting = getattr(coordinator, "site_accounting", None)
     metered_kwh = sum(accounting.buckets.values()) if accounting is not None else None
     fallback_kwh = getattr(accounting, "power_fallback_kwh", 0.0) if accounting is not None else 0.0
+    telemetry = getattr(getattr(coordinator, "sessions", None), "telemetry", None)
     return {
         "session_id": build_session_id(
             source=SOURCE_HOME_ASSISTANT,
@@ -160,6 +154,8 @@ def dashboard_active_session(coordinator):
             getattr(coordinator, "_active_power_curve", None),
             event_times=(event.get("at") for event in events),
         ),
+        **(telemetry.metadata() if telemetry is not None else {}),
+        **(telemetry.snapshot(event_times=(event.get("at") for event in events)) if telemetry is not None else {}),
         "events": events,
         "detail_available": True,
     }
@@ -241,6 +237,7 @@ def _enforce_card_attribute_budget(attributes: dict) -> dict:
                     if isinstance(event, dict)
                 ),
             )
+            active.update(context_curves(active, limit=limit, event_times=(event.get("at") for event in active.get("events", ()))))
             if _encoded_size(attributes) <= CARD_ATTRIBUTE_TARGET_BYTES:
                 return attributes
 

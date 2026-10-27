@@ -14,6 +14,7 @@ import tempfile
 from typing import Any
 
 from .time import session_times
+from .telemetry import CONTEXT_CURVES, context_curves
 from ..runtime.time import utc_timestamp
 from zoneinfo import ZoneInfo
 from .identity import (
@@ -48,6 +49,8 @@ SESSION_LOG_HEADERS = [
     "authorized_alias",
     "green_energy_kwh",
     "power_curve",
+    *CONTEXT_CURVES,
+    "site_house_load_source",
     "events",
     "source_energy_kwh",
     "effective_grid_cost",
@@ -266,6 +269,15 @@ def _session_item(row: dict[str, Any], *, details: bool, time_zone: str = "UTC")
             row.get("power_curve"),
             event_times=(event.get("at") for event in events),
         )
+        decoded_curves = {}
+        for key in CONTEXT_CURVES:
+            try:
+                decoded_curves[key] = json.loads(row[key]) if isinstance(row.get(key), str) else row.get(key)
+            except (ValueError, TypeError):
+                continue
+        if row.get("site_house_load_source") in ("configured_sensor", "site_balance", "mixed"):
+            item["site_house_load_source"] = row["site_house_load_source"]
+        item.update(context_curves(decoded_curves, event_times=(event.get("at") for event in events)))
         item["events"] = events
     return session_times(item, time_zone)
 

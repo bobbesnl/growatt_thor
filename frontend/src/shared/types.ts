@@ -91,15 +91,16 @@ export interface SessionItem {
   /** Whether retained chart details can be loaded on demand. */
   detail_available?: boolean;
   /** Sum of the valid phase-current samples; not a charger current setpoint. */
-  measured_current_sum_curve_a?: [string, number][];
+  measured_current_sum_curve_a?: [string, number | null][];
   /** Reported or accepted G_MaxCurrent history; the limit applies per phase. */
-  configured_current_limit_curve_a?: [string, number][];
+  configured_current_limit_curve_a?: [string, number | null][];
   /** Whole-site PV surplus before EV charging and battery dispatch; context, not source allocation. */
-  site_pv_surplus_curve_w?: [string, number][];
+  site_pv_surplus_curve_w?: [string, number | null][];
   /** Non-EV household consumption used to explain changes in available PV surplus. */
-  site_house_load_curve_w?: [string, number][];
+  site_house_load_source?: 'configured_sensor' | 'site_balance' | 'mixed';
+  site_house_load_curve_w?: [string, number | null][];
   /** Whole-site battery flow: positive discharge, negative charging. */
-  site_battery_curve_w?: [string, number][];
+  site_battery_curve_w?: [string, number | null][];
   /** Optional PoC contract for observed or explicitly qualified session events. */
   events?: SessionEvent[];
 }

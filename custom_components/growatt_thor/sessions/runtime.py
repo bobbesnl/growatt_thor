@@ -9,6 +9,7 @@ import logging
 
 import json
 from collections.abc import Mapping
+from .telemetry import SessionTelemetry, context_curves
 from .outbox import SessionOutbox
 from .completion import completion_transaction
 from ..runtime.time import utc_instant, utc_timestamp
@@ -32,6 +33,36 @@ class SessionLifecycle:
         self.coordinator = coordinator
         self.outbox = SessionOutbox()
         self.pending_completions = []
+        self.telemetry = SessionTelemetry()
+
+    def observe_context(self, *, notify=True):
+        coordinator = self.coordinator
+        if (coordinator.transaction_id is None
+            or getattr(coordinator, "_restored_active_session", False)):
+            return False
+        changed = self.telemetry.observe_context(coordinator, coordinator.now())
+        at = parse_at(coordinator.now())
+        snapshot = getattr(coordinator, "last_meter_values", None) or {}
+        entries = snapshot.get("meter_values", [])
+        sampled = parse_at(entries[-1].get("timestamp")) if entries else None
+        if (not coordinator.connected or coordinator.status not in ("Charging", "charging")
+            or sampled is None or at is None or (at - sampled).total_seconds() > coordinator._effective_meter_gap_seconds()):
+            changed = self.telemetry.observe("measured_current_sum_curve_a", coordinator.now(), None) or changed
+        if changed and notify:
+            coordinator._schedule_storage_save()
+            coordinator.async_set_updated_data(True)
+        return changed
+
+    def observe_meter(self, entry, received_at):
+        coordinator = self.coordinator
+        if coordinator.transaction_id is None:
+            return False
+        request = (coordinator.active_transaction or {}).get("start", {}).get("request", {})
+        lower = utc_instant(request.get("timestamp"), session_time_zone(coordinator))
+        sampled = parse_at(entry.timestamp)
+        if lower is not None and sampled is not None and sampled < lower:
+            return False
+        return self.telemetry.observe_meter(entry, received_at, coordinator._effective_meter_gap_seconds())
 
     def restore_completions(self, value):
         self.pending_completions = []
@@ -104,6 +135,8 @@ class SessionLifecycle:
                 "meter_start": request.get("meter_start"),
                 "energy_wh": coordinator.energy,
                 "power_curve": coordinator._active_power_curve,
+                **self.telemetry.snapshot(),
+                **self.telemetry.metadata(),
                 "events": events,
                 "energy_flowing": (
                     coordinator._session_event_tracker.energy_flowing
@@ -138,6 +171,9 @@ class SessionLifecycle:
         coordinator.id_tag = state.id_tag
         coordinator.energy = state.energy_wh
         coordinator._active_power_curve = list(state.power_curve)
+        self.telemetry = SessionTelemetry({**state.context_curves, "site_house_load_source": state.site_house_load_source})
+        for key in tuple(self.telemetry.curves):
+            self.telemetry.observe(key, coordinator.now(), None)
         coordinator._session_event_tracker = SessionEventTracker(
             events=list(state.events),
             energy_flowing=state.energy_flowing,
@@ -164,6 +200,8 @@ class SessionLifecycle:
         )
         completed = dict(coordinator.active_transaction or {})
         completed["power_curve"] = list(coordinator._active_power_curve)
+        completed.update(self.telemetry.snapshot())
+        completed.update(self.telemetry.metadata())
         effective_minutes = coordinator.effective_charging.effective_minutes
         completed["effective_charging_duration_minutes"] = effective_minutes
         coordinator.last_completed_transaction = completed
@@ -180,6 +218,7 @@ class SessionLifecycle:
         coordinator.active_transaction = None
         coordinator.site_accounting = None
         coordinator._active_power_curve = []
+        self.telemetry = SessionTelemetry()
         coordinator._session_event_tracker = None
         coordinator.effective_charging = EffectiveChargingTracker()
         coordinator._restored_active_session = False
@@ -236,8 +275,10 @@ class SessionLifecycle:
             else None
         )
         coordinator._active_power_curve = []
+        self.telemetry = SessionTelemetry()
         coordinator._restored_active_session = False
         coordinator.effective_charging.start(transaction_id)
+        self.observe_context(notify=False)
         coordinator._schedule_storage_save()
 
         _LOGGER.info("🔋 New transaction started → Resetting energy counter")
@@ -280,6 +321,7 @@ class SessionLifecycle:
             "reason": reason,
             **payload,
         }
+        self.observe_context(notify=False)
         completed = dict(coordinator.active_transaction or {})
         completed["stop"] = create_ocpp_snapshot(coordinator.now(), request)
         if coordinator._session_event_tracker is not None:
@@ -297,6 +339,8 @@ class SessionLifecycle:
             effective_minutes = coordinator.effective_charging.effective_minutes
         completed["effective_charging_duration_minutes"] = effective_minutes
         completed["power_curve"] = list(coordinator._active_power_curve)
+        completed.update(self.telemetry.snapshot())
+        completed.update(self.telemetry.metadata())
         if coordinator.site_accounting is not None:
             start_wh = coordinator.site_accounting.meter_start_wh
             try:
@@ -308,6 +352,7 @@ class SessionLifecycle:
             coordinator.last_site_accounting = coordinator.site_accounting
             coordinator.site_accounting = None
         coordinator._active_power_curve = []
+        self.telemetry = SessionTelemetry()
         coordinator._session_event_tracker = None
         if normalized_transaction_id is not None and effective_minutes is not None:
             coordinator._pending_effective_charging_minutes[normalized_transaction_id] = (
@@ -560,6 +605,9 @@ class SessionLifecycle:
                         if matched else [],
                         separators=(",", ":"),
                     ),
+                    "site_house_load_source": (completed_transaction or {}).get("site_house_load_source", "") if matched else "",
+                    **{key: json.dumps(curve, separators=(",", ":"))
+                       for key, curve in context_curves(completed_transaction if matched else {}).items()},
                     "events": json.dumps(events, separators=(",", ":")),
                 }
                 self.outbox.enqueue(session_row)

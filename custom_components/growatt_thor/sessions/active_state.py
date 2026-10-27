@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from math import isfinite
 from typing import Any
 
+from .telemetry import context_curves
 from .events import normalize_session_events
 from .series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 
@@ -39,6 +40,8 @@ class ActiveSessionState:
     meter_start: float | None = None
     energy_wh: float | None = None
     power_curve: list[list[Any]] = field(default_factory=list)
+    context_curves: dict = field(default_factory=dict)
+    site_house_load_source: str | None = None
     events: list[dict[str, str]] = field(default_factory=list)
     energy_flowing: bool | None = None
 
@@ -64,6 +67,8 @@ class ActiveSessionState:
                 limit=SESSION_CURVE_POINT_LIMIT,
                 event_times=(event.get("at") for event in events),
             ),
+            site_house_load_source=data.get("site_house_load_source") if data.get("site_house_load_source") in ("configured_sensor", "site_balance", "mixed") else None,
+            context_curves=context_curves(data, event_times=(event.get("at") for event in events)),
             events=events,
             energy_flowing=energy_flowing,
         )
@@ -80,6 +85,8 @@ class ActiveSessionState:
             "meter_start": self.meter_start,
             "energy_wh": self.energy_wh,
             "power_curve": self.power_curve,
+            **self.context_curves,
+            **({"site_house_load_source": self.site_house_load_source} if self.site_house_load_source else {}),
             "events": self.events,
             "energy_flowing": self.energy_flowing,
         }

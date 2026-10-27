@@ -43,6 +43,8 @@ LEGACY_HEADERS = [
     for header in session_csv.SESSION_LOG_HEADERS
     if header
     not in (
+        *session_csv.CONTEXT_CURVES,
+        "site_house_load_source",
         "effective_charging_minutes",
         "session_id",
         "session_source",

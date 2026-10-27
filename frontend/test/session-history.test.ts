@@ -12,6 +12,7 @@ import {
   sessionChartSpansDays,
   sessionEventMarkers,
   sessionNumericPoints,
+  sessionContextPoints,
   sessionSignedChartPoints,
   sessionRows,
   sessionIdentifierView,
@@ -496,4 +497,35 @@ test('Energy strip omits floating-point residue and handles empty or invalid tot
     })!.parts,
     [],
   );
+});
+
+test('Context histories retain explicit gaps and signed battery flow without inventing zero readings', () => {
+  const points: [string, number | null][] = [
+    ['2026-10-28T10:00:00Z', 1200],
+    ['2026-10-28T10:01:00Z', null],
+    ['2026-10-28T10:02:00Z', -600],
+    ['2026-10-28T10:03:00Z', 0],
+  ];
+  assert.deepEqual(
+    sessionContextPoints(points, 1000, true).map(([, value]) => value),
+    [1.2, null, -0.6, 0],
+  );
+  assert.deepEqual(
+    sessionContextPoints(points, 1000).map(([, value]) => value),
+    [1.2, null, 0],
+  );
+  assert.deepEqual(sessionContextPoints([['2026-10-28T10:00:00Z', null]]), []);
+});
+
+test('An unknown context tail cannot stretch a completed session timeline', () => {
+  const at = Date.parse('2026-10-28T10:00:00Z');
+  const extent = sessionChartExtent(
+    [[at, 2]],
+    [],
+    sessionContextPoints([
+      ['2026-10-28T10:00:00Z', 1000],
+      ['2026-10-29T10:00:00Z', null],
+    ]),
+  );
+  assert.deepEqual(extent, [at - 60000, at + 60000]);
 });

@@ -3,6 +3,7 @@ from collections.abc import Mapping
 from math import isfinite
 
 from .active_state import ActiveSessionState
+from .telemetry import context_curves
 
 
 def completion_transaction(value: object) -> dict | None:
@@ -25,6 +26,8 @@ def completion_transaction(value: object) -> dict | None:
         "id_tag_alias": value.get("id_tag_alias"),
         "connector_id": request.get("connector_id"), "meter_start": request.get("meter_start"),
         "start_received_at": start.get("received_at"), "start_timestamp": request.get("timestamp"),
+        **context_curves(value),
+        "site_house_load_source": value.get("site_house_load_source"),
         "events": value.get("events"), "power_curve": value.get("power_curve"),
     })
     stop_request = {}
@@ -46,6 +49,8 @@ def completion_transaction(value: object) -> dict | None:
             "response": {"transaction_id": bounded.transaction_id},
         },
         "stop": {"received_at": str(stop.get("received_at", ""))[:256], "request": stop_request},
+        **bounded.context_curves,
+        **({"site_house_load_source": bounded.site_house_load_source} if bounded.site_house_load_source else {}),
         "events": bounded.events, "power_curve": bounded.power_curve,
         "effective_charging_duration_minutes": minutes,
     }

@@ -57,6 +57,7 @@ from .runtime.services import (
     ManualRefreshFailed,
 )
 from .sessions.exports import new_export_path, ensure_export_cleanup
+from .sessions.telemetry import async_setup_session_history
 from .sessions.csv import (
     append_session_row,
     dashboard_session_data,
@@ -660,6 +661,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await async_setup_target_services(hass, entry, coordinator)
     runtime_data["energy_stop_guard"] = EnergyStopGuard(hass, coordinator)
     runtime_data["energy_stop_guard"].refresh()
+    runtime_data["session_history_unsub"] = async_setup_session_history(hass, coordinator)
     return True
 
 
@@ -706,6 +708,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     energy_stop_guard = runtime_data.get("energy_stop_guard")
     if energy_stop_guard is not None:
         await energy_stop_guard.async_shutdown()
+
+    if stop_history := runtime_data.get("session_history_unsub"):
+        stop_history()
 
     coordinator = runtime_data.get("coordinator")
     if coordinator is not None:

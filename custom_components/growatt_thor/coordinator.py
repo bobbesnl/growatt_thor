@@ -554,6 +554,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         if value is None:
             return
         self.configuration_values[key] = value
+        if key == "G_MaxCurrent":
+            self.sessions.observe_context()
         self.async_set_updated_data(True)
 
     def begin_configuration_write(self, key: str, raw_value: str) -> int:
@@ -1176,6 +1178,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
             if effective_updated:
                 self._schedule_storage_save()
 
+        if getattr(self, "sessions", None) is not None:
+            self.sessions.observe_context()
+            for entry in parsed_values:
+                if self.sessions.observe_meter(entry, self.last_meter_values["received_at"]):
+                    self._schedule_storage_save()
+
         live_power = self._live_power_follows_samples()
         ignored_live_samples = False
 
@@ -1324,6 +1332,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         if self.unknown_configuration_keys != normalized_unknown_keys:
             self.unknown_configuration_keys = normalized_unknown_keys
             updated = True
+
+        self.sessions.observe_context()
 
         reported_values = {
             str(item["key"]): (
@@ -1499,6 +1509,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 self.grid_power = snapshot.power
 
             self.external_meter_last_updated_at = self.now()
+            if getattr(self, "sessions", None) is not None:
+                self.sessions.observe_context()
             _LOGGER.debug(
                 "External meter snapshot: used=%s wring=%s power=%s voltages=%s currents=%s",
                 snapshot.used,

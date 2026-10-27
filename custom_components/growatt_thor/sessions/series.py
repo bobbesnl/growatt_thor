@@ -20,18 +20,21 @@ def _timestamp(value: object) -> float | None:
     return parsed.timestamp()
 
 
-def valid_curve_points(value: Any) -> list[list[Any]]:
+def valid_curve_points(value: Any, *, signed=False, gaps=False) -> list[list[Any]]:
     """Return valid ``[timestamp, value]`` pairs without inventing samples."""
     result: list[list[Any]] = []
     for raw in value if isinstance(value, (list, tuple)) else ():
         if not isinstance(raw, (list, tuple)) or len(raw) != 2:
             continue
         timestamp = _timestamp(raw[0])
+        if raw[1] is None and gaps and timestamp is not None:
+            result.append([str(raw[0]), None])
+            continue
         try:
             number = float(raw[1])
         except (TypeError, ValueError):
             continue
-        if timestamp is None or not isfinite(number) or number < 0:
+        if timestamp is None or not isfinite(number) or (number < 0 and not signed):
             continue
         result.append([str(raw[0]), number])
     return result
@@ -54,6 +57,8 @@ def downsample_curve(
     *,
     limit: int = SESSION_CURVE_POINT_LIMIT,
     event_times: Iterable[object] = (),
+    signed: bool = False,
+    gaps: bool = False,
 ) -> list[list[Any]]:
     """Reduce a curve while retaining endpoints, pauses and visible extrema.
 
@@ -62,7 +67,7 @@ def downsample_curve(
     are filled by the points with the largest local triangle area, which keeps
     peaks and valleys substantially better than periodically dropping samples.
     """
-    points = valid_curve_points(value)
+    points = valid_curve_points(value, signed=signed, gaps=gaps)
     if limit <= 0:
         return []
     if len(points) <= limit:
@@ -71,7 +76,14 @@ def downsample_curve(
     times = [_timestamp(point[0]) for point in points]
     mandatory = {0, len(points) - 1}
     for index in range(1, len(points)):
-        previous_flowing = points[index - 1][1] > ACTIVE_POWER_THRESHOLD_W
+        previous, current = points[index - 1][1], points[index][1]
+        if previous is None or current is None:
+            if previous != current:
+                mandatory.update((index - 1, index))
+            continue
+        if signed and (previous < 0) != (current < 0):
+            mandatory.update((index - 1, index))
+        previous_flowing = previous > ACTIVE_POWER_THRESHOLD_W
         flowing = points[index][1] > ACTIVE_POWER_THRESHOLD_W
         if flowing != previous_flowing:
             mandatory.update((index - 1, index))
@@ -105,6 +117,8 @@ def downsample_curve(
         previous_value = points[index - 1][1]
         current_value = points[index][1]
         next_value = points[index + 1][1]
+        if any(value is None for value in (previous_value, current_value, next_value)):
+            continue
         duration = max(next_time - previous_time, 1.0)
         expected = previous_value + (
             (next_value - previous_value)

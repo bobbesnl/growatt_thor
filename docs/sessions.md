@@ -106,6 +106,12 @@ retroactively.
 
 ## Stored fields
 
+New sessions retain additional chart histories for PV surplus, non-EV household power, signed battery power, the sum of all three measured phase currents, and the reported or accepted maximum current per phase. Context readings are captured when configured HA sources change and every 30 seconds, including during a vehicle or wallbox pause. Phase-current samples retain their measurement timestamps; changing current limits are shown as steps.
+
+Household power comes from the configured non-EV household sensor. If none is configured, it can be calculated as PV generation + grid import + battery discharge − EV power, with the configured signs applied. This requires valid readings for every contribution and a known battery configuration. The chart marks a calculated or mixed household history with `≈`. PV surplus is the non-negative difference between PV generation and household power, before battery dispatch and EV charging; it is context rather than a measured EV source allocation.
+
+The bounded histories survive active-session checkpoints, delayed completion reports and CSV delivery, and are available through the session-detail connection even when the compact dashboard summary omits them. Missing readings produce gaps, not zero values. Existing sessions keep the data originally recorded; these extra curves start with new observations and are not reconstructed from old energy totals.
+
 After each completed charging session, the following data is automatically appended to `/config/growatt_thor_sessions.csv`:
 
 | Field                        | Description                                                                       |
