@@ -205,6 +205,12 @@ The card contract uses additional entity attributes. Home Assistant only include
 these attributes for available entities, as implemented in the
 [HA state calculation](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/helpers/entity.py#L1032-L1038).
 
+### Charging, but waiting for current measurements
+
+The wallbox can report **Charging** while the card shows **No data** and **Waiting for current readings**. Charging status and current measurements arrive separately. Check whether the ordinary charging-power and phase sensors still update, then compare the meter sample time with its receipt time in the integration diagnostics.
+
+After a clock change, some wallboxes retain a fixed offset such as UTC+2 while Home Assistant's local time has moved to UTC+1. The integration uses the wallbox's reported fixed offset for live meter timestamps when its daylight-saving setting is known to be disabled. Otherwise it retains Home Assistant's time zone. It does not change the wallbox clock or make old samples current by substituting their receipt time. The technical [clock observation](../reverse_engineering/thor_22as_capture_findings.md#fixed-wallbox-clock-after-the-autumn-change) records the confirmed firmware behavior.
+
 
 Target start times are entered in Home Assistant's configured time zone, shown
 beside the field. The browser's time zone does not change the selected start.

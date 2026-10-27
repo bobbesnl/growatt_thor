@@ -75,6 +75,39 @@ class MeterTimeIntegrationTest(unittest.TestCase):
             {"value": str(energy), "measurand": "Energy.Active.Import.Register", "unit": "Wh"},
         ]}], transaction_id=27)
 
+    def test_fixed_summer_clock_after_dst_reaches_card_curve_accounting_and_guard(self):
+        self.at = datetime(2026, 10, 27, 11, 18, 5, tzinfo=timezone.utc)
+        for state in self.c.hass.states.values():
+            state.last_updated = self.at
+        self.c.external_meter_last_updated_at = self.at.isoformat()
+        self.c.site_accounting.last_meter_at = self.at - timedelta(seconds=5)
+        for key, value in {'G_TimeZone': 'UTC+2', 'G_DaylightSavingTime': '00-00&00-00'}.items():
+            self.c.configuration_values[key] = configuration_value_from_item({
+                'key': key, 'value': value, 'readonly': False,
+            })
+        self.c.process_meter_values([{
+            'timestamp': '2026-10-27T13:18:04',
+            'sampledValue': [
+                {'value': '1050', 'measurand': 'Energy.Active.Import.Register', 'unit': 'Wh'},
+                *({'value': str(watts), 'measurand': 'Power.Active.Import', 'phase': phase, 'unit': 'W'}
+                  for phase, watts in [('L1', 3162), ('L2', 3091), ('L3', 0)]),
+                *({'value': str(amps), 'measurand': 'Current.Import', 'phase': phase, 'unit': 'A'}
+                  for phase, amps in [('L1', 13.63), ('L2', 13.6), ('L3', 0)]),
+            ],
+        }], transaction_id=27)
+        card = dashboard_attributes(self.c)
+        self.assertEqual(card['sample_at'], '2026-10-27T11:18:04Z')
+        self.assertEqual(card['power_w'], 6253)
+        self.assertEqual(card['currents_a'], [13.63, 13.6, 0])
+        self.assertEqual(self.c.last_meter_values['meter_values'][0]['raw']['timestamp'], '2026-10-27T13:18:04')
+        self.assertEqual(self.c._active_power_curve[-1], ['2026-10-27T11:18:04Z', 6253])
+        self.assertAlmostEqual(sum(self.c.site_accounting.buckets.values()), .05)
+        self.assertIsNotNone(card['power_flow'].get('charging_sources'))
+        self.assertTrue(self.guard._observation(self.at).eligible)
+        # A delayed sample stays delayed; receipt cannot renew its timestamp.
+        self.at += timedelta(minutes=10)
+        self.assertFalse(self.guard._observation(self.at).eligible)
+
     def test_confirmed_new_session_clears_and_persists_protection_notice(self):
         self.receive()
         c = self.c

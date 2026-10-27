@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import types
 import unittest
+from types import SimpleNamespace
 
 
 MODULE_PATH = (
@@ -56,6 +57,48 @@ class Entry:
 
 class MeterSamplesTest(unittest.TestCase):
     """Verify lossless parsing and normalized accessors."""
+
+    def test_reported_fixed_clock_survives_the_installation_winter_time_change(self):
+        settings = {
+            'G_TimeZone': SimpleNamespace(raw_value='UTC+2'),
+            'G_DaylightSavingTime': SimpleNamespace(raw_value='00-00&00-00'),
+        }
+        zone = meter_samples.meter_time_zone(settings, 'Europe/Berlin')
+        for raw, expected in (
+            ('2026-10-27T13:18:04', '2026-10-27T11:18:04Z'),
+            ('2026-10-02T13:18:04', '2026-10-02T11:18:04Z'),
+            ('2026-10-25T02:30:00', '2026-10-25T00:30:00Z'),
+            ('2026-10-27T11:18:04Z', '2026-10-27T11:18:04Z'),
+            ('2026-10-27T12:18:04+01:00', '2026-10-27T11:18:04Z'),
+        ):
+            with self.subTest(raw=raw):
+                entry = meter_samples.parse_meter_values(
+                    {'timestamp': raw, 'sampledValue': []}, time_zone=zone,
+                )[0]
+                self.assertEqual(entry.timestamp, expected)
+                self.assertEqual(entry.raw['timestamp'], raw)
+
+    def test_fixed_offsets_are_validated_and_unverified_dst_keeps_installation_zone(self):
+        settings = {'G_DaylightSavingTime': SimpleNamespace(raw_value='00-00&00-00')}
+        for label, expected in (
+            ('UTC', '2026-10-27T13:18:04Z'),
+            ('UTC+1', '2026-10-27T12:18:04Z'),
+            ('UTC-5', '2026-10-27T18:18:04Z'),
+            ('UTC+05:30', '2026-10-27T07:48:04Z'),
+        ):
+            settings['G_TimeZone'] = SimpleNamespace(raw_value=label)
+            zone = meter_samples.meter_time_zone(settings, 'Europe/Berlin')
+            self.assertEqual(meter_samples.normalize_meter_timestamp('2026-10-27T13:18:04', zone), expected)
+        for value in ('UTC+15', 'UTC+14:30', 'UTC+2:99', 'Europe/Berlin', '', None):
+            settings['G_TimeZone'] = SimpleNamespace(raw_value=value)
+            self.assertEqual(meter_samples.meter_time_zone(settings, 'Europe/Berlin'), 'Europe/Berlin')
+        settings['G_TimeZone'] = SimpleNamespace(raw_value='UTC+2')
+        for value in ('03-29&10-25', '', None):
+            settings['G_DaylightSavingTime'] = SimpleNamespace(raw_value=value)
+            self.assertEqual(meter_samples.meter_time_zone(settings, 'Europe/Berlin'), 'Europe/Berlin')
+        settings.pop('G_DaylightSavingTime')
+        self.assertEqual(meter_samples.meter_time_zone(settings, 'Europe/Berlin'), 'Europe/Berlin')
+        self.assertIsNone(meter_samples.meter_time_zone({}, None))
 
     def test_local_wallbox_timestamps_use_installation_zone_and_preserve_raw(self):
         for raw, expected in (

@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 
+- Keep live charging power, phase readings and source accounting available after a clock change when the wallbox still uses a fixed time zone. Interpret its reported clock setting before checking whether measurements are current.
 - Prevent delayed wallbox messages from ending the wrong charging session or bringing an already finished session back into the display.
 - Keep automatic charging protection working if a stop request expires or is skipped before reaching the wallbox. The configured waiting period starts again before another stop is attempted.
 - Remember the assigned wallbox after a Home Assistant restart, so a wallbox with a different charger ID cannot take its place. Hide charger IDs in downloaded session diagnostics.

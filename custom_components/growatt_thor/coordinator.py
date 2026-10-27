@@ -47,7 +47,7 @@ from .ocpp.external_meter import (
     status_clears_external_meter_fault,
     status_reports_external_meter_fault,
 )
-from .ocpp.meter_samples import charging_power_curve_point, parse_meter_values
+from .ocpp.meter_samples import charging_power_curve_point, meter_time_zone, parse_meter_values
 from .ocpp.diagnostics import create_ocpp_snapshot
 from .ocpp.status import normalize_ocpp_status
 from .charging.pv_linkage import (
@@ -1099,7 +1099,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 return
         parsed_values = parse_meter_values(
             meter_values,
-            time_zone=getattr(getattr(self.hass, "config", None), "time_zone", None),
+            time_zone=meter_time_zone(
+                self.configuration_values,
+                getattr(getattr(self.hass, "config", None), "time_zone", None),
+            ),
         )
         self.last_meter_values = {
             "received_at": self.now(),

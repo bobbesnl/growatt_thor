@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, is_dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from enum import Enum
 from math import isfinite
+import re
 from typing import Any
 from ..runtime.time import utc_timestamp
 
@@ -149,19 +150,41 @@ def _parse_sample(sample: Any) -> MeterSample:
     )
 
 
-def normalize_meter_timestamp(value: str | None, time_zone: str | None = None) -> str | None:
-    """Convert THOR local wall-clock timestamps to UTC without guessing DST folds.
+def meter_time_zone(configuration_values: Mapping, installation_zone: str | None) -> str | tzinfo | None:
+    """Use the reported fixed device clock only when its DST adjustment is off."""
+    daylight = getattr(configuration_values.get("G_DaylightSavingTime"), "raw_value", None)
+    value = getattr(configuration_values.get("G_TimeZone"), "raw_value", None)
+    if daylight != "00-00&00-00" or not isinstance(value, str):
+        # Other vendor DST encodings have not been verified. Do not infer a
+        # clock offset from packet arrival or guess how seasonal rules apply.
+        return installation_zone
+    if value == "UTC":
+        return timezone.utc
+    match = re.fullmatch(r"UTC([+-])(\d{1,2})(?::([0-5]\d))?", value)
+    if match is None:
+        return installation_zone
+    minutes = int(match[2]) * 60 + int(match[3] or 0)
+    if minutes > 14 * 60:
+        return installation_zone
+    if match[1] == "-":
+        minutes = -minutes
+    return timezone(timedelta(minutes=minutes))
 
-    Some firmware omits the UTC offset. Only HA's configured installation zone
-    can resolve those values; the process/browser timezone and receipt time
-    must never turn an old or ambiguous sample into a current observation.
+
+def normalize_meter_timestamp(value: str | None, time_zone: str | tzinfo | None = None) -> str | None:
+    """Convert THOR local wall-clock timestamps to UTC using an explicit zone.
+
+    Some firmware omits the UTC offset and can retain a fixed summer-time
+    setting when HA changes to winter time. The verified device clock takes
+    precedence; otherwise retain the installation zone's strict DST handling.
+    Receipt time must never turn an old sample into a current observation.
     """
     if not value or not isinstance(value, str) or "T" not in value:
         return None
     return utc_timestamp(value, time_zone)
 
 
-def parse_meter_values(payload: Any, *, time_zone: str | None = None) -> tuple[MeterValue, ...]:
+def parse_meter_values(payload: Any, *, time_zone: str | tzinfo | None = None) -> tuple[MeterValue, ...]:
     """Parse OCPP MeterValues entries without dropping unknown fields."""
     meter_values = []
     for entry in _as_sequence(payload):
