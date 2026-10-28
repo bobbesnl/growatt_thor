@@ -243,3 +243,14 @@ def load_sensor_module():
     """Load the actual sensor platform with the shared minimal HA types."""
     install_sensor_stubs()
     return load_package_module("sensor", package_name="thor_energy_sensor_target")
+
+
+def build_queue_coordinator(loop):
+    coordinator = build_coordinator()
+    coordinator.hass = FakeHass(loop)
+    # Preserve queue-test timing while exercising complete lifecycle state.
+    coordinator._connection_changed.set()
+    coordinator.write_queue.min_write_interval = 0.0
+    coordinator.write_queue.poll_pause_after_write = 0.0
+    coordinator.async_set_updated_data = lambda data: None
+    return coordinator
