@@ -7,6 +7,8 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import parse_qsl
 
+from ..coerce import optional_float
+
 REDACTED = "<redacted>"
 _DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 UNKNOWN_MODE = "unknown_mode"
@@ -59,12 +61,7 @@ _KNOWN_FIELDS = frozenset(
 
 
 def _optional_float(value: str | None) -> float | None:
-    if value in (None, ""):
-        return None
-    try:
-        return float(value)
-    except ValueError:
-        return None
+    return optional_float(value, finite=False, errors=(ValueError,))
 
 
 def _optional_datetime(value: str | None) -> datetime | None:

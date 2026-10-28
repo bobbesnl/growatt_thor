@@ -119,6 +119,8 @@ during unload. Result models, policies and transport exceptions remain in
 
 ## Time boundaries
 
+`runtime/time.py` shares ISO parsing and installation-zone lookup. Explicit parser options preserve legacy differences: aware-only site observations, naive duration values, local-calendar CSV filtering and stripped curve timestamps. `coerce.py` provides optional number/text conversion; wrappers retain each boundary's finiteness, sign, size and error rules.
+
 Application timestamps sent to the cards, session-detail WebSocket and CSV
 exports are UTC ISO strings with `Z`. The frontend formats list dates, chart
 axes, events and target notices in `hass.config.time_zone`; target input uses

@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from math import isfinite
 from typing import Any
 
 from ..coerce import enum_value
-from ..runtime.time import utc_timestamp
+from ..runtime.time import parse_utc, utc_timestamp
 from .constants import ACTIVE_POWER_THRESHOLD_W
 
 # A normal session needs only a handful of semantic anchors.  Keep enough room
@@ -246,8 +245,10 @@ class SessionEventTracker:
         if last_transition and last_transition.get("source") == "ocpp":
             # A delayed pre-pause meter packet must not create a false resume.
             try:
-                sample_at = datetime.fromisoformat(str(at).replace("Z", "+00:00"))
-                pause_at = datetime.fromisoformat(last_transition["at"].replace("Z", "+00:00"))
+                sample_at = parse_utc(str(at), allow_naive=True, normalize=False)
+                pause_at = parse_utc(
+                    last_transition["at"].replace("Z", "+00:00"), allow_naive=True, normalize=False
+                )
                 if sample_at <= pause_at:
                     return False
             except (TypeError, ValueError):

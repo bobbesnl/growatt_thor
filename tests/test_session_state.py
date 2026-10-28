@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import types
 import unittest
 from pathlib import Path
 
 MODULE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "sessions/state.py"
+PACKAGE_NAME = "growatt_thor_session_state_test_target"
+package = types.ModuleType(PACKAGE_NAME)
+package.__path__ = [str(MODULE_PATH.parents[1])]
+sys.modules[PACKAGE_NAME] = package
 SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_session_state_test_target",
+    "growatt_thor_session_state_test_target.sessions.state",
     MODULE_PATH,
 )
 assert SPEC is not None and SPEC.loader is not None

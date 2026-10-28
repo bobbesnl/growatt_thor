@@ -58,6 +58,7 @@ from .ocpp.meter_samples import (
 )
 from .ocpp.status import ENERGY_SESSION_STATUSES, LIVE_POWER_STATUSES, normalize_ocpp_status
 from .runtime.charger_write_queue import ChargerWriteQueue
+from .runtime.time import installation_time_zone
 from .runtime.write_queue import (
     DEFAULT_WRITE_POLICY,
     ChargerCommandHandle,
@@ -1083,7 +1084,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             meter_values,
             time_zone=meter_time_zone(
                 self.configuration_values,
-                getattr(getattr(self.hass, "config", None), "time_zone", None),
+                installation_time_zone(self.hass, None, preserve_empty=True),
             ),
         )
         self.last_meter_values = {

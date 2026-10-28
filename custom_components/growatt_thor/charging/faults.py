@@ -8,6 +8,8 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import unquote
 
+from ..coerce import enum_value, optional_text
+
 CHARGER_FAULT_OPTIONS = (
     "emergency_stop",
     "power_meter_failure",
@@ -16,11 +18,7 @@ CHARGER_FAULT_OPTIONS = (
 
 
 def _text(value: object) -> str | None:
-    if hasattr(value, "value"):
-        value = value.value
-    if value in (None, ""):
-        return None
-    return str(value)
+    return optional_text(enum_value(value))
 
 
 def _connector_id(value: object) -> int | str | None:

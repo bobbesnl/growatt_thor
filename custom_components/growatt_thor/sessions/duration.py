@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from ..ocpp.meter_samples import MeterValue
+from ..runtime.time import parse_utc
 from .constants import ACTIVE_POWER_THRESHOLD_W
 
 DEFAULT_MAX_SAMPLE_GAP_SECONDS = 180.0
@@ -15,10 +16,8 @@ DEFAULT_MAX_SAMPLE_GAP_SECONDS = 180.0
 def _timestamp(value: str | None) -> datetime | None:
     if not value:
         return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
+    # Preserve naive values and offsets used by the elapsed-time tracker.
+    return parse_utc(value.replace("Z", "+00:00"), allow_naive=True, normalize=False)
 
 
 def _watts(value: float, unit: str | None) -> float | None:

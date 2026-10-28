@@ -6,6 +6,8 @@ import hashlib
 import json
 from typing import Any
 
+from ..coerce import optional_text
+
 SOURCE_HOME_ASSISTANT = "home_assistant"
 SOURCE_EXTERNAL_OR_UNKNOWN = "external_or_unknown"
 SOURCE_LEGACY_UNKNOWN = "legacy_unknown"
@@ -18,7 +20,7 @@ _SOURCE_PREFIXES = {
 
 
 def _text(value: Any) -> str:
-    return "" if value in (None, "") else str(value)
+    return optional_text(value) or ""
 
 
 def normalize_session_source(value: Any) -> str:

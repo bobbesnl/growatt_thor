@@ -10,9 +10,10 @@ import json
 import logging
 from collections.abc import Mapping
 
-from ..energy.accounting_runtime import SessionAccumulator, parse_at
+from ..energy.session_accounting import SessionAccumulator
 from ..ocpp.diagnostics import create_ocpp_snapshot
 from ..ocpp.status import LIVE_POWER_STATUSES, normalize_ocpp_status
+from ..runtime.time import parse_utc as parse_at
 from ..runtime.time import utc_instant, utc_timestamp
 from .active_state import ActiveSessionState
 from .completion import completion_transaction

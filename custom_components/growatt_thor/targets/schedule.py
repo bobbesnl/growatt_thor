@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from ..runtime.time import parse_utc
+
 MAX_SCHEDULE_AHEAD = timedelta(days=30)
 
 
@@ -16,13 +18,9 @@ def parse_start_at(value: object, *, now: datetime | None = None) -> datetime:
     """Return a future UTC datetime from an explicit timezone-aware value."""
     if not isinstance(value, str):
         raise ValueError("start_at_must_be_iso_datetime")  # noqa: TRY004
-    normalized = value.strip()
-    if normalized.endswith("Z"):
-        normalized = normalized[:-1] + "+00:00"
-    try:
-        start = datetime.fromisoformat(normalized)
-    except ValueError:
-        raise ValueError("start_at_must_be_iso_datetime") from None
+    start = parse_utc(value, allow_datetime=False, allow_naive=True, normalize=False, strip=True)
+    if start is None:
+        raise ValueError("start_at_must_be_iso_datetime")
     if start.tzinfo is None or start.utcoffset() is None:
         raise ValueError("start_at_timezone_required")
     start = start.astimezone(UTC)
@@ -36,16 +34,7 @@ def parse_start_at(value: object, *, now: datetime | None = None) -> datetime:
 
 def stored_start_at(value: object) -> datetime | None:
     """Parse a retained UTC timestamp without asserting that it is future."""
-    if not isinstance(value, str):
-        return None
-    normalized = value.strip().replace("Z", "+00:00")
-    try:
-        start = datetime.fromisoformat(normalized)
-    except ValueError:
-        return None
-    if start.tzinfo is None or start.utcoffset() is None:
-        return None
-    return start.astimezone(UTC)
+    return parse_utc(value, allow_datetime=False, strip=True)
 
 
 def iso_utc(value: datetime) -> str:

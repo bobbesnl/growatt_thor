@@ -20,6 +20,7 @@ from ..charging.controls import selected_working_mode
 from ..configuration.values import configuration_entity_state
 from ..const import DOMAIN
 from ..ocpp.diagnostics import boot_notification_field
+from ..runtime.time import installation_time_zone
 from ..runtime.write_queue import ChargerCommandStatus
 from .model import (
     CAPTURE_FIRMWARE,
@@ -616,7 +617,7 @@ class ChargingTargetRuntime:
             start_at = parse_start_at(service.data["start_at"], now=self._now_utc())
         except ValueError as exc:
             raise HomeAssistantError(str(exc)) from None
-        time_zone = str(getattr(getattr(self.hass, "config", None), "time_zone", "UTC"))
+        time_zone = str(installation_time_zone(self.hass, preserve_empty=True))
 
         async with self._lock:
             previous = self.coordinator.charging_target_request

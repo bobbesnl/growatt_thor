@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from math import isfinite
 from typing import TypedDict
+
+from ..coerce import optional_float
 
 
 class ChargingMeterObservation(TypedDict):
@@ -18,11 +19,7 @@ class ChargingMeterObservation(TypedDict):
 def _number(value: object) -> float | None:
     if not isinstance(value, (str, int, float)):
         return None
-    try:
-        result = float(value)
-    except (ValueError, TypeError):
-        return None
-    return result if isfinite(result) and result >= 0 else None
+    return optional_float(value, minimum=0)
 
 
 def charging_meter_values(

@@ -6,20 +6,15 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from ..coerce import optional_float, optional_text
+
 
 def _optional_float(value: Any) -> float | None:
-    if value in (None, ""):
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
+    return optional_float(value, finite=False)
 
 
 def _optional_text(value: Any) -> str | None:
-    if value in (None, ""):
-        return None
-    return str(value)
+    return optional_text(value)
 
 
 def normalize_record_key(value: Any) -> tuple[str, str] | None:

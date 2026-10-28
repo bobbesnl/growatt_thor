@@ -4,28 +4,20 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from math import isfinite
 from typing import Any
 
+from ..coerce import optional_float, optional_text
 from .events import normalize_session_events
 from .series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 from .telemetry import context_curves
 
 
 def _text(value: Any, *, limit: int = 256) -> str | None:
-    if value in (None, ""):
-        return None
-    return str(value)[:limit]
+    return optional_text(value, limit=limit)
 
 
 def _number(value: Any) -> float | None:
-    if value in (None, ""):
-        return None
-    try:
-        result = float(value)
-    except (TypeError, ValueError):
-        return None
-    return result if isfinite(result) and result >= 0 else None
+    return optional_float(value, minimum=0)
 
 
 @dataclass(slots=True)

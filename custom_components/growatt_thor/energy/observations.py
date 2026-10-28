@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, fields, replace
-from datetime import UTC, datetime
+from datetime import datetime
 from math import isfinite
 from typing import Any, Literal
 
+from ..runtime.time import parse_utc
 from .sources import power_w
 
 BucketQuality = Literal["measured", "derived", "declared", "unknown"]
@@ -78,16 +79,8 @@ def align_accounting_observations(
 
 
 def parse_at(value: Any) -> datetime | None:
-    if isinstance(value, datetime):
-        parsed = value
-    elif isinstance(value, str):
-        try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-    else:
-        return None
-    return parsed.astimezone(UTC) if parsed.tzinfo else None
+    """Compatibility alias for the shared timezone-aware parser."""
+    return parse_utc(value)
 
 
 def read_site_observations(coordinator, *, require_recent_report: bool = True) -> SiteObservations:

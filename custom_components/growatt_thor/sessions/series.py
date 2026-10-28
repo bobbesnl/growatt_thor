@@ -3,23 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import datetime
 from math import isfinite
 from typing import Any
 
+from ..runtime.time import parse_utc
 from .constants import ACTIVE_POWER_THRESHOLD_W
 
 SESSION_CURVE_POINT_LIMIT = 96
 
 
 def _timestamp(value: object) -> float | None:
-    if not isinstance(value, str) or not value.strip():
-        return None
-    try:
-        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return parsed.timestamp()
+    parsed = parse_utc(value, allow_datetime=False, allow_naive=True, strip=True)
+    return parsed.timestamp() if parsed is not None else None
 
 
 def valid_curve_points(value: Any, *, signed=False, gaps=False) -> list[list[Any]]:

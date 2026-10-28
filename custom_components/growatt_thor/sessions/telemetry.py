@@ -8,7 +8,8 @@ from math import isfinite
 
 from ..configuration.values import configuration_numeric_value
 from ..energy.meter_observations import charging_meter_values
-from ..energy.observations import parse_at, read_site_observations
+from ..energy.observations import read_site_observations
+from ..runtime.time import parse_utc as parse_at
 from ..runtime.time import utc_timestamp
 from .series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 

@@ -7,6 +7,8 @@ from datetime import datetime
 from math import isfinite
 from typing import Literal
 
+from ..runtime.time import parse_utc
+
 CONF_AUTO_STOP_MODE = "site_auto_stop_mode"
 AUTO_STOP_MODES = ("off", "battery", "grid", "battery_or_grid")
 CONF_STOP_THRESHOLD = "site_stop_threshold_w"
@@ -22,8 +24,8 @@ def restore_stop_report(value: object) -> dict | None:
     if not isinstance(value, dict) or value.get("reason") not in ("battery", "grid"):
         return None
     try:
-        at = datetime.fromisoformat(value["at"])
-        if at.tzinfo is None:
+        at = parse_utc(value["at"], allow_datetime=False, normalize=False)
+        if at is None:
             return None
         fields = {key: float(value[key]) for key in ("threshold_w", "hold_seconds", "observed_w")}
         if not all(isfinite(number) and number >= 0 for number in fields.values()):

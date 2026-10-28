@@ -15,7 +15,7 @@ from threading import RLock
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from ..runtime.time import utc_timestamp
+from ..runtime.time import parse_utc, utc_timestamp
 from .events import normalize_session_events
 from .identity import (
     SOURCE_LEGACY_UNKNOWN,
@@ -557,7 +557,10 @@ def _session_date(value: Any) -> date | None:
     if not isinstance(value, str) or not value.strip():
         return None
     try:
-        return datetime.fromisoformat(value.strip().replace("Z", "+00:00")).date()
+        parsed = parse_utc(
+            value, allow_datetime=False, allow_naive=True, normalize=False, strip=True
+        )
+        return parsed.date() if parsed is not None else None
     except ValueError:
         return None
 
@@ -730,7 +733,11 @@ def export_session_rows(
             reader = csv.DictReader(source_file)
             for row in reader:
                 try:
-                    row_date = datetime.fromisoformat(row["start_time"].replace("Z", "+00:00"))
+                    row_date = parse_utc(
+                        row["start_time"].replace("Z", "+00:00"), allow_naive=True, normalize=False
+                    )
+                    if row_date is None:
+                        continue
                     if row_date.tzinfo is not None:
                         row_date = row_date.astimezone(ZoneInfo(time_zone)).replace(tzinfo=None)
                 except (KeyError, TypeError, ValueError):

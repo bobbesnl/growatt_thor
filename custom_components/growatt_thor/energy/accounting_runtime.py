@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from math import isfinite
 
+from ..runtime.time import installation_time_zone
 from .accounting import AccountingPolicy, Tariff
 from .currency import configured_currency
 from .observations import (
@@ -69,7 +70,7 @@ def site_inputs(
                 state,
                 configured_currency(hass),
                 at=at,
-                time_zone=getattr(getattr(hass, "config", None), "time_zone", "UTC"),
+                time_zone=installation_time_zone(hass, preserve_empty=True),
             ),
             site_policy(profile),
         )

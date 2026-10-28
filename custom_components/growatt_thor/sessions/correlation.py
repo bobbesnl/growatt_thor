@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
+from ..coerce import optional_float, optional_text
 from ..runtime.time import utc_instant
 from .identity import (
     SOURCE_EXTERNAL_OR_UNKNOWN,
@@ -23,18 +24,11 @@ def _mapping(value: Any) -> Mapping[str, Any]:
 
 
 def _optional_text(value: Any) -> str | None:
-    if value in (None, ""):
-        return None
-    return str(value)
+    return optional_text(value)
 
 
 def _optional_float(value: Any) -> float | None:
-    if value in (None, ""):
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
+    return optional_float(value, finite=False)
 
 
 def _timestamp(value: Any, time_zone: str | None = None) -> datetime | None:

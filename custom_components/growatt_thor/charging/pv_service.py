@@ -9,6 +9,7 @@ import voluptuous as vol
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
 
+from ..coerce import optional_float
 from ..const import DOMAIN
 from ..runtime.action_errors import (
     async_require_command_completion,
@@ -42,10 +43,10 @@ def _optional_time(value: object) -> time | None:
 def _optional_float(value: object) -> float | None:
     if value in (None, ""):
         return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        raise vol.Invalid("Expected a number") from None
+    number = optional_float(value, finite=False)
+    if number is None:
+        raise vol.Invalid("Expected a number")
+    return number
 
 
 SERVICE_SCHEMA = vol.Schema(
