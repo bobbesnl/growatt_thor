@@ -567,7 +567,7 @@ class LoadBalancingLimitNumber(GrowattConfigurationWriteMixin, BaseConfigNumber)
 # Electricity price
 
 
-class ElectricityPriceNumber(BaseConfigNumber):
+class ElectricityPriceNumber(GrowattConfigurationWriteMixin, BaseConfigNumber):
     _attr_translation_key = "electricity_price"
     _attr_icon = "mdi:cash"
     _attr_native_min_value = -2.0
@@ -592,11 +592,22 @@ class ElectricityPriceNumber(BaseConfigNumber):
             "raw_value": value.raw_value if value is not None else None,
         }
 
-    def _restore_previous_value(
-        self,
-        previous: float | None,
-        generation: int,
-    ) -> None:
+    def _validate_write_value(self, value):
+        return _validated_entity_number(self, value)
+
+    def _encode(self, value) -> str:
+        # Match the full-day time-period format returned by THOR.
+        return f"time1=00:00-23:59&price1={value:.2f}"
+
+    def _on_accepted(self, raw_value, *, key=None, value=None) -> None:
+        self.coordinator.electricity_price = value
+        super()._on_accepted(raw_value, key=key, value=value)
+        self.coordinator.async_set_updated_data(True)
+
+    def _restore_previous_value(self, previous: float | None, generation: int) -> None:
+        self._restore_optimistic(generation, previous=previous)
+
+    def _restore_optimistic(self, generation: int, *, previous=None) -> None:
         """Restore reported tariff only while this write still owns the UI."""
         if previous is not None and self.coordinator.configuration_write_is_current(
             self._config_key,
@@ -606,7 +617,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
             self.coordinator.async_set_updated_data(True)
 
     async def async_set_native_value(self, value: float) -> None:
-        value = _validated_entity_number(self, value)
+        value = self._validate_write_value(value)
         if (block_reason := self._charger_write_block_reason) is not None:
             _LOGGER.warning("Cannot change Electricity Price: %s", block_reason)
             raise_write_blocked(block_reason)
@@ -633,7 +644,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
         self.coordinator.async_set_updated_data(True)
         _LOGGER.info("Electricity price updated to %.2f per kWh (queued for write)", value)
 
-        price_str = f"time1=00:00-23:59&price1={value:.2f}"
+        price_str = self._encode(value)
         generation = self.coordinator.begin_configuration_write(
             self._config_key,
             price_str,
@@ -676,43 +687,20 @@ class ElectricityPriceNumber(BaseConfigNumber):
                 result=block_reason,
             )
             return ChargerWriteResult.skipped(block_reason)
-        price_str = (
-            f"time1=00:00-23:59&price1={value:.2f}"  # Match the time-period format returned by THOR
-        )
+        price_str = self._encode(value)
         try:
-            result = await charge_point.change_configuration(
-                self._config_key,
-                price_str,
+            response = await self._configuration_exchange(
+                charge_point, self._config_key, price_str, generation
             )
-
-            accepted = result in {
-                ConfigurationStatus.accepted,
-                ConfigurationStatus.reboot_required,
-            }
-            outcome_is_current = self.coordinator.acknowledge_configuration_write(
-                self._config_key,
-                generation=generation,
-                accepted=accepted,
-                result=result,
-            )
+            result, outcome_is_current = response.result, response.current
 
             if result == ConfigurationStatus.accepted:
                 if outcome_is_current:
-                    self.coordinator.electricity_price = value
-                    self.coordinator.update_configuration_value(
-                        self._config_key,
-                        price_str,
-                    )
-                    self.coordinator.async_set_updated_data(True)
+                    self._on_accepted(price_str, key=self._config_key, value=value)
                 _LOGGER.info("Electricity tariff written to Thor: %s", price_str)
             elif result == ConfigurationStatus.reboot_required:
                 if outcome_is_current:
-                    self.coordinator.electricity_price = value
-                    self.coordinator.update_configuration_value(
-                        self._config_key,
-                        price_str,
-                    )
-                    self.coordinator.async_set_updated_data(True)
+                    self._on_accepted(price_str, key=self._config_key, value=value)
                 _LOGGER.warning(
                     "Electricity tariff write accepted (reboot required): %s",
                     price_str,
