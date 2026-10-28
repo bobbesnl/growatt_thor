@@ -21,6 +21,7 @@ from .charging.pv_linkage import (
     draft_matches_reported,
     parse_manual_period,
 )
+from .coerce import enum_value
 from .configuration.values import (
     ConfigurationValue,
     configuration_entity_state,
@@ -55,7 +56,7 @@ from .ocpp.meter_samples import (
     meter_time_zone,
     parse_meter_values,
 )
-from .ocpp.status import normalize_ocpp_status
+from .ocpp.status import ENERGY_SESSION_STATUSES, LIVE_POWER_STATUSES, normalize_ocpp_status
 from .runtime.charger_write_queue import ChargerWriteQueue
 from .runtime.write_queue import (
     DEFAULT_WRITE_POLICY,
@@ -88,8 +89,6 @@ STORAGE_VERSION = 1
 MIN_METER_GAP_SECONDS = 30.0
 METER_GAP_INTERVAL_MULTIPLIER = 3
 DEFAULT_METER_GAP_SECONDS = 180.0
-
-LIVE_POWER_STATUSES = frozenset({"charging"})
 
 
 def storage_key_for_entry(source_instance_id) -> str:
@@ -590,7 +589,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 key,
                 generation,
             )
-        result_value = result.value if hasattr(result, "value") else str(result)
+        result_value = enum_value(result, stringify_fallback=True)
         self.configuration_writes = acknowledge_configuration_write(
             self.configuration_writes,
             key=key,
@@ -893,7 +892,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def set_status(self, status):
         """Set charger status and notify sensors."""
-        value = status.value if hasattr(status, "value") else str(status)
+        value = enum_value(status, stringify_fallback=True)
 
         if self.status != value:
             self.status = value
@@ -943,7 +942,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             and str(connector_id) != "0"
             and (target_connector is None or str(target_connector) == str(connector_id))
         )
-        if normalized_status in {"charging", "suspended_ev", "suspended_evse"}:
+        if normalized_status in ENERGY_SESSION_STATUSES:
             self._restored_active_session = False
         elif normalized_status == "available":
             self._discard_unconfirmed_restored_session()
@@ -986,9 +985,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         if status_reports_external_meter_fault(error_code, info):
             self.external_meter_faulted = True
             self.external_meter_fault_connector_id = connector_id
-            self.external_meter_fault_error_code = (
-                error_code.value if hasattr(error_code, "value") else error_code
-            )
+            self.external_meter_fault_error_code = enum_value(error_code)
             self.external_meter_fault_info = info
         elif (
             self.external_meter_faulted

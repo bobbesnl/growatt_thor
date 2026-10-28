@@ -16,6 +16,8 @@ from enum import Enum
 from math import isfinite
 from uuid import uuid4
 
+from ..coerce import enum_value
+
 
 class ChargerWriteStatus(str, Enum):
     """Result of one logical command submitted to the charger write queue."""
@@ -270,4 +272,4 @@ def _stringify(value: object) -> str | None:
     """Use enum values in diagnostics while still supporting plain strings."""
     if value is None:
         return None
-    return str(value.value if hasattr(value, "value") else value)
+    return str(enum_value(value))

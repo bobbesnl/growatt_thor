@@ -4,13 +4,18 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import types
 import unittest
 from enum import Enum
 from pathlib import Path
 
 MODULE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "ocpp/status.py"
+PACKAGE_NAME = "growatt_thor_ocpp_status_test_target"
+package = types.ModuleType(PACKAGE_NAME)
+package.__path__ = [str(MODULE_PATH.parent.parent)]
+sys.modules[PACKAGE_NAME] = package
 SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_ocpp_status_test_target",
+    f"{PACKAGE_NAME}.ocpp.status",
     MODULE_PATH,
 )
 assert SPEC is not None and SPEC.loader is not None
@@ -56,6 +61,14 @@ class OcppStatusTest(unittest.TestCase):
             ocpp_status.normalize_ocpp_status("suspended_ev"),
             "suspended_ev",
         )
+
+    def test_status_groups_accept_case_and_separator_variants(self):
+        for value in ("Charging", "charging", "CHARGING"):
+            self.assertIn(ocpp_status.normalize_ocpp_status(value), ocpp_status.LIVE_POWER_STATUSES)
+        for value in ("SuspendedEV", "SUSPENDED_EV", "suspended_evse"):
+            self.assertIn(
+                ocpp_status.normalize_ocpp_status(value), ocpp_status.ENERGY_SESSION_STATUSES
+            )
 
     def test_missing_or_unknown_status_is_unavailable(self):
         self.assertIsNone(ocpp_status.normalize_ocpp_status(None))

@@ -12,6 +12,7 @@ from collections.abc import Mapping
 
 from ..energy.accounting_runtime import SessionAccumulator, parse_at
 from ..ocpp.diagnostics import create_ocpp_snapshot
+from ..ocpp.status import LIVE_POWER_STATUSES, normalize_ocpp_status
 from ..runtime.time import utc_instant, utc_timestamp
 from .active_state import ActiveSessionState
 from .completion import completion_transaction
@@ -48,7 +49,7 @@ class SessionLifecycle:
         sampled = parse_at(entries[-1].get("timestamp")) if entries else None
         if (
             not coordinator.connected
-            or coordinator.status not in ("Charging", "charging")
+            or normalize_ocpp_status(coordinator.status) not in LIVE_POWER_STATUSES
             or sampled is None
             or at is None
             or (at - sampled).total_seconds() > coordinator._effective_meter_gap_seconds()

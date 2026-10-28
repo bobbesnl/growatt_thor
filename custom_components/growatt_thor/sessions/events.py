@@ -7,6 +7,7 @@ from datetime import datetime
 from math import isfinite
 from typing import Any
 
+from ..coerce import enum_value
 from ..runtime.time import utc_timestamp
 from .constants import ACTIVE_POWER_THRESHOLD_W
 
@@ -97,7 +98,7 @@ def session_event(
         "certainty": normalized_certainty,
     }
     if reason not in (None, ""):
-        reason_value = reason.value if hasattr(reason, "value") else reason
+        reason_value = enum_value(reason)
         event["reason"] = str(reason_value)[:120]
     return event
 

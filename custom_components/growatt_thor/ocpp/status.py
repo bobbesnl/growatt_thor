@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Final
 
+from ..coerce import enum_value
+
+ENERGY_SESSION_STATUSES = frozenset({"charging", "suspended_ev", "suspended_evse"})
+LIVE_POWER_STATUSES = frozenset({"charging"})
+
 OCPP_STATUS_OPTIONS: Final[tuple[str, ...]] = (
     "available",
     "preparing",
@@ -36,6 +41,6 @@ def normalize_ocpp_status(status: object | None) -> str | None:
     if status is None:
         return None
 
-    value = status.value if hasattr(status, "value") else str(status)
+    value = enum_value(status, stringify_fallback=True)
     normalized = "".join(character for character in str(value).casefold() if character.isalnum())
     return _OCPP_STATUS_ALIASES.get(normalized)

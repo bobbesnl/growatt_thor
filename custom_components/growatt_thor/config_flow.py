@@ -23,6 +23,7 @@ from .charging.authorization import (
     AuthorizationPolicy,
     policy_from_input,
 )
+from .coerce import enum_value
 from .configuration.validation import (
     NumericValidationError,
     NumericValidationReason,
@@ -831,7 +832,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 vendor_id="Growatt",
                 message_id="appconfigmode",
             )
-            status_value = status.value if hasattr(status, "value") else str(status)
+            status_value = enum_value(status, stringify_fallback=True)
             _LOGGER.info("AP Mode result: %s", status_value)
             if status_value == "Accepted":
                 return ChargerWriteResult.success(status)

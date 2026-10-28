@@ -10,6 +10,7 @@ from typing import Final
 
 from ..configuration.validation import format_decimal, validate_number
 from ..configuration.values import ConfigurationValue, configuration_entity_state
+from ..ocpp.status import ENERGY_SESSION_STATUSES, normalize_ocpp_status
 
 CHARGER_MODE_PLUG_AND_CHARGE = "3"
 
@@ -250,11 +251,11 @@ def transaction_state_is_active(
     status: object,
 ) -> bool:
     """Combine retained transaction identifiers and OCPP charging states."""
-    normalized_status = status.value if hasattr(status, "value") else str(status or "")
+    normalized_status = normalize_ocpp_status(status)
     return (
         active_transaction is not None
         or transaction_id is not None
-        or normalized_status in {"Charging", "SuspendedEV", "SuspendedEVSE"}
+        or normalized_status in ENERGY_SESSION_STATUSES
     )
 
 

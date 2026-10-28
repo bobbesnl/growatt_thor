@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from ocpp.v16 import call
 
+from ..coerce import enum_value
 from .model import ChargingTarget
 
 
@@ -28,7 +29,7 @@ async def send_target(charge_point, target: ChargingTarget) -> str:
         skip_schema_validation=True,
     )
     status = getattr(result, "status", None)
-    status = status.value if hasattr(status, "value") else status
+    status = enum_value(status)
     if status not in {"Accepted", "Rejected", "UnknownMessageId", "UnknownVendorId"}:
         raise ValueError("invalid_target_response")
     return status

@@ -16,6 +16,7 @@ from ocpp.v16.enums import (
 from websockets.server import serve
 
 from ..charging.controls import CHARGER_MODE_PLUG_AND_CHARGE
+from ..coerce import enum_value
 from ..configuration.values import (
     INFORMATIONAL_CONFIGURATION_KEYS,
     OPERATIONAL_CONFIGURATION_KEYS,
@@ -842,7 +843,7 @@ class GrowattChargePoint(OcppChargePoint):
                 timeout_makes_outcome_uncertain=True,
             )
             status = getattr(result, "status", RemoteStartStopStatus.rejected)
-            status_value = status.value if hasattr(status, "value") else str(status)
+            status_value = enum_value(status, stringify_fallback=True)
             if status_value != RemoteStartStopStatus.accepted.value:
                 authorization.cancel_ha_remote_start()
             _LOGGER.info("RemoteStartTransaction result: %s", status)
@@ -872,7 +873,7 @@ class GrowattChargePoint(OcppChargePoint):
             )
             status = getattr(result, "status", RemoteStartStopStatus.rejected)
             _LOGGER.info("RemoteStopTransaction result: %s", status)
-            return {"status": status.value if hasattr(status, "value") else str(status)}
+            return {"status": enum_value(status, stringify_fallback=True)}
         except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain):
             raise
         except Exception as exc:

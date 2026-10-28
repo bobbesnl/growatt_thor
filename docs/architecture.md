@@ -33,6 +33,8 @@ Lit lifecycle and HA calls. See [frontend development](../frontend/README.md#fro
 
 Session flow thresholds live in `sessions/constants.py`; platform configuration keys live in `configuration/keys.py`. Connection timing and close codes remain in `ocpp/connection.py`, while shared configuration-write spacing is defined in `const.py`. These constants preserve the existing values and wire spelling.
 
+`ocpp/status.py` owns canonical status groups and normalizes both OCPP wire values and translated entity spellings before transaction and telemetry checks. `coerce.py` contains shared enum unwrapping.
+
 ## State and typing
 
 `ChargingTargetRuntime` owns one entry's target storage, lock, busy state and

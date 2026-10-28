@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, time, timedelta
 from enum import Enum
 
+from ..coerce import enum_value
 from ..configuration.validation import (
     NumericValidationError,
     format_decimal,
@@ -151,7 +152,7 @@ _PERIOD_PATTERN = re.compile(r"(?:^|&)time1=(?P<start>\d{2}:\d{2})-(?P<end>\d{2}
 
 def _outcome_text(value: object) -> str:
     """Normalize enum and exception details for stable diagnostics."""
-    return str(value.value if hasattr(value, "value") else value)
+    return str(enum_value(value))
 
 
 def parse_manual_period(raw_value: str | None) -> tuple[time, time] | None:
