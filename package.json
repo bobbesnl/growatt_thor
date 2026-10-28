@@ -8,8 +8,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test frontend/test/*.test.ts",
     "check": "npm run format:check && npm run typecheck && npm test && npm run build",
-    "format": "prettier --write \"frontend/src/**/*.{ts,css}\" \"frontend/test/**/*.ts\" \"frontend/preview/*.{ts,css,html}\" frontend/preview/preview.js frontend/build.mjs",
-    "format:check": "prettier --check \"frontend/src/**/*.{ts,css}\" \"frontend/test/**/*.ts\" \"frontend/preview/*.{ts,css,html}\" frontend/preview/preview.js frontend/build.mjs",
+    "format": "prettier --write \"frontend/src/**/*.{ts,css}\" \"frontend/test/**/*.ts\" \"frontend/preview/*.{ts,css,html}\" frontend/preview/preview.js frontend/build.mjs frontend/version.mjs",
+    "format:check": "prettier --check \"frontend/src/**/*.{ts,css}\" \"frontend/test/**/*.ts\" \"frontend/preview/*.{ts,css,html}\" frontend/preview/preview.js frontend/build.mjs frontend/version.mjs",
     "release:version": "node frontend/version.mjs"
   },
   "dependencies": {

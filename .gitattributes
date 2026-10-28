@@ -1,3 +1,7 @@
 # Bundled Lit regex template literals contain significant trailing whitespace.
 custom_components/growatt_thor/frontend/thor-card.js whitespace=-blank-at-eol
 frontend/preview/*.bundle.js whitespace=-blank-at-eol
+
+# Generated frontend bundles are reviewed through their maintained sources.
+custom_components/growatt_thor/frontend/thor-card.js linguist-generated=true
+frontend/preview/*.bundle.js linguist-generated=true

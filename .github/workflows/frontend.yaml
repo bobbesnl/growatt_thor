@@ -11,4 +11,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
-      - run: git diff --exit-code -- custom_components/growatt_thor/frontend/thor-card.js frontend/preview/ha-icon.bundle.js frontend/preview/goal-panel.bundle.js frontend/preview/LICENSE-MDI
+      - run: git diff --exit-code -- custom_components/growatt_thor/frontend/thor-card.js frontend/preview/ha-icon.bundle.js frontend/preview/goal-panel.bundle.js frontend/preview/accounting-comparison.bundle.js frontend/preview/documentation-data.bundle.js frontend/preview/LICENSE-MDI
