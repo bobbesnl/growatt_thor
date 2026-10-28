@@ -26,7 +26,7 @@ def _load_module(name: str):
     return module
 
 
-write_queue = _load_module("runtime.write_queue")
+write_queue = _load_module("runtime.write_results")
 requests = _load_module("ocpp.requests")
 
 

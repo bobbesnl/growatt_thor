@@ -21,8 +21,8 @@ def load(name):
     return importlib.import_module(f"{PACKAGE_NAME}.{name}")
 
 
-time = load("runtime.time")
-observations = load("energy.observations")
+time = load("timestamps")
+observations = load("energy.site_observations")
 duration = load("sessions.duration")
 series = load("sessions.series")
 state = load("sessions.state")

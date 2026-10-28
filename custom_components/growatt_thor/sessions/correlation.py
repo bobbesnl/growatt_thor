@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from ..coerce import optional_float, optional_text
-from ..runtime.time import utc_instant
+from ..timestamps import utc_instant
 from .identity import (
     SOURCE_EXTERNAL_OR_UNKNOWN,
     SOURCE_HOME_ASSISTANT,

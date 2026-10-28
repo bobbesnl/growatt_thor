@@ -10,7 +10,7 @@ from types import ModuleType, SimpleNamespace
 package = ModuleType("thor_shared_observation_test")
 package.__path__ = [str(Path(__file__).parents[1] / "custom_components/growatt_thor")]
 sys.modules[package.__name__] = package
-site = importlib.import_module(package.__name__ + ".energy.observations")
+site = importlib.import_module(package.__name__ + ".energy.site_observations")
 meter = importlib.import_module(package.__name__ + ".energy.meter_observations")
 AT = datetime(2026, 9, 30, 12, tzinfo=UTC)
 

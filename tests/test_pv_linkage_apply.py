@@ -58,7 +58,7 @@ def _load_module(name):
 
 configuration_writes = _load_module("configuration.writes")
 pv_linkage = _load_module("charging.pv_linkage")
-write_queue = _load_module("runtime.write_queue")
+write_queue = _load_module("runtime.write_results")
 pv_linkage_apply = _load_module("charging.pv_apply")
 
 

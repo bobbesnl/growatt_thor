@@ -13,7 +13,7 @@ ROOT = Path(__file__).parents[1] / "custom_components/growatt_thor"
 package = types.ModuleType("thor_time_contract_test")
 package.__path__ = [str(ROOT)]
 sys.modules[package.__name__] = package
-time = importlib.import_module(package.__name__ + ".runtime.time")
+time = importlib.import_module(package.__name__ + ".timestamps")
 history = importlib.import_module(package.__name__ + ".sessions.csv")
 
 

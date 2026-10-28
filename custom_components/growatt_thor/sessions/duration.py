@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from ..ocpp.meter_samples import MeterValue
-from ..runtime.time import parse_utc
+from ..timestamps import parse_utc
 from .constants import ACTIVE_POWER_THRESHOLD_W
 
 DEFAULT_MAX_SAMPLE_GAP_SECONDS = 180.0

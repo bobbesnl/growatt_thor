@@ -15,7 +15,8 @@ from threading import RLock
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from ..runtime.time import parse_utc, utc_timestamp
+from ..timestamps import parse_utc, utc_timestamp
+from .display_times import session_times
 from .events import normalize_session_events
 from .identity import (
     SOURCE_LEGACY_UNKNOWN,
@@ -23,7 +24,6 @@ from .identity import (
 )
 from .series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 from .telemetry import CONTEXT_CURVES, context_curves
-from .time import session_times
 
 DASHBOARD_SESSION_LIMIT = 20
 SESSION_RETENTION_DAYS = 365

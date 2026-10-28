@@ -35,11 +35,8 @@ from .const import (
     MIN_POLL_INTERVAL,
 )
 from .coordinator import GrowattCoordinator
-from .energy.sources import (
-    BATTERY_POSITIVE_DISCHARGE,
-    CONF_BATTERY_POWER_ENTITY,
-    CONF_BATTERY_POWER_SIGN,
-)
+from .energy.options import CONF_BATTERY_POWER_ENTITY, CONF_BATTERY_POWER_SIGN
+from .energy.sources import BATTERY_POSITIVE_DISCHARGE
 from .ocpp.server import start_ocpp_server
 from .runtime.action_errors import (
     raise_action_validation,
@@ -64,7 +61,6 @@ from .runtime.services import (
     IntegrationServiceOperations,
     ManualRefreshFailed,
 )
-from .runtime.time import installation_time_zone
 from .sessions.csv import (
     append_session_row,
     dashboard_session_data,
@@ -74,6 +70,7 @@ from .sessions.csv import (
 )
 from .sessions.exports import ensure_export_cleanup, new_export_path
 from .sessions.telemetry import async_setup_session_history
+from .timestamps import installation_time_zone
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -643,7 +640,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     from .charging.pv_service import async_setup_pv_linkage_service
-    from .energy.stop_runtime import EnergyStopGuard
+    from .energy.stop_guard import EnergyStopGuard
     from .targets.services import async_setup_target_services
 
     await async_setup_pv_linkage_service(hass, entry, coordinator)

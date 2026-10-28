@@ -13,7 +13,7 @@ from ..configuration.validation import (
     format_decimal,
     validate_number,
 )
-from .controls import ChargingControl, encode_control_value, encode_working_mode
+from .control_capabilities import ChargingControl, encode_control_value, encode_working_mode
 
 
 class PvBoostMode(str, Enum):

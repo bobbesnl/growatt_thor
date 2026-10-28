@@ -13,7 +13,7 @@ import logging
 from ocpp.v16.enums import ConfigurationStatus, DataTransferStatus
 
 from ..configuration.writes import ConfigurationWriteStatus
-from ..runtime.write_queue import (
+from ..runtime.write_results import (
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,

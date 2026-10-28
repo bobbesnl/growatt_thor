@@ -49,7 +49,7 @@ assert SPEC is not None and SPEC.loader is not None
 coordinator_module = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = coordinator_module
 SPEC.loader.exec_module(coordinator_module)
-write_queue_module = sys.modules["custom_components.growatt_thor.runtime.write_queue"]
+write_queue_module = sys.modules["custom_components.growatt_thor.runtime.write_results"]
 
 
 class _FakeHass:

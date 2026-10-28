@@ -26,7 +26,7 @@ def _load_module(name: str):
 
 
 configuration = _load_module("configuration.values")
-controls = _load_module("charging.controls")
+controls = _load_module("charging.control_capabilities")
 
 
 def _values(**raw_values):

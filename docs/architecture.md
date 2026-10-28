@@ -37,6 +37,8 @@ Session flow thresholds live in `sessions/constants.py`; platform configuration 
 
 `entity.py` owns shared entity naming and charger/meter device metadata. Platform entities retain their existing unique-ID expressions and defer HA attachment to the entity lifecycle; write guards read the coordinator's shared control-policy method.
 
+Generic UTC helpers live in `timestamps.py`; session display normalization lives in `sessions/display_times.py`. Energy code separates allocation mathematics (`allocation.py`), the session accumulator (`session_accumulator.py`), site inputs (`site_inputs.py`), observations (`site_observations.py`) and stop policy/runtime (`stop_guard_policy.py` / `stop_guard.py`). Charging capabilities and Start/Stop rules live in `charging/control_capabilities.py` and `charging/start_stop_rules.py`. Old module paths retain thin compatibility exports. Persisted site/battery option keys are declared in `energy/options.py`.
+
 ## State and typing
 
 `ChargingTargetRuntime` owns one entry's target storage, lock, busy state and
@@ -116,12 +118,12 @@ execution, and uncertain commands are never automatically replayed.
 Shutdown first closes queue admission and cancels active work, then resolves
 pending entries as unsent. Active work stays uncertain because it may already
 have reached OCPP. Every handle gets one terminal result, including late work
-during unload. Result models, policies and transport exceptions remain in
-`runtime/write_queue.py` so consumers keep their established imports.
+during unload. Result models, policies and transport exceptions live in
+`runtime/write_results.py`; `runtime/write_queue.py` remains a compatibility shim.
 
 ## Time boundaries
 
-`runtime/time.py` shares ISO parsing and installation-zone lookup. Explicit parser options preserve legacy differences: aware-only site observations, naive duration values, local-calendar CSV filtering and stripped curve timestamps. `coerce.py` provides optional number/text conversion; wrappers retain each boundary's finiteness, sign, size and error rules.
+`timestamps.py` shares ISO parsing and installation-zone lookup. Explicit parser options preserve legacy differences: aware-only site observations, naive duration values, local-calendar CSV filtering and stripped curve timestamps. `coerce.py` provides optional number/text conversion; wrappers retain each boundary's finiteness, sign, size and error rules.
 
 Application timestamps sent to the cards, session-detail WebSocket and CSV
 exports are UTC ISO strings with `Z`. The frontend formats list dates, chart

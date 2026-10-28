@@ -15,7 +15,7 @@ from homeassistant.components.number import NumberDeviceClass, NumberEntity, Num
 from homeassistant.helpers.entity import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
-from .charging.controls import (
+from .charging.control_capabilities import (
     ChargingControl,
     charger_write_block_reason,
     control_is_applicable,
@@ -48,7 +48,7 @@ from .runtime.action_errors import (
     raise_charger_disconnected,
     raise_write_blocked,
 )
-from .runtime.write_queue import (
+from .runtime.write_results import (
     CONFIGURATION_WRITE_POLICY,
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,

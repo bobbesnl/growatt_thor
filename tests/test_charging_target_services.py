@@ -312,7 +312,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(self.queue)
 
     async def test_unexecuted_queue_completion_releases_busy(self):
-        queue_module = importlib.import_module("thor_target_service_test.runtime.write_queue")
+        queue_module = importlib.import_module("thor_target_service_test.runtime.write_results")
         for cancellation in (False, True):
             for status in (
                 queue_module.ChargerCommandStatus.SKIPPED,

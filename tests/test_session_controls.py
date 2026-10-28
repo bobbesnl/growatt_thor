@@ -10,7 +10,7 @@ MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
     / "growatt_thor"
-    / "charging/session_controls.py"
+    / "charging/start_stop_rules.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_session_controls_test_target",

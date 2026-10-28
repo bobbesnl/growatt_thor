@@ -6,7 +6,7 @@ import logging
 
 from ocpp.v16.enums import ConfigurationStatus
 
-from ..charging.controls import (
+from ..charging.control_capabilities import (
     CONTROL_DEFINITIONS,
     ChargingControl,
     control_is_applicable,
@@ -16,7 +16,7 @@ from ..runtime.action_errors import (
     raise_charger_disconnected,
     raise_write_blocked,
 )
-from ..runtime.write_queue import (
+from ..runtime.write_results import (
     CONFIGURATION_WRITE_POLICY,
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,

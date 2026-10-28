@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from ..runtime.time import parse_utc
+from ..timestamps import parse_utc
 
 MAX_SCHEDULE_AHEAD = timedelta(days=30)
 

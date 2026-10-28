@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 
 from ..const import DOMAIN
 from ..runtime.ownership import entry_runtime_data
-from ..runtime.time import installation_time_zone
+from ..timestamps import installation_time_zone
 from .csv import session_detail_data
 
 

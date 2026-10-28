@@ -11,7 +11,7 @@ from typing import Any, Protocol
 
 from ..configuration.writes import ConfigurationWriteStatus
 from ..const import CONFIGURATION_WRITE_SPACING_SECONDS
-from .write_queue import (
+from .write_results import (
     DEFAULT_WRITE_POLICY,
     ChargerCommandHandle,
     ChargerCommandResult,

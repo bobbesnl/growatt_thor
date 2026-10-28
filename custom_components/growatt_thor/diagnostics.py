@@ -18,8 +18,8 @@ from .const import DOMAIN
 from .ocpp.diagnostics import redact_ocpp_data
 from .runtime.ownership import entry_runtime_data
 from .sessions.correlation import build_unified_session
+from .sessions.display_times import session_time_zone
 from .sessions.records import session_record_diagnostics
-from .sessions.time import session_time_zone
 
 
 async def async_get_config_entry_diagnostics(

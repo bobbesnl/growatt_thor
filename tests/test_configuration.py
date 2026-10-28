@@ -877,7 +877,7 @@ class EntityTranslationTest(unittest.TestCase):
         charging_control_imports = {
             alias.name
             for node in tree.body
-            if isinstance(node, ast.ImportFrom) and node.module == "charging.controls"
+            if isinstance(node, ast.ImportFrom) and node.module == "charging.control_capabilities"
             for alias in node.names
         }
 

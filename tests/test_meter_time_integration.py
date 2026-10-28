@@ -9,7 +9,7 @@ from test_write_queue import coordinator_module
 from custom_components.growatt_thor.configuration.values import (
     configuration_value_from_item,
 )
-from custom_components.growatt_thor.energy.stop_runtime import EnergyStopGuard
+from custom_components.growatt_thor.energy.stop_guard import EnergyStopGuard
 from custom_components.growatt_thor.presentation.card_data import dashboard_attributes
 
 AT = datetime(2026, 10, 2, 14, 52, 49, tzinfo=UTC)

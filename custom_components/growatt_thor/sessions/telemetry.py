@@ -8,9 +8,15 @@ from math import isfinite
 
 from ..configuration.values import configuration_numeric_value
 from ..energy.meter_observations import charging_meter_values
-from ..energy.observations import read_site_observations
-from ..runtime.time import parse_utc as parse_at
-from ..runtime.time import utc_timestamp
+from ..energy.options import (
+    CONF_BATTERY_POWER_ENTITY,
+    CONF_GRID_ENTITY,
+    CONF_HOUSE_ENTITY,
+    CONF_SOLAR_ENTITY,
+)
+from ..energy.site_observations import read_site_observations
+from ..timestamps import parse_utc as parse_at
+from ..timestamps import utc_timestamp
 from .series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 
 CONTEXT_CURVES = (
@@ -102,7 +108,7 @@ class SessionTelemetry:
             house = None
         options = getattr(coordinator, "site_accounting_options", {})
         source = "configured_sensor" if house is not None else None
-        if not options.get("site_house_power_entity") and solar is not None:
+        if not options.get(CONF_HOUSE_ENTITY) and solar is not None:
             snapshot = getattr(coordinator, "last_meter_values", None) or {}
             meter = charging_meter_values(snapshot)
             sampled = parse_at(meter.get("sample_at"))
@@ -126,7 +132,7 @@ class SessionTelemetry:
             # Battery absence is known only for a declared battery-free topology.
             battery_balance = (
                 battery
-                if getattr(coordinator, "battery_power_entity", None)
+                if getattr(coordinator, CONF_BATTERY_POWER_ENTITY, None)
                 else (
                     0.0 if options.get("site_accounting_profile") in ("pv", "grid_only") else None
                 )
@@ -181,9 +187,9 @@ def async_setup_session_history(hass, coordinator):
         sources = {
             options.get(key)
             for key in (
-                "site_solar_power_entity",
-                "site_house_power_entity",
-                "site_grid_power_entity",
+                CONF_SOLAR_ENTITY,
+                CONF_HOUSE_ENTITY,
+                CONF_GRID_ENTITY,
             )
         }
         sources.add(coordinator.battery_power_entity)

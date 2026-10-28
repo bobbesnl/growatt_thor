@@ -26,8 +26,8 @@ def load(name):
 
 load("energy.sources")
 currency = load("energy.currency")
-core = load("energy.accounting")
-runtime = load("energy.accounting_runtime")
+core = load("energy.allocation")
+runtime = load("energy.site_inputs")
 AT = datetime(2026, 9, 22, 12, tzinfo=UTC)
 
 

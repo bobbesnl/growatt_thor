@@ -15,7 +15,7 @@ from ocpp.v16.enums import (
 )
 from websockets.server import serve
 
-from ..charging.controls import CHARGER_MODE_PLUG_AND_CHARGE
+from ..charging.control_capabilities import CHARGER_MODE_PLUG_AND_CHARGE
 from ..coerce import enum_value
 from ..configuration.values import (
     INFORMATIONAL_CONFIGURATION_KEYS,
@@ -29,7 +29,7 @@ from ..runtime.ownership import (
     decide_charge_point_connection,
     release_active_charge_point,
 )
-from ..runtime.write_queue import (
+from ..runtime.write_results import (
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
 )

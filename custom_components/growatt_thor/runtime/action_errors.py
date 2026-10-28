@@ -14,7 +14,7 @@ from collections.abc import Mapping
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from ..const import DOMAIN
-from .write_queue import (
+from .write_results import (
     ChargerCommandHandle,
     ChargerCommandResult,
     ChargerCommandStatus,

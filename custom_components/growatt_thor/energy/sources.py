@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from math import isfinite
 
-CONF_BATTERY_POWER_ENTITY = "battery_power_entity"
-CONF_BATTERY_POWER_SIGN = "battery_power_sign"
+from .options import CONF_BATTERY_POWER_ENTITY as CONF_BATTERY_POWER_ENTITY
+from .options import CONF_BATTERY_POWER_SIGN as CONF_BATTERY_POWER_SIGN
 
 BATTERY_POSITIVE_DISCHARGE = "positive_discharge"
 BATTERY_POSITIVE_CHARGE = "positive_charge"

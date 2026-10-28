@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from math import isfinite
 from typing import Any
 
-from ..runtime.time import parse_utc
+from ..timestamps import parse_utc
 from .constants import ACTIVE_POWER_THRESHOLD_W
 
 SESSION_CURVE_POINT_LIMIT = 96

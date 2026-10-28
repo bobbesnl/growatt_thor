@@ -1,0 +1,11 @@
+"""Persisted option keys for site accounting and battery sources."""
+
+CONF_BATTERY_POWER_ENTITY = "battery_power_entity"
+CONF_BATTERY_POWER_SIGN = "battery_power_sign"
+CONF_SITE_PROFILE = "site_accounting_profile"
+CONF_GRID_ENTITY = "site_grid_power_entity"
+CONF_GRID_SIGN = "site_grid_power_sign"
+CONF_SOLAR_ENTITY = "site_solar_power_entity"
+CONF_HOUSE_ENTITY = "site_house_power_entity"
+CONF_TARIFF_ENTITY = "site_tariff_entity"
+CONF_FIXED_PRICE = "site_fixed_price"

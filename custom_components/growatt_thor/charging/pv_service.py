@@ -17,7 +17,7 @@ from ..runtime.action_errors import (
     raise_write_blocked,
 )
 from ..runtime.ownership import entry_runtime_data
-from ..runtime.write_queue import CONFIGURATION_WRITE_POLICY, ChargerWriteResult
+from ..runtime.write_results import CONFIGURATION_WRITE_POLICY, ChargerWriteResult
 from .pv_apply import apply_pv_linkage_writes
 from .pv_linkage import (
     PvBoostMode,

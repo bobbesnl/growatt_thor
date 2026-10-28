@@ -1,112 +1,220 @@
-"""Pure, transaction-scoped decision for the optional charging stop guard."""
+"""Opt-in charging stop guard using existing, transaction-safe OCPP Stop."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
+import asyncio
+import logging
+from datetime import UTC, datetime
 from math import isfinite
-from typing import Literal
 
-from ..runtime.time import parse_utc
+from ..charging.commands import StopChargingCommand
+from ..charging.control_capabilities import selected_working_mode
+from ..ocpp.status import normalize_ocpp_status
+from ..runtime.write_results import ChargerCommandStatus
+from .meter_observations import charging_meter_values
+from .site_observations import parse_at, read_site_observations
+from .stop_guard_policy import (
+    AUTO_STOP_MODES,
+    CONF_AUTO_STOP_MODE,
+    CONF_STOP_HOLD,
+    CONF_STOP_THRESHOLD,
+    STOP_HOLD_SECONDS,
+    STOP_THRESHOLD_W,
+    StopGuardTracker,
+    StopObservation,
+)
 
-CONF_AUTO_STOP_MODE = "site_auto_stop_mode"
-AUTO_STOP_MODES = ("off", "battery", "grid", "battery_or_grid")
-CONF_STOP_THRESHOLD = "site_stop_threshold_w"
-CONF_STOP_HOLD = "site_stop_hold_seconds"
-STOP_THRESHOLD_W = 500.0
-STOP_HOLD_SECONDS = 180.0
-PV_GRACE_SECONDS = 120.0
-StopReason = Literal["battery", "grid"]
-
-
-def restore_stop_report(value: object) -> dict | None:
-    """Retain a small historical explanation, never a restored control intent."""
-    if not isinstance(value, dict) or value.get("reason") not in ("battery", "grid"):
-        return None
-    try:
-        at = parse_utc(value["at"], allow_datetime=False, normalize=False)
-        if at is None:
-            return None
-        fields = {key: float(value[key]) for key in ("threshold_w", "hold_seconds", "observed_w")}
-        if not all(isfinite(number) and number >= 0 for number in fields.values()):
-            return None
-    except (KeyError, TypeError, ValueError):
-        return None
-    return {"reason": value["reason"], "at": at.isoformat(), **fields}
+_LOGGER = logging.getLogger(__name__)
+POLL_SECONDS = 10
 
 
-@dataclass(frozen=True)
-class StopObservation:
-    transaction_id: int | None
-    eligible: bool
-    battery_discharge_w: float | None
-    grid_import_w: float | None
-    solar_power_w: float | None = None
-    ev_power_w: float | None = None
+class EnergyStopGuard:
+    """Observe the active EV session; never alter site-device settings."""
 
+    def __init__(self, hass, coordinator) -> None:
+        self.hass = hass
+        self.coordinator = coordinator
+        self.tracker = StopGuardTracker()
+        self.stop_command = StopChargingCommand(coordinator)
+        self.task: asyncio.Task | None = None
+        self._configure()
 
-class StopGuardTracker:
-    """Require a sustained, fresh observation and fire once per transaction.
+    def _configure(self) -> None:
+        options = self.coordinator.site_accounting_options
 
-    Missing measurements are represented by ``None``. They clear the hold
-    window instead of being interpreted as zero or as a stop condition.
-    """
+        def setting(key, default, low, high):
+            value = options.get(key, default)
+            return (
+                float(value)
+                if isinstance(value, (int, float)) and isfinite(value) and low <= value <= high
+                else default
+            )
 
-    def __init__(
-        self,
-        threshold_w: float = STOP_THRESHOLD_W,
-        hold_seconds: float = STOP_HOLD_SECONDS,
-    ) -> None:
-        self.threshold_w = threshold_w
-        self.hold_seconds = hold_seconds
-        self.transaction_id: int | None = None
-        self.mode = "off"
-        self.above_since: datetime | None = None
-        self.fired = False
-
-    def required_hold(self, value: StopObservation) -> float:
-        """PV covering the EV suggests an extra household load, not free surplus.
-
-        Give such a load two extra minutes, never an unlimited exemption from
-        battery protection. Missing PV readings keep the ordinary hold time.
-        """
-        solar, ev = value.solar_power_w, value.ev_power_w
-        covered = (
-            solar is not None
-            and ev is not None
-            and isfinite(solar)
-            and isfinite(ev)
-            and ev > 0
-            and solar >= ev
+        self.tracker = StopGuardTracker(
+            setting(CONF_STOP_THRESHOLD, STOP_THRESHOLD_W, 100, 10000),
+            setting(CONF_STOP_HOLD, STOP_HOLD_SECONDS, 30, 1800),
         )
-        return self.hold_seconds + (PV_GRACE_SECONDS if covered else 0)
 
-    def evaluate(self, at: datetime, mode: str, value: StopObservation) -> StopReason | None:
-        if at.tzinfo is None:
-            raise ValueError("Stop guard requires an aware timestamp")
-        if mode not in AUTO_STOP_MODES:
-            mode = "off"
-        if value.transaction_id != self.transaction_id or mode != self.mode:
-            self.transaction_id = value.transaction_id
-            self.mode = mode
-            self.above_since = None
-            self.fired = False
-        if mode == "off" or not value.eligible or value.transaction_id is None:
-            self.above_since = None
-            return None
+    def mode(self) -> str:
+        options = self.coordinator.site_accounting_options
+        if options.get("site_accounting_profile") not in (
+            "grid_only",
+            "pv",
+            "pv_battery",
+            "grohome_load_first",
+        ):
+            return "off"
+        mode = options.get(CONF_AUTO_STOP_MODE, "off")
+        return mode if mode in AUTO_STOP_MODES else "off"
 
-        def above(watts: float | None) -> bool:
-            return watts is not None and isfinite(watts) and watts >= self.threshold_w
+    def refresh(self) -> None:
+        """Apply a saved options change without reloading the integration."""
+        self._configure()
+        if self.mode() == "off":
+            if self.task is not None:
+                self.task.cancel()
+                self.task = None
+            self.tracker = StopGuardTracker()
+            return
+        if self.task is None or self.task.done():
+            self.task = self.hass.async_create_background_task(
+                self._run(), name="growatt_thor_energy_stop_guard"
+            )
 
-        battery = mode in ("battery", "battery_or_grid") and above(value.battery_discharge_w)
-        grid = mode in ("grid", "battery_or_grid") and above(value.grid_import_w)
-        if not battery and not grid:
-            self.above_since = None
-            return None
-        if self.above_since is None or at < self.above_since:
-            self.above_since = at
-            return None
-        if self.fired or (at - self.above_since).total_seconds() < self.required_hold(value):
-            return None
-        self.fired = True
-        return "battery" if battery else "grid"
+    async def async_shutdown(self) -> None:
+        if self.task is not None:
+            self.task.cancel()
+            try:
+                await self.task
+            except asyncio.CancelledError:
+                pass
+            self.task = None
+
+    def _observation(self, at: datetime) -> StopObservation:
+        coordinator = self.coordinator
+        transaction_id = coordinator.transaction_id
+        snapshot = coordinator.last_meter_values or {}
+        meter = charging_meter_values(snapshot)
+        received_at = parse_at(snapshot.get("received_at"))
+        sampled_at = parse_at(meter.get("sample_at"))
+        gap = coordinator._effective_meter_gap_seconds()
+        meter_fresh = (
+            received_at is not None
+            and sampled_at is not None
+            and 0 <= (at - received_at).total_seconds() <= gap
+            and 0 <= (at - sampled_at).total_seconds() <= gap
+            and snapshot.get("transaction_id") == transaction_id
+            and isinstance(meter.get("power_w"), (int, float))
+            and meter["power_w"] > 0
+        )
+        eligible = (
+            self.mode() != "off"
+            # Grid/battery supply is intentional outside solar-surplus-only mode.
+            # Read the confirmed mode here so queued stops are checked as well.
+            and selected_working_mode(coordinator.configuration_values) == "pv_linkage_plus"
+            and coordinator.connected
+            and coordinator.transaction_is_active
+            and normalize_ocpp_status(coordinator.status) == "charging"
+            and transaction_id is not None
+            and meter_fresh
+        )
+        site = read_site_observations(coordinator) if eligible else None
+        battery = site.battery.value_at(at) if site and site.battery else None
+        grid = site.grid.value_at(at) if site and site.grid else None
+        solar = site.solar.value_at(at) if site and site.solar else None
+        return StopObservation(
+            transaction_id, bool(eligible), battery, grid, solar, meter.get("power_w")
+        )
+
+    def _still_eligible(self, expected_transaction_id: int) -> str | None:
+        """Recheck live sources before a queued automatic Stop reaches OCPP."""
+        at = datetime.now(UTC)
+        value = self._observation(at)
+        mode = self.mode()
+        if (
+            value.transaction_id != expected_transaction_id
+            or not value.eligible
+            or self.tracker.transaction_id != expected_transaction_id
+            or self.tracker.above_since is None
+        ):
+            return "auto_stop_no_longer_eligible"
+        if self.tracker.above_since is not None and (
+            at - self.tracker.above_since
+        ).total_seconds() < self.tracker.required_hold(value):
+            return "auto_stop_pv_grace"
+        battery = (
+            mode in ("battery", "battery_or_grid")
+            and value.battery_discharge_w is not None
+            and value.battery_discharge_w >= self.tracker.threshold_w
+        )
+        grid = (
+            mode in ("grid", "battery_or_grid")
+            and value.grid_import_w is not None
+            and value.grid_import_w >= self.tracker.threshold_w
+        )
+        return None if battery or grid else "auto_stop_condition_cleared"
+
+    def _stop_completed(self, transaction_id, result) -> None:
+        # Only these terminal results prove that nothing reached the charger.
+        # Keep the latch after rejection or uncertainty to avoid blind retries.
+        if self.tracker.transaction_id == transaction_id and result.status in {
+            ChargerCommandStatus.SKIPPED,
+            ChargerCommandStatus.EXPIRED,
+        }:
+            self.tracker.fired = False
+            self.tracker.above_since = None
+
+    async def _run(self) -> None:
+        while True:
+            at = datetime.now(UTC)
+            try:
+                observation = self._observation(at)
+                reason = self.tracker.evaluate(at, self.mode(), observation)
+                if reason is not None:
+                    transaction_id = self.tracker.transaction_id
+                    _LOGGER.warning(
+                        "Automatic charging stop requested for transaction %s: "
+                        "%s power at or above %.0f W for %.0f s",
+                        transaction_id,
+                        reason,
+                        self.tracker.threshold_w,
+                        self.tracker.required_hold(observation),
+                    )
+                    # The sustained condition authorizes a request now, but a
+                    # queue delay can outlive it. Recheck the live source before send.
+                    await self.stop_command.async_request(
+                        # The awaited request completes before this loop rebinds the ID.
+                        auto_guard=lambda: self._still_eligible(transaction_id),  # noqa: B023
+                        stop_reason=f"energy_guard_{reason}",
+                        on_result=lambda result, tx=transaction_id: self._stop_completed(
+                            tx, result
+                        ),
+                    )
+                    # Store only an accepted protection Stop, not an expired
+                    # queued intention. The event keeps its reason in history.
+                    self.coordinator.last_energy_stop = {
+                        "reason": reason,
+                        "at": at.isoformat(),
+                        "transaction_id": transaction_id,
+                        "threshold_w": self.tracker.threshold_w,
+                        "hold_seconds": self.tracker.required_hold(observation),
+                        "observed_w": (
+                            observation.battery_discharge_w
+                            if reason == "battery"
+                            else observation.grid_import_w
+                        ),
+                    }
+                    self.coordinator._schedule_storage_save()
+                    self.coordinator.async_set_updated_data(True)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                _LOGGER.exception("Automatic charging stop failed; manual stop remains available")
+            await asyncio.sleep(POLL_SECONDS)
+
+
+# Compatibility with policy imports made before the runtime/policy split.
+def __getattr__(name):
+    from . import stop_guard_policy
+
+    return getattr(stop_guard_policy, name)

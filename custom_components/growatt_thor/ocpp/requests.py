@@ -13,7 +13,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-from ..runtime.write_queue import (
+from ..runtime.write_results import (
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
 )

@@ -7,7 +7,7 @@ from math import isfinite
 from typing import Any
 
 from ..coerce import enum_value
-from ..runtime.time import parse_utc, utc_timestamp
+from ..timestamps import parse_utc, utc_timestamp
 from .constants import ACTIVE_POWER_THRESHOLD_W
 
 # A normal session needs only a handful of semantic anchors.  Keep enough room

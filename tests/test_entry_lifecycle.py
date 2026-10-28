@@ -244,7 +244,7 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
                 "async_setup_target_services": AsyncMock(),
                 "async_unload_target_services": lambda *args: None,
             },
-            "energy.stop_runtime": {
+            "energy.stop_guard": {
                 "EnergyStopGuard": lambda *args: SimpleNamespace(
                     refresh=lambda: None, async_shutdown=AsyncMock()
                 )

@@ -10,7 +10,7 @@ from enum import Enum
 from math import isfinite
 from typing import Any
 
-from ..runtime.time import utc_timestamp
+from ..timestamps import utc_timestamp
 
 DEFAULT_MEASURAND = "Energy.Active.Import.Register"
 

@@ -26,8 +26,8 @@ def load(name):
     return module
 
 
-core = load("energy.stop_guard")
-runtime = load("energy.stop_runtime")
+core = load("energy.stop_guard_policy")
+runtime = load("energy.stop_guard")
 configuration = sys.modules[f"{NAME}.configuration.values"]
 
 
