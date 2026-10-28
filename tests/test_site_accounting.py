@@ -4,7 +4,7 @@ import types
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
 ROOT = PACKAGE_PATH
 NAME = "thor_site_accounting_test_package"

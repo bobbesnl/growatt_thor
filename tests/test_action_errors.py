@@ -9,9 +9,9 @@ import types
 import unittest
 from unittest.mock import patch
 
-from support import PACKAGE_PATH, load_package_module
-from support import HomeAssistantError as _HomeAssistantError
-from support import ServiceValidationError as _ServiceValidationError
+from tests.support import PACKAGE_PATH, load_package_module
+from tests.support import HomeAssistantError as _HomeAssistantError
+from tests.support import ServiceValidationError as _ServiceValidationError
 
 
 def _load_action_errors():

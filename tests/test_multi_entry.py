@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import unittest
 
-from support import (
+from tests.support import (
     PACKAGE_PATH,
     install_coordinator_stubs,
     load_package_module,
 )
-from support import (
+from tests.support import (
     MemoryStore as _MemoryStore,
 )
-from support import (
+from tests.support import (
     build_coordinator as _build_coordinator,
 )
 

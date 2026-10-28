@@ -16,10 +16,10 @@ from tempfile import TemporaryDirectory
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from support import HomeAssistantError as _HomeAssistantError
-from support import default as _default
-from support import load_package_module
-from support import module as _module
+from tests.support import HomeAssistantError as _HomeAssistantError
+from tests.support import default as _default
+from tests.support import load_package_module
+from tests.support import module as _module
 
 HAS_DEPS = all(
     importlib.util.find_spec(name) is not None for name in ("ocpp", "websockets", "voluptuous")

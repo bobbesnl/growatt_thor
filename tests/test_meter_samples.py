@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import Enum
 from types import SimpleNamespace
 
-from support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
 MODULE_PATH = PACKAGE_PATH / "ocpp/meter_samples.py"
 package = register_package("thor_meter_time_test")

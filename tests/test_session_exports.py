@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from support import load_package_module
+from tests.support import load_package_module
 
 exports = load_package_module(
     "session_exports",

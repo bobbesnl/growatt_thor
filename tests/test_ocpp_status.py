@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from enum import Enum
 
-from support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
 MODULE_PATH = PACKAGE_PATH / "ocpp/status.py"
 PACKAGE_NAME = "growatt_thor_ocpp_status_test_target"

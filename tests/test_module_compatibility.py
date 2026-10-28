@@ -3,7 +3,7 @@
 import importlib
 import unittest
 
-from support import install_ha_stubs, register_package
+from tests.support import install_ha_stubs, register_package
 
 install_ha_stubs()
 

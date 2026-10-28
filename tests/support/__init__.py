@@ -92,6 +92,10 @@ class MemoryStore:
         self.data = data
         self.loads = 0
         self.saved = []
+        self.delays = []
+
+    def async_delay_save(self, callback, delay):
+        self.delays.append((callback, delay))
 
     async def async_load(self):
         self.loads += 1
@@ -179,6 +183,7 @@ class DataUpdateCoordinator:
 
 def install_coordinator_stubs():
     install_ha_stubs()
+    register_package("custom_components.growatt_thor")
     default(
         module("homeassistant.helpers.update_coordinator"),
         "DataUpdateCoordinator",

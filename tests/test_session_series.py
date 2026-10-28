@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
 PATH = PACKAGE_PATH / "sessions/series.py"
 PACKAGE_NAME = "thor_session_series_test"

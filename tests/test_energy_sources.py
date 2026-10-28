@@ -4,7 +4,7 @@ import unittest
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
-from support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
 MODULE_PATH = PACKAGE_PATH / "energy/sources.py"
 PACKAGE_NAME = "thor_energy_sources_test_target"

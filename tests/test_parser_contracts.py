@@ -8,7 +8,7 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from support import register_package
+from tests.support import register_package
 
 PACKAGE_NAME = "thor_parser_contract_test"
 package = register_package(PACKAGE_NAME)

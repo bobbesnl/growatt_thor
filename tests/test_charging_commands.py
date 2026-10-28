@@ -6,8 +6,8 @@ import unittest
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
-from support import PACKAGE_PATH, load_package_module, register_package
-from support import HomeAssistantError as ActionError
+from tests.support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import HomeAssistantError as ActionError
 
 ROOT = PACKAGE_PATH
 NAME = "thor_charging_commands_test"

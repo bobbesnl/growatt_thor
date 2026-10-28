@@ -8,7 +8,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-from support import PACKAGE_PATH, register_package
+from tests.support import PACKAGE_PATH, register_package
 
 ROOT = PACKAGE_PATH
 package = register_package("thor_time_contract_test")
@@ -20,8 +20,6 @@ class UtcTimeContractTest(unittest.TestCase):
     def test_completed_fixed_clock_session_retains_identity_and_roundtrips_as_utc(self):
         import json
 
-        from test_multi_entry import _build_coordinator
-
         from custom_components.growatt_thor.configuration.values import (
             configuration_value_from_item,
         )
@@ -31,6 +29,7 @@ class UtcTimeContractTest(unittest.TestCase):
         from custom_components.growatt_thor.sessions.records import (
             parse_growatt_session_record,
         )
+        from tests.support import build_coordinator as _build_coordinator
 
         c = _build_coordinator()
         c.hass.config = types.SimpleNamespace(time_zone="Europe/Berlin")
@@ -96,7 +95,9 @@ class UtcTimeContractTest(unittest.TestCase):
     def test_vendor_only_session_anchors_use_the_explicit_device_clock(self):
         from datetime import timedelta, timezone
 
-        from test_session_events import session_events
+        from tests.support import load_package_module
+
+        session_events = load_package_module("sessions.events")
 
         events = session_events.merge_growatt_record_events(
             [],
@@ -197,8 +198,10 @@ class UtcTimeContractTest(unittest.TestCase):
             self.assertEqual(path.read_bytes(), original)
 
     def test_last_session_time_sensors_expose_utc_without_rewriting_source_state(self):
-        from test_energy_charged_sensor import sensor
-        from test_multi_entry import _build_coordinator
+        from tests.support import load_sensor_module
+
+        sensor = load_sensor_module()
+        from tests.support import build_coordinator as _build_coordinator
 
         c = _build_coordinator()
         c.hass.config = types.SimpleNamespace(time_zone="Europe/Berlin")
@@ -216,11 +219,10 @@ class UtcTimeContractTest(unittest.TestCase):
                 self.assertEqual(getattr(c, "last_session_" + field), "2026-07-01 10:00:00")
 
     def test_new_session_duration_uses_elapsed_instants_across_spring_transition(self):
-        from test_multi_entry import _build_coordinator
-
         from custom_components.growatt_thor.sessions.records import (
             parse_growatt_session_record,
         )
+        from tests.support import build_coordinator as _build_coordinator
 
         c = _build_coordinator()
         c.hass.config = types.SimpleNamespace(time_zone="Europe/Berlin")

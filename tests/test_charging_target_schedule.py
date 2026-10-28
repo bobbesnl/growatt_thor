@@ -3,7 +3,7 @@
 import unittest
 from datetime import UTC, datetime
 
-from support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
 MODULE_PATH = PACKAGE_PATH / "targets/schedule.py"
 PACKAGE_NAME = "charging_target_schedule_test"

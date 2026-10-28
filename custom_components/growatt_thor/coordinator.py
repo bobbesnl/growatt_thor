@@ -1178,11 +1178,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
             if effective_updated:
                 self._schedule_storage_save()
 
-        if getattr(self, "sessions", None) is not None:
-            self.sessions.observe_context()
-            for entry in parsed_values:
-                if self.sessions.observe_meter(entry, self.last_meter_values["received_at"]):
-                    self._schedule_storage_save()
+        self.sessions.observe_context()
+        for entry in parsed_values:
+            if self.sessions.observe_meter(entry, self.last_meter_values["received_at"]):
+                self._schedule_storage_save()
 
         live_power = self._live_power_follows_samples()
         ignored_live_samples = False
@@ -1497,8 +1496,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 self.grid_power = snapshot.power
 
             self.external_meter_last_updated_at = self.now()
-            if getattr(self, "sessions", None) is not None:
-                self.sessions.observe_context()
+            self.sessions.observe_context()
             _LOGGER.debug(
                 "External meter snapshot: used=%s wring=%s power=%s voltages=%s currents=%s",
                 snapshot.used,

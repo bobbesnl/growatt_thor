@@ -10,7 +10,7 @@ with small Home Assistant stand-ins; no Home Assistant install is needed.
 import unittest
 from types import SimpleNamespace
 
-from support import load_sensor_module
+from tests.support import load_sensor_module
 
 PACKAGE_NAME = "thor_energy_sensor_target"
 

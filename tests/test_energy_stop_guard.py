@@ -7,7 +7,7 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
-from support import PACKAGE_PATH, install_ha_stubs, load_package_module, register_package
+from tests.support import PACKAGE_PATH, install_ha_stubs, load_package_module, register_package
 
 install_ha_stubs()
 

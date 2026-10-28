@@ -6,7 +6,7 @@ import types
 import unittest
 from unittest.mock import AsyncMock
 
-from support import register_package
+from tests.support import register_package
 
 package = register_package("thor_queue_owner_test")
 queue_module = importlib.import_module(package.__name__ + ".runtime.charger_write_queue")

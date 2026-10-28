@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import unittest
 
-from support import PACKAGE_PATH, load_package_module
+from tests.support import PACKAGE_PATH, load_package_module
 
 MODULE_PATH = PACKAGE_PATH / "runtime/services.py"
 service_runtime = load_package_module("growatt_thor_service_runtime_test_target", MODULE_PATH)

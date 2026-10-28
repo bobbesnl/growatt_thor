@@ -6,7 +6,7 @@ import ast
 import json
 import unittest
 
-from support import PACKAGE_PATH
+from tests.support import PACKAGE_PATH
 
 INIT_PATH = PACKAGE_PATH / "__init__.py"
 

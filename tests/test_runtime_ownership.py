@@ -6,7 +6,7 @@ import ast
 import json
 import unittest
 
-from support import PACKAGE_PATH, load_package_module
+from tests.support import PACKAGE_PATH, load_package_module
 
 MODULE_PATH = PACKAGE_PATH / "runtime/ownership.py"
 ownership = load_package_module("growatt_thor_runtime_ownership_test_target", MODULE_PATH)

@@ -4,13 +4,14 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
-from test_write_queue import coordinator_module
-
 from custom_components.growatt_thor.configuration.values import (
     configuration_value_from_item,
 )
 from custom_components.growatt_thor.energy.stop_guard import EnergyStopGuard
 from custom_components.growatt_thor.presentation.card_data import dashboard_attributes
+from tests.support import build_coordinator, load_package_module
+
+coordinator_module = load_package_module("coordinator")
 
 AT = datetime(2026, 10, 2, 14, 52, 49, tzinfo=UTC)
 
@@ -26,9 +27,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
                 last_updated=AT,
             )
 
-        self.c = c = coordinator_module.GrowattCoordinator.__new__(
-            coordinator_module.GrowattCoordinator
-        )
+        self.c = c = build_coordinator()
         c.hass = SimpleNamespace(
             config=SimpleNamespace(time_zone="Europe/Berlin", currency="EUR"),
             states={"sensor.pv": state(6000), "sensor.battery": state(-2000)},

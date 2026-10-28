@@ -4,7 +4,7 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 
-from support import load_package_module
+from tests.support import load_package_module
 
 module = load_package_module(
     "thor_session_outbox_test",

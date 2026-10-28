@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from support import PACKAGE_PATH, load_package_module
+from tests.support import PACKAGE_PATH, load_package_module
 
 MODULE_PATH = PACKAGE_PATH / "ocpp/external_meter.py"
 external_meter = load_package_module("growatt_thor_external_meter_test_target", MODULE_PATH)

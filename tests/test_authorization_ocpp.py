@@ -9,7 +9,7 @@ import unittest
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from support import PACKAGE_PATH
+from tests.support import PACKAGE_PATH
 
 HAS_OCPP = (
     importlib.util.find_spec("ocpp") is not None

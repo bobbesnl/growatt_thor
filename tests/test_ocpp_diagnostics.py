@@ -6,7 +6,7 @@ import unittest
 from datetime import UTC, datetime
 from enum import Enum
 
-from support import PACKAGE_PATH, load_package_module
+from tests.support import PACKAGE_PATH, load_package_module
 
 MODULE_PATH = PACKAGE_PATH / "ocpp/diagnostics.py"
 ocpp_diagnostics = load_package_module("growatt_thor_ocpp_diagnostics_test_target", MODULE_PATH)

@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from support import load_package_module, register_package
+from tests.support import load_package_module, register_package
 
 MODULE = Path(__file__).parents[1] / "custom_components/growatt_thor/charging/authorization.py"
 package = register_package("thor_authorization_unit")

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
 COMPONENT = PACKAGE_PATH
 PACKAGE_NAME = "thor_session_dashboard_test"

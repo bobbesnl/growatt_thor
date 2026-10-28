@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from support import PACKAGE_PATH, load_package_module
+from tests.support import PACKAGE_PATH, load_package_module
 
 MODULE_PATH = PACKAGE_PATH / "configuration/writes.py"
 writes = load_package_module("growatt_thor_configuration_writes_test_target", MODULE_PATH)

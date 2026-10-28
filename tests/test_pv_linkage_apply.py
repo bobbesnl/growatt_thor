@@ -7,8 +7,9 @@ import types
 import unittest
 from datetime import time
 from enum import Enum
+from unittest.mock import patch
 
-from support import load_package_module, register_package
+from tests.support import load_package_module, register_package
 
 
 class ConfigurationStatus(str, Enum):
@@ -30,9 +31,6 @@ ocpp_v16 = types.ModuleType("ocpp.v16")
 ocpp_enums = types.ModuleType("ocpp.v16.enums")
 ocpp_enums.ConfigurationStatus = ConfigurationStatus
 ocpp_enums.DataTransferStatus = DataTransferStatus
-sys.modules.setdefault("ocpp", ocpp)
-sys.modules.setdefault("ocpp.v16", ocpp_v16)
-sys.modules.setdefault("ocpp.v16.enums", ocpp_enums)
 
 
 PACKAGE_NAME = "growatt_thor_pv_linkage_apply_test_package"
@@ -43,10 +41,11 @@ def _load_module(name):
     return load_package_module(name, package_name=PACKAGE_NAME)
 
 
-configuration_writes = _load_module("configuration.writes")
-pv_linkage = _load_module("charging.pv_linkage")
-write_queue = _load_module("runtime.write_results")
-pv_linkage_apply = _load_module("charging.pv_apply")
+with patch.dict(sys.modules, {"ocpp": ocpp, "ocpp.v16": ocpp_v16, "ocpp.v16.enums": ocpp_enums}):
+    configuration_writes = _load_module("configuration.writes")
+    pv_linkage = _load_module("charging.pv_linkage")
+    write_queue = _load_module("runtime.write_results")
+    pv_linkage_apply = _load_module("charging.pv_apply")
 
 
 class _FakeCoordinator:

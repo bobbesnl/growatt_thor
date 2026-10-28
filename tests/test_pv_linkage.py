@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime, time
 
-from support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
 MODULE_PATH = PACKAGE_PATH / "charging/pv_linkage.py"
 PACKAGE_NAME = "growatt_thor_pv_linkage_test_target"

@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from support import PACKAGE_PATH
+from tests.support import PACKAGE_PATH
 
 HAS_DEPS = all(importlib.util.find_spec(name) for name in ["ocpp", "voluptuous"])
 

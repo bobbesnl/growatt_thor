@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from support import load_package_module, register_package
+from tests.support import load_package_module, register_package
 
 PACKAGE_NAME = "growatt_thor_control_test_target"
 package = register_package(PACKAGE_NAME)

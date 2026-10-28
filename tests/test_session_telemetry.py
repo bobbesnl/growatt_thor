@@ -9,8 +9,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from test_multi_entry import _build_coordinator
-
 from custom_components.growatt_thor.configuration.values import (
     configuration_value_from_item,
 )
@@ -29,6 +27,7 @@ from custom_components.growatt_thor.sessions.telemetry import (
     CONTEXT_CURVES,
     async_setup_session_history,
 )
+from tests.support import build_coordinator as _build_coordinator
 
 AT = datetime(2026, 10, 28, 10, tzinfo=UTC)
 

@@ -6,7 +6,7 @@ import unittest
 from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
-from support import PACKAGE_PATH
+from tests.support import PACKAGE_PATH
 
 
 class CoordinatorEntity:

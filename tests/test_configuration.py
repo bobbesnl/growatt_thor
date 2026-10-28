@@ -7,7 +7,7 @@ import json
 import re
 import unittest
 
-from support import PACKAGE_PATH, load_package_module
+from tests.support import PACKAGE_PATH, load_package_module
 
 MODULE_PATH = PACKAGE_PATH / "configuration/values.py"
 TRANSLATIONS_PATH = MODULE_PATH.parents[1] / "translations"

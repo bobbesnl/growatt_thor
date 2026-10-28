@@ -4,83 +4,26 @@ from __future__ import annotations
 
 import ast
 import asyncio
-import importlib.util
-import sys
-import types
 import unittest
 
-from support import PACKAGE_PATH, register_package
-
-MODULE_PATH = PACKAGE_PATH / "coordinator.py"
-
-
-class _DataUpdateCoordinator:
-    """Minimal Home Assistant stand-in needed to import the coordinator."""
-
-
-class _Store:
-    """Minimal Home Assistant storage stand-in."""
-
-
-homeassistant = types.ModuleType("homeassistant")
-helpers = types.ModuleType("homeassistant.helpers")
-update_coordinator = types.ModuleType("homeassistant.helpers.update_coordinator")
-storage = types.ModuleType("homeassistant.helpers.storage")
-update_coordinator.DataUpdateCoordinator = _DataUpdateCoordinator
-storage.Store = _Store
-sys.modules.setdefault("homeassistant", homeassistant)
-sys.modules.setdefault("homeassistant.helpers", helpers)
-sys.modules.setdefault(
-    "homeassistant.helpers.update_coordinator",
-    update_coordinator,
+from tests.support import (
+    PACKAGE_PATH,
+    FakeHass,
+    build_coordinator,
+    load_package_module,
 )
-sys.modules.setdefault("homeassistant.helpers.storage", storage)
 
-package = register_package("custom_components.growatt_thor")
-sys.modules.setdefault("custom_components", types.ModuleType("custom_components"))
-sys.modules.setdefault("custom_components.growatt_thor", package)
-
-SPEC = importlib.util.spec_from_file_location(
-    "custom_components.growatt_thor.coordinator",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-coordinator_module = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = coordinator_module
-SPEC.loader.exec_module(coordinator_module)
-write_queue_module = sys.modules["custom_components.growatt_thor.runtime.write_results"]
-
-
-class _FakeHass:
-    def __init__(self, loop):
-        self.loop = loop
-        self.data = {"growatt_thor": {}}
-
-    def async_create_task(self, coroutine):
-        return asyncio.create_task(coroutine)
+coordinator_module = load_package_module("coordinator")
+write_queue_module = load_package_module("runtime.write_results")
 
 
 def _build_coordinator(loop):
-    coordinator = coordinator_module.GrowattCoordinator.__new__(
-        coordinator_module.GrowattCoordinator
-    )
-    coordinator.hass = _FakeHass(loop)
-    # The coordinator reads its active connection and poll pause from its own
-    # per-entry runtime mapping, never from a domain-global slot.
-    coordinator.runtime_data = {}
-    coordinator._connection_changed = asyncio.Event()
+    coordinator = build_coordinator()
+    coordinator.hass = FakeHass(loop)
+    # Preserve queue-test timing while exercising complete lifecycle state.
     coordinator._connection_changed.set()
-    coordinator.write_queue = coordinator_module.ChargerWriteQueue(
-        coordinator, coordinator._connection_changed
-    )
-    coordinator._shutting_down = False
-    coordinator._configuration_refresh_task = None
-    coordinator._auto_charge_schedule_task = None
     coordinator.write_queue.min_write_interval = 0.0
     coordinator.write_queue.poll_pause_after_write = 0.0
-    coordinator.connected = True
-    coordinator.configuration_writes = {}
-    coordinator.last_command_result = None
     coordinator.async_set_updated_data = lambda data: None
     return coordinator
 
@@ -97,9 +40,7 @@ class ActiveSessionPersistenceTest(unittest.TestCase):
     """Verify the coordinator keeps an active history row across reloads."""
 
     def test_active_session_round_trip_restores_curve_and_events(self):
-        source = coordinator_module.GrowattCoordinator.__new__(
-            coordinator_module.GrowattCoordinator
-        )
+        source = build_coordinator()
         source.sessions = coordinator_module.SessionLifecycle(source)
         source.transaction_id = 27
         source.id_tag = "RFID-LIVE"
@@ -126,9 +67,7 @@ class ActiveSessionPersistenceTest(unittest.TestCase):
         source._session_event_tracker.observe_power("2026-09-21T08:01:00Z", 7100)
 
         stored = source._active_session_state()
-        restored = coordinator_module.GrowattCoordinator.__new__(
-            coordinator_module.GrowattCoordinator
-        )
+        restored = build_coordinator()
         restored.sessions = coordinator_module.SessionLifecycle(restored)
         restored._restore_active_session_state(stored)
 
@@ -143,9 +82,7 @@ class ActiveSessionPersistenceTest(unittest.TestCase):
         self.assertTrue(restored._restored_active_session)
 
     def test_available_discards_row_but_keeps_details_for_record_correlation(self):
-        coordinator = coordinator_module.GrowattCoordinator.__new__(
-            coordinator_module.GrowattCoordinator
-        )
+        coordinator = build_coordinator()
         coordinator.sessions = coordinator_module.SessionLifecycle(coordinator)
         coordinator._restored_active_session = True
         coordinator.transaction_id = "27"

@@ -5,8 +5,10 @@ import unittest
 from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
-from test_energy_charged_sensor import sensor
-from test_multi_entry import _build_coordinator
+from tests.support import build_coordinator as _build_coordinator
+from tests.support import load_sensor_module
+
+sensor = load_sensor_module()
 
 
 class StatusCardContractTest(unittest.TestCase):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
 COMPONENT_PATH = PACKAGE_PATH
 INIT_PATH = COMPONENT_PATH / "__init__.py"

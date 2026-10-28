@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
 COMPONENT = PACKAGE_PATH
 PACKAGE_NAME = "thor_active_session_state_test"

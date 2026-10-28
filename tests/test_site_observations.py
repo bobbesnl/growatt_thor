@@ -5,7 +5,7 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
-from support import register_package
+from tests.support import register_package
 
 package = register_package("thor_shared_observation_test")
 site = importlib.import_module(package.__name__ + ".energy.site_observations")

@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from support import PACKAGE_PATH, register_package
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
 ROOT = PACKAGE_PATH
 NAME = "thor_card_routes_test"
@@ -37,8 +37,8 @@ def load_routes():
             "homeassistant.util": util,
         },
     ):
-        pv = importlib.import_module(NAME + ".charging.pv_service")
-        history = importlib.import_module(NAME + ".sessions.websocket")
+        pv = load_package_module("charging.pv_service", package_name=NAME)
+        history = load_package_module("sessions.websocket", package_name=NAME)
     return pv, history
 
 

@@ -10,7 +10,7 @@ from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
 COMPONENT_PATH = PACKAGE_PATH
 PACKAGE_NAME = "growatt_thor_session_csv_test_package"
