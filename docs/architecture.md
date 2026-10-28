@@ -127,6 +127,8 @@ have reached OCPP. Every handle gets one terminal result, including late work
 during unload. Result models, policies and transport exceptions live in
 `runtime/write_results.py`; `runtime/write_queue.py` remains a compatibility shim.
 
+`ConfigurationDefinition` in `configuration/values.py` also owns entity options, normalized aliases and optional state parsers. The existing options/alias mappings remain ordered compatibility views; operational/informational request ordering and diagnostic serialization stay unchanged.
+
 ## Configuration write compatibility
 
 `GrowattConfigurationWriteMixin` owns transport and acknowledgement primitives without adding entity attributes. `GrowattConfigurationControlMixin` adds the mode-aware pending-state projection used by newer controls. Its validation, encoding, accepted-state and optimistic-restore hooks let platform entities retain their existing policies. The only outgoing write owner remains `ChargerWriteQueue`; the mixin is called inside that queue's callbacks.

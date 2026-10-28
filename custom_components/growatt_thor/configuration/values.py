@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field
 from enum import Enum
 from types import MappingProxyType
 from typing import Final, TypeAlias
@@ -48,6 +48,10 @@ class ConfigurationDefinition:
     writable: bool = False
     sensitivity: ConfigurationSensitivity = ConfigurationSensitivity.PUBLIC
     request_group: ConfigurationRequestGroup | None = None
+
+    entity_options: tuple[str, ...] = ()
+    entity_aliases: Mapping[str, str] | None = field(default=None, hash=False)
+    state_parser: Callable[[str], ConfigurationScalar] | None = None
 
     def enum_label(self, raw_value: str | None) -> str | None:
         """Return the known label for an enum value."""
@@ -118,6 +122,9 @@ def _definition(
     writable: bool = False,
     sensitivity: ConfigurationSensitivity = ConfigurationSensitivity.PUBLIC,
     request_group: ConfigurationRequestGroup | None = None,
+    entity_options: tuple[str, ...] = (),
+    entity_aliases: Mapping[str, str] | None = None,
+    state_parser: Callable[[str], ConfigurationScalar] | None = None,
 ) -> ConfigurationDefinition:
     return ConfigurationDefinition(
         description=description,
@@ -127,6 +134,9 @@ def _definition(
         writable=writable,
         sensitivity=sensitivity,
         request_group=request_group,
+        entity_options=entity_options,
+        entity_aliases=entity_aliases,
+        state_parser=state_parser,
     )
 
 
@@ -134,6 +144,19 @@ _OPERATIONAL = ConfigurationRequestGroup.OPERATIONAL
 _INFORMATIONAL = ConfigurationRequestGroup.INFORMATIONAL
 _PRIVATE = ConfigurationSensitivity.PRIVATE
 _SECRET = ConfigurationSensitivity.SECRET
+
+
+_OFF_PEAK_WINDOW_PATTERN = re.compile(r"^(?P<window>\d{2}:\d{2}-\d{2}:\d{2})(?:=[^&]*)?$")
+
+
+def _parse_off_peak_schedule(raw_value: str) -> str:
+    """Return the time windows from Growatt's compound off-peak value."""
+    windows = []
+    for segment in raw_value.split("&"):
+        match = _OFF_PEAK_WINDOW_PATTERN.fullmatch(segment.strip())
+        if match:
+            windows.append(match.group("window"))
+    return ", ".join(windows) if windows else raw_value
 
 
 CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingProxyType(
@@ -165,6 +188,18 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
             enum_values=(("1", "HA/RFID"), ("2", "RFID Only"), ("3", "Plug & Charge")),
             writable=True,
             request_group=_OPERATIONAL,
+            entity_options=(
+                "home_assistant_rfid",
+                "rfid_only",
+                "plug_and_charge",
+            ),
+            entity_aliases=MappingProxyType(
+                {
+                    "1": "home_assistant_rfid",
+                    "2": "rfid_only",
+                    "3": "plug_and_charge",
+                }
+            ),
         ),
         "G_ServerURL": _definition(
             "OCPP central-system endpoint",
@@ -268,6 +303,18 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
                 ("DHCP", "DHCP"),
             ),
             request_group=_INFORMATIONAL,
+            entity_options=(
+                "dhcp",
+                "static",
+            ),
+            entity_aliases=MappingProxyType(
+                {
+                    "0": "static",
+                    "static": "static",
+                    "1": "dhcp",
+                    "dhcp": "dhcp",
+                }
+            ),
         ),
         "G_WifiSSID": _definition(
             "Wi-Fi network name",
@@ -307,6 +354,49 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
             ),
             writable=True,
             request_group=_INFORMATIONAL,
+            entity_options=(
+                "none",
+                "acrel_dds1352",
+                "acrel_dtsd1352_three",
+                "eastron_sdm230",
+                "eastron_sdm630_three",
+                "eastron_sdm120_mid",
+                "eastron_sdm72d_mid_three",
+                "din_rail_dtsu666_mid_three",
+                "chint_dtsu666_mid_three",
+                "chint_ddsu666",
+            ),
+            entity_aliases=MappingProxyType(
+                {
+                    "0": "none",
+                    "none": "none",
+                    "null": "none",
+                    "1": "acrel_dds1352",
+                    "acreldds1352": "acrel_dds1352",
+                    "2": "acrel_dtsd1352_three",
+                    "acreldtsd1352three": "acrel_dtsd1352_three",
+                    "acreldtsd1352threephase": "acrel_dtsd1352_three",
+                    "3": "eastron_sdm230",
+                    "eastronsdm230": "eastron_sdm230",
+                    "4": "eastron_sdm630_three",
+                    "eastronsdm630": "eastron_sdm630_three",
+                    "eastronsdm630three": "eastron_sdm630_three",
+                    "eastronsdm630threephase": "eastron_sdm630_three",
+                    "5": "eastron_sdm120_mid",
+                    "eastronsdm120mid": "eastron_sdm120_mid",
+                    "6": "eastron_sdm72d_mid_three",
+                    "eastronsdm72dmidthree": "eastron_sdm72d_mid_three",
+                    "eastronsdm72dmidthreephase": "eastron_sdm72d_mid_three",
+                    "7": "din_rail_dtsu666_mid_three",
+                    "dinraildtsu666midthree": "din_rail_dtsu666_mid_three",
+                    "dinraildtsu666midthreephase": "din_rail_dtsu666_mid_three",
+                    "10": "chint_dtsu666_mid_three",
+                    "chintdtsu666midthree": "chint_dtsu666_mid_three",
+                    "chintdtsu666midthreephase": "chint_dtsu666_mid_three",
+                    "11": "chint_ddsu666",
+                    "chintddsu666": "chint_ddsu666",
+                }
+            ),
         ),
         "G_ExternalSamplingCurWring": _definition(
             "External meter wiring or sampling mode",
@@ -318,6 +408,18 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
             ),
             writable=True,
             request_group=_INFORMATIONAL,
+            entity_options=(
+                "ct_2000_1",
+                "power_meter",
+                "ct_3000_1",
+            ),
+            entity_aliases=MappingProxyType(
+                {
+                    "0": "ct_2000_1",
+                    "1": "power_meter",
+                    "2": "ct_3000_1",
+                }
+            ),
         ),
         "G_TimeZone": _definition(
             "Charger time zone",
@@ -333,6 +435,21 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
             # Charging strategy depends on this value, so it belongs in the
             # first safety-critical read rather than the diagnostic follow-up.
             request_group=_OPERATIONAL,
+            entity_options=(
+                "disabled",
+                "pv_linkage",
+                "pv_linkage_plus",
+            ),
+            entity_aliases=MappingProxyType(
+                {
+                    "0": "disabled",
+                    "1": "pv_linkage",
+                    "2": "pv_linkage_plus",
+                    "10": "disabled",
+                    "11": "pv_linkage",
+                    "12": "pv_linkage_plus",
+                }
+            ),
         ),
         "G_SolarLimitPower": _definition(
             "PV Linkage power threshold or grid-import allowance",
@@ -345,6 +462,24 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
             "Vendor-encoded PV Linkage boost configuration",
             writable=True,
             request_group=_INFORMATIONAL,
+            entity_options=(
+                "disabled",
+                "manual",
+                "smart",
+            ),
+            entity_aliases=MappingProxyType(
+                {
+                    "disable": "disabled",
+                    "disabled": "disabled",
+                    "1disable": "disabled",
+                    "manual": "manual",
+                    "manualboost": "manual",
+                    "1manualboost": "manual",
+                    "smart": "smart",
+                    "smartboost": "smart",
+                    "1smartboost": "smart",
+                }
+            ),
         ),
         "G_SolarThresholdCurr": _definition(
             "Solar current threshold",
@@ -356,15 +491,48 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
             "Peak or valley tariff enabled",
             data_type=ConfigurationDataType.BOOLEAN,
             request_group=_INFORMATIONAL,
+            entity_options=(
+                "disabled",
+                "enabled",
+            ),
+            entity_aliases=MappingProxyType(
+                {
+                    "0": "disabled",
+                    "false": "disabled",
+                    "disable": "disabled",
+                    "disabled": "disabled",
+                    "1": "enabled",
+                    "true": "enabled",
+                    "enable": "enabled",
+                    "enabled": "enabled",
+                }
+            ),
         ),
         "G_OffPeakTime": _definition(
             "Vendor-encoded off-peak time window",
             request_group=_INFORMATIONAL,
+            state_parser=_parse_off_peak_schedule,
         ),
         "G_OffPeakEnable": _definition(
             "Vendor-encoded off-peak enable setting",
             writable=True,
             request_group=_INFORMATIONAL,
+            entity_options=(
+                "disabled",
+                "enabled",
+            ),
+            entity_aliases=MappingProxyType(
+                {
+                    "0": "disabled",
+                    "disable": "disabled",
+                    "disabled": "disabled",
+                    "1disable": "disabled",
+                    "1": "enabled",
+                    "enable": "enabled",
+                    "enabled": "enabled",
+                    "1enable": "enabled",
+                }
+            ),
         ),
         "G_OffPeakCurr": _definition(
             "Off-peak current setting",
@@ -384,6 +552,25 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
             # select.  Reading it with operational keys avoids an unnecessary
             # ``unknown`` state when the informational request times out.
             request_group=_OPERATIONAL,
+            entity_options=(
+                "fast",
+                "pv_linkage",
+                "off_peak",
+            ),
+            entity_aliases=MappingProxyType(
+                {
+                    "fast": "fast",
+                    "fastmode": "fast",
+                    "pvlink": "pv_linkage",
+                    "pvlinkage": "pv_linkage",
+                    "pvlinkmanualboost": "pv_linkage",
+                    "pvlinksmartboost": "pv_linkage",
+                    "offpeak": "off_peak",
+                    "offpeakmode": "off_peak",
+                    # Fast with load balancing; the raw value stays intact.
+                    "powerdistribution": "fast",
+                }
+            ),
         ),
         "G_LowPowerReserveEnable": _definition(
             "Low-power reserve setting",
@@ -393,6 +580,20 @@ CONFIGURATION_REGISTRY: Final[Mapping[str, ConfigurationDefinition]] = MappingPr
             "Allow compatible vehicles to draw power after reaching full charge",
             writable=True,
             request_group=_INFORMATIONAL,
+            entity_options=(
+                "disabled",
+                "enabled",
+            ),
+            entity_aliases=MappingProxyType(
+                {
+                    "0": "disabled",
+                    "disable": "disabled",
+                    "disabled": "disabled",
+                    "1": "enabled",
+                    "enable": "enabled",
+                    "enabled": "enabled",
+                }
+            ),
         ),
         "G_RandDelayChargeTime": _definition(
             "Delayed charging duration",
@@ -472,206 +673,28 @@ INFORMATIONAL_CONFIGURATION_KEYS: Final[tuple[str, ...]] = tuple(
 )
 
 
+_ENTITY_VIEW_KEYS = (
+    "G_WorkingMode",
+    "G_ChargerMode",
+    "G_ExternalSamplingCurWring",
+    "G_SolarMode",
+    "G_PeakValleyEnable",
+    "G_SolarBoost",
+    "G_OffPeakEnable",
+    "G_FullContinueChargeEnable",
+    "G_NetworkMode",
+    "G_PowerMeterType",
+)
+
 CONFIGURATION_ENTITY_OPTIONS: Final[Mapping[str, tuple[str, ...]]] = MappingProxyType(
-    {
-        "G_WorkingMode": (
-            "fast",
-            "pv_linkage",
-            "off_peak",
-        ),
-        "G_ChargerMode": (
-            "home_assistant_rfid",
-            "rfid_only",
-            "plug_and_charge",
-        ),
-        "G_ExternalSamplingCurWring": (
-            "ct_2000_1",
-            "power_meter",
-            "ct_3000_1",
-        ),
-        "G_SolarMode": (
-            "disabled",
-            "pv_linkage",
-            "pv_linkage_plus",
-        ),
-        "G_PeakValleyEnable": (
-            "disabled",
-            "enabled",
-        ),
-        "G_SolarBoost": (
-            "disabled",
-            "manual",
-            "smart",
-        ),
-        "G_OffPeakEnable": (
-            "disabled",
-            "enabled",
-        ),
-        "G_FullContinueChargeEnable": (
-            "disabled",
-            "enabled",
-        ),
-        "G_NetworkMode": (
-            "dhcp",
-            "static",
-        ),
-        "G_PowerMeterType": (
-            "none",
-            "acrel_dds1352",
-            "acrel_dtsd1352_three",
-            "eastron_sdm230",
-            "eastron_sdm630_three",
-            "eastron_sdm120_mid",
-            "eastron_sdm72d_mid_three",
-            "din_rail_dtsu666_mid_three",
-            "chint_dtsu666_mid_three",
-            "chint_ddsu666",
-        ),
-    }
+    {key: CONFIGURATION_REGISTRY[key].entity_options for key in _ENTITY_VIEW_KEYS}
 )
-
 _CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
-    {
-        "G_WorkingMode": MappingProxyType(
-            {
-                "fast": "fast",
-                "fastmode": "fast",
-                "pvlink": "pv_linkage",
-                "pvlinkage": "pv_linkage",
-                "pvlinkmanualboost": "pv_linkage",
-                "pvlinksmartboost": "pv_linkage",
-                "offpeak": "off_peak",
-                "offpeakmode": "off_peak",
-                # Fast with load balancing; the raw value stays intact.
-                "powerdistribution": "fast",
-            }
-        ),
-        "G_ChargerMode": MappingProxyType(
-            {
-                "1": "home_assistant_rfid",
-                "2": "rfid_only",
-                "3": "plug_and_charge",
-            }
-        ),
-        "G_ExternalSamplingCurWring": MappingProxyType(
-            {
-                "0": "ct_2000_1",
-                "1": "power_meter",
-                "2": "ct_3000_1",
-            }
-        ),
-        "G_SolarMode": MappingProxyType(
-            {
-                "0": "disabled",
-                "1": "pv_linkage",
-                "2": "pv_linkage_plus",
-                "10": "disabled",
-                "11": "pv_linkage",
-                "12": "pv_linkage_plus",
-            }
-        ),
-        "G_PeakValleyEnable": MappingProxyType(
-            {
-                "0": "disabled",
-                "false": "disabled",
-                "disable": "disabled",
-                "disabled": "disabled",
-                "1": "enabled",
-                "true": "enabled",
-                "enable": "enabled",
-                "enabled": "enabled",
-            }
-        ),
-        "G_SolarBoost": MappingProxyType(
-            {
-                "disable": "disabled",
-                "disabled": "disabled",
-                "1disable": "disabled",
-                "manual": "manual",
-                "manualboost": "manual",
-                "1manualboost": "manual",
-                "smart": "smart",
-                "smartboost": "smart",
-                "1smartboost": "smart",
-            }
-        ),
-        "G_OffPeakEnable": MappingProxyType(
-            {
-                "0": "disabled",
-                "disable": "disabled",
-                "disabled": "disabled",
-                "1disable": "disabled",
-                "1": "enabled",
-                "enable": "enabled",
-                "enabled": "enabled",
-                "1enable": "enabled",
-            }
-        ),
-        "G_FullContinueChargeEnable": MappingProxyType(
-            {
-                "0": "disabled",
-                "disable": "disabled",
-                "disabled": "disabled",
-                "1": "enabled",
-                "enable": "enabled",
-                "enabled": "enabled",
-            }
-        ),
-        "G_NetworkMode": MappingProxyType(
-            {
-                "0": "static",
-                "static": "static",
-                "1": "dhcp",
-                "dhcp": "dhcp",
-            }
-        ),
-        "G_PowerMeterType": MappingProxyType(
-            {
-                "0": "none",
-                "none": "none",
-                "null": "none",
-                "1": "acrel_dds1352",
-                "acreldds1352": "acrel_dds1352",
-                "2": "acrel_dtsd1352_three",
-                "acreldtsd1352three": "acrel_dtsd1352_three",
-                "acreldtsd1352threephase": "acrel_dtsd1352_three",
-                "3": "eastron_sdm230",
-                "eastronsdm230": "eastron_sdm230",
-                "4": "eastron_sdm630_three",
-                "eastronsdm630": "eastron_sdm630_three",
-                "eastronsdm630three": "eastron_sdm630_three",
-                "eastronsdm630threephase": "eastron_sdm630_three",
-                "5": "eastron_sdm120_mid",
-                "eastronsdm120mid": "eastron_sdm120_mid",
-                "6": "eastron_sdm72d_mid_three",
-                "eastronsdm72dmidthree": "eastron_sdm72d_mid_three",
-                "eastronsdm72dmidthreephase": "eastron_sdm72d_mid_three",
-                "7": "din_rail_dtsu666_mid_three",
-                "dinraildtsu666midthree": "din_rail_dtsu666_mid_three",
-                "dinraildtsu666midthreephase": "din_rail_dtsu666_mid_three",
-                "10": "chint_dtsu666_mid_three",
-                "chintdtsu666midthree": "chint_dtsu666_mid_three",
-                "chintdtsu666midthreephase": "chint_dtsu666_mid_three",
-                "11": "chint_ddsu666",
-                "chintddsu666": "chint_ddsu666",
-            }
-        ),
-    }
+    {key: CONFIGURATION_REGISTRY[key].entity_aliases for key in _ENTITY_VIEW_KEYS}
 )
 
 
-_OFF_PEAK_WINDOW_PATTERN = re.compile(r"^(?P<window>\d{2}:\d{2}-\d{2}:\d{2})(?:=[^&]*)?$")
 _TIME_SHARING_PRICE_PATTERN = re.compile(r"(?:^|&)price1=(?P<price>-?\d+(?:\.\d+)?)(?:&|$)")
-
-
-def _parse_off_peak_schedule(raw_value: str) -> str:
-    """Return the time windows from Growatt's compound off-peak value."""
-    windows = []
-    for segment in raw_value.split("&"):
-        match = _OFF_PEAK_WINDOW_PATTERN.fullmatch(segment.strip())
-        if match:
-            windows.append(match.group("window"))
-    return ", ".join(windows) if windows else raw_value
 
 
 def configuration_numeric_value(value: ConfigurationValue | None) -> float | None:
@@ -709,10 +732,11 @@ def configuration_entity_state(
     if value is None or value.raw_value is None or not value.raw_value.strip():
         return None
 
-    if key == "G_OffPeakTime":
-        return _parse_off_peak_schedule(value.raw_value)
+    definition = CONFIGURATION_REGISTRY.get(key)
+    if definition is not None and definition.state_parser is not None:
+        return definition.state_parser(value.raw_value)
 
-    aliases = _CONFIGURATION_ENTITY_ALIASES.get(key)
+    aliases = definition.entity_aliases if definition is not None else None
     if aliases is None:
         return value.parsed_value
 
