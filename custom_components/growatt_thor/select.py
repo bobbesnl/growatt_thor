@@ -14,7 +14,6 @@ import logging
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.helpers.entity import EntityCategory
-from ocpp.v16.enums import ConfigurationStatus
 
 from .charging.control_capabilities import (
     PV_LINKAGE_WORKING_MODES,
@@ -26,7 +25,7 @@ from .charging.control_capabilities import (
     selected_working_mode,
 )
 from .charging.pv_linkage import PvBoostMode
-from .configuration.controls import GrowattConfigurationControlMixin
+from .configuration.controls import GrowattConfigurationControlMixin, GrowattConfigurationWriteMixin
 from .configuration.values import (
     CONFIGURATION_ENTITY_OPTIONS,
     configuration_entity_state,
@@ -95,7 +94,7 @@ class AuthorizationModeSelect(GrowattConfigurationControlMixin, ThorEntity, Sele
         await self._async_write_configuration(encode_control_value(self._control, option))
 
 
-class WorkingModeSelect(ThorEntity, SelectEntity):
+class WorkingModeSelect(GrowattConfigurationWriteMixin, ThorEntity, SelectEntity):
     """Select a charging strategy through the captured indirect writes."""
 
     _attr_has_entity_name = True
@@ -138,6 +137,35 @@ class WorkingModeSelect(ThorEntity, SelectEntity):
     def extra_state_attributes(self):
         return self.information_attributes
 
+    def _encode(self, option):
+        return encode_working_mode(option)
+
+    def _on_accepted(self, raw_value, *, key=None, value=None) -> None:
+        option = value
+        super()._on_accepted(raw_value, key=key, value=value)
+        reported_mode = {
+            "fast": "Fast",
+            "pv_linkage": "PVlink",
+            "pv_linkage_plus": "PVlink",
+            "off_peak": "Off Peak",
+        }[option]
+        self.coordinator.update_configuration_value(
+            "G_WorkingMode",
+            reported_mode,
+        )
+        if option == "off_peak":
+            self.coordinator.update_configuration_value("G_SolarMode", "1&0")
+        elif option in {"fast", "pv_linkage", "pv_linkage_plus"}:
+            self.coordinator.update_configuration_value(
+                "G_OffPeakEnable",
+                "1&Disable",
+            )
+
+    def _restore_optimistic(self, generation: int, *, previous=None) -> None:
+        # The entity intent, not a per-key generation, owns cross-key selection.
+        if previous is not None:
+            self._clear_pending_option(*previous)
+
     async def async_select_option(self, option: str) -> None:
         if option == self.current_option:
             return
@@ -162,7 +190,7 @@ class WorkingModeSelect(ThorEntity, SelectEntity):
         if charge_point is None:
             _LOGGER.warning("Cannot change working mode: charger not connected")
             raise_charger_disconnected()
-        key, raw_value = encode_working_mode(option)
+        key, raw_value = self._encode(option)
         self._intent_sequence += 1
         intent = self._intent_sequence
         self._pending_option = option
@@ -185,9 +213,8 @@ class WorkingModeSelect(ThorEntity, SelectEntity):
             configuration_key=key,
             configuration_generation=generation,
             policy=CONFIGURATION_WRITE_POLICY,
-            on_unsent=lambda _result: self._clear_pending_option(
-                option,
-                intent,
+            on_unsent=lambda _result: self._restore_optimistic(
+                generation, previous=(option, intent)
             ),
         )
         await async_require_command_completion(handle)
@@ -227,7 +254,7 @@ class WorkingModeSelect(ThorEntity, SelectEntity):
             return ChargerWriteResult.skipped(block_reason)
 
         try:
-            result = await charge_point.change_configuration(key, raw_value)
+            result = await self._send_configuration(charge_point, key, raw_value)
         except ChargerConnectionUnavailable:
             raise
         except ChargerRequestOutcomeUncertain as exc:
@@ -247,16 +274,8 @@ class WorkingModeSelect(ThorEntity, SelectEntity):
         except Exception:
             self._clear_pending_option(option, intent)
             raise
-        accepted = result in {
-            ConfigurationStatus.accepted,
-            ConfigurationStatus.reboot_required,
-        }
-        outcome_is_current = self.coordinator.acknowledge_configuration_write(
-            key,
-            generation=generation,
-            accepted=accepted,
-            result=result,
-        )
+        response = self._acknowledge_configuration_response(key, generation, result)
+        accepted, outcome_is_current = response.accepted, response.current
         if not accepted:
             _LOGGER.error("Working mode change rejected by charger: %s", result)
             self._clear_pending_option(option, intent)
@@ -267,24 +286,7 @@ class WorkingModeSelect(ThorEntity, SelectEntity):
             # Working modes use different underlying Growatt keys. Therefore
             # the entity-level intent token complements the per-key generation
             # and prevents an older mode response from winning across keys.
-            self.coordinator.update_configuration_value(key, raw_value)
-            reported_mode = {
-                "fast": "Fast",
-                "pv_linkage": "PVlink",
-                "pv_linkage_plus": "PVlink",
-                "off_peak": "Off Peak",
-            }[option]
-            self.coordinator.update_configuration_value(
-                "G_WorkingMode",
-                reported_mode,
-            )
-            if option == "off_peak":
-                self.coordinator.update_configuration_value("G_SolarMode", "1&0")
-            elif option in {"fast", "pv_linkage", "pv_linkage_plus"}:
-                self.coordinator.update_configuration_value(
-                    "G_OffPeakEnable",
-                    "1&Disable",
-                )
+            self._on_accepted(raw_value, key=key, value=option)
 
         if selection_is_current:
             self._readback_task = self.hass.async_create_task(
