@@ -9,7 +9,7 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
-from tests.support import PACKAGE_PATH
+from tests.support import PACKAGE_PATH, build_coordinator
 
 HAS_VOL = importlib.util.find_spec("voluptuous") is not None
 HAS_SERIALIZER = importlib.util.find_spec("voluptuous_serialize") is not None
@@ -160,11 +160,9 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
             data={"port": 9000, "location": "Test location"},
         )
         self.flow.config_entry = self.entry
-        self.coordinator = SimpleNamespace(
-            authorization=self.auth.LocalAuthorization(),
-            connected=True,
-            async_set_updated_data=lambda _: None,
-        )
+        self.coordinator = build_coordinator(entry_id="entry-test")
+        self.coordinator.authorization = self.auth.LocalAuthorization()
+        self.coordinator.async_set_updated_data = lambda _: None
         self.updates = []
 
         def update(entry, *, data):
@@ -176,10 +174,10 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
             "config_entry_id": "entry-test",
             "coordinator": self.coordinator,
         }
-        self.other_coordinator = SimpleNamespace(
-            authorization=self.auth.LocalAuthorization(),
-            location="Other charger",
-        )
+        self.other_coordinator = build_coordinator(entry_id="entry-other")
+        self.other_coordinator.authorization = self.auth.LocalAuthorization()
+        self.other_coordinator.location = "Other charger"
+        self.coordinator.runtime_data = self.runtime_data
         self.other_runtime_data = {
             "config_entry_id": "entry-other",
             "coordinator": self.other_coordinator,

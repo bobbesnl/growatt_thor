@@ -15,6 +15,8 @@ CONF_STOP_THRESHOLD = "site_stop_threshold_w"
 CONF_STOP_HOLD = "site_stop_hold_seconds"
 STOP_THRESHOLD_W = 500.0
 STOP_HOLD_SECONDS = 180.0
+STOP_THRESHOLD_RANGE = (100, 10000)
+STOP_HOLD_RANGE = (30, 1800)
 PV_GRACE_SECONDS = 120.0
 StopReason = Literal["battery", "grid"]
 

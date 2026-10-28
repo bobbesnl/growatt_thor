@@ -9,3 +9,5 @@ CONF_SOLAR_ENTITY = "site_solar_power_entity"
 CONF_HOUSE_ENTITY = "site_house_power_entity"
 CONF_TARIFF_ENTITY = "site_tariff_entity"
 CONF_FIXED_PRICE = "site_fixed_price"
+
+SITE_GRID_SOURCES = ("none", "thor_external", "ha_sensor")

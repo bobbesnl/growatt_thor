@@ -18,7 +18,9 @@ from .stop_guard_policy import (
     CONF_AUTO_STOP_MODE,
     CONF_STOP_HOLD,
     CONF_STOP_THRESHOLD,
+    STOP_HOLD_RANGE,
     STOP_HOLD_SECONDS,
+    STOP_THRESHOLD_RANGE,
     STOP_THRESHOLD_W,
     StopGuardTracker,
     StopObservation,
@@ -51,8 +53,8 @@ class EnergyStopGuard:
             )
 
         self.tracker = StopGuardTracker(
-            setting(CONF_STOP_THRESHOLD, STOP_THRESHOLD_W, 100, 10000),
-            setting(CONF_STOP_HOLD, STOP_HOLD_SECONDS, 30, 1800),
+            setting(CONF_STOP_THRESHOLD, STOP_THRESHOLD_W, *STOP_THRESHOLD_RANGE),
+            setting(CONF_STOP_HOLD, STOP_HOLD_SECONDS, *STOP_HOLD_RANGE),
         )
 
     def mode(self) -> str:

@@ -41,6 +41,8 @@ Generic UTC helpers live in `timestamps.py`; session display normalization lives
 
 Simple sensor behavior is declared in `sensor_descriptions.py` through `ThorSensorDescription`: values, availability, extra attributes, units and device ownership. `sensor.py` retains lifecycle projection and thin compatibility constructors alongside the stateful status, fault, command and accounting sensors. Characterization snapshots cover IDs and visible states across unknown, reported, disconnected and failed-coordinator cases.
 
+Site-option validation lives in the pure `energy/site_options.py`; `config_flow.py::build_site_accounting_schema` builds the corresponding HA form. Saved sections update the running coordinator through `async_apply_options`, preserving the existing config-entry data contract and entry-scoped polling/guard ownership.
+
 ## State and typing
 
 `ChargingTargetRuntime` owns one entry's target storage, lock, busy state and

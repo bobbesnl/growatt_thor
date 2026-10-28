@@ -44,7 +44,13 @@ from .configuration.writes import (
     confirm_configuration_writes,
     mark_configuration_write,
 )
-from .const import CONFIGURATION_WRITE_SPACING_SECONDS, DEFAULT_POLL_INTERVAL
+from .const import (
+    CONF_LOCATION,
+    CONF_POLL_INTERVAL,
+    CONFIGURATION_WRITE_SPACING_SECONDS,
+    DEFAULT_POLL_INTERVAL,
+)
+from .energy.options import CONF_BATTERY_POWER_ENTITY, CONF_BATTERY_POWER_SIGN
 from .energy.session_accumulator import SessionAccumulator
 from .energy.site_inputs import site_inputs
 from .energy.sources import BATTERY_POSITIVE_DISCHARGE
@@ -634,6 +640,29 @@ class GrowattCoordinator(DataUpdateCoordinator):
         )
         self.async_set_updated_data(True)
         return outcome_is_current
+
+    async def async_apply_options(self, data, *, section: str) -> None:
+        """Apply one saved options section without changing entry ownership or storage."""
+        if section == "general":
+            self.location = data.get(CONF_LOCATION, "")
+            self.external_meter_poll_interval = data[CONF_POLL_INTERVAL]
+        elif section == "energy_sources":
+            self.battery_power_entity = data.get(CONF_BATTERY_POWER_ENTITY) or None
+            self.battery_power_sign = (
+                data.get(CONF_BATTERY_POWER_SIGN, BATTERY_POSITIVE_DISCHARGE)
+                if self.battery_power_entity
+                else BATTERY_POSITIVE_DISCHARGE
+            )
+            self.site_accounting_options = dict(data)
+        elif section == "site_accounting":
+            self.site_accounting_options = dict(data)
+        else:
+            raise ValueError(f"Unknown options section: {section}")
+        self.async_set_updated_data(True)
+        if section == "site_accounting":
+            guard = self.runtime_data.get("energy_stop_guard")
+            if guard is not None:
+                guard.refresh()
 
     def write_block_reason(self, control: ChargingControl) -> str | None:
         """Apply the shared control policy to this charger's current observations."""
