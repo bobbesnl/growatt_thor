@@ -8,7 +8,11 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .charging.authorization import LocalAuthorization
-from .charging.controls import transaction_state_is_active
+from .charging.controls import (
+    ChargingControl,
+    control_write_block_reason,
+    transaction_state_is_active,
+)
 from .charging.faults import (
     ChargerFault,
     fault_from_data_transfer,
@@ -627,6 +631,16 @@ class GrowattCoordinator(DataUpdateCoordinator):
         )
         self.async_set_updated_data(True)
         return outcome_is_current
+
+    def write_block_reason(self, control: ChargingControl) -> str | None:
+        """Apply the shared control policy to this charger's current observations."""
+        return control_write_block_reason(
+            control,
+            self.configuration_values,
+            connected=self.connected,
+            transaction_active=self.transaction_is_active,
+            charger_faulted=self.charger_is_faulted,
+        )
 
     def schedule_configuration_refresh(self, *, delay: float = CONFIGURATION_WRITE_SPACING_SECONDS):
         """Coalesce post-write readbacks into one reconnect-safe task.

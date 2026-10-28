@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
 import asyncio
 import logging
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .charging.commands import StopChargingCommand, _command_state
 from .charging.controls import (
     ChargingControl,
     charger_write_block_reason,
-    control_write_block_reason,
 )
 from .charging.pv_apply import apply_pv_linkage_writes
 from .charging.pv_linkage import (
@@ -28,6 +33,7 @@ from .charging.session_controls import (
     target_blocks_manual_start,
 )
 from .const import DOMAIN
+from .entity import ThorEntity
 from .runtime.action_errors import (
     async_require_command_completion,
     raise_action_validation,
@@ -47,7 +53,9 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_ID_TAG = "12345678"  # Growatt handshake key
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Set up Growatt THOR button entities."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
@@ -63,7 +71,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 # Start Charging Button
 
 
-class StartChargingButton(CoordinatorEntity, ButtonEntity):
+class StartChargingButton(ThorEntity, ButtonEntity):
     """Button to start a charging session."""
 
     _attr_has_entity_name = True
@@ -71,15 +79,8 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
     _attr_icon = "mdi:play-circle"
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
+        super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_start_charging"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
-        self.hass = coordinator.hass
 
     @property
     def _write_block_reason(self) -> str | None:
@@ -199,7 +200,7 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 # Stop Charging Button
 
 
-class StopChargingButton(CoordinatorEntity, ButtonEntity):
+class StopChargingButton(ThorEntity, ButtonEntity):
     """Button to stop a charging session."""
 
     _attr_has_entity_name = True
@@ -207,22 +208,15 @@ class StopChargingButton(CoordinatorEntity, ButtonEntity):
     _attr_icon = "mdi:stop-circle"
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
+        super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_stop_charging"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
-        self.hass = coordinator.hass
 
     async def async_press(self) -> None:
         """Delegate the entity action to the common command boundary."""
         await StopChargingCommand(self.coordinator).async_request()
 
 
-class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
+class ApplyPvLinkageButton(ThorEntity, ButtonEntity):
     """Apply the complete local PV Linkage boost draft."""
 
     _attr_has_entity_name = True
@@ -231,25 +225,12 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
     _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
-        self.hass = coordinator.hass
+        super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_apply_pv_linkage"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
 
     @property
     def _write_block_reason(self) -> str | None:
-        return control_write_block_reason(
-            ChargingControl.SOLAR_BOOST,
-            self.coordinator.configuration_values,
-            connected=self.coordinator.connected,
-            transaction_active=self.coordinator.transaction_is_active,
-            charger_faulted=self.coordinator.charger_is_faulted,
-        )
+        return self.coordinator.write_block_reason(ChargingControl.SOLAR_BOOST)
 
     @property
     def _validation_errors(self) -> tuple[str, ...]:
@@ -269,7 +250,7 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
     def extra_state_attributes(self):
         last_apply = self.coordinator.pv_linkage_apply_result
         return {
-            "information": "details",
+            **self.information_attributes,
             "pending_changes": self.coordinator.pv_linkage_draft_dirty,
             "validation_errors": list(self._validation_errors),
             "last_apply": (last_apply.as_dict() if last_apply is not None else None),

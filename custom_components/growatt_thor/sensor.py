@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
 from dataclasses import dataclass
 
 from homeassistant.components.sensor import (
@@ -17,7 +24,6 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .charging.faults import CHARGER_FAULT_OPTIONS
 from .configuration.keys import (
@@ -51,6 +57,7 @@ from .configuration.values import (
 from .const import DOMAIN
 from .energy.accounting_runtime import CONF_SITE_PROFILE, coverage_percent
 from .energy.currency import configured_currency, electricity_price_unit
+from .entity import ThorEntity
 from .ocpp.diagnostics import boot_notification_field
 from .ocpp.external_meter import EXTERNAL_METER_HEALTH_OPTIONS
 from .ocpp.status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
@@ -378,7 +385,9 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
 )
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     boot_sensors = [
         OcppBootSensor(coordinator, entry, description)
@@ -462,18 +471,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
 # Base voor charger sensors (EV Charger device)
 
 
-class BaseSensor(CoordinatorEntity, SensorEntity):
+class BaseSensor(ThorEntity, SensorEntity):
     _attr_has_entity_name = True
 
     def __init__(self, coordinator, entry, key):
-        super().__init__(coordinator)
+        super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_{key}"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
 
 
 class SiteAccountingSensor(BaseSensor):
@@ -539,9 +542,9 @@ class LastChargerFaultSensor(BaseSensor):
     def extra_state_attributes(self):
         fault = self.coordinator.last_charger_fault
         if fault is None:
-            return {"information": "details"}
+            return self.information_attributes
         return {
-            "information": "details",
+            **self.information_attributes,
             **fault.as_dict(),
         }
 
@@ -571,11 +574,11 @@ class LastCommandResultSensor(BaseSensor):
     def extra_state_attributes(self):
         result = self.coordinator.last_command_result
         if result is None:
-            return {"information": "details"}
+            return self.information_attributes
         attributes = result.as_dict()
         attributes.pop("status")
         return {
-            "information": "details",
+            **self.information_attributes,
             **attributes,
         }
 
@@ -583,20 +586,14 @@ class LastCommandResultSensor(BaseSensor):
 # Base for external meter sensors
 
 
-class BaseExternalMeterSensor(CoordinatorEntity, SensorEntity):
+class BaseExternalMeterSensor(ThorEntity, SensorEntity):
     _attr_has_entity_name = True
     # Poll freshness belongs to the live state, not every historical sample.
     _unrecorded_attributes = frozenset({"last_updated_at"})
 
     def __init__(self, coordinator, entry, key):
-        super().__init__(coordinator)
+        super().__init__(coordinator, entry, device="meter")
         self._attr_unique_id = f"{entry.entry_id}_load_balancing_{key}"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
-            "name": "Growatt THOR External Meter",
-            "manufacturer": "Growatt",
-            "model": "THOR External Meter",
-        }
 
     @property
     def extra_state_attributes(self):
@@ -610,33 +607,23 @@ class BaseExternalMeterSensor(CoordinatorEntity, SensorEntity):
 # Read-only retained configuration
 
 
-class GrowattConfigurationSensor(CoordinatorEntity, SensorEntity):
+class GrowattConfigurationSensor(ThorEntity, SensorEntity):
     """Expose one retained Growatt configuration value."""
 
     _attr_has_entity_name = True
 
     def __init__(self, coordinator, entry, definition):
-        super().__init__(coordinator)
+        super().__init__(
+            coordinator, entry, device="meter" if definition.external_meter else "charger"
+        )
         self.entity_description = definition.entity_description
         self._configuration_key = definition.configuration_key
         self._has_information = definition.has_information
 
         if definition.external_meter:
             self._attr_unique_id = f"{entry.entry_id}_external_meter_{self.entity_description.key}"
-            self._attr_device_info = {
-                "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
-                "name": "Growatt THOR External Meter",
-                "manufacturer": "Growatt",
-                "model": "THOR External Meter",
-            }
         else:
             self._attr_unique_id = f"{entry.entry_id}_{self.entity_description.key}"
-            self._attr_device_info = {
-                "identifiers": {(DOMAIN, entry.entry_id)},
-                "name": "Growatt THOR EV Charger",
-                "manufacturer": "Growatt",
-                "model": "THOR",
-            }
 
     @property
     def _configuration_value(self):
@@ -664,7 +651,7 @@ class GrowattConfigurationSensor(CoordinatorEntity, SensorEntity):
             "readonly": value.readonly,
         }
         if self._has_information:
-            attributes["information"] = "details"
+            attributes.update(self.information_attributes)
         return attributes
 
 
@@ -982,7 +969,7 @@ class LastSessionEffectiveChargingDurationSensor(BaseSensor):
     @property
     def extra_state_attributes(self):
         return {
-            "information": "details",
+            **self.information_attributes,
             "calculation_method": "ocpp_meter_values",
             "active_power_threshold_w": ACTIVE_POWER_THRESHOLD_W,
         }
@@ -1247,7 +1234,7 @@ class ExternalMeterHealthSensor(BaseExternalMeterSensor):
     def extra_state_attributes(self):
         return {
             **super().extra_state_attributes,
-            "information": "details",
+            **self.information_attributes,
             "connector_id": self.coordinator.external_meter_fault_connector_id,
             "error_code": self.coordinator.external_meter_fault_error_code,
             "info": self.coordinator.external_meter_fault_info,

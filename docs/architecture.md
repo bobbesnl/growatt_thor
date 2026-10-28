@@ -35,6 +35,8 @@ Session flow thresholds live in `sessions/constants.py`; platform configuration 
 
 `ocpp/status.py` owns canonical status groups and normalizes both OCPP wire values and translated entity spellings before transaction and telemetry checks. `coerce.py` contains shared enum unwrapping.
 
+`entity.py` owns shared entity naming and charger/meter device metadata. Platform entities retain their existing unique-ID expressions and defer HA attachment to the entity lifecycle; write guards read the coordinator's shared control-policy method.
+
 ## State and typing
 
 `ChargingTargetRuntime` owns one entry's target storage, lock, busy state and

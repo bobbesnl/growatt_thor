@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
 import asyncio
 import logging
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ocpp.v16.enums import ConfigurationStatus
 
 from .charging.controls import (
@@ -15,7 +21,6 @@ from .charging.controls import (
     ChargingControl,
     available_working_mode_options,
     control_is_applicable,
-    control_write_block_reason,
     encode_control_value,
     encode_working_mode,
     selected_working_mode,
@@ -28,6 +33,7 @@ from .configuration.values import (
 )
 from .configuration.writes import ConfigurationWriteStatus
 from .const import DOMAIN
+from .entity import ThorEntity
 from .runtime.action_errors import (
     async_require_command_completion,
     raise_action_validation,
@@ -44,7 +50,9 @@ from .runtime.write_queue import (
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Set up Growatt THOR select entities."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities(
@@ -58,7 +66,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     )
 
 
-class AuthorizationModeSelect(GrowattConfigurationControlMixin, CoordinatorEntity, SelectEntity):
+class AuthorizationModeSelect(GrowattConfigurationControlMixin, ThorEntity, SelectEntity):
     """Explicit, idle-only authorization changes; never issue a reboot or start."""
 
     _control = ChargingControl.AUTHORIZATION_MODE
@@ -69,10 +77,8 @@ class AuthorizationModeSelect(GrowattConfigurationControlMixin, CoordinatorEntit
     _attr_options = list(CONFIGURATION_ENTITY_OPTIONS["G_ChargerMode"])
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
-        self.hass = coordinator.hass
+        super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_authorization_mode_control"
-        self._attr_device_info = {"identifiers": {(DOMAIN, entry.entry_id)}}
 
     @property
     def current_option(self):
@@ -89,7 +95,7 @@ class AuthorizationModeSelect(GrowattConfigurationControlMixin, CoordinatorEntit
         await self._async_write_configuration(encode_control_value(self._control, option))
 
 
-class WorkingModeSelect(CoordinatorEntity, SelectEntity):
+class WorkingModeSelect(ThorEntity, SelectEntity):
     """Select a charging strategy through the captured indirect writes."""
 
     _attr_has_entity_name = True
@@ -98,19 +104,12 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
     _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
-        self.hass = coordinator.hass
+        super().__init__(coordinator, entry)
         self._pending_option: str | None = None
         self._intent_sequence = 0
         self._pending_intent: int | None = None
         self._readback_task: asyncio.Task | None = None
         self._attr_unique_id = f"{entry.entry_id}_working_mode_control"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
 
     @property
     def current_option(self):
@@ -133,17 +132,11 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def _write_block_reason(self) -> str | None:
-        return control_write_block_reason(
-            ChargingControl.WORKING_MODE,
-            self.coordinator.configuration_values,
-            connected=self.coordinator.connected,
-            transaction_active=self.coordinator.transaction_is_active,
-            charger_faulted=self.coordinator.charger_is_faulted,
-        )
+        return self.coordinator.write_block_reason(ChargingControl.WORKING_MODE)
 
     @property
     def extra_state_attributes(self):
-        return {"information": "details"}
+        return self.information_attributes
 
     async def async_select_option(self, option: str) -> None:
         if option == self.current_option:
@@ -344,7 +337,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
 
 class ExternalSamplingMethodSelect(
     GrowattConfigurationControlMixin,
-    CoordinatorEntity,
+    ThorEntity,
     SelectEntity,
 ):
     """Select the captured external current sampling method."""
@@ -357,15 +350,8 @@ class ExternalSamplingMethodSelect(
     _attr_options = list(CONFIGURATION_ENTITY_OPTIONS["G_ExternalSamplingCurWring"])
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
-        self.hass = coordinator.hass
+        super().__init__(coordinator, entry, device="meter")
         self._attr_unique_id = f"{entry.entry_id}_external_sampling_method_control"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
-            "name": "Growatt THOR External Meter",
-            "manufacturer": "Growatt",
-            "model": "THOR External Meter",
-        }
 
     @property
     def current_option(self):
@@ -384,7 +370,7 @@ class ExternalSamplingMethodSelect(
 
 class PowerMeterTypeSelect(
     GrowattConfigurationControlMixin,
-    CoordinatorEntity,
+    ThorEntity,
     SelectEntity,
 ):
     """Select the Modbus meter model reported through OCPP."""
@@ -397,15 +383,8 @@ class PowerMeterTypeSelect(
     _attr_options = list(CONFIGURATION_ENTITY_OPTIONS["G_PowerMeterType"])
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
-        self.hass = coordinator.hass
+        super().__init__(coordinator, entry, device="meter")
         self._attr_unique_id = f"{entry.entry_id}_power_meter_type_control"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
-            "name": "Growatt THOR External Meter",
-            "manufacturer": "Growatt",
-            "model": "THOR External Meter",
-        }
 
     @property
     def current_option(self):
@@ -422,7 +401,7 @@ class PowerMeterTypeSelect(
         await self._async_write_configuration(encode_control_value(self._control, option))
 
 
-class PvBoostDraftSelect(CoordinatorEntity, SelectEntity):
+class PvBoostDraftSelect(ThorEntity, SelectEntity):
     """Edit the local PV Boost mode without immediately writing the charger."""
 
     _attr_has_entity_name = True
@@ -432,15 +411,8 @@ class PvBoostDraftSelect(CoordinatorEntity, SelectEntity):
     _attr_options = [mode.value for mode in PvBoostMode]
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
-        self.hass = coordinator.hass
+        super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_pv_boost_mode_draft"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
 
     @property
     def current_option(self):
@@ -449,13 +421,7 @@ class PvBoostDraftSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def _write_block_reason(self) -> str | None:
-        return control_write_block_reason(
-            ChargingControl.SOLAR_BOOST,
-            self.coordinator.configuration_values,
-            connected=self.coordinator.connected,
-            transaction_active=self.coordinator.transaction_is_active,
-            charger_faulted=self.coordinator.charger_is_faulted,
-        )
+        return self.coordinator.write_block_reason(ChargingControl.SOLAR_BOOST)
 
     @property
     def available(self):
@@ -473,7 +439,7 @@ class PvBoostDraftSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def extra_state_attributes(self):
-        return {"information": "details"}
+        return self.information_attributes
 
     async def async_select_option(self, option: str) -> None:
         if (block_reason := self._write_block_reason) is not None:

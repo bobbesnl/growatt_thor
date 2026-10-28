@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
 import logging
 
 from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberMode
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ocpp.v16.enums import ConfigurationStatus
 
 from .charging.controls import (
     ChargingControl,
     charger_write_block_reason,
     control_is_applicable,
-    control_write_block_reason,
     encode_control_value,
 )
 from .charging.limits import (
@@ -35,6 +40,7 @@ from .configuration.values import (
 from .configuration.writes import ConfigurationWriteStatus
 from .const import DOMAIN
 from .energy.currency import electricity_price_unit
+from .entity import ThorEntity
 from .ocpp.diagnostics import boot_notification_field
 from .runtime.action_errors import (
     async_require_command_completion,
@@ -134,7 +140,9 @@ def _validated_reported_entity_number(
     return int(numeric) if integer else float(numeric)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
     async_add_entities(
@@ -152,15 +160,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
 # Base class
 
 
-class BaseConfigNumber(CoordinatorEntity, NumberEntity):
+class BaseConfigNumber(ThorEntity, NumberEntity):
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
     _attr_native_mode = NumberMode.BOX
 
-    def __init__(self, coordinator, entry, key):
-        super().__init__(coordinator)
+    def __init__(self, coordinator, entry, key, *, device="charger"):
+        super().__init__(coordinator, entry, device=device)
         self._attr_unique_id = f"{entry.entry_id}_{key}"
-        self.hass = coordinator.hass
 
     @property
     def _charger_write_block_reason(self) -> str | None:
@@ -190,12 +197,6 @@ class MaxCurrentNumber(BaseConfigNumber):
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "max_current")
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
 
     @property
     def native_value(self):
@@ -392,13 +393,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
     _config_key = "G_ExternalLimitPower"
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "load_balancing_limit")
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
-            "name": "Growatt THOR External Meter",
-            "manufacturer": "Growatt",
-            "model": "THOR External Meter",
-        }
+        super().__init__(coordinator, entry, "load_balancing_limit", device="meter")
 
     @property
     def native_value(self):
@@ -418,18 +413,12 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
 
     @property
     def _write_block_reason(self) -> str | None:
-        return control_write_block_reason(
-            ChargingControl.LOAD_BALANCING_LIMIT,
-            self.coordinator.configuration_values,
-            connected=self.coordinator.connected,
-            transaction_active=self.coordinator.transaction_is_active,
-            charger_faulted=self.coordinator.charger_is_faulted,
-        )
+        return self.coordinator.write_block_reason(ChargingControl.LOAD_BALANCING_LIMIT)
 
     @property
     def extra_state_attributes(self):
         return {
-            "information": "details",
+            **self.information_attributes,
             "ocpp_key": self._config_key,
         }
 
@@ -603,12 +592,6 @@ class ElectricityPriceNumber(BaseConfigNumber):
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "electricity_price")
         self._attr_native_unit_of_measurement = electricity_price_unit(coordinator.hass)
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
 
     @property
     def native_value(self):
@@ -778,7 +761,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
 
 class SolarGridImportLimitNumber(
     GrowattConfigurationControlMixin,
-    CoordinatorEntity,
+    ThorEntity,
     NumberEntity,
 ):
     """Configure the grid power allowance used by PV Linkage."""
@@ -797,15 +780,8 @@ class SolarGridImportLimitNumber(
     _attr_icon = "mdi:transmission-tower-import"
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
-        self.hass = coordinator.hass
+        super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_solar_grid_import_limit_control"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
 
     @property
     def native_value(self):
@@ -826,7 +802,7 @@ class SolarGridImportLimitNumber(
 
 class PowerMeterAddressNumber(
     GrowattConfigurationControlMixin,
-    CoordinatorEntity,
+    ThorEntity,
     NumberEntity,
 ):
     """Configure the Modbus address of the external power meter."""
@@ -842,15 +818,8 @@ class PowerMeterAddressNumber(
     _attr_icon = "mdi:numeric"
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
-        self.hass = coordinator.hass
+        super().__init__(coordinator, entry, device="meter")
         self._attr_unique_id = f"{entry.entry_id}_power_meter_address_control"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
-            "name": "Growatt THOR External Meter",
-            "manufacturer": "Growatt",
-            "model": "THOR External Meter",
-        }
 
     @property
     def native_value(self):
@@ -883,12 +852,6 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "pv_smart_boost_target_energy")
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
 
     @property
     def native_value(self):
@@ -896,13 +859,7 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
 
     @property
     def _write_block_reason(self) -> str | None:
-        return control_write_block_reason(
-            ChargingControl.SOLAR_BOOST,
-            self.coordinator.configuration_values,
-            connected=self.coordinator.connected,
-            transaction_active=self.coordinator.transaction_is_active,
-            charger_faulted=self.coordinator.charger_is_faulted,
-        )
+        return self.coordinator.write_block_reason(ChargingControl.SOLAR_BOOST)
 
     @property
     def available(self):
@@ -918,7 +875,7 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
 
     @property
     def extra_state_attributes(self):
-        return {"information": "details"}
+        return self.information_attributes
 
     async def async_set_native_value(self, value: float) -> None:
         value = _validated_entity_number(self, value)

@@ -2,22 +2,28 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
 import logging
 from datetime import time
 
 from homeassistant.components.time import TimeEntity
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ocpp.v16.enums import ConfigurationStatus
 
 from .charging.controls import (
     ChargingControl,
     control_is_applicable,
-    control_write_block_reason,
 )
 from .charging.pv_linkage import PvBoostMode
 from .configuration.writes import ConfigurationWriteStatus
 from .const import DOMAIN
+from .entity import ThorEntity
 from .runtime.action_errors import raise_charger_disconnected, raise_write_blocked
 from .runtime.write_queue import (
     CONFIGURATION_WRITE_POLICY,
@@ -29,7 +35,9 @@ from .runtime.write_queue import (
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Set up Growatt THOR time entities."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
@@ -44,7 +52,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     )
 
 
-class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
+class BaseAutoChargeTime(ThorEntity, TimeEntity):
     """Base class for auto charge time entities (auto-apply via queue)."""
 
     _attr_has_entity_name = True
@@ -54,15 +62,8 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
     _CONFIG_KEY = "G_AutoChargeTime"
 
     def __init__(self, coordinator, entry, key):
-        super().__init__(coordinator)
+        super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_{key}"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
-        self.hass = coordinator.hass
 
     @property
     def available(self):
@@ -80,13 +81,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
 
     @property
     def _write_block_reason(self) -> str | None:
-        return control_write_block_reason(
-            ChargingControl.AUTO_CHARGE_SCHEDULE,
-            self.coordinator.configuration_values,
-            connected=self.coordinator.connected,
-            transaction_active=self.coordinator.transaction_is_active,
-            charger_faulted=self.coordinator.charger_is_faulted,
-        )
+        return self.coordinator.write_block_reason(ChargingControl.AUTO_CHARGE_SCHEDULE)
 
     def _restore_reported_schedule(self, generation: int) -> None:
         """Discard an unsent optimistic schedule owned by this generation."""
@@ -289,7 +284,7 @@ class AutoChargeStopTime(BaseAutoChargeTime):
         }
 
 
-class BasePvBoostTime(CoordinatorEntity, TimeEntity):
+class BasePvBoostTime(ThorEntity, TimeEntity):
     """Edit one local PV Boost draft time."""
 
     _attr_has_entity_name = True
@@ -299,14 +294,8 @@ class BasePvBoostTime(CoordinatorEntity, TimeEntity):
     _coordinator_field: str
 
     def __init__(self, coordinator, entry, key):
-        super().__init__(coordinator)
+        super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_{key}_draft"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
 
     @property
     def native_value(self):
@@ -314,13 +303,7 @@ class BasePvBoostTime(CoordinatorEntity, TimeEntity):
 
     @property
     def _write_block_reason(self) -> str | None:
-        return control_write_block_reason(
-            ChargingControl.SOLAR_BOOST,
-            self.coordinator.configuration_values,
-            connected=self.coordinator.connected,
-            transaction_active=self.coordinator.transaction_is_active,
-            charger_faulted=self.coordinator.charger_is_faulted,
-        )
+        return self.coordinator.write_block_reason(ChargingControl.SOLAR_BOOST)
 
     @property
     def available(self):
@@ -339,7 +322,7 @@ class BasePvBoostTime(CoordinatorEntity, TimeEntity):
 
     @property
     def extra_state_attributes(self):
-        return {"information": "details"}
+        return self.information_attributes
 
     async def async_set_value(self, value: time) -> None:
         if (block_reason := self._write_block_reason) is not None:

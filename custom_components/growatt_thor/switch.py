@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
 import logging
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ocpp.v16.enums import ConfigurationStatus
 
 from .charging.controls import (
     ChargingControl,
     charger_write_block_reason,
     control_is_applicable,
-    control_write_block_reason,
     encode_control_value,
 )
 from .configuration.controls import GrowattConfigurationControlMixin
@@ -24,6 +29,7 @@ from .configuration.writes import (
     pending_configuration_value,
 )
 from .const import DOMAIN
+from .entity import ThorEntity
 from .runtime.action_errors import (
     async_require_command_completion,
     raise_charger_disconnected,
@@ -39,7 +45,9 @@ from .runtime.write_queue import (
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Set up Growatt THOR switches."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
@@ -52,7 +60,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     )
 
 
-class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
+class LoadBalancingEnableSwitch(ThorEntity, SwitchEntity):
     """Switch to enable/disable load balancing."""
 
     _attr_has_entity_name = True
@@ -61,15 +69,8 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
     _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
+        super().__init__(coordinator, entry, device="meter")
         self._attr_unique_id = f"{entry.entry_id}_load_balancing_enable"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
-            "name": "Growatt THOR External Meter",
-            "manufacturer": "Growatt",
-            "model": "THOR External Meter",
-        }
-        self.hass = coordinator.hass
 
     @property
     def is_on(self):
@@ -95,18 +96,12 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
 
     @property
     def _write_block_reason(self) -> str | None:
-        return control_write_block_reason(
-            ChargingControl.LOAD_BALANCING,
-            self.coordinator.configuration_values,
-            connected=self.coordinator.connected,
-            transaction_active=self.coordinator.transaction_is_active,
-            charger_faulted=self.coordinator.charger_is_faulted,
-        )
+        return self.coordinator.write_block_reason(ChargingControl.LOAD_BALANCING)
 
     @property
     def extra_state_attributes(self):
         return {
-            "information": "details",
+            **self.information_attributes,
             "ocpp_key": KEY_EXTERNAL_LIMIT_POWER_ENABLE,
         }
 
@@ -227,7 +222,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
         await async_require_command_completion(handle)
 
 
-class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
+class LcdDisplaySwitch(ThorEntity, SwitchEntity):
     """Switch to enable/disable LCD display (G_LCDCloseEnable)."""
 
     _attr_has_entity_name = True
@@ -236,17 +231,10 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
     _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
+        super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_lcd_display"
         # Zelfde identifiers als de hoofdcharger zodat deze entity
         # verschijnt bij max stroom, charge aan/uit etc.
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
-        self.hass = coordinator.hass
 
     @property
     def is_on(self):
@@ -412,7 +400,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
 
 class BaseModeAwareSwitch(
     GrowattConfigurationControlMixin,
-    CoordinatorEntity,
+    ThorEntity,
     SwitchEntity,
 ):
     """Base class for verified boolean Growatt configuration controls."""
@@ -421,15 +409,8 @@ class BaseModeAwareSwitch(
     _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator, entry, key):
-        super().__init__(coordinator)
-        self.hass = coordinator.hass
+        super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_{key}_control"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
 
     @property
     def is_on(self):

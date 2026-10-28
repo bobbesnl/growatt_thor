@@ -654,7 +654,7 @@ class EntityTranslationTest(unittest.TestCase):
                 )
 
         self.assertIn(
-            'attributes["information"] = "details"',
+            "attributes.update(self.information_attributes)",
             SENSOR_PATH.read_text(encoding="utf-8"),
         )
 

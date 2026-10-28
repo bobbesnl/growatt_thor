@@ -10,7 +10,6 @@ from ..charging.controls import (
     CONTROL_DEFINITIONS,
     ChargingControl,
     control_is_applicable,
-    control_write_block_reason,
 )
 from ..runtime.action_errors import (
     async_require_command_completion,
@@ -81,13 +80,7 @@ class GrowattConfigurationControlMixin:
 
     @property
     def _write_block_reason(self) -> str | None:
-        return control_write_block_reason(
-            self._control,
-            self.coordinator.configuration_values,
-            connected=self.coordinator.connected,
-            transaction_active=self.coordinator.transaction_is_active,
-            charger_faulted=self.coordinator.charger_is_faulted,
-        )
+        return self.coordinator.write_block_reason(self._control)
 
     @property
     def extra_state_attributes(self):
