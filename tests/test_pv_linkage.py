@@ -2,28 +2,15 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
 import unittest
 from datetime import UTC, datetime, time
-from pathlib import Path
-from types import ModuleType
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "charging/pv_linkage.py"
-)
+from support import PACKAGE_PATH, load_package_module, register_package
+
+MODULE_PATH = PACKAGE_PATH / "charging/pv_linkage.py"
 PACKAGE_NAME = "growatt_thor_pv_linkage_test_target"
-package = ModuleType(PACKAGE_NAME)
-package.__path__ = [str(MODULE_PATH.parents[1])]
-sys.modules[PACKAGE_NAME] = package
-SPEC = importlib.util.spec_from_file_location(
-    f"{PACKAGE_NAME}.charging.pv_linkage",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-pv = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = pv
-SPEC.loader.exec_module(pv)
+package = register_package(PACKAGE_NAME)
+pv = load_package_module(f"{PACKAGE_NAME}.charging.pv_linkage", MODULE_PATH)
 
 
 class PvLinkageControlTest(unittest.TestCase):

@@ -1,16 +1,15 @@
 """Failure recovery at the persistent session-to-history boundary."""
 
-import importlib.util
 import unittest
 from copy import deepcopy
 from pathlib import Path
 
-spec = importlib.util.spec_from_file_location(
+from support import load_package_module
+
+module = load_package_module(
     "thor_session_outbox_test",
     Path(__file__).parents[1] / "custom_components/growatt_thor/sessions/outbox.py",
 )
-module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
 
 
 class SessionOutboxTest(unittest.IsolatedAsyncioTestCase):

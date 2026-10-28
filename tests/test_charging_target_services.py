@@ -6,9 +6,10 @@ import importlib.util
 import sys
 import unittest
 from datetime import UTC, datetime
-from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
+
+from support import PACKAGE_PATH
 
 HAS_DEPS = all(importlib.util.find_spec(name) for name in ["ocpp", "voluptuous"])
 
@@ -68,7 +69,7 @@ class Loop:
 class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         package = ModuleType("thor_target_service_test")
-        package.__path__ = [str(Path(__file__).parents[1] / "custom_components/growatt_thor")]
+        package.__path__ = [str(PACKAGE_PATH)]
         sys.modules[package.__name__] = package
         stubs = {}
         for name in [

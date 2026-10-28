@@ -1,15 +1,13 @@
 """Shared telemetry remains usable without cards, accounting or HA imports."""
 
 import importlib
-import sys
 import unittest
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 
-package = ModuleType("thor_shared_observation_test")
-package.__path__ = [str(Path(__file__).parents[1] / "custom_components/growatt_thor")]
-sys.modules[package.__name__] = package
+from support import register_package
+
+package = register_package("thor_shared_observation_test")
 site = importlib.import_module(package.__name__ + ".energy.site_observations")
 meter = importlib.import_module(package.__name__ + ".energy.meter_observations")
 AT = datetime(2026, 9, 30, 12, tzinfo=UTC)

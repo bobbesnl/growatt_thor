@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import importlib.util
 import sys
 import types
 import unittest
 from datetime import time
 from enum import Enum
-from pathlib import Path
+
+from support import load_package_module, register_package
 
 
 class ConfigurationStatus(str, Enum):
@@ -35,25 +35,12 @@ sys.modules.setdefault("ocpp.v16", ocpp_v16)
 sys.modules.setdefault("ocpp.v16.enums", ocpp_enums)
 
 
-PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 PACKAGE_NAME = "growatt_thor_pv_linkage_apply_test_package"
-package = types.ModuleType(PACKAGE_NAME)
-package.__path__ = [str(PACKAGE_PATH)]
-sys.modules[PACKAGE_NAME] = package
+package = register_package(PACKAGE_NAME)
 
 
 def _load_module(name):
-    """Load production modules without importing the HA integration package."""
-    qualified_name = f"{PACKAGE_NAME}.{name}"
-    spec = importlib.util.spec_from_file_location(
-        qualified_name,
-        PACKAGE_PATH / (name.replace(".", "/") + ".py"),
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[qualified_name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_package_module(name, package_name=PACKAGE_NAME)
 
 
 configuration_writes = _load_module("configuration.writes")

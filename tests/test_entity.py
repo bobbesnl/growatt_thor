@@ -3,9 +3,10 @@
 import importlib
 import sys
 import unittest
-from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
+
+from support import PACKAGE_PATH
 
 
 class CoordinatorEntity:
@@ -16,7 +17,7 @@ class CoordinatorEntity:
 class EntityContractTest(unittest.TestCase):
     def setUp(self):
         package = ModuleType("thor_entity_contract_test")
-        package.__path__ = [str(Path(__file__).parents[1] / "custom_components/growatt_thor")]
+        package.__path__ = [str(PACKAGE_PATH)]
         update = ModuleType("homeassistant.helpers.update_coordinator")
         update.CoordinatorEntity = CoordinatorEntity
         with patch.dict(sys.modules, {package.__name__: package, update.__name__: update}):

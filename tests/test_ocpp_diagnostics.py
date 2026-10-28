@@ -2,24 +2,14 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
 import unittest
 from datetime import UTC, datetime
 from enum import Enum
-from pathlib import Path
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "ocpp/diagnostics.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_ocpp_diagnostics_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-ocpp_diagnostics = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = ocpp_diagnostics
-SPEC.loader.exec_module(ocpp_diagnostics)
+from support import PACKAGE_PATH, load_package_module
+
+MODULE_PATH = PACKAGE_PATH / "ocpp/diagnostics.py"
+ocpp_diagnostics = load_package_module("growatt_thor_ocpp_diagnostics_test_target", MODULE_PATH)
 
 
 class Status(Enum):

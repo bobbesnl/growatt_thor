@@ -1,22 +1,14 @@
 """Dashboard contract tests without a Home Assistant runtime."""
 
-import importlib.util
-import sys
 import types
 import unittest
-from pathlib import Path
 
-ROOT = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
+from support import PACKAGE_PATH, load_package_module, register_package
+
+ROOT = PACKAGE_PATH
 NAME = "thor_card_test_target"
-package = types.ModuleType(NAME)
-package.__path__ = [str(ROOT)]
-sys.modules[NAME] = package
-spec = importlib.util.spec_from_file_location(
-    f"{NAME}.presentation.card_data", ROOT / "presentation/card_data.py"
-)
-module = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = module
-spec.loader.exec_module(module)
+package = register_package(NAME)
+module = load_package_module(f"{NAME}.presentation.card_data", ROOT / "presentation/card_data.py")
 
 
 def packet(samples):

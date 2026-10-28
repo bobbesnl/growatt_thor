@@ -16,29 +16,16 @@ from tempfile import TemporaryDirectory
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+from support import HomeAssistantError as _HomeAssistantError
+from support import default as _default
+from support import load_package_module
+from support import module as _module
+
 HAS_DEPS = all(
     importlib.util.find_spec(name) is not None for name in ("ocpp", "websockets", "voluptuous")
 )
 
-PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 PACKAGE_NAME = "thor_entry_lifecycle_target"
-
-
-def _module(name):
-    """Return a stand-in module, creating it and linking it to its parent."""
-    module = sys.modules.get(name)
-    if module is None:
-        module = ModuleType(name)
-        sys.modules[name] = module
-    parent_name, _, child = name.rpartition(".")
-    if parent_name:
-        setattr(_module(parent_name), child, module)
-    return module
-
-
-def _default(module, name, value):
-    if not hasattr(module, name):
-        setattr(module, name, value)
 
 
 class _Platform:
@@ -48,10 +35,6 @@ class _Platform:
     SELECT = "select"
     TIME = "time"
     BUTTON = "button"
-
-
-class _HomeAssistantError(Exception):
-    pass
 
 
 class _ConfigEntryNotReady(_HomeAssistantError):
@@ -114,15 +97,7 @@ def _install_home_assistant_stand_ins():
 
 def _load_integration():
     _install_home_assistant_stand_ins()
-    spec = importlib.util.spec_from_file_location(
-        PACKAGE_NAME,
-        PACKAGE_PATH / "__init__.py",
-        submodule_search_locations=[str(PACKAGE_PATH)],
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[PACKAGE_NAME] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_package_module("__init__", package_name=PACKAGE_NAME)
 
 
 if HAS_DEPS:

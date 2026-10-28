@@ -2,26 +2,15 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
-import types
 import unittest
 from enum import Enum
-from pathlib import Path
 
-MODULE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "ocpp/status.py"
+from support import PACKAGE_PATH, load_package_module, register_package
+
+MODULE_PATH = PACKAGE_PATH / "ocpp/status.py"
 PACKAGE_NAME = "growatt_thor_ocpp_status_test_target"
-package = types.ModuleType(PACKAGE_NAME)
-package.__path__ = [str(MODULE_PATH.parent.parent)]
-sys.modules[PACKAGE_NAME] = package
-SPEC = importlib.util.spec_from_file_location(
-    f"{PACKAGE_NAME}.ocpp.status",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-ocpp_status = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = ocpp_status
-SPEC.loader.exec_module(ocpp_status)
+package = register_package(PACKAGE_NAME)
+ocpp_status = load_package_module(f"{PACKAGE_NAME}.ocpp.status", MODULE_PATH)
 
 
 class Status(Enum):

@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import ast
-import importlib.util
 import json
 import re
-import sys
 import unittest
-from pathlib import Path
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "configuration/values.py"
-)
+from support import PACKAGE_PATH, load_package_module
+
+MODULE_PATH = PACKAGE_PATH / "configuration/values.py"
 TRANSLATIONS_PATH = MODULE_PATH.parents[1] / "translations"
 TRANSLATION_LANGUAGES = ("en", "de", "nl", "it", "hu", "sl", "fr", "es")
 TRANSLATION_PLACEHOLDER_PATTERN = re.compile(r"\{[^{}]+\}")
@@ -24,14 +21,7 @@ CONTROL_PATHS = tuple(
     MODULE_PATH.parents[1] / f"{platform}.py"
     for platform in ("button", "number", "select", "switch", "time")
 )
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_configuration_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-configuration = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = configuration
-SPEC.loader.exec_module(configuration)
+configuration = load_package_module("growatt_thor_configuration_test_target", MODULE_PATH)
 
 
 class ConfigurationRegistryTest(unittest.TestCase):

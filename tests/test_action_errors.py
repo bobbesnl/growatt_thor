@@ -4,34 +4,14 @@ from __future__ import annotations
 
 import ast
 import asyncio
-import importlib.util
 import sys
 import types
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
-PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
-
-
-class _HomeAssistantError(Exception):
-    """Small stand-in retaining Home Assistant's localization arguments."""
-
-    def __init__(
-        self,
-        *,
-        translation_domain=None,
-        translation_key=None,
-        translation_placeholders=None,
-    ):
-        super().__init__(translation_key)
-        self.translation_domain = translation_domain
-        self.translation_key = translation_key
-        self.translation_placeholders = translation_placeholders
-
-
-class _ServiceValidationError(_HomeAssistantError):
-    """Stand-in used to distinguish user input from communication errors."""
+from support import PACKAGE_PATH, load_package_module
+from support import HomeAssistantError as _HomeAssistantError
+from support import ServiceValidationError as _ServiceValidationError
 
 
 def _load_action_errors():
@@ -50,14 +30,7 @@ def _load_action_errors():
             "homeassistant.exceptions": exceptions,
         },
     ):
-        spec = importlib.util.spec_from_file_location(
-            f"{package_name}.runtime.action_errors",
-            PACKAGE_PATH / "runtime/action_errors.py",
-        )
-        assert spec is not None and spec.loader is not None
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = module
-        spec.loader.exec_module(module)
+        module = load_package_module("runtime.action_errors", package_name=package_name)
     return module
 
 

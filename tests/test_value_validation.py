@@ -2,22 +2,12 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
 import unittest
-from pathlib import Path
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "configuration/validation.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_value_validation_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-validation = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = validation
-SPEC.loader.exec_module(validation)
+from support import PACKAGE_PATH, load_package_module
+
+MODULE_PATH = PACKAGE_PATH / "configuration/validation.py"
+validation = load_package_module("growatt_thor_value_validation_test_target", MODULE_PATH)
 
 
 class NumericValidationTest(unittest.TestCase):

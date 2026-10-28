@@ -2,29 +2,16 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
-import types
 import unittest
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
 from types import SimpleNamespace
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "ocpp/meter_samples.py"
-)
-package = types.ModuleType("thor_meter_time_test")
-package.__path__ = [str(MODULE_PATH.parent.parent)]
-sys.modules[package.__name__] = package
-SPEC = importlib.util.spec_from_file_location(
-    "thor_meter_time_test.ocpp.meter_samples",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-meter_samples = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = meter_samples
-SPEC.loader.exec_module(meter_samples)
+from support import PACKAGE_PATH, load_package_module, register_package
+
+MODULE_PATH = PACKAGE_PATH / "ocpp/meter_samples.py"
+package = register_package("thor_meter_time_test")
+meter_samples = load_package_module("thor_meter_time_test.ocpp.meter_samples", MODULE_PATH)
 
 
 class Context(Enum):

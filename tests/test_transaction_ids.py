@@ -2,22 +2,12 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
 import unittest
-from pathlib import Path
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "sessions/transaction_ids.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_transaction_ids_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-transaction_ids = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = transaction_ids
-SPEC.loader.exec_module(transaction_ids)
+from support import PACKAGE_PATH, load_package_module
+
+MODULE_PATH = PACKAGE_PATH / "sessions/transaction_ids.py"
+transaction_ids = load_package_module("growatt_thor_transaction_ids_test_target", MODULE_PATH)
 
 
 class TransactionIdAllocatorTest(unittest.TestCase):

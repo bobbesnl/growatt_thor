@@ -2,17 +2,16 @@
 
 import csv
 import importlib
-import sys
 import tempfile
 import types
 import unittest
 from datetime import datetime
 from pathlib import Path
 
-ROOT = Path(__file__).parents[1] / "custom_components/growatt_thor"
-package = types.ModuleType("thor_time_contract_test")
-package.__path__ = [str(ROOT)]
-sys.modules[package.__name__] = package
+from support import PACKAGE_PATH, register_package
+
+ROOT = PACKAGE_PATH
+package = register_package("thor_time_contract_test")
 time = importlib.import_module(package.__name__ + ".timestamps")
 history = importlib.import_module(package.__name__ + ".sessions.csv")
 

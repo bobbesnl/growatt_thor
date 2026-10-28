@@ -3,22 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import importlib.util
-import sys
 import unittest
-from pathlib import Path
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "runtime/polling.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_polling_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-polling = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = polling
-SPEC.loader.exec_module(polling)
+from support import PACKAGE_PATH, load_package_module
+
+MODULE_PATH = PACKAGE_PATH / "runtime/polling.py"
+polling = load_package_module("growatt_thor_polling_test_target", MODULE_PATH)
 
 
 class PollIntervalScheduleTest(unittest.IsolatedAsyncioTestCase):

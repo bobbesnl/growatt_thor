@@ -2,23 +2,16 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
-import types
 import unittest
-from pathlib import Path
 
-COMPONENT = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
+from support import PACKAGE_PATH, load_package_module, register_package
+
+COMPONENT = PACKAGE_PATH
 PACKAGE_NAME = "thor_session_events_test"
-PACKAGE = types.ModuleType(PACKAGE_NAME)
-PACKAGE.__path__ = [str(COMPONENT)]
-sys.modules[PACKAGE_NAME] = PACKAGE
-SPEC = importlib.util.spec_from_file_location(
+PACKAGE = register_package(PACKAGE_NAME)
+session_events = load_package_module(
     f"{PACKAGE_NAME}.sessions.events", COMPONENT / "sessions/events.py"
 )
-session_events = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = session_events
-SPEC.loader.exec_module(session_events)
 
 
 class SessionEventTrackerTest(unittest.TestCase):

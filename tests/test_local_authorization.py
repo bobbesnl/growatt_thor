@@ -1,22 +1,17 @@
 """Standalone tests for the local, exact-match OCPP policy."""
 
 import asyncio
-import importlib.util
 import json
 import sys
 import unittest
 from pathlib import Path
-from types import ModuleType
 from unittest.mock import patch
 
+from support import load_package_module, register_package
+
 MODULE = Path(__file__).parents[1] / "custom_components/growatt_thor/charging/authorization.py"
-package = ModuleType("thor_authorization_unit")
-package.__path__ = [str(MODULE.parent)]
-sys.modules[package.__name__] = package
-spec = importlib.util.spec_from_file_location("thor_authorization_unit.authorization", MODULE)
-auth = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = auth
-spec.loader.exec_module(auth)
+package = register_package("thor_authorization_unit")
+auth = load_package_module("thor_authorization_unit.authorization", MODULE)
 
 
 def restricted(*tags):

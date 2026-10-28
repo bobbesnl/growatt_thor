@@ -69,7 +69,7 @@ python -m unittest discover -s tests -q
 
 Despite its historical name, `requirements-auth.txt` supplies the OCPP and schema
 dependencies used by several regression suites. Many tests load focused modules
-with small HA fakes; they exercise contracts without launching Home Assistant. Shared action-error stand-ins live in `tests/support`; extend these rather than introducing another exception stub.
+with small HA fakes; they exercise contracts without launching Home Assistant. Shared fixtures live in `tests/support`: `install_ha_stubs`, `load_package_module`, `FakeHass`, `MemoryStore` and `build_coordinator`. The loader skips protocol-dependent cases when optional test dependencies are unavailable and avoids running integration setup for focused modules. Keep explicit test namespaces only where module-global patches require isolation; extend shared fixtures instead of copying bootstrap or storage code.
 Install the dependencies so those cases are not silently skipped. Ruff checks Python style and import hygiene with a 100-character line length and Python 3.12 syntax; `ruff format custom_components tests` applies the formatter. Enum and type-alias modernizations remain excluded because their runtime representation can change. A targeted
 backend run can use `python -m unittest discover -s tests -p 'test_session_outbox.py' -v`.
 

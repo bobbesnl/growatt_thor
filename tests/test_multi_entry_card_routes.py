@@ -8,11 +8,11 @@ from tempfile import TemporaryDirectory
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-ROOT = Path(__file__).parents[1] / "custom_components/growatt_thor"
+from support import PACKAGE_PATH, register_package
+
+ROOT = PACKAGE_PATH
 NAME = "thor_card_routes_test"
-package = ModuleType(NAME)
-package.__path__ = [str(ROOT)]
-sys.modules[NAME] = package
+package = register_package(NAME)
 
 
 def load_routes():

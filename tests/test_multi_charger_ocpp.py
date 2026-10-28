@@ -10,8 +10,9 @@ import importlib.util
 import json
 import sys
 import unittest
-from pathlib import Path
 from types import ModuleType, SimpleNamespace
+
+from support import PACKAGE_PATH
 
 HAS_OCPP = (
     importlib.util.find_spec("ocpp") is not None
@@ -20,7 +21,7 @@ HAS_OCPP = (
 if HAS_OCPP:
     # Load the actual integration modules without executing HA's package setup.
     package = ModuleType("thor_multi_charger_target")
-    package.__path__ = [str(Path(__file__).parents[1] / "custom_components/growatt_thor")]
+    package.__path__ = [str(PACKAGE_PATH)]
     sys.modules[package.__name__] = package
     server = importlib.import_module(package.__name__ + ".ocpp.server")
     auth = importlib.import_module(package.__name__ + ".charging.authorization")

@@ -2,21 +2,15 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
-import types
 import unittest
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
-PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "sessions/series.py"
+from support import PACKAGE_PATH, load_package_module, register_package
+
+PATH = PACKAGE_PATH / "sessions/series.py"
 PACKAGE_NAME = "thor_session_series_test"
-package = types.ModuleType(PACKAGE_NAME)
-package.__path__ = [str(PATH.parent.parent)]
-sys.modules[PACKAGE_NAME] = package
-SPEC = importlib.util.spec_from_file_location(f"{PACKAGE_NAME}.sessions.series", PATH)
-module = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(module)
+package = register_package(PACKAGE_NAME)
+module = load_package_module(f"{PACKAGE_NAME}.sessions.series", PATH)
 
 
 def curve(values):

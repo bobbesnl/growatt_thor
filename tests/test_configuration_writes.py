@@ -2,22 +2,12 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
 import unittest
-from pathlib import Path
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "configuration/writes.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_configuration_writes_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-writes = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = writes
-SPEC.loader.exec_module(writes)
+from support import PACKAGE_PATH, load_package_module
+
+MODULE_PATH = PACKAGE_PATH / "configuration/writes.py"
+writes = load_package_module("growatt_thor_configuration_writes_test_target", MODULE_PATH)
 
 
 class ConfigurationWriteTrackingTest(unittest.TestCase):

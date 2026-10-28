@@ -1,25 +1,14 @@
 """Pure validation tests for persisted one-shot target schedules."""
 
-import importlib.util
-import sys
-import types
 import unittest
 from datetime import UTC, datetime
-from pathlib import Path
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "targets/schedule.py"
-)
+from support import PACKAGE_PATH, load_package_module, register_package
+
+MODULE_PATH = PACKAGE_PATH / "targets/schedule.py"
 PACKAGE_NAME = "charging_target_schedule_test"
-package = types.ModuleType(PACKAGE_NAME)
-package.__path__ = [str(MODULE_PATH.parents[1])]
-sys.modules[PACKAGE_NAME] = package
-SPEC = importlib.util.spec_from_file_location(
-    "charging_target_schedule_test.targets.schedule", MODULE_PATH
-)
-assert SPEC is not None and SPEC.loader is not None
-schedule = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(schedule)
+package = register_package(PACKAGE_NAME)
+schedule = load_package_module("charging_target_schedule_test.targets.schedule", MODULE_PATH)
 
 
 class ChargingTargetScheduleTest(unittest.TestCase):

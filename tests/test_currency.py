@@ -2,21 +2,13 @@
 
 from __future__ import annotations
 
-import importlib.util
 import unittest
-from pathlib import Path
 from types import SimpleNamespace
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "energy/currency.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_currency_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-currency = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(currency)
+from support import PACKAGE_PATH, load_package_module
+
+MODULE_PATH = PACKAGE_PATH / "energy/currency.py"
+currency = load_package_module("growatt_thor_currency_test_target", MODULE_PATH)
 
 
 class CurrencyTest(unittest.TestCase):

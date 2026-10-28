@@ -8,9 +8,9 @@ import importlib.util
 import sys
 import types
 import unittest
-from pathlib import Path
 
-PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
+from support import PACKAGE_PATH, register_package
+
 MODULE_PATH = PACKAGE_PATH / "coordinator.py"
 
 
@@ -36,8 +36,7 @@ sys.modules.setdefault(
 )
 sys.modules.setdefault("homeassistant.helpers.storage", storage)
 
-package = types.ModuleType("custom_components.growatt_thor")
-package.__path__ = [str(PACKAGE_PATH)]
+package = register_package("custom_components.growatt_thor")
 sys.modules.setdefault("custom_components", types.ModuleType("custom_components"))
 sys.modules.setdefault("custom_components.growatt_thor", package)
 

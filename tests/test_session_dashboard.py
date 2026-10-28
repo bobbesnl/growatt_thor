@@ -1,26 +1,19 @@
 """Tests for the bounded session-card CSV projection."""
 
 import csv
-import importlib.util
-import sys
 import tempfile
-import types
 import unittest
 from pathlib import Path
 
-COMPONENT = Path(__file__).parents[1] / "custom_components/growatt_thor"
+from support import PACKAGE_PATH, load_package_module, register_package
+
+COMPONENT = PACKAGE_PATH
 PACKAGE_NAME = "thor_session_dashboard_test"
-PACKAGE = types.ModuleType(PACKAGE_NAME)
-PACKAGE.__path__ = [str(COMPONENT)]
-sys.modules[PACKAGE_NAME] = PACKAGE
+PACKAGE = register_package(PACKAGE_NAME)
 
 
 def load(name, filename):
-    spec = importlib.util.spec_from_file_location(name, COMPONENT / filename)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_package_module(name, filename)
 
 
 load(f"{PACKAGE_NAME}.sessions.identity", "sessions/identity.py")

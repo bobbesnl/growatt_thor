@@ -4,17 +4,14 @@ from __future__ import annotations
 
 import importlib
 import math
-import sys
-import types
 import unittest
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from pathlib import Path
+
+from support import register_package
 
 PACKAGE_NAME = "thor_parser_contract_test"
-package = types.ModuleType(PACKAGE_NAME)
-package.__path__ = [str(Path(__file__).parents[1] / "custom_components/growatt_thor")]
-sys.modules[PACKAGE_NAME] = package
+package = register_package(PACKAGE_NAME)
 
 
 def load(name):

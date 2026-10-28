@@ -2,15 +2,13 @@
 
 import asyncio
 import importlib
-import sys
 import types
 import unittest
-from pathlib import Path
 from unittest.mock import AsyncMock
 
-package = types.ModuleType("thor_queue_owner_test")
-package.__path__ = [str(Path(__file__).parents[1] / "custom_components/growatt_thor")]
-sys.modules[package.__name__] = package
+from support import register_package
+
+package = register_package("thor_queue_owner_test")
 queue_module = importlib.import_module(package.__name__ + ".runtime.charger_write_queue")
 results = importlib.import_module(package.__name__ + ".runtime.write_results")
 

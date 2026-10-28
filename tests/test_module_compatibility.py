@@ -1,19 +1,14 @@
 """Legacy module paths retain the same domain objects after file moves."""
 
 import importlib
-import sys
 import unittest
-from pathlib import Path
-from types import ModuleType
 
-from support import install_ha_stubs
+from support import install_ha_stubs, register_package
 
 install_ha_stubs()
 
 PACKAGE = "thor_module_compatibility_test"
-package = ModuleType(PACKAGE)
-package.__path__ = [str(Path(__file__).parents[1] / "custom_components/growatt_thor")]
-sys.modules[PACKAGE] = package
+package = register_package(PACKAGE)
 
 
 class ModuleCompatibilityTest(unittest.TestCase):

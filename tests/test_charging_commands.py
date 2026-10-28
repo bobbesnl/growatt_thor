@@ -1,33 +1,21 @@
 """Exercise Stop without an entity and with conditions changing in the queue."""
 
-import importlib.util
 import sys
 import types
 import unittest
 from datetime import UTC, datetime
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-ROOT = Path(__file__).parents[1] / "custom_components/growatt_thor"
+from support import PACKAGE_PATH, load_package_module, register_package
+from support import HomeAssistantError as ActionError
+
+ROOT = PACKAGE_PATH
 NAME = "thor_charging_commands_test"
-package = types.ModuleType(NAME)
-package.__path__ = [str(ROOT)]
-sys.modules[NAME] = package
+package = register_package(NAME)
 
 
 def load(name):
-    spec = importlib.util.spec_from_file_location(
-        f"{NAME}.{name}", ROOT / (name.replace(".", "/") + ".py")
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-class ActionError(Exception):
-    def __init__(self, **kwargs):
-        super().__init__(kwargs.get("translation_key"))
+    return load_package_module(name, package_name=NAME)
 
 
 exceptions = types.ModuleType("homeassistant.exceptions")

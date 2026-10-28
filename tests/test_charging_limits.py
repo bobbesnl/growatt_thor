@@ -2,20 +2,12 @@
 
 from __future__ import annotations
 
-import importlib.util
 import unittest
-from pathlib import Path
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "charging/limits.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_charging_limits_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-charging_limits = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(charging_limits)
+from support import PACKAGE_PATH, load_package_module
+
+MODULE_PATH = PACKAGE_PATH / "charging/limits.py"
+charging_limits = load_package_module("growatt_thor_charging_limits_test_target", MODULE_PATH)
 
 
 class ChargingLimitsTest(unittest.TestCase):

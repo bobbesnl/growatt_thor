@@ -5,9 +5,9 @@ from __future__ import annotations
 import ast
 import json
 import unittest
-from pathlib import Path
 
-PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
+from support import PACKAGE_PATH
+
 INIT_PATH = PACKAGE_PATH / "__init__.py"
 
 

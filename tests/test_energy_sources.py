@@ -1,21 +1,15 @@
 """Test optional Home Assistant energy-source normalization."""
 
-import importlib.util
-import sys
-import types
 import unittest
 from datetime import UTC, datetime
-from pathlib import Path
 from types import SimpleNamespace
 
-MODULE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "energy/sources.py"
+from support import PACKAGE_PATH, load_package_module, register_package
+
+MODULE_PATH = PACKAGE_PATH / "energy/sources.py"
 PACKAGE_NAME = "thor_energy_sources_test_target"
-package = types.ModuleType(PACKAGE_NAME)
-package.__path__ = [str(MODULE_PATH.parents[1])]
-sys.modules[PACKAGE_NAME] = package
-SPEC = importlib.util.spec_from_file_location(f"{PACKAGE_NAME}.energy.sources", MODULE_PATH)
-energy_sources = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(energy_sources)
+package = register_package(PACKAGE_NAME)
+energy_sources = load_package_module(f"{PACKAGE_NAME}.energy.sources", MODULE_PATH)
 
 
 def state(value, unit, name, *, updated=None):

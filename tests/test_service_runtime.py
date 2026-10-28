@@ -3,22 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import importlib.util
-import sys
 import unittest
-from pathlib import Path
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "runtime/services.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_service_runtime_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-service_runtime = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = service_runtime
-SPEC.loader.exec_module(service_runtime)
+from support import PACKAGE_PATH, load_package_module
+
+MODULE_PATH = PACKAGE_PATH / "runtime/services.py"
+service_runtime = load_package_module("growatt_thor_service_runtime_test_target", MODULE_PATH)
 
 
 class _Coordinator:

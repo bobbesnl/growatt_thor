@@ -9,6 +9,8 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
+from support import PACKAGE_PATH
+
 HAS_VOL = importlib.util.find_spec("voluptuous") is not None
 HAS_SERIALIZER = importlib.util.find_spec("voluptuous_serialize") is not None
 if HAS_SERIALIZER:
@@ -42,9 +44,7 @@ class EnergySourceTranslationTest(unittest.TestCase):
                     self.assertTrue(options["error"][key])
 
     def test_optional_energy_source_step_is_complete_in_every_language(self):
-        translation_dir = (
-            Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "translations"
-        )
+        translation_dir = PACKAGE_PATH / "translations"
         for path in sorted(translation_dir.glob("*.json")):
             payload = json.loads(path.read_text(encoding="utf-8"))
             steps = payload["options"]["step"]
@@ -118,7 +118,7 @@ def serialized_form_fields(form):
 
 def load_flow():
     package = ModuleType("thor_auth_flow_target")
-    package.__path__ = [str(Path(__file__).parents[1] / "custom_components/growatt_thor")]
+    package.__path__ = [str(PACKAGE_PATH)]
     sys.modules[package.__name__] = package
     ha = ModuleType("homeassistant")
     ha.config_entries = SimpleNamespace(ConfigFlow=FlowBase, OptionsFlow=FlowBase)

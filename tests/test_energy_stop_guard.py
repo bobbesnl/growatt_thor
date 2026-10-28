@@ -1,33 +1,23 @@
 """Regression tests for the opt-in PV Linkage stop decision and live inputs."""
 
 import asyncio
-import importlib.util
 import sys
 import types
 import unittest
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from unittest.mock import patch
 
-from support import install_ha_stubs
+from support import PACKAGE_PATH, install_ha_stubs, load_package_module, register_package
 
 install_ha_stubs()
 
-ROOT = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
+ROOT = PACKAGE_PATH
 NAME = "thor_energy_stop_guard_test_package"
-package = types.ModuleType(NAME)
-package.__path__ = [str(ROOT)]
-sys.modules[NAME] = package
+package = register_package(NAME)
 
 
 def load(name):
-    spec = importlib.util.spec_from_file_location(
-        f"{NAME}.{name}", ROOT / (name.replace(".", "/") + ".py")
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_package_module(name, package_name=NAME)
 
 
 core = load("energy.stop_guard_policy")

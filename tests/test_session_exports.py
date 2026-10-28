@@ -1,17 +1,16 @@
 """Expiry applies to public downloads, including those left across restart."""
 
-import importlib.util
 import os
 import tempfile
 import unittest
 from pathlib import Path
 
-spec = importlib.util.spec_from_file_location(
+from support import load_package_module
+
+exports = load_package_module(
     "session_exports",
     Path(__file__).parents[1] / "custom_components/growatt_thor/sessions/exports.py",
 )
-exports = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(exports)
 
 
 class SessionExportsTest(unittest.TestCase):

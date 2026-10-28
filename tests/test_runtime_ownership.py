@@ -3,22 +3,13 @@
 from __future__ import annotations
 
 import ast
-import importlib.util
 import json
-import sys
 import unittest
-from pathlib import Path
 
-PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
+from support import PACKAGE_PATH, load_package_module
+
 MODULE_PATH = PACKAGE_PATH / "runtime/ownership.py"
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_runtime_ownership_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-ownership = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = ownership
-SPEC.loader.exec_module(ownership)
+ownership = load_package_module("growatt_thor_runtime_ownership_test_target", MODULE_PATH)
 
 
 class RuntimeOwnershipDecisionTest(unittest.TestCase):

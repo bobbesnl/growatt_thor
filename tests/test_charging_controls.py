@@ -2,27 +2,16 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
-import types
 import unittest
-from pathlib import Path
 
-PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
+from support import load_package_module, register_package
+
 PACKAGE_NAME = "growatt_thor_control_test_target"
-package = types.ModuleType(PACKAGE_NAME)
-package.__path__ = [str(PACKAGE_PATH)]
-sys.modules[PACKAGE_NAME] = package
+package = register_package(PACKAGE_NAME)
 
 
 def _load_module(name: str):
-    path = PACKAGE_PATH / (name.replace(".", "/") + ".py")
-    spec = importlib.util.spec_from_file_location(f"{PACKAGE_NAME}.{name}", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_package_module(name, package_name=PACKAGE_NAME)
 
 
 configuration = _load_module("configuration.values")

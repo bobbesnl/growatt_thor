@@ -2,27 +2,14 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
-import types
 import unittest
-from pathlib import Path
 
-MODULE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "charging/faults.py"
-)
+from support import PACKAGE_PATH, load_package_module, register_package
+
+MODULE_PATH = PACKAGE_PATH / "charging/faults.py"
 PACKAGE_NAME = "growatt_thor_charger_faults_test_target"
-package = types.ModuleType(PACKAGE_NAME)
-package.__path__ = [str(MODULE_PATH.parents[1])]
-sys.modules[PACKAGE_NAME] = package
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_charger_faults_test_target.charging.faults",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-faults = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = faults
-SPEC.loader.exec_module(faults)
+package = register_package(PACKAGE_NAME)
+faults = load_package_module("growatt_thor_charger_faults_test_target.charging.faults", MODULE_PATH)
 
 
 class ChargerFaultTest(unittest.TestCase):

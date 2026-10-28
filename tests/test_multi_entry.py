@@ -2,122 +2,22 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
-import types
 import unittest
-from pathlib import Path
-from unittest.mock import patch
 
-PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
-COORDINATOR_MODULE = "custom_components.growatt_thor.coordinator"
+from support import (
+    PACKAGE_PATH,
+    install_coordinator_stubs,
+    load_package_module,
+)
+from support import (
+    MemoryStore as _MemoryStore,
+)
+from support import (
+    build_coordinator as _build_coordinator,
+)
 
-
-def _load_coordinator_module():
-    """Import coordinator.py with minimal Home Assistant stand-ins."""
-    if COORDINATOR_MODULE in sys.modules:
-        return sys.modules[COORDINATOR_MODULE]
-
-    class _DataUpdateCoordinator:
-        """Minimal Home Assistant stand-in needed to import the coordinator."""
-
-    class _Store:
-        """Minimal Home Assistant storage stand-in."""
-
-    homeassistant = types.ModuleType("homeassistant")
-    helpers = types.ModuleType("homeassistant.helpers")
-    update_coordinator = types.ModuleType("homeassistant.helpers.update_coordinator")
-    storage = types.ModuleType("homeassistant.helpers.storage")
-    update_coordinator.DataUpdateCoordinator = _DataUpdateCoordinator
-    storage.Store = _Store
-    sys.modules.setdefault("homeassistant", homeassistant)
-    sys.modules.setdefault("homeassistant.helpers", helpers)
-    sys.modules.setdefault(
-        "homeassistant.helpers.update_coordinator",
-        update_coordinator,
-    )
-    sys.modules.setdefault("homeassistant.helpers.storage", storage)
-
-    package = types.ModuleType("custom_components.growatt_thor")
-    package.__path__ = [str(PACKAGE_PATH)]
-    sys.modules.setdefault(
-        "custom_components",
-        types.ModuleType("custom_components"),
-    )
-    sys.modules.setdefault("custom_components.growatt_thor", package)
-
-    spec = importlib.util.spec_from_file_location(
-        COORDINATOR_MODULE,
-        PACKAGE_PATH / "coordinator.py",
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-coordinator_module = _load_coordinator_module()
-
-
-class _MemoryStore:
-    """In-memory replacement for Home Assistant's Store."""
-
-    def __init__(self, data=None):
-        self.data = data
-        self.loads = 0
-        self.saved = []
-
-    async def async_load(self):
-        self.loads += 1
-        return self.data
-
-    async def async_save(self, data):
-        self.saved.append(data)
-        self.data = data
-
-
-def _build_coordinator(store=None, legacy_store=None, entry_id="entry_test"):
-    def init_base(self, hass, *args, **kwargs):
-        self.hass = hass
-
-    with (
-        patch.object(coordinator_module.DataUpdateCoordinator, "__init__", init_base),
-        patch.object(coordinator_module, "Store", lambda *args: _MemoryStore()),
-    ):
-        coordinator = coordinator_module.GrowattCoordinator(
-            types.SimpleNamespace(config=None), entry_id
-        )
-    coordinator.updates = 0
-
-    def _updated(_data):
-        coordinator.updates += 1
-
-    coordinator.async_set_updated_data = _updated
-    coordinator.runtime_data = {}
-    coordinator.source_instance_id = entry_id
-    coordinator.connected = True
-    coordinator._connection_changed.clear()
-    coordinator.charge_point_id = "XGJ0000000000001"
-    coordinator.status = None
-    coordinator.power = None
-    coordinator.phase_power = {}
-    coordinator.currents = {}
-    coordinator.voltages = {}
-    coordinator.energy = None
-    coordinator.temperature = None
-    coordinator.transaction_id = None
-    coordinator.last_meter_values = None
-    coordinator.configuration_values = {}
-    coordinator._store = store or _MemoryStore()
-    coordinator._legacy_store = legacy_store
-    coordinator._transaction_id_allocator = coordinator_module.TransactionIdAllocator()
-    coordinator.total_energy_charged = 0.0
-    coordinator.last_charger_fault = None
-    coordinator.effective_charging = coordinator_module.EffectiveChargingTracker()
-    coordinator._pending_effective_charging_minutes = {}
-    coordinator._restore_last_session_state(coordinator_module.LastSessionState.from_dict(None))
-    return coordinator
+install_coordinator_stubs()
+coordinator_module = load_package_module("coordinator")
 
 
 def _set_charging(coordinator):
