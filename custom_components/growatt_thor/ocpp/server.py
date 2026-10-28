@@ -21,7 +21,7 @@ from ..configuration.values import (
     normalize_unknown_configuration_keys,
     redact_configuration_value,
 )
-from ..const import DEFAULT_PATH, DOMAIN, OCPP_SUBPROTOCOL
+from ..const import DEFAULT_PATH, OCPP_SUBPROTOCOL
 from ..runtime.ownership import (
     ChargePointConnectionDecision,
     decide_charge_point_connection,

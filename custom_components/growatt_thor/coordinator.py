@@ -1,10 +1,8 @@
 import asyncio
-import json
 import logging
-import re
 from collections import deque
-from collections.abc import Awaitable, Callable, Mapping
-from datetime import UTC, datetime, time, timezone
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, time
 
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -41,7 +39,7 @@ from .configuration.writes import (
     confirm_configuration_writes,
     mark_configuration_write,
 )
-from .const import DEFAULT_POLL_INTERVAL, DOMAIN
+from .const import DEFAULT_POLL_INTERVAL
 from .energy.accounting_runtime import SessionAccumulator, parse_at, site_inputs
 from .energy.sources import BATTERY_POSITIVE_DISCHARGE
 from .ocpp.diagnostics import create_ocpp_snapshot
@@ -65,12 +63,10 @@ from .runtime.write_queue import (
     ChargerWriteQueuePolicy,
 )
 from .sessions.active_state import ActiveSessionState
-from .sessions.correlation import CORRELATION_MATCHED, build_unified_session
 from .sessions.duration import EffectiveChargingTracker
 from .sessions.events import (
     SessionEventTracker,
     append_session_event,
-    merge_growatt_record_events,
     session_event,
 )
 from .sessions.records import GrowattSessionRecord

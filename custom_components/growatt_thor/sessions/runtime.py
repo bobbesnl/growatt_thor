@@ -10,7 +10,6 @@ import json
 import logging
 from collections.abc import Mapping
 
-from ..const import DOMAIN
 from ..energy.accounting_runtime import SessionAccumulator, parse_at
 from ..ocpp.diagnostics import create_ocpp_snapshot
 from ..runtime.time import utc_instant, utc_timestamp

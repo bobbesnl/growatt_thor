@@ -3,7 +3,7 @@
 import importlib
 import sys
 import unittest
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 

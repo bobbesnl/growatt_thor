@@ -1,6 +1,5 @@
 """Exercise real 2.0 PV and history dispatch with two loaded entries."""
 
-import asyncio
 import importlib
 import sys
 import unittest
@@ -8,8 +7,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
-
-import voluptuous as vol
 
 ROOT = Path(__file__).parents[1] / "custom_components/growatt_thor"
 NAME = "thor_card_routes_test"

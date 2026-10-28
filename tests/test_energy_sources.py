@@ -2,7 +2,7 @@
 
 import importlib.util
 import unittest
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 

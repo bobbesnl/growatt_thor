@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from ..const import DOMAIN
+from ..const import DOMAIN as DOMAIN
 from ..runtime.write_queue import (
     TRANSACTION_CONTROL_WRITE_POLICY,
     ChargerConnectionUnavailable,

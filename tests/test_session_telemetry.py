@@ -1,12 +1,10 @@
 """Real lifecycle, checkpoint, delayed completion, CSV and presentation round trips."""
 
-import asyncio
-import importlib
 import json
 import sys
 import tempfile
 import unittest
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -27,10 +25,8 @@ from custom_components.growatt_thor.sessions.csv import (
     session_detail_data,
 )
 from custom_components.growatt_thor.sessions.records import parse_growatt_session_record
-from custom_components.growatt_thor.sessions.series import downsample_curve
 from custom_components.growatt_thor.sessions.telemetry import (
     CONTEXT_CURVES,
-    SessionTelemetry,
     async_setup_session_history,
 )
 

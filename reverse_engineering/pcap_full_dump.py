@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Dump ALLE TCP payloads uit PCAP, ook niet-JSON data."""
 
-import os
 import subprocess
 import sys
 from datetime import datetime

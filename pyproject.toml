@@ -5,5 +5,4 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 # Changing Enum string formatting or runtime type-alias objects is not formatting.
-ignore = ["UP040", "UP042", "F401"]
-# F401 is enabled separately when the existing unused imports are removed.
+ignore = ["UP040", "UP042"]

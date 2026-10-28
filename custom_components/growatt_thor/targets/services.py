@@ -15,10 +15,10 @@ from .runtime import (
     SERVICES,
 )
 from .runtime import (
-    async_setup_target_runtime as async_setup_target_services,
+    async_setup_target_runtime as async_setup_target_services,  # noqa: F401 - setup entry point
 )
 from .runtime import (
-    async_unload_target_runtime as async_unload_target_services,
+    async_unload_target_runtime as async_unload_target_services,  # noqa: F401 - unload entry point
 )
 
 if TYPE_CHECKING:

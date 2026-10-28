@@ -5,7 +5,7 @@ import importlib.util
 import sys
 import types
 import unittest
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 

@@ -12,7 +12,6 @@ from ..charging.controls import (
     control_is_applicable,
     control_write_block_reason,
 )
-from ..const import DOMAIN
 from ..runtime.action_errors import (
     async_require_command_completion,
     raise_charger_disconnected,

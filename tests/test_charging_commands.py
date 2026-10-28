@@ -4,7 +4,7 @@ import importlib.util
 import sys
 import types
 import unittest
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 

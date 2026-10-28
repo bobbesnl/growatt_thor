@@ -1,7 +1,7 @@
 """Exercise real THOR wall-clock samples through all live energy consumers."""
 
 import unittest
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 from test_write_queue import coordinator_module

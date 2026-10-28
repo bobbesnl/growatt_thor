@@ -4,7 +4,7 @@ import importlib.util
 import sys
 import types
 import unittest
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1] / "custom_components" / "growatt_thor"

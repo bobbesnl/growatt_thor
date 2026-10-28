@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 import unittest
-from datetime import UTC, datetime, time, timezone
+from datetime import UTC, datetime, time
 from pathlib import Path
 from types import ModuleType
 
