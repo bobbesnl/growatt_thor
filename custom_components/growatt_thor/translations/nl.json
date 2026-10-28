@@ -1,78 +1,78 @@
 {
   "services": {
     "prepare_plug_charging_target": {
-      "name": "Prepare native target for Plug & Charge",
-      "description": "Unplugged only. Sends duration, energy or budget without remote start. Wait for acceptance before plugging in."
+      "name": "Ingebouwd laaddoel voor Plug & Charge voorbereiden",
+      "description": "Alleen als de auto niet is aangesloten. Verstuurt een duur, energiehoeveelheid of budget zonder op afstand te starten. Wacht op acceptatie voordat je de auto aansluit."
     },
     "schedule_charging_target": {
-      "name": "Reserve or repeat a native charging target",
-      "description": "One-time uses target + ReserveNow now and target + remote start at the selected time. Daily is managed and rearmed by Home Assistant."
+      "name": "Een ingebouwd laaddoel reserveren of herhalen",
+      "description": "Een eenmalige reservering verstuurt nu het doel en ReserveNow, en op het gekozen tijdstip het doel en een startopdracht. Dagelijkse herhaling wordt door Home Assistant beheerd en opnieuw klaargezet."
     },
     "cancel_scheduled_charging_target": {
-      "name": "Cancel scheduled charging target",
-      "description": "Cancels a daily HA timer locally or sends CancelReservation for a one-time reservation. A native target already written to the charger is not cleared."
+      "name": "Gepland laaddoel annuleren",
+      "description": "Annuleert een dagelijkse HA-timer lokaal of verstuurt CancelReservation voor een eenmalige reservering. Een doel dat al naar de laadpaal is geschreven, wordt niet gewist."
     },
     "preview_charging_target": {
-      "name": "Preview native charging target",
-      "description": "Read-only capture coverage and wire plan. Sends no commands.",
+      "name": "Ingebouwd laaddoel vooraf bekijken",
+      "description": "Toont alleen welke functies met opnames zijn geverifieerd en welke opdrachten zijn gepland. Verstuurt geen opdrachten.",
       "fields": {
         "kind": {
-          "name": "Target type",
-          "description": "Duration, energy or budget."
+          "name": "Type laaddoel",
+          "description": "Duur, energie of budget."
         },
         "value": {
-          "name": "Target value",
-          "description": "Whole minutes, kWh or numeric charger-tariff units."
+          "name": "Doelwaarde",
+          "description": "Hele minuten, kWh of numerieke tariefeenheden van de laadpaal."
         },
         "start": {
-          "name": "Start type",
-          "description": "Now, one-time reservation or recurrence. Unverified combinations remain blocked."
+          "name": "Type start",
+          "description": "Nu, eenmalige reservering of herhaling. Niet-geverifieerde combinaties blijven geblokkeerd."
         }
       }
     },
     "start_charging_target": {
-      "name": "Start native charging target (experimental)",
-      "description": "Sends duration, energy or budget followed by remote start on captured firmware in Fast mode. Duration and energy stopping are verified; budget remains experimental. No automatic retries.",
+      "name": "Ingebouwd laaddoel starten (experimenteel)",
+      "description": "Verstuurt een duur, energiehoeveelheid of budget, gevolgd door een startopdracht op de vastgelegde firmware in de modus Snel. Stoppen op duur en energie is geverifieerd; budget blijft experimenteel. Geen automatische nieuwe pogingen.",
       "fields": {
         "kind": {
-          "name": "Target type",
-          "description": "Duration, energy or budget."
+          "name": "Type laaddoel",
+          "description": "Duur, energie of budget."
         },
         "value": {
-          "name": "Target value",
-          "description": "Guardrails: 1–1440 whole minutes, 0.01–100 kWh or 1–1000 tariff units."
+          "name": "Doelwaarde",
+          "description": "Grenzen: 1–1440 hele minuten, 0,01–100 kWh of 1–1000 tariefeenheden."
         },
         "confirm_experimental": {
-          "name": "Confirm supervised pilot",
-          "description": "Accepted does not prove charging or target enforcement. Stay available to stop charging."
+          "name": "Proef onder toezicht bevestigen",
+          "description": "Acceptatie bewijst niet dat er wordt geladen of dat het doel wordt gehandhaafd. Blijf beschikbaar om het laden te stoppen."
         }
       }
     },
     "acknowledge_target_reset": {
-      "name": "Acknowledge independent native target reset",
-      "description": "Clears only the retained HA request, NOT the charger target. Does not send Cancel or Stop.",
+      "name": "Onafhankelijke reset van het ingebouwde doel bevestigen",
+      "description": "Wist alleen het bewaarde HA-verzoek, NIET het doel op de laadpaal. Verstuurt geen annuleer- of stopopdracht.",
       "fields": {
         "confirm_native_target_reset": {
-          "name": "Native target independently cleared",
-          "description": "Confirm the charger target is cleared and the next start is safe. A completed session alone does not prove a reset."
+          "name": "Ingebouwd doel onafhankelijk gewist",
+          "description": "Bevestig dat het doel op de laadpaal is gewist en een volgende start veilig is. Een afgeronde sessie bewijst op zichzelf geen reset."
         }
       }
     },
     "prepare_rfid_charging_target": {
-      "name": "Prepare native target for RFID",
-      "description": "Sets duration, energy or budget, never a remote start. Wait for target_accepted_waiting_for_rfid before presenting the card.",
+      "name": "Ingebouwd laaddoel voor RFID voorbereiden",
+      "description": "Stelt een duur, energiehoeveelheid of budget in, maar start nooit op afstand. Wacht op target_accepted_waiting_for_rfid voordat je de kaart aanbiedt.",
       "fields": {
         "value": {
-          "name": "Energy (kWh)"
+          "name": "Energie (kWh)"
         },
         "confirm_experimental": {
-          "name": "Confirm supervised experiment"
+          "name": "Experiment onder toezicht bevestigen"
         }
       }
     },
     "charging_target_status": {
-      "name": "Read charging target pilot status",
-      "description": "Read-only. Acceptance does not prove enforcement of the target."
+      "name": "Status van de laaddoelproef uitlezen",
+      "description": "Alleen uitlezen. Acceptatie bewijst niet dat het doel wordt gehandhaafd."
     }
   },
   "config": {
@@ -81,7 +81,7 @@
         "title": "Growatt THOR Installatie",
         "description": "Configureer je Growatt THOR EV Charger OCPP verbinding",
         "data": {
-          "bind_address": "OCPP bind address (local IP)",
+          "bind_address": "OCPP-luisteradres (lokaal IP)",
           "port": "Poort",
           "location": "Installatielocatie",
           "poll_interval": "Grid poll interval (seconden, min {min_interval})"
@@ -91,7 +91,7 @@
     "error": {
       "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn",
       "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn",
-      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
+      "invalid_bind_address": "Voer een geldig lokaal IPv4- of IPv6-adres in",
       "invalid_port": "De poort moet een geheel getal van 1 tot en met 65535 zijn",
       "port_already_configured": "Deze poort wordt al gebruikt door een andere Growatt THOR-lader. Kies een andere poort."
     },
@@ -108,7 +108,7 @@
         "menu_options": {
           "general": "Algemene instellingen",
           "energy_sources": "Optionele energiebronnen",
-          "site_accounting": "Site EV accounting",
+          "site_accounting": "Energie- en kostenregistratie voor laden",
           "authorization": "Lokale toegangscontrole",
           "confirm_ap_mode": "Onderhoud: AP-modus",
           "learn_rfid": "RFID-kaart inleren"
@@ -116,7 +116,7 @@
         "menu_option_descriptions": {
           "general": "Configureer het pollinginterval en de locatie.",
           "energy_sources": "Configureer optionele batterijstroom voor kaarten en grafieken.",
-          "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.",
+          "site_accounting": "Registreer laadenergie en kosten; stel desgewenst automatisch stoppen met laden in.",
           "authorization": "Beheer RFID-toegang en starts vanuit Home Assistant afzonderlijk.",
           "confirm_ap_mode": "Schakel de configuratie-wifi van de lader in; Home Assistant wordt hierbij losgekoppeld.",
           "learn_rfid": "Houd een kaart voor om de code en een optionele naam aan de toegangslijst van deze lader toe te voegen."
@@ -126,13 +126,13 @@
         "title": "Algemene instellingen",
         "description": "Deze instellingen beïnvloeden de verbinding tussen Home Assistant en de lader.",
         "data": {
-          "bind_address": "OCPP bind address (local IP)",
+          "bind_address": "OCPP-luisteradres (lokaal IP)",
           "poll_interval": "Grid poll interval (seconden, nu: {current_interval})",
           "location": "Installatielocatie"
         },
         "data_description": {
-          "poll_interval": "How often Home Assistant refreshes external power values.",
-          "location": "Label shown for this installation."
+          "poll_interval": "Hoe vaak Home Assistant externe vermogenswaarden vernieuwt.",
+          "location": "Label dat voor deze installatie wordt getoond."
         }
       },
       "energy_sources": {
@@ -148,20 +148,20 @@
         }
       },
       "site_accounting": {
-        "title": "Site EV accounting",
+        "title": "Energie- en kostenregistratie voor laden",
         "description": "De automatische beveiliging werkt alleen in PV Linkage+ (uitsluitend zonne-overschot). Registreer EV-energie en kosten. De optionele beveiliging stopt bij aanhoudende batterijontlading of netafname. Drempel en wachttijd zijn instelbaar. Ontbrekende of verouderde metingen veroorzaken geen stop. Laden herstart niet automatisch.",
         "data": {
-          "site_accounting_profile": "Site profile",
+          "site_accounting_profile": "Installatieprofiel",
           "site_stop_threshold_w": "Stopdrempel (W)",
           "site_stop_hold_seconds": "Tijd boven de drempel (seconden)",
-          "site_auto_stop_mode": "Automatic charging stop",
-          "site_grid_source": "Grid source",
-          "site_grid_power_entity": "Grid power sensor (optional)",
-          "site_grid_power_sign": "Grid sensor sign",
-          "site_solar_power_entity": "Solar power sensor (optional)",
-          "site_house_power_entity": "Non-EV household power sensor (optional)",
-          "site_tariff_entity": "Current price per kWh sensor (optional)",
-          "site_fixed_price": "Fixed price per kWh (used without price sensor)"
+          "site_auto_stop_mode": "Automatisch stoppen met laden",
+          "site_grid_source": "Bron voor netmetingen",
+          "site_grid_power_entity": "Sensor voor netvermogen (optioneel)",
+          "site_grid_power_sign": "Tekenconventie van de netsensor",
+          "site_solar_power_entity": "Sensor voor zonnevermogen (optioneel)",
+          "site_house_power_entity": "Sensor voor huishoudelijk vermogen zonder de auto (optioneel)",
+          "site_tariff_entity": "Sensor voor de huidige prijs per kWh (optioneel)",
+          "site_fixed_price": "Vaste prijs per kWh (zonder prijssensor)"
         },
         "data_description": {
           "site_stop_threshold_w": "Vermogen uit batterij of net. Standaard: 500 W.",
@@ -170,16 +170,16 @@
         }
       },
       "authorization": {
-        "title": "Local charging authorisation",
-        "description": "Stored RFID identifiers: {count}. Physical card access and starts initiated by Home Assistant are managed independently. This does not change the charger's authorization mode, cards, or cloud bindings.",
+        "title": "Lokale laadautorisatie",
+        "description": "Opgeslagen RFID-identificaties: {count}. Toegang met fysieke kaarten en starten vanuit Home Assistant worden onafhankelijk beheerd. Dit verandert de autorisatiemodus, kaarten of cloudkoppelingen van de laadpaal niet.",
         "data": {
-          "restrict_authorization": "Restrict RFID access to the allowlist",
-          "allow_ha_remote_start": "Allow starts from Home Assistant",
-          "authorized_id_tags": "RFID allowlist (one identifier per line)"
+          "restrict_authorization": "RFID-toegang beperken tot de toestemmingslijst",
+          "allow_ha_remote_start": "Starten vanuit Home Assistant toestaan",
+          "authorized_id_tags": "RFID-toestemmingslijst (één identificatie per regel)"
         },
         "data_description": {
-          "restrict_authorization": "Enables local checking of physical RFID identifiers. An enabled empty list rejects every card.",
-          "allow_ha_remote_start": "Allows starts through HA controls, services, and automations. No technical identifier needs to be added to the RFID list.",
+          "restrict_authorization": "Schakelt lokale controle van fysieke RFID-identificaties in. Een ingeschakelde lege lijst weigert elke kaart.",
+          "allow_ha_remote_start": "Staat starten via HA-bediening, services en automatiseringen toe. Er hoeft geen technische identificatie aan de RFID-lijst te worden toegevoegd.",
           "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics. Eén code per regel, eventueel gevolgd door een spatie, |, een spatie en een naam: 00Ab12 | Gezinsauto. Behoud hoofdletters en voorloopnullen. Namen mogen maximaal 80 tekens bevatten. Laat alleen de code staan om de naam te verwijderen; verwijder de regel om de kaart te verwijderen."
         }
       },
@@ -213,22 +213,22 @@
       }
     },
     "error": {
-      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
-      "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "invalid_bind_address": "Voer een geldig lokaal IPv4- of IPv6-adres in",
+      "invalid_authorization": "Voer maximaal 100 identificaties in van 1–20 afdrukbare ASCII-tekens zonder spaties.",
       "duplicate_power_source": "Kies verschillende sensoren voor net-, zonne-, huishoudelijk en batterijvermogen.",
       "profile_requires_battery": "Selecteer eerst een batterijvermogenssensor onder Optionele energiebronnen.",
       "invalid_grid_source": "Kies een ondersteunde netbron.",
       "invalid_fixed_price": "Voer een eindige prijs per kWh in; negatieve prijzen zijn toegestaan.",
-      "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
-      "invalid_site_profile": "Choose a supported site profile.",
+      "invalid_power_sensor": "Selecteer een sensor met eenheid W, kW of MW.",
+      "invalid_site_profile": "Kies een ondersteund installatieprofiel.",
       "invalid_stop_settings": "Gebruik 100–10000 W en 30–1800 seconden.",
-      "invalid_auto_stop_mode": "Choose a supported automatic stop mode.",
-      "auto_stop_requires_profile": "Enable a site profile before automatic charging stop.",
-      "auto_stop_requires_battery": "Select a battery power sensor under Optional energy sources first.",
-      "grid_source_required": "Select a grid source for PV accounting.",
-      "tariff_required": "Choose a fixed price or a current price-per-kWh sensor.",
-      "invalid_grid_sign": "Confirm whether positive means import or export.",
-      "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
+      "invalid_auto_stop_mode": "Kies een ondersteunde modus voor automatisch stoppen.",
+      "auto_stop_requires_profile": "Schakel een installatieprofiel in voordat je automatisch stoppen met laden gebruikt.",
+      "auto_stop_requires_battery": "Selecteer eerst een batterijvermogenssensor onder Optionele energiebronnen.",
+      "grid_source_required": "Selecteer een netbron voor de registratie van zonne-energie.",
+      "tariff_required": "Kies een vaste prijs of een sensor voor de huidige prijs per kWh.",
+      "invalid_grid_sign": "Bevestig of een positieve waarde afname of teruglevering betekent.",
+      "invalid_tariff_sensor": "Selecteer een prijssensor met een valuta-per-kWh-eenheid.",
       "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn",
       "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn",
@@ -358,8 +358,8 @@
     },
     "battery_power_sign": {
       "options": {
-        "positive_discharge": "Positive = battery discharging",
-        "positive_charge": "Positive = battery charging"
+        "positive_discharge": "Positief = batterij ontlaadt",
+        "positive_charge": "Positief = batterij laadt"
       }
     }
   },
@@ -489,25 +489,25 @@
         "name": "Totaal geladen energie"
       },
       "site_energy_kwh": {
-        "name": "Site EV energy accounted"
+        "name": "Geregistreerde laadenergie op locatie"
       },
       "site_direct_solar_kwh": {
-        "name": "Site EV direct solar energy"
+        "name": "Directe zonne-energie voor laden op locatie"
       },
       "site_direct_grid_kwh": {
-        "name": "Site EV direct grid energy"
+        "name": "Directe netenergie voor laden op locatie"
       },
       "site_battery_unknown_kwh": {
-        "name": "Site EV battery energy of unknown origin"
+        "name": "Batterij-energie voor laden op locatie van onbekende herkomst"
       },
       "site_unknown_kwh": {
-        "name": "Site EV unallocated energy"
+        "name": "Niet-toegewezen laadenergie op locatie"
       },
       "site_effective_grid_cost": {
-        "name": "Site EV known effective grid cost"
+        "name": "Bekende werkelijke netkosten voor laden op locatie"
       },
       "site_coverage": {
-        "name": "Site EV accounting coverage"
+        "name": "Dekking van de laadenergieregistratie op locatie"
       },
       "electricity_price": {
         "name": "Elektriciteitsprijs"
@@ -883,7 +883,7 @@
     },
     "select": {
       "authorization_mode": {
-        "name": "Authorization mode",
+        "name": "Autorisatiemodus",
         "state": {
           "home_assistant_rfid": "Home Assistant / RFID",
           "rfid_only": "Alleen RFID",
