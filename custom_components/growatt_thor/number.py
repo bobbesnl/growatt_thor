@@ -374,7 +374,7 @@ class MaxCurrentNumber(GrowattConfigurationWriteMixin, BaseConfigNumber):
 # Load Balancing Limit
 
 
-class LoadBalancingLimitNumber(BaseConfigNumber):
+class LoadBalancingLimitNumber(GrowattConfigurationWriteMixin, BaseConfigNumber):
     _attr_translation_key = "load_balancing_limit"
     _attr_icon = "mdi:speedometer"
     _attr_device_class = NumberDeviceClass.POWER
@@ -414,11 +414,16 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             "ocpp_key": self._config_key,
         }
 
-    def _restore_previous_value(
-        self,
-        previous: int | None,
-        generation: int,
-    ) -> None:
+    def _validate_write_value(self, value):
+        return _validated_entity_number(self, value, integer=True)
+
+    def _encode(self, value) -> str:
+        return str(value)
+
+    def _restore_previous_value(self, previous: int | None, generation: int) -> None:
+        self._restore_optimistic(generation, previous=previous)
+
+    def _restore_optimistic(self, generation: int, *, previous=None) -> None:
         """Restore reported power only while this write still owns the UI."""
         if previous is not None and self.coordinator.configuration_write_is_current(
             self._config_key,
@@ -428,7 +433,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             self.coordinator.async_set_updated_data(True)
 
     async def async_set_native_value(self, value: float) -> None:
-        value = _validated_entity_number(self, value, integer=True)
+        value = self._validate_write_value(value)
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning(
                 "Cannot change Load Balancing Limit: %s",
@@ -463,7 +468,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
 
         generation = self.coordinator.begin_configuration_write(
             self._config_key,
-            str(value),
+            self._encode(value),
         )
         handle = await self.coordinator.queue_write(
             self._write_to_thor,
@@ -504,27 +509,17 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             )
             return ChargerWriteResult.skipped(block_reason)
         try:
-            raw_value = str(value)
-            result = await charge_point.change_configuration(
-                self._config_key,
-                raw_value,
+            raw_value = self._encode(value)
+            response = await self._configuration_exchange(
+                charge_point, self._config_key, raw_value, generation
             )
-
-            accepted = result in {
-                ConfigurationStatus.accepted,
-                ConfigurationStatus.reboot_required,
-            }
-            outcome_is_current = self.coordinator.acknowledge_configuration_write(
-                self._config_key,
-                generation=generation,
-                accepted=accepted,
-                result=result,
+            result, accepted, outcome_is_current = (
+                response.result,
+                response.accepted,
+                response.current,
             )
             if accepted and outcome_is_current:
-                self.coordinator.update_configuration_value(
-                    self._config_key,
-                    raw_value,
-                )
+                self._on_accepted(raw_value, key=self._config_key, value=value)
             if accepted:
                 self.coordinator.schedule_configuration_refresh()
 
