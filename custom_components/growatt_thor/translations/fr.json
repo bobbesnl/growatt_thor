@@ -1,78 +1,78 @@
 {
   "services": {
     "prepare_plug_charging_target": {
-      "name": "Prepare native target for Plug & Charge",
-      "description": "Unplugged only. Sends duration, energy or budget without remote start. Wait for acceptance before plugging in."
+      "name": "Préparer un objectif natif pour Plug & Charge",
+      "description": "Uniquement lorsque le véhicule est débranché. Envoie une durée, une énergie ou un budget sans démarrage à distance. Attendez l’acceptation avant de brancher le véhicule."
     },
     "schedule_charging_target": {
-      "name": "Reserve or repeat a native charging target",
-      "description": "One-time uses target + ReserveNow now and target + remote start at the selected time. Daily is managed and rearmed by Home Assistant."
+      "name": "Réserver ou répéter un objectif de charge natif",
+      "description": "Une réservation unique envoie l’objectif et ReserveNow immédiatement, puis l’objectif et le démarrage à distance à l’heure choisie. Les répétitions quotidiennes sont gérées et réarmées par Home Assistant."
     },
     "cancel_scheduled_charging_target": {
-      "name": "Cancel scheduled charging target",
-      "description": "Cancels a daily HA timer locally or sends CancelReservation for a one-time reservation. A native target already written to the charger is not cleared."
+      "name": "Annuler l’objectif de charge programmé",
+      "description": "Annule localement le minuteur quotidien de HA ou envoie CancelReservation pour une réservation unique. Un objectif natif déjà écrit dans la borne n’est pas effacé."
     },
     "preview_charging_target": {
-      "name": "Preview native charging target",
-      "description": "Read-only capture coverage and wire plan. Sends no commands.",
+      "name": "Prévisualiser un objectif de charge natif",
+      "description": "Affiche en lecture seule les fonctions vérifiées par capture et les commandes prévues. N’envoie aucune commande.",
       "fields": {
         "kind": {
-          "name": "Target type",
-          "description": "Duration, energy or budget."
+          "name": "Type d’objectif",
+          "description": "Durée, énergie ou budget."
         },
         "value": {
-          "name": "Target value",
-          "description": "Whole minutes, kWh or numeric charger-tariff units."
+          "name": "Valeur de l’objectif",
+          "description": "Minutes entières, kWh ou unités numériques du tarif de la borne."
         },
         "start": {
-          "name": "Start type",
-          "description": "Now, one-time reservation or recurrence. Unverified combinations remain blocked."
+          "name": "Type de démarrage",
+          "description": "Immédiatement, réservation unique ou répétition. Les combinaisons non vérifiées restent bloquées."
         }
       }
     },
     "start_charging_target": {
-      "name": "Start native charging target (experimental)",
-      "description": "Sends duration, energy or budget followed by remote start on captured firmware in Fast mode. Duration and energy stopping are verified; budget remains experimental. No automatic retries.",
+      "name": "Démarrer un objectif de charge natif (expérimental)",
+      "description": "Envoie une durée, une énergie ou un budget, puis un démarrage à distance sur le firmware observé en mode Rapide. L’arrêt selon la durée et l’énergie est vérifié ; le budget reste expérimental. Aucun nouvel essai automatique.",
       "fields": {
         "kind": {
-          "name": "Target type",
-          "description": "Duration, energy or budget."
+          "name": "Type d’objectif",
+          "description": "Durée, énergie ou budget."
         },
         "value": {
-          "name": "Target value",
-          "description": "Guardrails: 1–1440 whole minutes, 0.01–100 kWh or 1–1000 tariff units."
+          "name": "Valeur de l’objectif",
+          "description": "Limites : 1 à 1440 minutes entières, 0,01 à 100 kWh ou 1 à 1000 unités tarifaires."
         },
         "confirm_experimental": {
-          "name": "Confirm supervised pilot",
-          "description": "Accepted does not prove charging or target enforcement. Stay available to stop charging."
+          "name": "Confirmer l’essai sous surveillance",
+          "description": "L’acceptation ne prouve ni le démarrage de la charge ni le respect de l’objectif. Restez disponible pour arrêter la charge."
         }
       }
     },
     "acknowledge_target_reset": {
-      "name": "Acknowledge independent native target reset",
-      "description": "Clears only the retained HA request, NOT the charger target. Does not send Cancel or Stop.",
+      "name": "Confirmer la réinitialisation indépendante de l’objectif natif",
+      "description": "Efface uniquement la demande conservée dans HA, PAS l’objectif de la borne. N’envoie ni annulation ni arrêt.",
       "fields": {
         "confirm_native_target_reset": {
-          "name": "Native target independently cleared",
-          "description": "Confirm the charger target is cleared and the next start is safe. A completed session alone does not prove a reset."
+          "name": "Objectif natif effacé indépendamment",
+          "description": "Confirmez que l’objectif de la borne a été effacé et que le prochain démarrage est sûr. Une session terminée ne prouve pas à elle seule une réinitialisation."
         }
       }
     },
     "prepare_rfid_charging_target": {
-      "name": "Prepare native target for RFID",
-      "description": "Sets duration, energy or budget, never a remote start. Wait for target_accepted_waiting_for_rfid before presenting the card.",
+      "name": "Préparer un objectif natif pour RFID",
+      "description": "Définit une durée, une énergie ou un budget, sans jamais démarrer à distance. Attendez target_accepted_waiting_for_rfid avant de présenter la carte.",
       "fields": {
         "value": {
-          "name": "Energy (kWh)"
+          "name": "Énergie (kWh)"
         },
         "confirm_experimental": {
-          "name": "Confirm supervised experiment"
+          "name": "Confirmer l’expérience sous surveillance"
         }
       }
     },
     "charging_target_status": {
-      "name": "Read charging target pilot status",
-      "description": "Read-only. Acceptance does not prove enforcement of the target."
+      "name": "Lire l’état de l’essai d’objectif de charge",
+      "description": "Lecture seule. L’acceptation ne prouve pas le respect de l’objectif."
     }
   },
   "config": {
@@ -81,7 +81,7 @@
         "title": "Configuration de Growatt THOR",
         "description": "Configurez la connexion OCPP de votre borne de recharge Growatt THOR",
         "data": {
-          "bind_address": "OCPP bind address (local IP)",
+          "bind_address": "Adresse d’écoute OCPP (IP locale)",
           "port": "Port",
           "location": "Lieu d'installation",
           "poll_interval": "Intervalle d'interrogation du réseau (secondes, min. {min_interval})"
@@ -90,9 +90,9 @@
     },
     "error": {
       "poll_interval_too_low": "L'intervalle d'interrogation doit être d'au moins {min_interval} secondes",
-      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
-      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
-      "invalid_port": "Port must be a whole number from 1 to 65535",
+      "invalid_poll_interval": "L’intervalle d’interrogation doit être un nombre entier fini de secondes",
+      "invalid_bind_address": "Saisissez une adresse IPv4 ou IPv6 locale valide",
+      "invalid_port": "Le port doit être un nombre entier de 1 à 65535",
       "port_already_configured": "Ce port est déjà utilisé par une autre borne Growatt THOR. Choisissez un autre port."
     },
     "abort": {
@@ -108,7 +108,7 @@
         "menu_options": {
           "general": "Paramètres généraux",
           "energy_sources": "Sources d’énergie facultatives",
-          "site_accounting": "Site EV accounting",
+          "site_accounting": "Comptabilisation de la charge sur le site",
           "authorization": "Contrôle d’accès local",
           "confirm_ap_mode": "Maintenance : mode AP",
           "learn_rfid": "Apprendre une carte RFID"
@@ -116,7 +116,7 @@
         "menu_option_descriptions": {
           "general": "Configurer l’intervalle d’interrogation et l’emplacement.",
           "energy_sources": "Configurer le flux de batterie facultatif pour les cartes et graphiques.",
-          "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.",
+          "site_accounting": "Comptabilisez l’énergie et le coût de la recharge ; configurez éventuellement un arrêt automatique.",
           "authorization": "Gérer séparément l’accès RFID et les démarrages Home Assistant.",
           "confirm_ap_mode": "Activer le Wi-Fi de configuration de la borne ; Home Assistant sera déconnecté.",
           "learn_rfid": "Présentez une carte pour ajouter son identifiant et un nom facultatif à la liste de cette borne."
@@ -126,13 +126,13 @@
         "title": "Paramètres généraux",
         "description": "Ces paramètres concernent la connexion entre Home Assistant et la borne.",
         "data": {
-          "bind_address": "OCPP bind address (local IP)",
+          "bind_address": "Adresse d’écoute OCPP (IP locale)",
           "poll_interval": "Intervalle d'interrogation du réseau (secondes, actuellement : {current_interval})",
           "location": "Lieu d'installation"
         },
         "data_description": {
-          "poll_interval": "How often Home Assistant refreshes external power values.",
-          "location": "Label shown for this installation."
+          "poll_interval": "Fréquence à laquelle Home Assistant actualise les puissances externes.",
+          "location": "Libellé affiché pour cette installation."
         }
       },
       "energy_sources": {
@@ -148,20 +148,20 @@
         }
       },
       "site_accounting": {
-        "title": "Site EV accounting",
+        "title": "Comptabilisation de la charge sur le site",
         "description": "La protection automatique fonctionne uniquement en PV Linkage+ (surplus solaire uniquement). Comptabilisez l’énergie et les coûts du véhicule. La protection optionnelle arrête la recharge après un prélèvement prolongé sur la batterie ou le réseau. Seuil et délai sont réglables. Des mesures absentes ou périmées ne déclenchent aucun arrêt. Aucun redémarrage automatique.",
         "data": {
-          "site_accounting_profile": "Site profile",
+          "site_accounting_profile": "Profil du site",
           "site_stop_threshold_w": "Seuil d’arrêt (W)",
           "site_stop_hold_seconds": "Durée au-dessus du seuil (secondes)",
-          "site_auto_stop_mode": "Automatic charging stop",
-          "site_grid_source": "Grid source",
-          "site_grid_power_entity": "Grid power sensor (optional)",
-          "site_grid_power_sign": "Grid sensor sign",
-          "site_solar_power_entity": "Solar power sensor (optional)",
-          "site_house_power_entity": "Non-EV household power sensor (optional)",
-          "site_tariff_entity": "Current price per kWh sensor (optional)",
-          "site_fixed_price": "Fixed price per kWh (used without price sensor)"
+          "site_auto_stop_mode": "Arrêt automatique de la charge",
+          "site_grid_source": "Source de mesure du réseau",
+          "site_grid_power_entity": "Capteur de puissance du réseau (facultatif)",
+          "site_grid_power_sign": "Convention de signe du capteur réseau",
+          "site_solar_power_entity": "Capteur de puissance solaire (facultatif)",
+          "site_house_power_entity": "Capteur de consommation du foyer hors véhicule (facultatif)",
+          "site_tariff_entity": "Capteur du prix actuel par kWh (facultatif)",
+          "site_fixed_price": "Prix fixe par kWh (sans capteur de prix)"
         },
         "data_description": {
           "site_stop_threshold_w": "Puissance prélevée sur la batterie ou le réseau. Par défaut : 500 W.",
@@ -170,16 +170,16 @@
         }
       },
       "authorization": {
-        "title": "Local charging authorisation",
-        "description": "Stored RFID identifiers: {count}. Physical card access and starts initiated by Home Assistant are managed independently. This does not change the charger's authorization mode, cards, or cloud bindings.",
+        "title": "Autorisation locale de la charge",
+        "description": "Identifiants RFID enregistrés : {count}. L’accès par carte physique et les démarrages depuis Home Assistant sont gérés indépendamment. Cela ne modifie ni le mode d’autorisation de la borne, ni les cartes, ni les associations au cloud.",
         "data": {
-          "restrict_authorization": "Restrict RFID access to the allowlist",
-          "allow_ha_remote_start": "Allow starts from Home Assistant",
-          "authorized_id_tags": "RFID allowlist (one identifier per line)"
+          "restrict_authorization": "Limiter l’accès RFID à la liste autorisée",
+          "allow_ha_remote_start": "Autoriser les démarrages depuis Home Assistant",
+          "authorized_id_tags": "Liste RFID autorisée (un identifiant par ligne)"
         },
         "data_description": {
-          "restrict_authorization": "Enables local checking of physical RFID identifiers. An enabled empty list rejects every card.",
-          "allow_ha_remote_start": "Allows starts through HA controls, services, and automations. No technical identifier needs to be added to the RFID list.",
+          "restrict_authorization": "Active la vérification locale des identifiants RFID physiques. Une liste vide activée refuse toutes les cartes.",
+          "allow_ha_remote_start": "Autorise les démarrages par les commandes, services et automatisations HA. Aucun identifiant technique ne doit être ajouté à la liste RFID.",
           "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics. Un identifiant par ligne, éventuellement suivi d’une espace, |, une espace et un nom : 00Ab12 | Voiture familiale. Conservez la casse et les zéros initiaux. Noms limités à 80 caractères. Gardez seulement l’identifiant pour effacer le nom ; supprimez la ligne pour retirer la carte."
         }
       },
@@ -213,25 +213,25 @@
       }
     },
     "error": {
-      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
-      "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "invalid_bind_address": "Saisissez une adresse IPv4 ou IPv6 locale valide",
+      "invalid_authorization": "Saisissez au maximum 100 identifiants de 1 à 20 caractères ASCII imprimables sans espace.",
       "duplicate_power_source": "Choisissez des capteurs distincts pour le réseau, le solaire, la maison et la batterie.",
       "profile_requires_battery": "Sélectionnez un capteur de puissance de batterie dans les sources d’énergie optionnelles avant ce profil.",
       "invalid_grid_source": "Choisissez une source réseau prise en charge.",
       "invalid_fixed_price": "Saisissez un prix fini par kWh ; les prix négatifs sont autorisés.",
-      "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
-      "invalid_site_profile": "Choose a supported site profile.",
+      "invalid_power_sensor": "Sélectionnez un capteur en W, kW ou MW.",
+      "invalid_site_profile": "Choisissez un profil de site pris en charge.",
       "invalid_stop_settings": "Utilisez 100–10000 W et 30–1800 secondes.",
-      "invalid_auto_stop_mode": "Choose a supported automatic stop mode.",
-      "auto_stop_requires_profile": "Enable a site profile before automatic charging stop.",
-      "auto_stop_requires_battery": "Select a battery power sensor under Optional energy sources first.",
-      "grid_source_required": "Select a grid source for PV accounting.",
-      "tariff_required": "Choose a fixed price or a current price-per-kWh sensor.",
-      "invalid_grid_sign": "Confirm whether positive means import or export.",
-      "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
+      "invalid_auto_stop_mode": "Choisissez un mode d’arrêt automatique pris en charge.",
+      "auto_stop_requires_profile": "Activez un profil de site avant l’arrêt automatique de la charge.",
+      "auto_stop_requires_battery": "Sélectionnez d’abord un capteur de puissance de batterie dans Sources d’énergie facultatives.",
+      "grid_source_required": "Sélectionnez une source réseau pour la comptabilisation photovoltaïque.",
+      "tariff_required": "Choisissez un prix fixe ou un capteur du prix actuel par kWh.",
+      "invalid_grid_sign": "Confirmez si une valeur positive correspond à une importation ou à une exportation.",
+      "invalid_tariff_sensor": "Sélectionnez un capteur de prix exprimé en devise par kWh.",
       "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "L'intervalle d'interrogation doit être d'au moins {min_interval} secondes",
-      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
+      "invalid_poll_interval": "L’intervalle d’interrogation doit être un nombre entier fini de secondes",
       "rfid_not_seen": "Aucune carte reçue. Présentez-la à cette borne, puis validez à nouveau.",
       "invalid_rfid_alias": "Utilisez un nom de 80 caractères imprimables maximum, sans saut de ligne."
     },
@@ -249,73 +249,73 @@
       "message": "Démarrage bloqué par le contrôle d’accès local. Vérifiez « Autoriser les démarrages depuis Home Assistant » dans les paramètres THOR."
     },
     "action_not_allowed": {
-      "message": "The requested action is not allowed ({reason})."
+      "message": "L’action demandée n’est pas autorisée ({reason})."
     },
     "charger_disconnected": {
-      "message": "The charger is not connected, so the requested action cannot be performed."
+      "message": "La borne n’est pas connectée ; l’action demandée ne peut donc pas être effectuée."
     },
     "charger_faulted": {
-      "message": "The requested action is blocked while the charger reports a fault."
+      "message": "L’action demandée est bloquée tant que la borne signale un défaut."
     },
     "active_transaction": {
-      "message": "This setting cannot be changed while a charging transaction is active."
+      "message": "Ce réglage ne peut pas être modifié pendant une transaction de charge active."
     },
     "control_not_applicable": {
-      "message": "This control does not apply to the charger's current operating mode."
+      "message": "Cette commande ne s’applique pas au mode de fonctionnement actuel de la borne."
     },
     "configuration_read_only": {
-      "message": "The charger reports this configuration value as read-only."
+      "message": "La borne indique que ce paramètre est en lecture seule."
     },
     "external_meter_not_ready": {
-      "message": "Cannot select {option} because external meter communication is not ready."
+      "message": "Impossible de sélectionner {option}, car la communication avec le compteur externe n’est pas prête."
     },
     "invalid_working_mode": {
-      "message": "{option} is not a supported charging strategy."
+      "message": "{option} n’est pas une stratégie de charge prise en charge."
     },
     "charging_already_active": {
-      "message": "Charging cannot be started because a transaction is already active."
+      "message": "Impossible de démarrer la charge : une transaction est déjà active."
     },
     "no_active_transaction": {
-      "message": "Charging cannot be stopped because no active transaction is known."
+      "message": "Impossible d’arrêter la charge : aucune transaction active n’est connue."
     },
     "invalid_pv_linkage_draft": {
-      "message": "The PV Linkage settings are incomplete or invalid ({errors})."
+      "message": "Les réglages PV Linkage sont incomplets ou incorrects ({errors})."
     },
     "value_out_of_range": {
-      "message": "The requested value {value} is outside the supported range from {minimum} to {maximum}."
+      "message": "La valeur demandée {value} est hors de la plage prise en charge, de {minimum} à {maximum}."
     },
     "invalid_numeric_value": {
-      "message": "The requested value {value} is not a valid number."
+      "message": "La valeur demandée {value} n’est pas un nombre valide."
     },
     "value_not_finite": {
-      "message": "The requested value {value} must be a finite number."
+      "message": "La valeur demandée {value} doit être un nombre fini."
     },
     "value_step_mismatch": {
-      "message": "The requested value {value} does not match the supported step size {step}."
+      "message": "La valeur demandée {value} ne respecte pas le pas pris en charge {step}."
     },
     "invalid_export_date": {
-      "message": "The session export dates must use the YYYY-MM-DD format."
+      "message": "Les dates d’exportation des sessions doivent utiliser le format YYYY-MM-DD."
     },
     "invalid_export_date_range": {
-      "message": "The session export start date must not be after its end date."
+      "message": "La date de début de l’exportation ne doit pas être postérieure à la date de fin."
     },
     "refresh_failed": {
-      "message": "The charger refresh could not complete the {step} step."
+      "message": "L’actualisation de la borne n’a pas pu terminer l’étape {step}."
     },
     "session_export_failed": {
-      "message": "The charging-session export failed. Check the Home Assistant log for details."
+      "message": "L’exportation des sessions de charge a échoué. Consultez le journal de Home Assistant."
     },
     "command_still_pending": {
-      "message": "Command {command_id} is still pending; its final result will appear in the Last command result sensor."
+      "message": "La commande {command_id} est toujours en attente ; son résultat final apparaîtra dans le capteur Dernier résultat de commande."
     },
     "command_not_executed": {
-      "message": "Command {command_name} ({command_id}) was not executed: {status} ({details})."
+      "message": "La commande {command_name} ({command_id}) n’a pas été exécutée : {status} ({details})."
     },
     "command_outcome_uncertain": {
-      "message": "The outcome of command {command_name} ({command_id}) is uncertain: {status} ({details})."
+      "message": "Le résultat de la commande {command_name} ({command_id}) est incertain : {status} ({details})."
     },
     "command_failed": {
-      "message": "Command {command_name} ({command_id}) failed: {status} ({details})."
+      "message": "La commande {command_name} ({command_id}) a échoué : {status} ({details})."
     }
   },
   "selector": {
@@ -358,8 +358,8 @@
     },
     "battery_power_sign": {
       "options": {
-        "positive_discharge": "Positive = battery discharging",
-        "positive_charge": "Positive = battery charging"
+        "positive_discharge": "Positif = décharge de la batterie",
+        "positive_charge": "Positif = charge de la batterie"
       }
     }
   },
@@ -395,70 +395,70 @@
           "information": {
             "name": "À propos de cet événement",
             "state": {
-              "details": "Retains the most recent actual Faulted event after the charger recovers. OCPP StatusNotification and Growatt faultmessage details belonging to the same event are combined."
+              "details": "Conserve le dernier événement de défaut réel après le rétablissement de la borne. Les détails OCPP StatusNotification et Growatt faultmessage du même événement sont regroupés."
             }
           }
         }
       },
       "last_command_result": {
-        "name": "Last command result",
+        "name": "Dernier résultat de commande",
         "state": {
-          "confirmed": "Confirmed",
-          "failed": "Failed",
-          "skipped": "Skipped",
-          "expired": "Expired",
-          "uncertain": "Uncertain"
+          "confirmed": "Confirmé",
+          "failed": "Échec",
+          "skipped": "Ignoré",
+          "expired": "Expiré",
+          "uncertain": "Incertain"
         },
         "state_attributes": {
           "information": {
-            "name": "About this result",
+            "name": "À propos de ce résultat",
             "state": {
-              "details": "The latest terminal queue result; use Command ID to correlate repeated automation actions."
+              "details": "Dernier résultat final de la file ; utilisez l’ID de commande pour relier les actions répétées d’une automatisation."
             }
           },
           "command_id": {
-            "name": "Command ID"
+            "name": "ID de commande"
           },
           "command_name": {
-            "name": "Command"
+            "name": "Commande"
           },
           "write_status": {
-            "name": "Detailed result"
+            "name": "Résultat détaillé"
           },
           "queued_at": {
-            "name": "Queued at"
+            "name": "Mis en file le"
           },
           "completed_at": {
-            "name": "Completed at"
+            "name": "Terminé le"
           },
           "reason": {
-            "name": "Reason"
+            "name": "Motif"
           },
           "charger_result": {
-            "name": "Charger result"
+            "name": "Résultat de la borne"
           }
         }
       },
       "site_energy_kwh": {
-        "name": "Site EV energy accounted"
+        "name": "Énergie de recharge comptabilisée sur le site"
       },
       "site_direct_solar_kwh": {
-        "name": "Site EV direct solar energy"
+        "name": "Énergie solaire directe de recharge du site"
       },
       "site_direct_grid_kwh": {
-        "name": "Site EV direct grid energy"
+        "name": "Énergie réseau directe de recharge du site"
       },
       "site_battery_unknown_kwh": {
-        "name": "Site EV battery energy of unknown origin"
+        "name": "Énergie de batterie de recharge du site d’origine inconnue"
       },
       "site_unknown_kwh": {
-        "name": "Site EV unallocated energy"
+        "name": "Énergie de recharge du site non attribuée"
       },
       "site_effective_grid_cost": {
-        "name": "Site EV known effective grid cost"
+        "name": "Coût réseau effectif connu de recharge du site"
       },
       "site_coverage": {
-        "name": "Site EV accounting coverage"
+        "name": "Couverture de la comptabilisation de recharge du site"
       },
       "charge_point_id": {
         "name": "ID du point de charge"
@@ -527,7 +527,7 @@
           "information": {
             "name": "À propos de cette valeur",
             "state": {
-              "details": "Approximate time with actual energy transfer, accumulated from transaction MeterValues above 100 W. Energy-counter increases are used when power is unavailable; long reporting gaps are excluded. Historical sessions recorded before this feature remain unavailable."
+              "details": "Durée approximative de transfert réel d’énergie, calculée à partir des MeterValues de la transaction au-dessus de 100 W. Les augmentations du compteur d’énergie sont utilisées si la puissance est indisponible ; les longues interruptions de mesure sont exclues. Les sessions antérieures à cette fonction restent indisponibles."
             }
           }
         }
@@ -589,7 +589,7 @@
           "information": {
             "name": "À propos de cet état",
             "state": {
-              "details": "PV Linkage cannot be selected while the charger reports PowerMeterFailure/485 Fault or after three consecutive external-meter requests receive no usable response. One or two temporary timeouts do not block the mode."
+              "details": "PV Linkage ne peut pas être sélectionné si la borne signale PowerMeterFailure/485 Fault ou si trois demandes consécutives au compteur externe ne reçoivent aucune réponse exploitable. Un ou deux dépassements de délai temporaires ne bloquent pas ce mode."
             }
           }
         }
@@ -630,7 +630,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Shows how charging sessions are authorized: Home Assistant/RFID, RFID only, or Plug & charge."
+              "details": "Indique comment les sessions sont autorisées : Home Assistant/RFID, RFID uniquement ou Plug & Charge."
             }
           }
         }
@@ -646,7 +646,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "PV Linkage may supplement solar power with the configured grid allowance. PV Linkage+ uses only solar surplus. Manual and Smart Boost may still draw grid power."
+              "details": "PV Linkage peut compléter la puissance solaire avec l’apport réseau configuré. PV Linkage+ utilise uniquement le surplus solaire. Les modes Manual et Smart Boost peuvent toujours utiliser le réseau."
             }
           }
         }
@@ -657,7 +657,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Maximum grid power the charger may add in PV Linkage mode. The retained value is not an active regular grid allowance in PV Linkage+. The charger requires about 1.4 kW single-phase or 4.1 kW three-phase to start."
+              "details": "Puissance réseau maximale que la borne peut ajouter en mode PV Linkage. Cette valeur n’autorise pas un apport réseau régulier actif en PV Linkage+. Le démarrage exige environ 1,4 kW en monophasé ou 4,1 kW en triphasé."
             }
           }
         }
@@ -673,7 +673,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Manual boost uses configured time windows; Smart boost uses target energy and finish time. The charger returns to PV Linkage after the boost."
+              "details": "Manual Boost utilise les plages horaires configurées ; Smart Boost utilise une énergie cible et une heure de fin. La borne revient à PV Linkage après le boost."
             }
           }
         }
@@ -691,7 +691,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Allows grid charging in the configured off-peak windows when Plug & charge authorization is active."
+              "details": "Autorise la charge réseau pendant les plages d’heures creuses configurées lorsque l’autorisation Plug & Charge est active."
             }
           }
         }
@@ -706,7 +706,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Enables charging during the configured off-peak windows in Off-Peak mode."
+              "details": "Active la charge pendant les plages d’heures creuses configurées en mode Heures creuses."
             }
           }
         }
@@ -717,7 +717,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Lists the shared charger-side time windows. Depending on the working mode, Growatt uses them for Off-Peak charging or PV Linkage Manual Boost."
+              "details": "Affiche les plages horaires partagées de la borne. Selon le mode de fonctionnement, Growatt les utilise pour la charge en heures creuses ou pour Manual Boost en PV Linkage."
             }
           }
         }
@@ -728,7 +728,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Charging current used during the configured off-peak windows."
+              "details": "Courant de charge utilisé pendant les plages d’heures creuses configurées."
             }
           }
         }
@@ -751,7 +751,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "External Modbus meter model used for grid measurements."
+              "details": "Modèle du compteur Modbus externe utilisé pour les mesures réseau."
             }
           }
         }
@@ -762,7 +762,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Modbus address of the external meter used for grid measurements."
+              "details": "Adresse Modbus du compteur externe utilisé pour les mesures réseau."
             }
           }
         }
@@ -778,7 +778,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Power meter uses direct Modbus measurements; CT modes use current transformers. Growatt calls the OCPP field 'wring', likely a vendor typo."
+              "details": "Le compteur utilise des mesures Modbus directes ; les modes CT utilisent des transformateurs de courant. Growatt nomme le champ OCPP « wring », probablement une coquille du fabricant."
             }
           }
         }
@@ -793,7 +793,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "After full charge, the charger may continue supplying a compatible EV for cabin or battery preheating and defrosting. Behavior depends on vehicle support."
+              "details": "Après la charge complète, la borne peut continuer à alimenter un véhicule compatible pour le préchauffage ou le dégivrage de l’habitacle ou de la batterie. Le comportement dépend du véhicule."
             }
           }
         }
@@ -804,7 +804,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Vendor charging delay in seconds. 0 means no delay. Random Delay behavior may vary by charger firmware."
+              "details": "Délai de charge du fabricant en secondes. 0 signifie aucun délai. Le fonctionnement de Random Delay peut varier selon le firmware de la borne."
             }
           }
         }
@@ -823,7 +823,7 @@
           "information": {
             "name": "À propos de cette action",
             "state": {
-              "details": "Applies the complete changed PV Boost draft to the charger. Manual Boost sends its time window; Smart Boost sends finish time and target energy. The action is available only when the draft is complete, differs from the reported settings, and the charger is idle in PV Linkage mode."
+              "details": "Applique à la borne l’ensemble des modifications du brouillon PV Boost. Manual Boost envoie sa plage horaire ; Smart Boost envoie l’heure de fin et l’énergie cible. L’action est disponible uniquement si le brouillon est complet, diffère des réglages rapportés et si la borne est inactive en mode PV Linkage."
             }
           }
         }
@@ -839,7 +839,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Sets the grid-load limit used by load balancing. Available only with the Fast and Off-Peak charging strategies; unavailable in PV Linkage modes."
+              "details": "Définit la limite de charge du réseau utilisée par l’équilibrage de charge. Disponible uniquement avec les stratégies Rapide et Heures creuses ; indisponible en modes PV Linkage."
             }
           }
         }
@@ -853,7 +853,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Modbus address of the external meter. Available only when Power meter is selected as the external sampling method and no charging transaction is active."
+              "details": "Adresse Modbus du compteur externe. Disponible uniquement si Compteur est sélectionné comme méthode de mesure externe et qu’aucune transaction de charge n’est active."
             }
           }
         }
@@ -864,7 +864,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Available only in PV Linkage mode, where regular grid import is allowed. It is unavailable in PV Linkage+, which uses solar surplus only. Decimal values are sent using dot notation."
+              "details": "Disponible uniquement en mode PV Linkage, qui autorise un apport réseau régulier. Indisponible en PV Linkage+, qui utilise uniquement le surplus solaire. Les décimales sont envoyées avec un point."
             }
           }
         }
@@ -875,7 +875,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Target energy for Smart Boost. This edits the local draft and is sent together with the finish time only after Apply is pressed."
+              "details": "Énergie cible de Smart Boost. Modifie le brouillon local ; la valeur est envoyée avec l’heure de fin uniquement après avoir appuyé sur Appliquer."
             }
           }
         }
@@ -883,7 +883,7 @@
     },
     "select": {
       "authorization_mode": {
-        "name": "Authorization mode",
+        "name": "Mode d’autorisation",
         "state": {
           "home_assistant_rfid": "Home Assistant / RFID",
           "rfid_only": "RFID uniquement",
@@ -918,7 +918,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Selects direct Modbus meter measurements or a CT 2000:1/3000:1 current transformer. Available only while no charging transaction is active. Growatt calls the OCPP key 'G_ExternalSamplingCurWring', likely a vendor typo."
+              "details": "Sélectionne les mesures Modbus directes ou un transformateur de courant CT 2000:1/3000:1. Disponible uniquement sans transaction de charge active. Growatt nomme la clé OCPP « G_ExternalSamplingCurWring », probablement une coquille du fabricant."
             }
           }
         }
@@ -941,7 +941,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Selects the external Modbus meter model. Available only when Power meter is selected as the external sampling method and no charging transaction is active."
+              "details": "Sélectionne le modèle du compteur Modbus externe. Disponible uniquement si Compteur est sélectionné comme méthode de mesure externe et qu’aucune transaction de charge n’est active."
             }
           }
         }
@@ -957,7 +957,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Selects which Boost workflow to stage locally. Manual exposes a time window; Smart exposes finish time and target energy. No charger write occurs until Apply is pressed."
+              "details": "Sélectionne le mode Boost à préparer localement. Manuel propose une plage horaire ; Smart propose une heure de fin et une énergie cible. Aucun réglage n’est écrit dans la borne avant d’appuyer sur Appliquer."
             }
           }
         }
@@ -970,7 +970,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Prevents the configured grid-load limit from being exceeded. Available only with the Fast and Off-Peak charging strategies; unavailable in PV Linkage modes."
+              "details": "Empêche le dépassement de la limite de charge du réseau configurée. Disponible uniquement avec les stratégies Rapide et Heures creuses ; indisponible en modes PV Linkage."
             }
           }
         }
@@ -984,7 +984,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Allows a compatible vehicle to continue drawing power for preheating or defrosting after reaching full charge. Vehicle support is required."
+              "details": "Permet à un véhicule compatible de continuer à consommer de l’énergie pour le préchauffage ou le dégivrage après une charge complète. Le véhicule doit prendre en charge cette fonction."
             }
           }
         }
@@ -1003,7 +1003,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Start of the staged Manual Boost window. Press Apply to send the complete window."
+              "details": "Début de la plage Manual Boost préparée. Appuyez sur Appliquer pour envoyer la plage complète."
             }
           }
         }
@@ -1014,7 +1014,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "End of the staged Manual Boost window. Press Apply to send the complete window."
+              "details": "Fin de la plage Manual Boost préparée. Appuyez sur Appliquer pour envoyer la plage complète."
             }
           }
         }
@@ -1025,7 +1025,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "Requested Smart Boost finish time. A time already passed today is scheduled for tomorrow when Apply is pressed."
+              "details": "Heure de fin demandée pour Smart Boost. Si l’heure est déjà passée aujourd’hui, la programmation vise demain au moment d’appuyer sur Appliquer."
             }
           }
         }
