@@ -21,6 +21,7 @@ from .charging.control_capabilities import (
     control_is_applicable,
 )
 from .charging.pv_linkage import PvBoostMode
+from .configuration.controls import GrowattConfigurationWriteMixin
 from .configuration.writes import ConfigurationWriteStatus
 from .const import DOMAIN
 from .entity import ThorEntity
@@ -52,7 +53,7 @@ async def async_setup_entry(
     )
 
 
-class BaseAutoChargeTime(ThorEntity, TimeEntity):
+class BaseAutoChargeTime(GrowattConfigurationWriteMixin, ThorEntity, TimeEntity):
     """Base class for auto charge time entities (auto-apply via queue)."""
 
     _attr_has_entity_name = True
@@ -83,7 +84,14 @@ class BaseAutoChargeTime(ThorEntity, TimeEntity):
     def _write_block_reason(self) -> str | None:
         return self.coordinator.write_block_reason(ChargingControl.AUTO_CHARGE_SCHEDULE)
 
+    def _encode(self, value) -> str:
+        start_time, stop_time = value
+        return f"{start_time.strftime('%H:%M')}-{stop_time.strftime('%H:%M')}"
+
     def _restore_reported_schedule(self, generation: int) -> None:
+        self._restore_optimistic(generation)
+
+    def _restore_optimistic(self, generation: int, *, previous=None) -> None:
         """Discard an unsent optimistic schedule owned by this generation."""
         if not self.coordinator.configuration_write_is_current(
             self._CONFIG_KEY,
@@ -133,7 +141,7 @@ class BaseAutoChargeTime(ThorEntity, TimeEntity):
         if start_time is None or stop_time is None:
             return
 
-        formatted_value = f"{start_time.strftime('%H:%M')}-{stop_time.strftime('%H:%M')}"
+        formatted_value = self._encode((start_time, stop_time))
         _LOGGER.info("Auto-queueing schedule update: %s", formatted_value)
 
         generation = self.coordinator.begin_configuration_write(
@@ -182,23 +190,16 @@ class BaseAutoChargeTime(ThorEntity, TimeEntity):
             )
             return ChargerWriteResult.skipped(block_reason)
         try:
-            result = await charge_point.change_configuration(self._CONFIG_KEY, formatted_value)
-
-            accepted = result in {
-                ConfigurationStatus.accepted,
-                ConfigurationStatus.reboot_required,
-            }
-            outcome_is_current = self.coordinator.acknowledge_configuration_write(
-                self._CONFIG_KEY,
-                generation=generation,
-                accepted=accepted,
-                result=result,
+            response = await self._configuration_exchange(
+                charge_point, self._CONFIG_KEY, formatted_value, generation
+            )
+            result, accepted, outcome_is_current = (
+                response.result,
+                response.accepted,
+                response.current,
             )
             if accepted and outcome_is_current:
-                self.coordinator.update_configuration_value(
-                    self._CONFIG_KEY,
-                    formatted_value,
-                )
+                self._on_accepted(formatted_value, key=self._CONFIG_KEY)
             if accepted:
                 self.coordinator.schedule_configuration_refresh()
 
