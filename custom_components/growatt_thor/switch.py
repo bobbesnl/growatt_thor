@@ -21,7 +21,7 @@ from .charging.control_capabilities import (
     control_is_applicable,
     encode_control_value,
 )
-from .configuration.controls import GrowattConfigurationControlMixin
+from .configuration.controls import GrowattConfigurationControlMixin, GrowattConfigurationWriteMixin
 from .configuration.keys import KEY_EXTERNAL_LIMIT_POWER_ENABLE, KEY_LCDCLOSE_ENABLE
 from .configuration.values import configuration_entity_state
 from .configuration.writes import (
@@ -60,7 +60,7 @@ async def async_setup_entry(
     )
 
 
-class LoadBalancingEnableSwitch(ThorEntity, SwitchEntity):
+class LoadBalancingEnableSwitch(GrowattConfigurationWriteMixin, ThorEntity, SwitchEntity):
     """Switch to enable/disable load balancing."""
 
     _attr_has_entity_name = True
@@ -136,7 +136,7 @@ class LoadBalancingEnableSwitch(ThorEntity, SwitchEntity):
 
         key = KEY_EXTERNAL_LIMIT_POWER_ENABLE
         try:
-            result = await charge_point.change_configuration(key, value)
+            result = await self._send_configuration(charge_point, key, self._encode(value))
         except ChargerConnectionUnavailable:
             raise
         except ChargerRequestOutcomeUncertain as exc:
@@ -149,18 +149,10 @@ class LoadBalancingEnableSwitch(ThorEntity, SwitchEntity):
             self.coordinator.schedule_configuration_refresh(delay=0)
             return ChargerWriteResult.uncertain(str(exc))
 
-        accepted = result in {
-            ConfigurationStatus.accepted,
-            ConfigurationStatus.reboot_required,
-        }
-        outcome_is_current = self.coordinator.acknowledge_configuration_write(
-            key,
-            generation=generation,
-            accepted=accepted,
-            result=result,
-        )
+        response = self._acknowledge_configuration_response(key, generation, result)
+        accepted, outcome_is_current = response.accepted, response.current
         if accepted and outcome_is_current:
-            self.coordinator.update_configuration_value(key, value)
+            self._on_accepted(value, key=key)
         if accepted:
             self.coordinator.schedule_configuration_refresh()
 
