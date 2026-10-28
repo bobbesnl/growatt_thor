@@ -1,8 +1,17 @@
 {
   "services": {
-    "prepare_plug_charging_target": {"name":"Prepare native target for Plug & Charge","description":"Unplugged only. Sends duration, energy or budget without remote start. Wait for acceptance before plugging in."},
-    "schedule_charging_target": {"name":"Reserve or repeat a native charging target","description":"One-time uses target + ReserveNow now and target + remote start at the selected time. Daily is managed and rearmed by Home Assistant."},
-    "cancel_scheduled_charging_target": {"name":"Cancel scheduled charging target","description":"Cancels a daily HA timer locally or sends CancelReservation for a one-time reservation. A native target already written to the charger is not cleared."},
+    "prepare_plug_charging_target": {
+      "name": "Prepare native target for Plug & Charge",
+      "description": "Unplugged only. Sends duration, energy or budget without remote start. Wait for acceptance before plugging in."
+    },
+    "schedule_charging_target": {
+      "name": "Reserve or repeat a native charging target",
+      "description": "One-time uses target + ReserveNow now and target + remote start at the selected time. Daily is managed and rearmed by Home Assistant."
+    },
+    "cancel_scheduled_charging_target": {
+      "name": "Cancel scheduled charging target",
+      "description": "Cancels a daily HA timer locally or sends CancelReservation for a one-time reservation. A native target already written to the charger is not cleared."
+    },
     "preview_charging_target": {
       "name": "Preview native charging target",
       "description": "Read-only capture coverage and wire plan. Sends no commands.",
@@ -356,7 +365,9 @@
   },
   "entity": {
     "sensor": {
-      "server_url": { "name": "Server-URL" },
+      "server_url": {
+        "name": "Server-URL"
+      },
       "status": {
         "name": "Status",
         "state": {
@@ -399,21 +410,50 @@
           "uncertain": "Onzeker"
         },
         "state_attributes": {
-          "information": { "name": "Over dit resultaat", "state": { "details": "Het laatste terminale wachtrijresultaat; gebruik de opdracht-ID om herhaalde automatiseringen te correleren." } },
-          "command_id": { "name": "Opdracht-ID" },
-          "command_name": { "name": "Opdracht" },
-          "write_status": { "name": "Gedetailleerd resultaat" },
-          "queued_at": { "name": "In wachtrij sinds" },
-          "completed_at": { "name": "Voltooid om" },
-          "reason": { "name": "Reden" },
-          "charger_result": { "name": "Laderresultaat" }
+          "information": {
+            "name": "Over dit resultaat",
+            "state": {
+              "details": "Het laatste terminale wachtrijresultaat; gebruik de opdracht-ID om herhaalde automatiseringen te correleren."
+            }
+          },
+          "command_id": {
+            "name": "Opdracht-ID"
+          },
+          "command_name": {
+            "name": "Opdracht"
+          },
+          "write_status": {
+            "name": "Gedetailleerd resultaat"
+          },
+          "queued_at": {
+            "name": "In wachtrij sinds"
+          },
+          "completed_at": {
+            "name": "Voltooid om"
+          },
+          "reason": {
+            "name": "Reden"
+          },
+          "charger_result": {
+            "name": "Laderresultaat"
+          }
         }
       },
-      "charge_point_id": { "name": "Laadpunt-ID" },
-      "charger_vendor": { "name": "Fabrikant laadstation" },
-      "charger_model": { "name": "Model laadstation" },
-      "firmware_version": { "name": "Firmwareversie" },
-      "charger_serial_number": { "name": "Serienummer laadstation" },
+      "charge_point_id": {
+        "name": "Laadpunt-ID"
+      },
+      "charger_vendor": {
+        "name": "Fabrikant laadstation"
+      },
+      "charger_model": {
+        "name": "Model laadstation"
+      },
+      "firmware_version": {
+        "name": "Firmwareversie"
+      },
+      "charger_serial_number": {
+        "name": "Serienummer laadstation"
+      },
       "network_mode": {
         "name": "Netwerkmodus",
         "state": {
@@ -421,26 +461,66 @@
           "static": "Statisch"
         }
       },
-      "network_ip_address": { "name": "IP-adres" },
-      "network_subnet_mask": { "name": "Subnetmasker" },
-      "network_gateway": { "name": "Standaardgateway" },
-      "network_dns_server": { "name": "DNS-server" },
-      "network_mac_address": { "name": "MAC-adres" },
-      "network_wifi_ssid": { "name": "Wifi-SSID" },
-      "charging_power": { "name": "Laadvermogen" },
-      "energy_charged": { "name": "Geladen energie" },
-      "total_energy_charged": { "name": "Totaal geladen energie" },
-      "site_energy_kwh": { "name": "Site EV energy accounted" },
-      "site_direct_solar_kwh": { "name": "Site EV direct solar energy" },
-      "site_direct_grid_kwh": { "name": "Site EV direct grid energy" },
-      "site_battery_unknown_kwh": { "name": "Site EV battery energy of unknown origin" },
-      "site_unknown_kwh": { "name": "Site EV unallocated energy" },
-      "site_effective_grid_cost": { "name": "Site EV known effective grid cost" },
-      "site_coverage": { "name": "Site EV accounting coverage" },
-      "electricity_price": { "name": "Elektriciteitsprijs" },
-      "last_session_energy": { "name": "Energie laatste sessie" },
-      "last_session_cost": { "name": "Kosten laatste sessie" },
-      "last_session_duration": { "name": "Duur laatste sessie" },
+      "network_ip_address": {
+        "name": "IP-adres"
+      },
+      "network_subnet_mask": {
+        "name": "Subnetmasker"
+      },
+      "network_gateway": {
+        "name": "Standaardgateway"
+      },
+      "network_dns_server": {
+        "name": "DNS-server"
+      },
+      "network_mac_address": {
+        "name": "MAC-adres"
+      },
+      "network_wifi_ssid": {
+        "name": "Wifi-SSID"
+      },
+      "charging_power": {
+        "name": "Laadvermogen"
+      },
+      "energy_charged": {
+        "name": "Geladen energie"
+      },
+      "total_energy_charged": {
+        "name": "Totaal geladen energie"
+      },
+      "site_energy_kwh": {
+        "name": "Site EV energy accounted"
+      },
+      "site_direct_solar_kwh": {
+        "name": "Site EV direct solar energy"
+      },
+      "site_direct_grid_kwh": {
+        "name": "Site EV direct grid energy"
+      },
+      "site_battery_unknown_kwh": {
+        "name": "Site EV battery energy of unknown origin"
+      },
+      "site_unknown_kwh": {
+        "name": "Site EV unallocated energy"
+      },
+      "site_effective_grid_cost": {
+        "name": "Site EV known effective grid cost"
+      },
+      "site_coverage": {
+        "name": "Site EV accounting coverage"
+      },
+      "electricity_price": {
+        "name": "Elektriciteitsprijs"
+      },
+      "last_session_energy": {
+        "name": "Energie laatste sessie"
+      },
+      "last_session_cost": {
+        "name": "Kosten laatste sessie"
+      },
+      "last_session_duration": {
+        "name": "Duur laatste sessie"
+      },
       "last_session_effective_charging_duration": {
         "name": "Effectieve laadtijd laatste sessie",
         "state_attributes": {
@@ -452,11 +532,21 @@
           }
         }
       },
-      "last_session_start": { "name": "Start laatste sessie" },
-      "last_session_end": { "name": "Einde laatste sessie" },
-      "last_session_plug_time": { "name": "Inplugtijd laatste sessie" },
-      "last_session_unplug_time": { "name": "Uitplugtijd laatste sessie" },
-      "last_session_transaction_id": { "name": "Transactie-ID laatste sessie" },
+      "last_session_start": {
+        "name": "Start laatste sessie"
+      },
+      "last_session_end": {
+        "name": "Einde laatste sessie"
+      },
+      "last_session_plug_time": {
+        "name": "Inplugtijd laatste sessie"
+      },
+      "last_session_unplug_time": {
+        "name": "Uitplugtijd laatste sessie"
+      },
+      "last_session_transaction_id": {
+        "name": "Transactie-ID laatste sessie"
+      },
       "last_session_charge_mode": {
         "name": "Laadmodus laatste sessie",
         "state": {
@@ -475,10 +565,18 @@
           "unknown_mode": "Onbekend"
         }
       },
-      "current": { "name": "Stroom {phase}" },
-      "voltage": { "name": "Spanning {phase}" },
-      "phase_power": { "name": "Vermogen {phase}" },
-      "temperature": { "name": "Temperatuur" },
+      "current": {
+        "name": "Stroom {phase}"
+      },
+      "voltage": {
+        "name": "Spanning {phase}"
+      },
+      "phase_power": {
+        "name": "Vermogen {phase}"
+      },
+      "temperature": {
+        "name": "Temperatuur"
+      },
       "external_meter_health": {
         "name": "Communicatiestatus",
         "state": {
@@ -496,9 +594,15 @@
           }
         }
       },
-      "grid_power": { "name": "Netvermogen" },
-      "grid_voltage": { "name": "Netspanning {phase}" },
-      "grid_current": { "name": "Netstroom {phase}" },
+      "grid_power": {
+        "name": "Netvermogen"
+      },
+      "grid_voltage": {
+        "name": "Netspanning {phase}"
+      },
+      "grid_current": {
+        "name": "Netstroom {phase}"
+      },
       "working_mode": {
         "name": "Bedrijfsmodus",
         "state": {
@@ -707,8 +811,12 @@
       }
     },
     "button": {
-      "start_charging": { "name": "Laden starten" },
-      "stop_charging": { "name": "Laden stoppen" },
+      "start_charging": {
+        "name": "Laden starten"
+      },
+      "stop_charging": {
+        "name": "Laden stoppen"
+      },
       "apply_pv_linkage": {
         "name": "PV-Boost-instellingen toepassen",
         "state_attributes": {
@@ -722,7 +830,9 @@
       }
     },
     "number": {
-      "max_current": { "name": "Maximale laadstroom" },
+      "max_current": {
+        "name": "Maximale laadstroom"
+      },
       "load_balancing_limit": {
         "name": "Limiet voor load balancing",
         "state_attributes": {
@@ -734,7 +844,9 @@
           }
         }
       },
-      "electricity_price": { "name": "Elektriciteitsprijs" },
+      "electricity_price": {
+        "name": "Elektriciteitsprijs"
+      },
       "power_meter_address": {
         "name": "Energiemeteradres",
         "state_attributes": {
@@ -770,7 +882,14 @@
       }
     },
     "select": {
-      "authorization_mode": {"name":"Authorization mode","state":{"home_assistant_rfid":"Home Assistant / RFID","rfid_only":"Alleen RFID","plug_and_charge":"Aansluiten en laden"}},
+      "authorization_mode": {
+        "name": "Authorization mode",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Alleen RFID",
+          "plug_and_charge": "Aansluiten en laden"
+        }
+      },
       "working_mode": {
         "name": "Laadstrategie",
         "state": {
@@ -856,7 +975,9 @@
           }
         }
       },
-      "lcd_display": { "name": "LCD-scherm" },
+      "lcd_display": {
+        "name": "LCD-scherm"
+      },
       "warm_up": {
         "name": "Opwarmen na volledig laden",
         "state_attributes": {
@@ -870,14 +991,20 @@
       }
     },
     "time": {
-      "auto_charge_start_time": { "name": "Automatische laadstart" },
-      "auto_charge_stop_time": { "name": "Automatisch laadeinde" },
+      "auto_charge_start_time": {
+        "name": "Automatische laadstart"
+      },
+      "auto_charge_stop_time": {
+        "name": "Automatisch laadeinde"
+      },
       "pv_manual_boost_start": {
         "name": "Start Handmatige Boost",
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
-            "state": { "details": "Start van het voorbereide Handmatige Boost-tijdvenster. Toepassen stuurt het volledige tijdvenster." }
+            "state": {
+              "details": "Start van het voorbereide Handmatige Boost-tijdvenster. Toepassen stuurt het volledige tijdvenster."
+            }
           }
         }
       },
@@ -886,7 +1013,9 @@
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
-            "state": { "details": "Einde van het voorbereide Handmatige Boost-tijdvenster. Toepassen stuurt het volledige tijdvenster." }
+            "state": {
+              "details": "Einde van het voorbereide Handmatige Boost-tijdvenster. Toepassen stuurt het volledige tijdvenster."
+            }
           }
         }
       },
@@ -895,7 +1024,9 @@
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
-            "state": { "details": "Gewenste eindtijd voor Slimme Boost. Een tijd die vandaag al voorbij is, wordt bij Toepassen voor morgen gepland." }
+            "state": {
+              "details": "Gewenste eindtijd voor Slimme Boost. Een tijd die vandaag al voorbij is, wordt bij Toepassen voor morgen gepland."
+            }
           }
         }
       }

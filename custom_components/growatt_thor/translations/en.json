@@ -1,8 +1,17 @@
 {
   "services": {
-    "prepare_plug_charging_target": {"name":"Prepare native target for Plug & Charge","description":"Unplugged only. Sends duration, energy or budget without remote start. Wait for acceptance before plugging in."},
-    "schedule_charging_target": {"name":"Reserve or repeat a native charging target","description":"One-time uses target + ReserveNow now and target + remote start at the selected time. Daily is managed and rearmed by Home Assistant."},
-    "cancel_scheduled_charging_target": {"name":"Cancel scheduled charging target","description":"Cancels a daily HA timer locally or sends CancelReservation for a one-time reservation. A native target already written to the charger is not cleared."},
+    "prepare_plug_charging_target": {
+      "name": "Prepare native target for Plug & Charge",
+      "description": "Unplugged only. Sends duration, energy or budget without remote start. Wait for acceptance before plugging in."
+    },
+    "schedule_charging_target": {
+      "name": "Reserve or repeat a native charging target",
+      "description": "One-time uses target + ReserveNow now and target + remote start at the selected time. Daily is managed and rearmed by Home Assistant."
+    },
+    "cancel_scheduled_charging_target": {
+      "name": "Cancel scheduled charging target",
+      "description": "Cancels a daily HA timer locally or sends CancelReservation for a one-time reservation. A native target already written to the charger is not cleared."
+    },
     "preview_charging_target": {
       "name": "Preview native charging target",
       "description": "Read-only capture coverage and wire plan. Sends no commands.",
@@ -356,7 +365,9 @@
   },
   "entity": {
     "sensor": {
-      "server_url": { "name": "Server URL" },
+      "server_url": {
+        "name": "Server URL"
+      },
       "status": {
         "name": "Status",
         "state": {
@@ -399,21 +410,50 @@
           "uncertain": "Uncertain"
         },
         "state_attributes": {
-          "information": { "name": "About this result", "state": { "details": "The latest terminal queue result; use Command ID to correlate repeated automation actions." } },
-          "command_id": { "name": "Command ID" },
-          "command_name": { "name": "Command" },
-          "write_status": { "name": "Detailed result" },
-          "queued_at": { "name": "Queued at" },
-          "completed_at": { "name": "Completed at" },
-          "reason": { "name": "Reason" },
-          "charger_result": { "name": "Charger result" }
+          "information": {
+            "name": "About this result",
+            "state": {
+              "details": "The latest terminal queue result; use Command ID to correlate repeated automation actions."
+            }
+          },
+          "command_id": {
+            "name": "Command ID"
+          },
+          "command_name": {
+            "name": "Command"
+          },
+          "write_status": {
+            "name": "Detailed result"
+          },
+          "queued_at": {
+            "name": "Queued at"
+          },
+          "completed_at": {
+            "name": "Completed at"
+          },
+          "reason": {
+            "name": "Reason"
+          },
+          "charger_result": {
+            "name": "Charger result"
+          }
         }
       },
-      "charge_point_id": { "name": "Charge Point ID" },
-      "charger_vendor": { "name": "Charger manufacturer" },
-      "charger_model": { "name": "Charger model" },
-      "firmware_version": { "name": "Firmware version" },
-      "charger_serial_number": { "name": "Charger serial number" },
+      "charge_point_id": {
+        "name": "Charge Point ID"
+      },
+      "charger_vendor": {
+        "name": "Charger manufacturer"
+      },
+      "charger_model": {
+        "name": "Charger model"
+      },
+      "firmware_version": {
+        "name": "Firmware version"
+      },
+      "charger_serial_number": {
+        "name": "Charger serial number"
+      },
       "network_mode": {
         "name": "Network mode",
         "state": {
@@ -421,26 +461,66 @@
           "static": "Static"
         }
       },
-      "network_ip_address": { "name": "IP address" },
-      "network_subnet_mask": { "name": "Subnet mask" },
-      "network_gateway": { "name": "Default gateway" },
-      "network_dns_server": { "name": "DNS server" },
-      "network_mac_address": { "name": "MAC address" },
-      "network_wifi_ssid": { "name": "Wi-Fi SSID" },
-      "charging_power": { "name": "Charging Power" },
-      "energy_charged": { "name": "Energy Charged" },
-      "total_energy_charged": { "name": "Total Energy Charged" },
-      "site_energy_kwh": { "name": "Site EV energy accounted" },
-      "site_direct_solar_kwh": { "name": "Site EV direct solar energy" },
-      "site_direct_grid_kwh": { "name": "Site EV direct grid energy" },
-      "site_battery_unknown_kwh": { "name": "Site EV battery energy of unknown origin" },
-      "site_unknown_kwh": { "name": "Site EV unallocated energy" },
-      "site_effective_grid_cost": { "name": "Site EV known effective grid cost" },
-      "site_coverage": { "name": "Site EV accounting coverage" },
-      "electricity_price": { "name": "Electricity Price" },
-      "last_session_energy": { "name": "Last Session Energy" },
-      "last_session_cost": { "name": "Last Session Cost" },
-      "last_session_duration": { "name": "Last Session Duration" },
+      "network_ip_address": {
+        "name": "IP address"
+      },
+      "network_subnet_mask": {
+        "name": "Subnet mask"
+      },
+      "network_gateway": {
+        "name": "Default gateway"
+      },
+      "network_dns_server": {
+        "name": "DNS server"
+      },
+      "network_mac_address": {
+        "name": "MAC address"
+      },
+      "network_wifi_ssid": {
+        "name": "Wi-Fi SSID"
+      },
+      "charging_power": {
+        "name": "Charging Power"
+      },
+      "energy_charged": {
+        "name": "Energy Charged"
+      },
+      "total_energy_charged": {
+        "name": "Total Energy Charged"
+      },
+      "site_energy_kwh": {
+        "name": "Site EV energy accounted"
+      },
+      "site_direct_solar_kwh": {
+        "name": "Site EV direct solar energy"
+      },
+      "site_direct_grid_kwh": {
+        "name": "Site EV direct grid energy"
+      },
+      "site_battery_unknown_kwh": {
+        "name": "Site EV battery energy of unknown origin"
+      },
+      "site_unknown_kwh": {
+        "name": "Site EV unallocated energy"
+      },
+      "site_effective_grid_cost": {
+        "name": "Site EV known effective grid cost"
+      },
+      "site_coverage": {
+        "name": "Site EV accounting coverage"
+      },
+      "electricity_price": {
+        "name": "Electricity Price"
+      },
+      "last_session_energy": {
+        "name": "Last Session Energy"
+      },
+      "last_session_cost": {
+        "name": "Last Session Cost"
+      },
+      "last_session_duration": {
+        "name": "Last Session Duration"
+      },
       "last_session_effective_charging_duration": {
         "name": "Last Session Effective Charging Time",
         "state_attributes": {
@@ -452,11 +532,21 @@
           }
         }
       },
-      "last_session_start": { "name": "Last Session Start" },
-      "last_session_end": { "name": "Last Session End" },
-      "last_session_plug_time": { "name": "Last Session Plug Time" },
-      "last_session_unplug_time": { "name": "Last Session Unplug Time" },
-      "last_session_transaction_id": { "name": "Last Session Transaction ID" },
+      "last_session_start": {
+        "name": "Last Session Start"
+      },
+      "last_session_end": {
+        "name": "Last Session End"
+      },
+      "last_session_plug_time": {
+        "name": "Last Session Plug Time"
+      },
+      "last_session_unplug_time": {
+        "name": "Last Session Unplug Time"
+      },
+      "last_session_transaction_id": {
+        "name": "Last Session Transaction ID"
+      },
       "last_session_charge_mode": {
         "name": "Last Session Charge Mode",
         "state": {
@@ -475,10 +565,18 @@
           "unknown_mode": "Unknown"
         }
       },
-      "current": { "name": "Current {phase}" },
-      "voltage": { "name": "Voltage {phase}" },
-      "phase_power": { "name": "Power {phase}" },
-      "temperature": { "name": "Temperature" },
+      "current": {
+        "name": "Current {phase}"
+      },
+      "voltage": {
+        "name": "Voltage {phase}"
+      },
+      "phase_power": {
+        "name": "Power {phase}"
+      },
+      "temperature": {
+        "name": "Temperature"
+      },
       "external_meter_health": {
         "name": "Communication status",
         "state": {
@@ -496,9 +594,15 @@
           }
         }
       },
-      "grid_power": { "name": "Grid power" },
-      "grid_voltage": { "name": "Grid voltage {phase}" },
-      "grid_current": { "name": "Grid current {phase}" },
+      "grid_power": {
+        "name": "Grid power"
+      },
+      "grid_voltage": {
+        "name": "Grid voltage {phase}"
+      },
+      "grid_current": {
+        "name": "Grid current {phase}"
+      },
       "working_mode": {
         "name": "Working mode",
         "state": {
@@ -707,8 +811,12 @@
       }
     },
     "button": {
-      "start_charging": { "name": "Start charging" },
-      "stop_charging": { "name": "Stop charging" },
+      "start_charging": {
+        "name": "Start charging"
+      },
+      "stop_charging": {
+        "name": "Stop charging"
+      },
       "apply_pv_linkage": {
         "name": "Apply PV Boost settings",
         "state_attributes": {
@@ -722,7 +830,9 @@
       }
     },
     "number": {
-      "max_current": { "name": "Maximum current" },
+      "max_current": {
+        "name": "Maximum current"
+      },
       "load_balancing_limit": {
         "name": "Load balancing limit",
         "state_attributes": {
@@ -734,7 +844,9 @@
           }
         }
       },
-      "electricity_price": { "name": "Electricity price" },
+      "electricity_price": {
+        "name": "Electricity price"
+      },
       "power_meter_address": {
         "name": "Power meter address",
         "state_attributes": {
@@ -770,7 +882,14 @@
       }
     },
     "select": {
-      "authorization_mode": {"name":"Authorization mode","state":{"home_assistant_rfid":"Home Assistant / RFID","rfid_only":"RFID only","plug_and_charge":"Plug & charge"}},
+      "authorization_mode": {
+        "name": "Authorization mode",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "RFID only",
+          "plug_and_charge": "Plug & charge"
+        }
+      },
       "working_mode": {
         "name": "Charging strategy",
         "state": {
@@ -856,7 +975,9 @@
           }
         }
       },
-      "lcd_display": { "name": "LCD display" },
+      "lcd_display": {
+        "name": "LCD display"
+      },
       "warm_up": {
         "name": "Warm-up after full charge",
         "state_attributes": {
@@ -870,14 +991,20 @@
       }
     },
     "time": {
-      "auto_charge_start_time": { "name": "Automatic charging start" },
-      "auto_charge_stop_time": { "name": "Automatic charging stop" },
+      "auto_charge_start_time": {
+        "name": "Automatic charging start"
+      },
+      "auto_charge_stop_time": {
+        "name": "Automatic charging stop"
+      },
       "pv_manual_boost_start": {
         "name": "Manual Boost start",
         "state_attributes": {
           "information": {
             "name": "About this setting",
-            "state": { "details": "Start of the staged Manual Boost window. Press Apply to send the complete window." }
+            "state": {
+              "details": "Start of the staged Manual Boost window. Press Apply to send the complete window."
+            }
           }
         }
       },
@@ -886,7 +1013,9 @@
         "state_attributes": {
           "information": {
             "name": "About this setting",
-            "state": { "details": "End of the staged Manual Boost window. Press Apply to send the complete window." }
+            "state": {
+              "details": "End of the staged Manual Boost window. Press Apply to send the complete window."
+            }
           }
         }
       },
@@ -895,7 +1024,9 @@
         "state_attributes": {
           "information": {
             "name": "About this setting",
-            "state": { "details": "Requested Smart Boost finish time. A time already passed today is scheduled for tomorrow when Apply is pressed." }
+            "state": {
+              "details": "Requested Smart Boost finish time. A time already passed today is scheduled for tomorrow when Apply is pressed."
+            }
           }
         }
       }

@@ -91,6 +91,8 @@ Options-form sensor discovery is in `source_discovery.py`. Live source allocatio
 
 Sensor metadata and simple value functions live in `custom_components/growatt_thor/sensor_descriptions.py`; the platform in `sensor.py` applies those descriptions. Extend the description table for ordinary fields and keep lifecycle-specific behavior in a dedicated class.
 
+Translation checks cover all eight languages and preserve format placeholders. `python -m tests.test_translation_parity --report` lists values identical to English; review product names, model numbers and established terms separately from untranslated prose.
+
 ## Keep changes understandable
 
 - Keep HA-discovered platform modules at the integration root and feature code
