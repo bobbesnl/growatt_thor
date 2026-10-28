@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 from ocpp.v16.enums import ConfigurationStatus
 
@@ -31,10 +32,50 @@ from .writes import (
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True, slots=True)
+class ConfigurationWriteResponse:
+    """One charger acknowledgement, distinct from the current UI intent."""
+
+    result: object
+    accepted: bool
+    current: bool
+
+
 class GrowattConfigurationControlMixin:
     """Write one verified Growatt configuration value through the safe queue."""
 
     _control: ChargingControl
+
+    def _validate_write_value(self, value):
+        """Retain boundary-specific validation in the entity that owns it."""
+        return value
+
+    def _encode(self, value):
+        """The default boundary already receives an encoded wire string."""
+        return value
+
+    def _on_accepted(self, raw_value: str, *, key=None, value=None) -> None:
+        """Apply reported state only after the caller checked current intent."""
+        self.coordinator.update_configuration_value(key or self._configuration_key, raw_value)
+
+    def _restore_optimistic(self, generation: int, *, previous=None) -> None:
+        """Entities with optimistic local state retain their own rollback policy."""
+
+    async def _send_configuration(self, charge_point, key: str, raw_value: str):
+        """Called only from the coordinator-owned write-queue callback."""
+        return await charge_point.change_configuration(key, raw_value)
+
+    def _acknowledge_configuration_response(self, key, generation, result):
+        accepted = result in {ConfigurationStatus.accepted, ConfigurationStatus.reboot_required}
+        current = self.coordinator.acknowledge_configuration_write(
+            key, generation=generation, accepted=accepted, result=result
+        )
+        return ConfigurationWriteResponse(result, accepted, current)
+
+    async def _configuration_exchange(self, charge_point, key, raw_value, generation):
+        """For callbacks whose existing error boundary includes acknowledgement."""
+        result = await self._send_configuration(charge_point, key, raw_value)
+        return self._acknowledge_configuration_response(key, generation, result)
 
     @property
     def _configuration_key(self) -> str:
@@ -91,6 +132,7 @@ class GrowattConfigurationControlMixin:
         }
 
     async def _async_write_configuration(self, raw_value: str) -> None:
+        raw_value = self._encode(self._validate_write_value(raw_value))
         pending_raw_value = pending_configuration_value(
             self.coordinator.configuration_writes,
             self._configuration_key,
@@ -169,9 +211,8 @@ class GrowattConfigurationControlMixin:
             return ChargerWriteResult.skipped(block_reason)
 
         try:
-            result = await charge_point.change_configuration(
-                self._configuration_key,
-                raw_value,
+            result = await self._send_configuration(
+                charge_point, self._configuration_key, raw_value
             )
         except ChargerConnectionUnavailable:
             # The queue can safely rebind and retry because no request reached
@@ -187,25 +228,16 @@ class GrowattConfigurationControlMixin:
             self.coordinator.schedule_configuration_refresh(delay=0)
             return ChargerWriteResult.uncertain(str(exc))
 
-        accepted = result in {
-            ConfigurationStatus.accepted,
-            ConfigurationStatus.reboot_required,
-        }
-        outcome_is_current = self.coordinator.acknowledge_configuration_write(
-            self._configuration_key,
-            generation=generation,
-            accepted=accepted,
-            result=result,
+        response = self._acknowledge_configuration_response(
+            self._configuration_key, generation, result
         )
+        accepted, outcome_is_current = response.accepted, response.current
         if accepted:
             # The charger may accept an older request after a newer automation
             # has already queued its replacement. Keep the accepted physical
             # outcome for readback, but expose only the newest intent in HA.
             if outcome_is_current:
-                self.coordinator.update_configuration_value(
-                    self._configuration_key,
-                    raw_value,
-                )
+                self._on_accepted(raw_value)
             if result == ConfigurationStatus.reboot_required:
                 _LOGGER.warning(
                     "%s accepted but requires a charger reboot",

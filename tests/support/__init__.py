@@ -273,3 +273,50 @@ def build_queue_coordinator(loop):
     coordinator.write_queue.poll_pause_after_write = 0.0
     coordinator.async_set_updated_data = lambda data: None
     return coordinator
+
+
+class ControlEntity:
+    """HA platform properties used by the actual configuration entity classes."""
+
+    @property
+    def native_min_value(self):
+        return getattr(self, "_attr_native_min_value", None)
+
+    @property
+    def native_max_value(self):
+        return getattr(self, "_attr_native_max_value", None)
+
+    @property
+    def native_step(self):
+        return getattr(self, "_attr_native_step", None)
+
+    @property
+    def options(self):
+        return getattr(self, "_attr_options", [])
+
+    @property
+    def name(self):
+        return getattr(self, "_attr_translation_key", type(self).__name__)
+
+    @property
+    def extra_state_attributes(self):
+        return None
+
+    def async_write_ha_state(self):
+        if hasattr(self, "on_state_write"):
+            self.on_state_write()
+
+
+def install_control_stubs():
+    install_sensor_stubs()
+    for platform, entity_name in (
+        ("number", "NumberEntity"),
+        ("switch", "SwitchEntity"),
+        ("select", "SelectEntity"),
+        ("time", "TimeEntity"),
+    ):
+        default(module("homeassistant.components." + platform), entity_name, ControlEntity)
+    default(module("homeassistant.components.number"), "NumberMode", _named("NumberMode"))
+    default(
+        module("homeassistant.components.number"), "NumberDeviceClass", _named("NumberDeviceClass")
+    )

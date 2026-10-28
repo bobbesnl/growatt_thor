@@ -127,6 +127,24 @@ have reached OCPP. Every handle gets one terminal result, including late work
 during unload. Result models, policies and transport exceptions live in
 `runtime/write_results.py`; `runtime/write_queue.py` remains a compatibility shim.
 
+## Configuration write compatibility
+
+`GrowattConfigurationControlMixin` owns transport and acknowledgement primitives. Its validation, encoding, accepted-state and optimistic-restore hooks let platform entities retain their existing policies. The only outgoing write owner remains `ChargerWriteQueue`; the mixin is called inside that queue's callbacks.
+
+The existing differences are intentional during consolidation:
+
+| Entity | State and rollback behavior to preserve |
+| --- | --- |
+| Max current | Optimistic current; restore the last reported value only for the owning generation on rejection, unsent completion or unexpected failure; retain the requested value after uncertainty. Recheck model limits before sending. |
+| Load balancing limit | Same rollback protection; publish the acknowledged configuration and schedule readback before updating the numeric observation. |
+| Electricity price | Optimistic price with generation-safe rollback; retain the exact requested numeric value while encoding the two-decimal full-day tariff on the wire. |
+| Load balancing switch | Pending state comes from write tracking; acknowledge and schedule readback before updating the enabled observation. Unexpected failures propagate to the queue. |
+| LCD switch | Pending write tracking remains visible; update the LCD observation before the reported configuration, notify on rejection, and preserve the existing transport-only exception boundary. |
+| Working mode | An entity intent token protects selections across different configuration keys. Keep its own readback waiter and clear only the matching selection; uncertainty schedules that waiter's immediate readback. |
+| Auto Charge times | Two fields share the existing debounce and one queued snapshot. Restore pending fields only for an unsent owning generation; rejection and unexpected execution failure do not add a new rollback. The original HA calls return before the deferred command completes. |
+
+Characterization tests exercise all seven actual entities through the production queue across accepted, reboot-required, rejected, uncertain, unexpected, superseded and cancelled outcomes. Their notification order, wire payloads, public errors and final observations are retained in fixtures.
+
 ## Time boundaries
 
 `timestamps.py` shares ISO parsing and installation-zone lookup. Explicit parser options preserve legacy differences: aware-only site observations, naive duration values, local-calendar CSV filtering and stripped curve timestamps. `coerce.py` provides optional number/text conversion; wrappers retain each boundary's finiteness, sign, size and error rules.
