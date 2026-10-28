@@ -70,7 +70,7 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
 
     def test_start_stop_and_ap_mode_use_their_specific_policies(self):
         expected = {
-            ("button.py", "REMOTE_START_COMMAND"): (
+            ("charging/commands.py", "REMOTE_START_COMMAND"): (
                 "VOLATILE_CONTROL_WRITE_POLICY",
                 True,
             ),
@@ -144,7 +144,7 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
             node.name: node
             for node in tree.body
             if isinstance(node, ast.ClassDef)
-            and node.name in {"StartChargingButton", "StopChargingCommand"}
+            and node.name in {"StartChargingCommand", "StopChargingCommand"}
         }
 
         for class_name in classes:

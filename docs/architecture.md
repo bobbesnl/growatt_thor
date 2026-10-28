@@ -108,6 +108,8 @@ flowchart LR
   points per session, with a 12 KiB target. Historical detail is loaded on demand.
   Pagination covers those recent rows, not the full archive.
 
+Start and Stop buttons delegate to `StartChargingCommand` and `StopChargingCommand` in `charging/commands.py`. These boundaries own revalidation, queue submission and command-state reporting; delayed status triggers resolve the current connection after the shared two-second delay.
+
 ## Charger write queue
 
 Each runtime creates one `runtime/charger_write_queue.py::ChargerWriteQueue`.

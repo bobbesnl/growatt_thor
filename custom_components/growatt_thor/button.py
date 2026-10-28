@@ -9,28 +9,21 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-import asyncio
 import logging
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.util import dt as dt_util
 
-from .charging.commands import StopChargingCommand, _command_state
+from .charging.commands import DEFAULT_ID_TAG as DEFAULT_ID_TAG
+from .charging.commands import StartChargingCommand, StopChargingCommand
 from .charging.control_capabilities import (
     ChargingControl,
-    charger_write_block_reason,
 )
 from .charging.pv_apply import apply_pv_linkage_writes
 from .charging.pv_linkage import (
     build_pv_linkage_writes,
     draft_validation_errors,
-)
-from .charging.start_stop_rules import (
-    REMOTE_START_COMMAND,
-    SESSION_CONTROL_DEDUPE_KEY,
-    start_revalidation_failure,
-    target_blocks_manual_start,
 )
 from .const import DOMAIN
 from .entity import ThorEntity
@@ -42,15 +35,10 @@ from .runtime.action_errors import (
 )
 from .runtime.write_results import (
     CONFIGURATION_WRITE_POLICY,
-    VOLATILE_CONTROL_WRITE_POLICY,
-    ChargerConnectionUnavailable,
-    ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-DEFAULT_ID_TAG = "12345678"  # Growatt handshake key
 
 
 async def async_setup_entry(
@@ -72,9 +60,8 @@ async def async_setup_entry(
 
 
 class StartChargingButton(ThorEntity, ButtonEntity):
-    """Button to start a charging session."""
+    """Expose Start while the command boundary owns validation and execution."""
 
-    _attr_has_entity_name = True
     _attr_translation_key = "start_charging"
     _attr_icon = "mdi:play-circle"
 
@@ -84,117 +71,14 @@ class StartChargingButton(ThorEntity, ButtonEntity):
 
     @property
     def _write_block_reason(self) -> str | None:
-        if target_blocks_manual_start(getattr(self.coordinator, "charging_target_request", None)):
-            return "native_target_requires_reconciliation"
-        return charger_write_block_reason(
-            connected=self.coordinator.connected,
-            charger_faulted=self.coordinator.charger_is_faulted,
-        )
+        return StartChargingCommand(self.coordinator).write_block_reason
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self._write_block_reason is None
 
-    def _start_revalidation_failure(self) -> str | None:
-        """Return why a delayed start no longer represents a valid intent."""
-        if (reason := self._write_block_reason) is not None:
-            return reason
-        return start_revalidation_failure(
-            charger_faulted=self.coordinator.charger_is_faulted,
-            transaction_active=self.coordinator.transaction_is_active,
-        )
-
     async def async_press(self) -> None:
-        """Start a charging session via queue."""
-        if (block_reason := self._write_block_reason) is not None:
-            _LOGGER.warning("Cannot start charging: %s", block_reason)
-            raise_write_blocked(block_reason)
-        charge_point = self.coordinator.runtime_data.get("charge_point")
-        if not charge_point:
-            _LOGGER.warning("Cannot start charging: charger not connected")
-            raise_charger_disconnected()
-
-        if self.coordinator.transaction_is_active:
-            _LOGGER.warning(
-                "Cannot start charging: session already active (transaction_id=%s)",
-                self.coordinator.transaction_id,
-            )
-            raise_action_validation("charging_already_active")
-
-        _LOGGER.info("Queueing priority start charging command")
-        _command_state(self.coordinator, "start", "queued")
-        handle = await self.coordinator.queue_write(
-            self._start_charging,
-            charge_point,
-            # Start and Stop share one logical queue lane.  A later, valid
-            # opposing intent can therefore replace work that was never sent.
-            dedupe_key=SESSION_CONTROL_DEDUPE_KEY,
-            priority=True,
-            rate_limited=False,
-            command_name=REMOTE_START_COMMAND,
-            requires_connection=True,
-            policy=VOLATILE_CONTROL_WRITE_POLICY,
-            revalidate=self._start_revalidation_failure,
-        )
-        # Start/Stop are priority controls rather than slow configuration
-        # edits, so their HA actions can wait for a bounded physical outcome.
-        await async_require_command_completion(handle)
-
-    async def _start_charging(self, charge_point) -> ChargerWriteResult:
-        """Start charging command (runs inside write-queue)."""
-        if (reason := self._start_revalidation_failure()) is not None:
-            _LOGGER.warning("Skipping queued start charging: %s", reason)
-            _command_state(self.coordinator, "start", "rejected")
-            return ChargerWriteResult.skipped(reason)
-        _command_state(self.coordinator, "start", "sending")
-        try:
-            result = await charge_point.remote_start_transaction(
-                connector_id=1, id_tag=DEFAULT_ID_TAG
-            )
-
-            if result.get("status") == "Accepted":
-                _command_state(self.coordinator, "start", "accepted")
-                _LOGGER.info("Charging session started successfully")
-                self.hass.async_create_task(self._post_status_update())
-                self.coordinator.async_set_updated_data(True)
-                return ChargerWriteResult.success(result.get("status"))
-            else:
-                reason = (
-                    "local_authorization_denied"
-                    if result.get("reason") == "local_authorization_denied"
-                    else "charger_rejected"
-                )
-                _command_state(self.coordinator, "start", "rejected", reason=reason)
-                _LOGGER.warning("Start charging rejected: %s", reason)
-                return ChargerWriteResult.failed(
-                    reason,
-                    result.get("status"),
-                )
-
-        except ChargerConnectionUnavailable:
-            _command_state(self.coordinator, "start", "error")
-            raise
-        except ChargerRequestOutcomeUncertain as exc:
-            _command_state(self.coordinator, "start", "uncertain")
-            return ChargerWriteResult.uncertain(str(exc))
-        except Exception as exc:
-            _command_state(self.coordinator, "start", "error")
-            _LOGGER.error("Failed to start charging: %s", exc, exc_info=True)
-            return ChargerWriteResult.failed("unexpected_error")
-
-    async def _post_status_update(self):
-        """Trigger a status update on whichever connection is current later."""
-        await asyncio.sleep(2)
-        try:
-            # Capturing the charge point used for the original command is unsafe:
-            # the THOR can reconnect during this delay and replace its socket.
-            charge_point = self.coordinator.runtime_data.get("charge_point")
-            if charge_point is None:
-                return
-            await charge_point.trigger_status()
-            self.coordinator.async_set_updated_data(True)
-        except Exception as exc:
-            _LOGGER.error("Failed to trigger status after start: %s", exc, exc_info=True)
+        await StartChargingCommand(self.coordinator).async_request()
 
 
 # Stop Charging Button

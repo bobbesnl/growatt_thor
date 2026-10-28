@@ -223,7 +223,7 @@ class PublicActionWiringTest(unittest.TestCase):
             "raise_write_blocked",
             "raise_charger_disconnected",
         },
-        ("button.py", "StartChargingButton", "async_press"): {
+        ("charging/commands.py", "StartChargingCommand", "async_request"): {
             "async_require_command_completion",
             "raise_write_blocked",
             "raise_charger_disconnected",
