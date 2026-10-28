@@ -1,17 +1,23 @@
 """Shared transaction-bound Stop execution for entities and automatic rules."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
 
 from ..const import DOMAIN
-from .session_controls import (
-    REMOTE_START_COMMAND, REMOTE_STOP_COMMAND, SESSION_CONTROL_DEDUPE_KEY,
-    STOP_CANCELLED_START_REASON, stop_revalidation_failure,
-)
 from ..runtime.write_queue import (
-    TRANSACTION_CONTROL_WRITE_POLICY, ChargerConnectionUnavailable,
-    ChargerRequestOutcomeUncertain, ChargerWriteResult,
+    TRANSACTION_CONTROL_WRITE_POLICY,
+    ChargerConnectionUnavailable,
+    ChargerRequestOutcomeUncertain,
+    ChargerWriteResult,
+)
+from .session_controls import (
+    REMOTE_START_COMMAND,
+    REMOTE_STOP_COMMAND,
+    SESSION_CONTROL_DEDUPE_KEY,
+    STOP_CANCELLED_START_REASON,
+    stop_revalidation_failure,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,7 +32,6 @@ def _command_state(coordinator, action, state, *, reason=None):
         **({"reason": reason} if reason else {}),
     }
     coordinator.async_set_updated_data(True)
-
 
 
 class StopChargingCommand:
@@ -54,6 +59,7 @@ class StopChargingCommand:
             raise_action_validation,
             raise_charger_disconnected,
         )
+
         # A Stop pressed before a queued Start reaches OCPP means "do not
         # start".  Cancelling that local intent is useful even if the charger
         # disconnected in the meantime and must not manufacture a Stop for ID
@@ -69,8 +75,7 @@ class StopChargingCommand:
 
         if cancelled_starts and not transaction_active:
             _LOGGER.info(
-                "⏹️ Cancelled %d unsent start command(s); no active "
-                "transaction needs an OCPP Stop",
+                "⏹️ Cancelled %d unsent start command(s); no active transaction needs an OCPP Stop",
                 cancelled_starts,
             )
             return
@@ -83,7 +88,7 @@ class StopChargingCommand:
         if transaction_id is None or not transaction_active:
             _LOGGER.warning(
                 "⚠️ Cannot stop charging: no active session (status=%s)",
-                self.coordinator.status
+                self.coordinator.status,
             )
             raise_action_validation("no_active_transaction")
 
@@ -123,9 +128,7 @@ class StopChargingCommand:
         stop_reason: str | None = None,
     ) -> ChargerWriteResult:
         """Stop charging command (runs inside write-queue)."""
-        if (
-            reason := self._stop_revalidation_failure(transaction_id)
-        ) is not None:
+        if (reason := self._stop_revalidation_failure(transaction_id)) is not None:
             _LOGGER.warning("Skipping stale stop charging command: %s", reason)
             _command_state(self.coordinator, "stop", "rejected")
             return ChargerWriteResult.skipped(reason)
@@ -135,9 +138,7 @@ class StopChargingCommand:
         else:
             self.coordinator.record_stop_requested()
         try:
-            result = await charge_point.remote_stop_transaction(
-                transaction_id=transaction_id
-            )
+            result = await charge_point.remote_stop_transaction(transaction_id=transaction_id)
 
             if result.get("status") == "Accepted":
                 _command_state(self.coordinator, "stop", "accepted")
@@ -177,4 +178,3 @@ class StopChargingCommand:
             self.coordinator.async_set_updated_data(True)
         except Exception as exc:
             _LOGGER.error("❌ Failed to trigger status after stop: %s", exc, exc_info=True)
-

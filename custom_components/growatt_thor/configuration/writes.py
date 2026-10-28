@@ -1,10 +1,11 @@
 """Track accepted configuration writes until the charger reports them back."""
+
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from decimal import Decimal, InvalidOperation
 from enum import Enum
-from typing import Mapping
 
 
 class ConfigurationWriteStatus(str, Enum):
@@ -47,9 +48,7 @@ class ConfigurationWriteState:
         """Return a diagnostics-friendly representation."""
         data = asdict(self)
         data["status"] = self.status.value
-        data["superseded_outcomes"] = [
-            asdict(outcome) for outcome in self.superseded_outcomes
-        ]
+        data["superseded_outcomes"] = [asdict(outcome) for outcome in self.superseded_outcomes]
         return data
 
 
@@ -74,9 +73,7 @@ def begin_configuration_write(
         requested_raw_value=raw_value,
         requested_at=requested_at,
         generation=1 if previous is None else previous.generation + 1,
-        superseded_outcomes=(
-            () if previous is None else previous.superseded_outcomes
-        ),
+        superseded_outcomes=(() if previous is None else previous.superseded_outcomes),
     )
     return updated
 
@@ -196,14 +193,10 @@ def confirm_configuration_writes(
     updated = dict(writes)
     for key, reported_raw_value in reported_values.items():
         state = updated.get(key)
-        if (
-            state is None
-            or state.status
-            not in {
-                ConfigurationWriteStatus.AWAITING_READBACK,
-                ConfigurationWriteStatus.UNCERTAIN,
-            }
-        ):
+        if state is None or state.status not in {
+            ConfigurationWriteStatus.AWAITING_READBACK,
+            ConfigurationWriteStatus.UNCERTAIN,
+        }:
             continue
         updated[key] = replace(
             state,

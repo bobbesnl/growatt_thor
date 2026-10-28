@@ -1,10 +1,10 @@
 """Stable source-aware identities for charging sessions."""
+
 from __future__ import annotations
 
 import hashlib
 import json
 from typing import Any
-
 
 SOURCE_HOME_ASSISTANT = "home_assistant"
 SOURCE_EXTERNAL_OR_UNKNOWN = "external_or_unknown"
@@ -56,9 +56,7 @@ def build_session_id(
     identity = {
         "source": normalized_source,
         "source_instance_id": (
-            _text(source_instance_id)
-            if normalized_source == SOURCE_HOME_ASSISTANT
-            else ""
+            _text(source_instance_id) if normalized_source == SOURCE_HOME_ASSISTANT else ""
         ),
         "charge_point_id": _text(charge_point_id),
         "transaction_id": _text(transaction_id),

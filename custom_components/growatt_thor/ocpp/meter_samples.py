@@ -1,15 +1,16 @@
 """Lossless models for OCPP 1.6 MeterValues payloads."""
+
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, is_dataclass
-from datetime import date, datetime, timedelta, timezone, tzinfo
+from datetime import UTC, date, datetime, timedelta, timezone, tzinfo
 from enum import Enum
 from math import isfinite
-import re
 from typing import Any
-from ..runtime.time import utc_timestamp
 
+from ..runtime.time import utc_timestamp
 
 DEFAULT_MEASURAND = "Energy.Active.Import.Register"
 
@@ -150,7 +151,9 @@ def _parse_sample(sample: Any) -> MeterSample:
     )
 
 
-def meter_time_zone(configuration_values: Mapping, installation_zone: str | None) -> str | tzinfo | None:
+def meter_time_zone(
+    configuration_values: Mapping, installation_zone: str | None
+) -> str | tzinfo | None:
     """Use the reported fixed device clock only when its DST adjustment is off."""
     daylight = getattr(configuration_values.get("G_DaylightSavingTime"), "raw_value", None)
     value = getattr(configuration_values.get("G_TimeZone"), "raw_value", None)
@@ -159,7 +162,7 @@ def meter_time_zone(configuration_values: Mapping, installation_zone: str | None
         # clock offset from packet arrival or guess how seasonal rules apply.
         return installation_zone
     if value == "UTC":
-        return timezone.utc
+        return UTC
     match = re.fullmatch(r"UTC([+-])(\d{1,2})(?::([0-5]\d))?", value)
     if match is None:
         return installation_zone
@@ -171,7 +174,9 @@ def meter_time_zone(configuration_values: Mapping, installation_zone: str | None
     return timezone(timedelta(minutes=minutes))
 
 
-def normalize_meter_timestamp(value: str | None, time_zone: str | tzinfo | None = None) -> str | None:
+def normalize_meter_timestamp(
+    value: str | None, time_zone: str | tzinfo | None = None
+) -> str | None:
     """Convert THOR local wall-clock timestamps to UTC using an explicit zone.
 
     Some firmware omits the UTC offset and can retain a fixed summer-time
@@ -184,7 +189,9 @@ def normalize_meter_timestamp(value: str | None, time_zone: str | tzinfo | None 
     return utc_timestamp(value, time_zone)
 
 
-def parse_meter_values(payload: Any, *, time_zone: str | tzinfo | None = None) -> tuple[MeterValue, ...]:
+def parse_meter_values(
+    payload: Any, *, time_zone: str | tzinfo | None = None
+) -> tuple[MeterValue, ...]:
     """Parse OCPP MeterValues entries without dropping unknown fields."""
     meter_values = []
     for entry in _as_sequence(payload):
@@ -196,10 +203,7 @@ def parse_meter_values(payload: Any, *, time_zone: str | tzinfo | None = None) -
         meter_values.append(
             MeterValue(
                 timestamp=normalize_meter_timestamp(_text(_field(entry, "timestamp")), time_zone),
-                samples=tuple(
-                    _parse_sample(sample)
-                    for sample in _as_sequence(sampled_values)
-                ),
+                samples=tuple(_parse_sample(sample) for sample in _as_sequence(sampled_values)),
                 raw=raw,
             )
         )

@@ -1,63 +1,70 @@
 """Growatt THOR OCPP Integration for Home Assistant."""
-import logging
+
 import asyncio
+import logging
 from contextlib import suppress
 from pathlib import Path
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.const import Platform
+import homeassistant.helpers.config_validation as cv
+import voluptuous as vol
 from homeassistant.components.persistent_notification import async_create as pn_create
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
-import voluptuous as vol
-import homeassistant.helpers.config_validation as cv
 
-from .runtime.action_errors import (
-    raise_action_validation,
-    raise_charger_disconnected,
-    raise_communication_error,
+from .configuration.validation import (
+    DateRangeValidationError,
+    DateRangeValidationReason,
+    parse_export_date_range,
+    validate_bind_address,
+    validate_poll_interval,
+    validate_tcp_port,
 )
 from .const import (
-    CONFIG_ENTRY_VERSION,
-    DOMAIN,
-    CONF_PORT,
-    CONF_POLL_INTERVAL,
     CONF_LOCATION,
-    DEFAULT_PORT,
+    CONF_POLL_INTERVAL,
+    CONF_PORT,
+    CONFIG_ENTRY_VERSION,
     DEFAULT_POLL_INTERVAL,
+    DEFAULT_PORT,
+    DOMAIN,
     MIN_POLL_INTERVAL,
 )
 from .coordinator import GrowattCoordinator
-from .runtime.entity_migrations import (
-    LEGACY_SESSION_DURATION_UNIT_MIGRATION,
-    PENDING_EXTERNAL_METER_READBACK_MIGRATION,
-    disable_redundant_external_meter_readbacks,
-    migrate_session_duration_unit,
-)
 from .energy.sources import (
     BATTERY_POSITIVE_DISCHARGE,
     CONF_BATTERY_POWER_ENTITY,
     CONF_BATTERY_POWER_SIGN,
 )
 from .ocpp.server import start_ocpp_server
-from .runtime.time import installation_time_zone
-from .runtime.polling import PollIntervalSchedule
+from .runtime.action_errors import (
+    raise_action_validation,
+    raise_charger_disconnected,
+    raise_communication_error,
+)
+from .runtime.entity_migrations import (
+    LEGACY_SESSION_DURATION_UNIT_MIGRATION,
+    PENDING_EXTERNAL_METER_READBACK_MIGRATION,
+    disable_redundant_external_meter_readbacks,
+    migrate_session_duration_unit,
+)
 from .runtime.ownership import (
     claim_entry_runtime,
     entry_runtime_data,
     loaded_entry_runtimes,
     release_entry_runtime,
 )
+from .runtime.polling import PollIntervalSchedule
 from .runtime.services import (
     ChargerServiceUnavailable,
     IntegrationServiceOperations,
     ManualRefreshFailed,
 )
-from .sessions.exports import new_export_path, ensure_export_cleanup
-from .sessions.telemetry import async_setup_session_history
+from .runtime.time import installation_time_zone
 from .sessions.csv import (
     append_session_row,
     dashboard_session_data,
@@ -65,14 +72,8 @@ from .sessions.csv import (
     export_session_rows,
     update_session_events,
 )
-from .configuration.validation import (
-    DateRangeValidationError,
-    DateRangeValidationReason,
-    parse_export_date_range,
-    validate_poll_interval,
-    validate_tcp_port,
-    validate_bind_address,
-)
+from .sessions.exports import ensure_export_cleanup, new_export_path
+from .sessions.telemetry import async_setup_session_history
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -110,8 +111,7 @@ async def _legacy_seed_allowed(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if data is None:
         data = {
             "legacy_seed_entries": sorted(
-                existing.entry_id
-                for existing in hass.config_entries.async_entries(DOMAIN)
+                existing.entry_id for existing in hass.config_entries.async_entries(DOMAIN)
             )
         }
         await store.async_save(data)
@@ -137,9 +137,7 @@ async def async_migrate_entry(
         )
         return False
 
-    has_legacy_marker = bool(
-        entry.data.get(LEGACY_SESSION_DURATION_UNIT_MIGRATION)
-    )
+    has_legacy_marker = bool(entry.data.get(LEGACY_SESSION_DURATION_UNIT_MIGRATION))
     if entry.version < CONFIG_ENTRY_VERSION or has_legacy_marker:
         registry = er.async_get(hass)
         if migrate_session_duration_unit(registry, entry.entry_id):
@@ -300,9 +298,8 @@ def _register_services(hass: HomeAssistant) -> None:
     the historical CSV, while charger refresh reports a translated connection
     error instead of disappearing from the service registry.
     """
-    if (
-        hass.services.has_service(DOMAIN, "refresh")
-        and hass.services.has_service(DOMAIN, "export_sessions")
+    if hass.services.has_service(DOMAIN, "refresh") and hass.services.has_service(
+        DOMAIN, "export_sessions"
     ):
         return
 
@@ -400,9 +397,7 @@ def _register_services(hass: HomeAssistant) -> None:
                     f"[⬇️ Download CSV](/local/{export_filename})"
                 ),
                 title="Growatt THOR session export",
-                notification_id=(
-                    f"growatt_thor_export_{date_from_str}_{date_to_str}"
-                ),
+                notification_id=(f"growatt_thor_export_{date_from_str}_{date_to_str}"),
             )
             _LOGGER.info(
                 "Session export: %d rows written to %s",
@@ -422,19 +417,23 @@ def _register_services(hass: HomeAssistant) -> None:
             DOMAIN,
             "refresh",
             handle_refresh,
-            schema=vol.Schema({
-                vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
-            }),
+            schema=vol.Schema(
+                {
+                    vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
+                }
+            ),
         )
     if not hass.services.has_service(DOMAIN, "export_sessions"):
         hass.services.async_register(
             DOMAIN,
             "export_sessions",
             handle_export_sessions,
-            schema=vol.Schema({
-                vol.Required("date_from"): cv.string,
-                vol.Required("date_to"): cv.string,
-            }),
+            schema=vol.Schema(
+                {
+                    vol.Required("date_from"): cv.string,
+                    vol.Required("date_to"): cv.string,
+                }
+            ),
         )
 
 
@@ -442,10 +441,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register integration-level services independently from config entries."""
     _register_services(hass)
     ensure_export_cleanup(hass)
-    from .presentation.frontend import async_register_frontend
     from .charging.pv_service import async_register_pv_linkage_service
-    from .targets.services import async_register_target_services
+    from .presentation.frontend import async_register_frontend
     from .sessions.websocket import async_register_session_websocket
+    from .targets.services import async_register_target_services
 
     await async_register_frontend(hass)
     async_register_pv_linkage_service(hass)
@@ -489,12 +488,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         runtime_data["persist_charger_identity"] = persist_charger_identity
         runtime_data["owns_legacy_history"] = await _owns_legacy_history(hass, entry)
-        coordinator.authorization = LocalAuthorization(
-            entry.data.get(CONF_AUTHORIZATION)
-        )
-        coordinator.battery_power_entity = entry.data.get(
-            CONF_BATTERY_POWER_ENTITY
-        )
+        coordinator.authorization = LocalAuthorization(entry.data.get(CONF_AUTHORIZATION))
+        coordinator.battery_power_entity = entry.data.get(CONF_BATTERY_POWER_ENTITY)
         coordinator.battery_power_sign = entry.data.get(
             CONF_BATTERY_POWER_SIGN,
             BATTERY_POSITIVE_DISCHARGE,
@@ -503,13 +498,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await coordinator.async_load_storage()
         runtime_data["coordinator"] = coordinator
         runtime_data["skip_polling_until"] = 0.0
-        runtime_data["append_session_to_csv"] = (
-            lambda session: _append_session_to_csv(hass, coordinator, session)
+        runtime_data["append_session_to_csv"] = lambda session: _append_session_to_csv(
+            hass, coordinator, session
         )
-        runtime_data["update_session_events_in_csv"] = (
-            lambda session_id, events: _update_session_events_in_csv(
-                hass, coordinator, session_id, events
-            )
+        runtime_data["update_session_events_in_csv"] = lambda session_id, events: (
+            _update_session_events_in_csv(hass, coordinator, session_id, events)
         )
         # Replay checkpointed completions before loading the dashboard summary.
         # Otherwise a restart could show history from before a recovered CSV append.
@@ -562,9 +555,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except OSError as err:
             # Typically the port is still held by a server that is shutting
             # down.  Let Home Assistant retry instead of failing permanently.
-            raise ConfigEntryNotReady(
-                f"Cannot open OCPP port {port}: {err}"
-            ) from err
+            raise ConfigEntryNotReady(f"Cannot open OCPP port {port}: {err}") from err
         runtime_data["server"] = server
     except BaseException:
         # A failed setup must release its claim or every future retry would be
@@ -639,9 +630,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     # never queue behind or wake together with a configuration
                     # write, because the THOR firmware is sensitive to bursts
                     # of integration-initiated requests.
-                    await charge_point.trigger_external_meterval(
-                        skip_if_writes_pending=True
-                    )
+                    await charge_point.trigger_external_meterval(skip_if_writes_pending=True)
                 else:
                     _LOGGER.debug("External meter poll skipped: charger not connected")
 

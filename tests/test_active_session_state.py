@@ -1,12 +1,12 @@
 """Tests for restart-safe active-session persistence."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import types
 import unittest
-
+from pathlib import Path
 
 COMPONENT = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 PACKAGE_NAME = "thor_active_session_state_test"
@@ -26,9 +26,9 @@ def _load(name: str):
     return module
 
 
-_load('sessions.events')
-_load('sessions.series')
-active_session_state = _load('sessions.active_state')
+_load("sessions.events")
+_load("sessions.series")
+active_session_state = _load("sessions.active_state")
 
 
 class ActiveSessionStateTest(unittest.TestCase):
@@ -53,9 +53,7 @@ class ActiveSessionStateTest(unittest.TestCase):
             energy_flowing=True,
         )
 
-        restored = active_session_state.ActiveSessionState.from_dict(
-            original.as_dict()
-        )
+        restored = active_session_state.ActiveSessionState.from_dict(original.as_dict())
 
         self.assertEqual(restored, original)
 

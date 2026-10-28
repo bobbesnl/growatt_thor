@@ -1,11 +1,11 @@
 """Structured models for Growatt currentrecord and frozenrecord payloads."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from urllib.parse import parse_qsl
-
 
 REDACTED = "<redacted>"
 _DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -79,11 +79,7 @@ def _optional_datetime(value: str | None) -> datetime | None:
 def _normalized_mode_key(value: str | None) -> str | None:
     if value is None or not str(value).strip():
         return None
-    return "".join(
-        character
-        for character in str(value).casefold()
-        if character.isalnum()
-    )
+    return "".join(character for character in str(value).casefold() if character.isalnum())
 
 
 def normalize_session_charge_mode(value: str | None) -> str | None:
@@ -198,10 +194,7 @@ class GrowattSessionRecord:
     def as_dict(self, *, redact: bool = False) -> dict[str, Any]:
         """Return a JSON-safe representation for diagnostics."""
         fields = {
-            key: [
-                value if not redact or key in _KNOWN_FIELDS else REDACTED
-                for value in values
-            ]
+            key: [value if not redact or key in _KNOWN_FIELDS else REDACTED for value in values]
             for key, values in self.fields.items()
         }
         return {

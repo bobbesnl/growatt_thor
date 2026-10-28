@@ -1,24 +1,24 @@
 """Time entities for Growatt THOR configuration."""
+
 from __future__ import annotations
 
 import logging
 from datetime import time
 
 from homeassistant.components.time import TimeEntity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import EntityCategory
-
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ocpp.v16.enums import ConfigurationStatus
 
-from .runtime.action_errors import raise_charger_disconnected, raise_write_blocked
-from .const import DOMAIN
-from .configuration.writes import ConfigurationWriteStatus
 from .charging.controls import (
     ChargingControl,
     control_is_applicable,
     control_write_block_reason,
 )
 from .charging.pv_linkage import PvBoostMode
+from .configuration.writes import ConfigurationWriteStatus
+from .const import DOMAIN
+from .runtime.action_errors import raise_charger_disconnected, raise_write_blocked
 from .runtime.write_queue import (
     CONFIGURATION_WRITE_POLICY,
     ChargerConnectionUnavailable,
@@ -33,13 +33,15 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Growatt THOR time entities."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
-    async_add_entities([
-        AutoChargeStartTime(coordinator, entry),
-        AutoChargeStopTime(coordinator, entry),
-        PvManualBoostStartTime(coordinator, entry),
-        PvManualBoostEndTime(coordinator, entry),
-        PvSmartBoostFinishTime(coordinator, entry),
-    ])
+    async_add_entities(
+        [
+            AutoChargeStartTime(coordinator, entry),
+            AutoChargeStopTime(coordinator, entry),
+            PvManualBoostStartTime(coordinator, entry),
+            PvManualBoostEndTime(coordinator, entry),
+            PvSmartBoostFinishTime(coordinator, entry),
+        ]
+    )
 
 
 class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
@@ -93,12 +95,8 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
             generation,
         ):
             return
-        self.coordinator.auto_charge_start_time_pending = (
-            self.coordinator.auto_charge_start_time
-        )
-        self.coordinator.auto_charge_stop_time_pending = (
-            self.coordinator.auto_charge_stop_time
-        )
+        self.coordinator.auto_charge_start_time_pending = self.coordinator.auto_charge_start_time
+        self.coordinator.auto_charge_stop_time_pending = self.coordinator.auto_charge_stop_time
         self.coordinator.async_set_updated_data(True)
 
     async def async_set_value(self, value: time) -> None:
@@ -140,10 +138,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
         if start_time is None or stop_time is None:
             return
 
-        formatted_value = (
-            f"{start_time.strftime('%H:%M')}-"
-            f"{stop_time.strftime('%H:%M')}"
-        )
+        formatted_value = f"{start_time.strftime('%H:%M')}-{stop_time.strftime('%H:%M')}"
         _LOGGER.info("🔄 Auto-queueing schedule update: %s", formatted_value)
 
         generation = self.coordinator.begin_configuration_write(
@@ -167,9 +162,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
             configuration_key=self._CONFIG_KEY,
             configuration_generation=generation,
             policy=CONFIGURATION_WRITE_POLICY,
-            on_unsent=lambda _result: self._restore_reported_schedule(
-                generation
-            ),
+            on_unsent=lambda _result: self._restore_reported_schedule(generation),
         )
 
     async def _apply_schedule(
@@ -194,10 +187,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
             )
             return ChargerWriteResult.skipped(block_reason)
         try:
-            result = await charge_point.change_configuration(
-                self._CONFIG_KEY,
-                formatted_value
-            )
+            result = await charge_point.change_configuration(self._CONFIG_KEY, formatted_value)
 
             accepted = result in {
                 ConfigurationStatus.accepted,
@@ -228,7 +218,9 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
                     self.coordinator.auto_charge_start_time = start_time
                     self.coordinator.auto_charge_stop_time = stop_time
                     self.coordinator.async_set_updated_data(True)
-                _LOGGER.warning("⚠️ Charging schedule applied (reboot required): %s", formatted_value)
+                _LOGGER.warning(
+                    "⚠️ Charging schedule applied (reboot required): %s", formatted_value
+                )
             else:
                 _LOGGER.error("❌ Charging schedule rejected: %s", result)
                 return ChargerWriteResult.failed("charger_rejected", result)
@@ -355,9 +347,7 @@ class BasePvBoostTime(CoordinatorEntity, TimeEntity):
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot edit PV Boost time: %s", block_reason)
             raise_write_blocked(block_reason)
-        self.coordinator.update_pv_linkage_draft(
-            **{self._coordinator_field: value}
-        )
+        self.coordinator.update_pv_linkage_draft(**{self._coordinator_field: value})
 
 
 class PvManualBoostStartTime(BasePvBoostTime):

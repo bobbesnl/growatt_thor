@@ -1,17 +1,14 @@
 """Tests for persistent Growatt charger fault events."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import unittest
-
+from pathlib import Path
 
 MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "charging/faults.py"
+    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "charging/faults.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_charger_faults_test_target",
@@ -34,9 +31,7 @@ class ChargerFaultTest(unittest.TestCase):
             {
                 "info": "Emergency stop press,or emergency stop is broken",
                 "vendor_id": "Growatt",
-                "vendor_error_code": (
-                    "Emergency stop press,or emergency stop is broken"
-                ),
+                "vendor_error_code": ("Emergency stop press,or emergency stop is broken"),
             },
         )
         merged = faults.fault_from_data_transfer(

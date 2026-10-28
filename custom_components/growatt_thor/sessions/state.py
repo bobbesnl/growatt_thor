@@ -1,4 +1,5 @@
 """Persistent normalized state for the most recent Growatt session."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -51,7 +52,7 @@ class LastSessionState:
     record_key: tuple[str, str] | None = None
 
     @classmethod
-    def from_dict(cls, value: Any) -> "LastSessionState":
+    def from_dict(cls, value: Any) -> LastSessionState:
         """Restore a summary defensively from Home Assistant storage."""
         data = value if isinstance(value, Mapping) else {}
         return cls(
@@ -62,9 +63,7 @@ class LastSessionState:
             plug_time=_optional_text(data.get("plug_time")),
             unplug_time=_optional_text(data.get("unplug_time")),
             duration_minutes=_optional_float(data.get("duration_minutes")),
-            effective_charging_minutes=_optional_float(
-                data.get("effective_charging_minutes")
-            ),
+            effective_charging_minutes=_optional_float(data.get("effective_charging_minutes")),
             session_id=_optional_text(data.get("session_id")),
             session_source=_optional_text(data.get("session_source")),
             transaction_id=_optional_text(data.get("transaction_id")),
@@ -89,7 +88,5 @@ class LastSessionState:
             "transaction_id": self.transaction_id,
             "charge_mode": self.charge_mode,
             "work_mode": self.work_mode,
-            "record_key": (
-                list(self.record_key) if self.record_key is not None else None
-            ),
+            "record_key": (list(self.record_key) if self.record_key is not None else None),
         }

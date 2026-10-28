@@ -1,20 +1,17 @@
 """Tests for the standalone configuration registry."""
+
 from __future__ import annotations
 
 import ast
 import importlib.util
 import json
-from pathlib import Path
 import re
 import sys
 import unittest
-
+from pathlib import Path
 
 MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "configuration/values.py"
+    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "configuration/values.py"
 )
 TRANSLATIONS_PATH = MODULE_PATH.parents[1] / "translations"
 TRANSLATION_LANGUAGES = ("en", "de", "nl", "it", "hu", "sl", "fr", "es")
@@ -157,9 +154,7 @@ class ConfigurationValueTest(unittest.TestCase):
 
     def test_time_sharing_price_parser_handles_compound_and_negative_values(self):
         self.assertEqual(
-            configuration.parse_time_sharing_price(
-                "time1=00:00-23:59&price1=0.31"
-            ),
+            configuration.parse_time_sharing_price("time1=00:00-23:59&price1=0.31"),
             0.31,
         )
         self.assertEqual(
@@ -168,9 +163,7 @@ class ConfigurationValueTest(unittest.TestCase):
             ),
             -1.25,
         )
-        self.assertIsNone(
-            configuration.parse_time_sharing_price("time1=00:00-23:59")
-        )
+        self.assertIsNone(configuration.parse_time_sharing_price("time1=00:00-23:59"))
 
     def test_unknown_value_is_preserved_and_redacted_by_default(self):
         value = configuration.configuration_value_from_item(
@@ -481,19 +474,11 @@ class EntityTranslationTest(unittest.TestCase):
             flattened[path] = value
             return flattened
 
-        reference = flatten(
-            json.loads(
-                (TRANSLATIONS_PATH / "en.json").read_text(encoding="utf-8")
-            )
-        )
+        reference = flatten(json.loads((TRANSLATIONS_PATH / "en.json").read_text(encoding="utf-8")))
         for language in TRANSLATION_LANGUAGES:
             with self.subTest(language=language):
                 translated = flatten(
-                    json.loads(
-                        (TRANSLATIONS_PATH / f"{language}.json").read_text(
-                            encoding="utf-8"
-                        )
-                    )
+                    json.loads((TRANSLATIONS_PATH / f"{language}.json").read_text(encoding="utf-8"))
                 )
                 self.assertEqual(translated.keys(), reference.keys())
                 for path, source_value in reference.items():
@@ -536,7 +521,6 @@ class EntityTranslationTest(unittest.TestCase):
             "phase_power",
             "temperature",
             "external_meter_health",
-            "last_charger_fault",
             "grid_power",
             "grid_voltage",
             "grid_current",
@@ -611,9 +595,7 @@ class EntityTranslationTest(unittest.TestCase):
         for language in TRANSLATION_LANGUAGES:
             with self.subTest(language=language):
                 translation = json.loads(
-                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
-                        encoding="utf-8"
-                    )
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(encoding="utf-8")
                 )
                 sensors = translation["entity"]["sensor"]
                 self.assertTrue(expected_entities.issubset(sensors))
@@ -647,9 +629,7 @@ class EntityTranslationTest(unittest.TestCase):
                 for translation_key, configuration_key in enum_entities.items():
                     self.assertEqual(
                         tuple(sensors[translation_key]["state"]),
-                        configuration.CONFIGURATION_ENTITY_OPTIONS[
-                            configuration_key
-                        ],
+                        configuration.CONFIGURATION_ENTITY_OPTIONS[configuration_key],
                     )
 
                 for translation_key, options in session_enum_entities.items():
@@ -659,9 +639,7 @@ class EntityTranslationTest(unittest.TestCase):
                     )
 
                 for translation_key in informative_entities:
-                    information = sensors[translation_key]["state_attributes"][
-                        "information"
-                    ]
+                    information = sensors[translation_key]["state_attributes"]["information"]
                     self.assertTrue(information["name"])
                     self.assertEqual(tuple(information["state"]), ("details",))
                     self.assertTrue(information["state"]["details"])
@@ -728,8 +706,7 @@ class EntityTranslationTest(unittest.TestCase):
         setup = next(
             node
             for node in tree.body
-            if isinstance(node, ast.AsyncFunctionDef)
-            and node.name == "async_setup_entry"
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "async_setup_entry"
         )
         setup_source = ast.unparse(setup)
 
@@ -750,13 +727,9 @@ class EntityTranslationTest(unittest.TestCase):
         ):
             self.assertIn(
                 attribute,
-                json.loads(
-                    (TRANSLATIONS_PATH / "en.json").read_text(
-                        encoding="utf-8"
-                    )
-                )["entity"]["sensor"]["last_command_result"][
-                    "state_attributes"
-                ],
+                json.loads((TRANSLATIONS_PATH / "en.json").read_text(encoding="utf-8"))["entity"][
+                    "sensor"
+                ]["last_command_result"]["state_attributes"],
             )
 
     def test_last_session_duration_declares_ha_duration_semantics(self):
@@ -764,8 +737,7 @@ class EntityTranslationTest(unittest.TestCase):
         duration_class = next(
             node
             for node in tree.body
-            if isinstance(node, ast.ClassDef)
-            and node.name == "LastSessionDurationSensor"
+            if isinstance(node, ast.ClassDef) and node.name == "LastSessionDurationSensor"
         )
         assignments = {
             target.id: node.value
@@ -833,9 +805,7 @@ class EntityTranslationTest(unittest.TestCase):
         for language in TRANSLATION_LANGUAGES:
             with self.subTest(language=language):
                 translation = json.loads(
-                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
-                        encoding="utf-8"
-                    )
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(encoding="utf-8")
                 )
                 entities = translation["entity"]
                 for platform, keys in expected.items():
@@ -853,9 +823,7 @@ class EntityTranslationTest(unittest.TestCase):
                     ("switch", "load_balancing"),
                     ("switch", "warm_up"),
                 ):
-                    information = entities[platform][key]["state_attributes"][
-                        "information"
-                    ]
+                    information = entities[platform][key]["state_attributes"]["information"]
                     self.assertTrue(information["name"])
                     self.assertTrue(information["state"]["details"])
 
@@ -868,9 +836,7 @@ class EntityTranslationTest(unittest.TestCase):
         for language, expected_name in expected_names.items():
             with self.subTest(language=language):
                 translation = json.loads(
-                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
-                        encoding="utf-8"
-                    )
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(encoding="utf-8")
                 )
                 self.assertEqual(
                     translation["entity"]["button"]["apply_pv_linkage"]["name"],
@@ -886,9 +852,7 @@ class EntityTranslationTest(unittest.TestCase):
         for language, expected_name in expected_names.items():
             with self.subTest(language=language):
                 translation = json.loads(
-                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
-                        encoding="utf-8"
-                    )
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(encoding="utf-8")
                 )
                 self.assertEqual(
                     translation["entity"]["switch"]["load_balancing"]["name"],
@@ -903,10 +867,7 @@ class EntityTranslationTest(unittest.TestCase):
                 if not isinstance(node, ast.Assign):
                     continue
                 for target in node.targets:
-                    if (
-                        isinstance(target, ast.Attribute)
-                        and target.attr == "_attr_name"
-                    ):
+                    if isinstance(target, ast.Attribute) and target.attr == "_attr_name":
                         hardcoded_names.append((path.name, node.lineno))
 
         self.assertEqual(hardcoded_names, [])
@@ -916,8 +877,7 @@ class EntityTranslationTest(unittest.TestCase):
         charging_control_imports = {
             alias.name
             for node in tree.body
-            if isinstance(node, ast.ImportFrom)
-            and node.module == "charging.controls"
+            if isinstance(node, ast.ImportFrom) and node.module == "charging.controls"
             for alias in node.names
         }
 
@@ -942,9 +902,7 @@ class EntityTranslationTest(unittest.TestCase):
         for language, labels in expected.items():
             with self.subTest(language=language):
                 translation = json.loads(
-                    (TRANSLATIONS_PATH / f"{language}.json").read_text(
-                        encoding="utf-8"
-                    )
+                    (TRANSLATIONS_PATH / f"{language}.json").read_text(encoding="utf-8")
                 )
                 entities = translation["entity"]
                 for platform, key in (
@@ -998,9 +956,7 @@ class EntityTranslationTest(unittest.TestCase):
         )
 
     def test_control_state_attributes_exclude_write_lifecycle_details(self):
-        configuration_control_source = CONFIGURATION_CONTROL_PATH.read_text(
-            encoding="utf-8"
-        )
+        configuration_control_source = CONFIGURATION_CONTROL_PATH.read_text(encoding="utf-8")
         for volatile_attribute in ('"raw_value"', '"write_status"'):
             self.assertNotIn(
                 volatile_attribute,

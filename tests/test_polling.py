@@ -1,18 +1,15 @@
 """Tests for applying poll-interval option changes to a running wait."""
+
 from __future__ import annotations
 
 import asyncio
 import importlib.util
-from pathlib import Path
 import sys
 import unittest
-
+from pathlib import Path
 
 MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "runtime/polling.py"
+    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "runtime/polling.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_polling_test_target",
@@ -66,12 +63,8 @@ class PollIntervalWiringTest(unittest.TestCase):
 
     def test_setup_and_options_flow_share_the_wakeable_schedule(self):
         package_path = MODULE_PATH.parents[1]
-        setup_source = (package_path / "__init__.py").read_text(
-            encoding="utf-8"
-        )
-        flow_source = (package_path / "config_flow.py").read_text(
-            encoding="utf-8"
-        )
+        setup_source = (package_path / "__init__.py").read_text(encoding="utf-8")
+        flow_source = (package_path / "config_flow.py").read_text(encoding="utf-8")
 
         self.assertIn(
             "poll_interval_schedule = PollIntervalSchedule(poll_interval)",

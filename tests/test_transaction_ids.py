@@ -1,17 +1,14 @@
 """Tests for persistent local OCPP transaction ID allocation."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import unittest
-
+from pathlib import Path
 
 MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "sessions/transaction_ids.py"
+    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "sessions/transaction_ids.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_transaction_ids_test_target",

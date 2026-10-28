@@ -1,16 +1,14 @@
 """Tests for mode-aware Growatt charging controls."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import types
 import unittest
+from pathlib import Path
 
-
-PACKAGE_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor"
-)
+PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 PACKAGE_NAME = "growatt_thor_control_test_target"
 package = types.ModuleType(PACKAGE_NAME)
 package.__path__ = [str(PACKAGE_PATH)]
@@ -27,8 +25,8 @@ def _load_module(name: str):
     return module
 
 
-configuration = _load_module('configuration.values')
-controls = _load_module('charging.controls')
+configuration = _load_module("configuration.values")
+controls = _load_module("charging.controls")
 
 
 def _values(**raw_values):
@@ -45,16 +43,43 @@ class ChargingControlDependencyTest(unittest.TestCase):
 
     def test_authorization_mode_encoding_and_idle_guards(self):
         control = controls.ChargingControl.AUTHORIZATION_MODE
-        for option, wire in {"home_assistant_rfid": "1", "rfid_only": "2", "plug_and_charge": "3"}.items():
+        for option, wire in {
+            "home_assistant_rfid": "1",
+            "rfid_only": "2",
+            "plug_and_charge": "3",
+        }.items():
             self.assertEqual(controls.encode_control_value(control, option), wire)
         with self.assertRaises(ValueError):
             controls.encode_control_value(control, "invalid")
         values = _values(G_ChargerMode="2")
-        self.assertIsNone(controls.control_write_block_reason(control, values, connected=True, transaction_active=False))
-        for connected, active, faulted in [(False, False, False), (True, True, False), (True, False, True)]:
-            self.assertIsNotNone(controls.control_write_block_reason(control, values, connected=connected, transaction_active=active, charger_faulted=faulted))
-        values["G_ChargerMode"] = configuration.configuration_value_from_item({"key": "G_ChargerMode", "value": "2", "readonly": True})
-        self.assertEqual(controls.control_write_block_reason(control, values, connected=True, transaction_active=False), "configuration_read_only")
+        self.assertIsNone(
+            controls.control_write_block_reason(
+                control, values, connected=True, transaction_active=False
+            )
+        )
+        for connected, active, faulted in [
+            (False, False, False),
+            (True, True, False),
+            (True, False, True),
+        ]:
+            self.assertIsNotNone(
+                controls.control_write_block_reason(
+                    control,
+                    values,
+                    connected=connected,
+                    transaction_active=active,
+                    charger_faulted=faulted,
+                )
+            )
+        values["G_ChargerMode"] = configuration.configuration_value_from_item(
+            {"key": "G_ChargerMode", "value": "2", "readonly": True}
+        )
+        self.assertEqual(
+            controls.control_write_block_reason(
+                control, values, connected=True, transaction_active=False
+            ),
+            "configuration_read_only",
+        )
 
     def test_load_balancing_is_not_applicable_in_pv_linkage(self):
         self.assertFalse(
@@ -109,9 +134,7 @@ class ChargingControlDependencyTest(unittest.TestCase):
                 )
                 self.assertEqual(controls.selected_working_mode(values), "fast")
                 self.assertEqual(values["G_WorkingMode"].raw_value, raw_mode)
-                self.assertEqual(
-                    values["G_ExternalLimitPowerEnable"].raw_value, enabled
-                )
+                self.assertEqual(values["G_ExternalLimitPowerEnable"].raw_value, enabled)
                 for ready in (False, True):
                     options = controls.available_working_mode_options(
                         controls.selected_working_mode(values),
@@ -125,14 +148,17 @@ class ChargingControlDependencyTest(unittest.TestCase):
                     controls.ChargingControl.AUTO_CHARGE_SCHEDULE,
                 ):
                     self.assertTrue(controls.control_is_applicable(control, values))
-                    self.assertIsNone(controls.control_write_block_reason(
-                        control, values, connected=True, transaction_active=False,
-                    ))
+                    self.assertIsNone(
+                        controls.control_write_block_reason(
+                            control,
+                            values,
+                            connected=True,
+                            transaction_active=False,
+                        )
+                    )
 
     def test_power_distribution_preserves_configuration_write_guards(self):
-        values = _values(
-            G_WorkingMode="Power Distribution", G_ExternalLimitPowerEnable="1"
-        )
+        values = _values(G_WorkingMode="Power Distribution", G_ExternalLimitPowerEnable="1")
         control = controls.ChargingControl.LOAD_BALANCING
         for connected, active, faulted, expected in (
             (False, False, False, "charger_disconnected"),
@@ -140,23 +166,41 @@ class ChargingControlDependencyTest(unittest.TestCase):
             (True, False, True, "charger_faulted"),
         ):
             with self.subTest(expected=expected):
-                self.assertEqual(controls.control_write_block_reason(
-                    control, values, connected=connected,
-                    transaction_active=active, charger_faulted=faulted,
-                ), expected)
-        values["G_ExternalLimitPowerEnable"] = (
-            configuration.configuration_value_from_item({
-                "key": "G_ExternalLimitPowerEnable", "value": "1", "readonly": True,
-            })
+                self.assertEqual(
+                    controls.control_write_block_reason(
+                        control,
+                        values,
+                        connected=connected,
+                        transaction_active=active,
+                        charger_faulted=faulted,
+                    ),
+                    expected,
+                )
+        values["G_ExternalLimitPowerEnable"] = configuration.configuration_value_from_item(
+            {
+                "key": "G_ExternalLimitPowerEnable",
+                "value": "1",
+                "readonly": True,
+            }
         )
-        self.assertEqual(controls.control_write_block_reason(
-            control, values, connected=True, transaction_active=False,
-        ), "configuration_read_only")
+        self.assertEqual(
+            controls.control_write_block_reason(
+                control,
+                values,
+                connected=True,
+                transaction_active=False,
+            ),
+            "configuration_read_only",
+        )
 
     def test_power_distribution_is_not_a_separate_write_target(self):
-        self.assertNotIn("power_distribution", controls.available_working_mode_options(
-            "power_distribution", external_meter_ready=True,
-        ))
+        self.assertNotIn(
+            "power_distribution",
+            controls.available_working_mode_options(
+                "power_distribution",
+                external_meter_ready=True,
+            ),
+        )
         self.assertEqual(controls.encode_working_mode("fast"), ("G_SolarMode", "1&0"))
         with self.assertRaises(ValueError):
             controls.encode_working_mode("power_distribution")
@@ -375,20 +419,13 @@ class ChargingControlDependencyTest(unittest.TestCase):
 
     def test_compound_and_unverified_settings_remain_read_only(self):
         expected = {
-            controls.ChargingControl.SOLAR_BOOST:
-                controls.ControlCapability.COMPOUND,
-            controls.ChargingControl.OFF_PEAK_SCHEDULE:
-                controls.ControlCapability.COMPOUND,
-            controls.ChargingControl.SOLAR_THRESHOLD_CURRENT:
-                controls.ControlCapability.READ_ONLY,
-            controls.ChargingControl.GRID_OFF_PEAK_CHARGING:
-                controls.ControlCapability.READ_ONLY,
-            controls.ChargingControl.OFF_PEAK_CURRENT:
-                controls.ControlCapability.READ_ONLY,
-            controls.ChargingControl.OFF_PEAK_ENABLE:
-                controls.ControlCapability.READ_ONLY,
-            controls.ChargingControl.DELAYED_CHARGING:
-                controls.ControlCapability.READ_ONLY,
+            controls.ChargingControl.SOLAR_BOOST: controls.ControlCapability.COMPOUND,
+            controls.ChargingControl.OFF_PEAK_SCHEDULE: controls.ControlCapability.COMPOUND,
+            controls.ChargingControl.SOLAR_THRESHOLD_CURRENT: controls.ControlCapability.READ_ONLY,
+            controls.ChargingControl.GRID_OFF_PEAK_CHARGING: controls.ControlCapability.READ_ONLY,
+            controls.ChargingControl.OFF_PEAK_CURRENT: controls.ControlCapability.READ_ONLY,
+            controls.ChargingControl.OFF_PEAK_ENABLE: controls.ControlCapability.READ_ONLY,
+            controls.ChargingControl.DELAYED_CHARGING: controls.ControlCapability.READ_ONLY,
         }
         for control, capability in expected.items():
             with self.subTest(control=control.value):
@@ -534,15 +571,11 @@ class ChargingControlEncodingTest(unittest.TestCase):
 
     def test_selected_working_mode_includes_pv_submode(self):
         self.assertEqual(
-            controls.selected_working_mode(
-                _values(G_WorkingMode="PVlink", G_SolarMode="1&2")
-            ),
+            controls.selected_working_mode(_values(G_WorkingMode="PVlink", G_SolarMode="1&2")),
             "pv_linkage_plus",
         )
         self.assertEqual(
-            controls.selected_working_mode(
-                _values(G_WorkingMode="Off Peak", G_SolarMode="1&0")
-            ),
+            controls.selected_working_mode(_values(G_WorkingMode="Off Peak", G_SolarMode="1&0")),
             "off_peak",
         )
 

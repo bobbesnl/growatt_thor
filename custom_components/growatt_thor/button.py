@@ -1,37 +1,38 @@
 """Button entities for Growatt THOR configuration."""
+
 from __future__ import annotations
 
-import logging
 import asyncio
+import logging
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .runtime.action_errors import (
-    async_require_command_completion,
-    raise_action_validation,
-    raise_charger_disconnected,
-    raise_write_blocked,
-)
+from .charging.commands import StopChargingCommand, _command_state
 from .charging.controls import (
     ChargingControl,
     charger_write_block_reason,
     control_write_block_reason,
 )
-from .charging.commands import StopChargingCommand, _command_state
-from .const import DOMAIN
+from .charging.pv_apply import apply_pv_linkage_writes
 from .charging.pv_linkage import (
     build_pv_linkage_writes,
     draft_validation_errors,
 )
-from .charging.pv_apply import apply_pv_linkage_writes
 from .charging.session_controls import (
     REMOTE_START_COMMAND,
     SESSION_CONTROL_DEDUPE_KEY,
     start_revalidation_failure,
     target_blocks_manual_start,
+)
+from .const import DOMAIN
+from .runtime.action_errors import (
+    async_require_command_completion,
+    raise_action_validation,
+    raise_charger_disconnected,
+    raise_write_blocked,
 )
 from .runtime.write_queue import (
     CONFIGURATION_WRITE_POLICY,
@@ -46,22 +47,23 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_ID_TAG = "12345678"  # Growatt handshake key
 
 
-
-
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Growatt THOR button entities."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
-    async_add_entities([
-        StartChargingButton(coordinator, entry),
-        StopChargingButton(coordinator, entry),
-        ApplyPvLinkageButton(coordinator, entry),
-    ])
+    async_add_entities(
+        [
+            StartChargingButton(coordinator, entry),
+            StopChargingButton(coordinator, entry),
+            ApplyPvLinkageButton(coordinator, entry),
+        ]
+    )
 
 
 # ─────────────────────────────
 # Start Charging Button
 # ─────────────────────────────
+
 
 class StartChargingButton(CoordinatorEntity, ButtonEntity):
     """Button to start a charging session."""
@@ -116,7 +118,7 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
         if self.coordinator.transaction_is_active:
             _LOGGER.warning(
                 "⚠️ Cannot start charging: session already active (transaction_id=%s)",
-                self.coordinator.transaction_id
+                self.coordinator.transaction_id,
             )
             raise_action_validation("charging_already_active")
 
@@ -148,8 +150,7 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
         _command_state(self.coordinator, "start", "sending")
         try:
             result = await charge_point.remote_start_transaction(
-                connector_id=1,
-                id_tag=DEFAULT_ID_TAG
+                connector_id=1, id_tag=DEFAULT_ID_TAG
             )
 
             if result.get("status") == "Accepted":
@@ -200,6 +201,7 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 # ─────────────────────────────
 # Stop Charging Button
 # ─────────────────────────────
+
 
 class StopChargingButton(CoordinatorEntity, ButtonEntity):
     """Button to stop a charging session."""
@@ -256,11 +258,7 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
     @property
     def _validation_errors(self) -> tuple[str, ...]:
         draft = self.coordinator.pv_linkage_draft()
-        return (
-            ("draft_not_initialized",)
-            if draft is None
-            else draft_validation_errors(draft)
-        )
+        return ("draft_not_initialized",) if draft is None else draft_validation_errors(draft)
 
     @property
     def available(self):
@@ -278,9 +276,7 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
             "information": "details",
             "pending_changes": self.coordinator.pv_linkage_draft_dirty,
             "validation_errors": list(self._validation_errors),
-            "last_apply": (
-                last_apply.as_dict() if last_apply is not None else None
-            ),
+            "last_apply": (last_apply.as_dict() if last_apply is not None else None),
         }
 
     async def async_press(self) -> None:
@@ -301,9 +297,7 @@ class ApplyPvLinkageButton(CoordinatorEntity, ButtonEntity):
                 "invalid_pv_linkage_draft",
                 placeholders={
                     "errors": ", ".join(
-                        errors
-                        if draft is not None
-                        else ("draft_not_initialized",)
+                        errors if draft is not None else ("draft_not_initialized",)
                     ),
                 },
             )

@@ -1,4 +1,5 @@
 """Unit-aware OCPP meter snapshot used by telemetry consumers."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -59,7 +60,11 @@ def charging_meter_values(
         if sample.get("measurand") == "Current.Import" and unit in (None, "A"):
             if index is not None:
                 result["currents_a"][index] = value
-        elif sample.get("measurand") == "Power.Active.Import" and unit in (None, "W", "kW"):
+        elif sample.get("measurand") == "Power.Active.Import" and unit in (
+            None,
+            "W",
+            "kW",
+        ):
             watts = value * (1000 if unit == "kW" else 1)
             if phase is None:
                 total = watts

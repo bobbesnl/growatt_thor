@@ -1,4 +1,5 @@
 """Wakeable polling cadence used by live config-entry options."""
+
 from __future__ import annotations
 
 import asyncio
@@ -47,7 +48,7 @@ class PollIntervalSchedule:
                     self._changed.wait(),
                     timeout=timeout,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Do not consume a revision that raced with the timeout.
                 if self._revision != revision:
                     continue

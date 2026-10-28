@@ -1,10 +1,11 @@
 """Validated compound writes for Growatt PV Linkage boost controls."""
+
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, time, timedelta
 from enum import Enum
-import re
 
 from ..configuration.validation import (
     NumericValidationError,
@@ -52,14 +53,11 @@ class PvLinkageApplyResult:
             raise ValueError("Compound apply must contain at least one step")
         if not 0 <= self.completed_steps <= self.total_steps:
             raise ValueError("Completed steps must fit within total steps")
-        if (
-            self.status == PvLinkageApplyStatus.SUCCESS
-            and self.completed_steps != self.total_steps
-        ):
+        if self.status == PvLinkageApplyStatus.SUCCESS and self.completed_steps != self.total_steps:
             raise ValueError("Successful apply must complete every step")
 
     @classmethod
-    def success(cls, total_steps: int) -> "PvLinkageApplyResult":
+    def success(cls, total_steps: int) -> PvLinkageApplyResult:
         return cls(
             status=PvLinkageApplyStatus.SUCCESS,
             completed_steps=total_steps,
@@ -74,12 +72,10 @@ class PvLinkageApplyResult:
         total_steps: int,
         failed_step: str,
         reason: object,
-    ) -> "PvLinkageApplyResult":
+    ) -> PvLinkageApplyResult:
         return cls(
             status=(
-                PvLinkageApplyStatus.PARTIAL
-                if completed_steps
-                else PvLinkageApplyStatus.FAILED
+                PvLinkageApplyStatus.PARTIAL if completed_steps else PvLinkageApplyStatus.FAILED
             ),
             completed_steps=completed_steps,
             total_steps=total_steps,
@@ -95,7 +91,7 @@ class PvLinkageApplyResult:
         total_steps: int,
         failed_step: str,
         reason: object,
-    ) -> "PvLinkageApplyResult":
+    ) -> PvLinkageApplyResult:
         return cls(
             status=PvLinkageApplyStatus.UNCERTAIN,
             completed_steps=completed_steps,
@@ -150,9 +146,7 @@ class DataTransferWrite:
 
 PvLinkageWrite = ConfigurationWrite | DataTransferWrite
 
-_PERIOD_PATTERN = re.compile(
-    r"(?:^|&)time1=(?P<start>\d{2}:\d{2})-(?P<end>\d{2}:\d{2})(?:&|$)"
-)
+_PERIOD_PATTERN = re.compile(r"(?:^|&)time1=(?P<start>\d{2}:\d{2})-(?P<end>\d{2}:\d{2})(?:&|$)")
 
 
 def _outcome_text(value: object) -> str:
@@ -286,8 +280,7 @@ def build_pv_linkage_writes(
         assert draft.manual_start is not None
         assert draft.manual_end is not None
         period = (
-            f"1&time1={draft.manual_start.strftime('%H:%M')}-"
-            f"{draft.manual_end.strftime('%H:%M')}"
+            f"1&time1={draft.manual_start.strftime('%H:%M')}-{draft.manual_end.strftime('%H:%M')}"
         )
         return (
             ConfigurationWrite("G_SolarBoost", "1&ManualBoost"),

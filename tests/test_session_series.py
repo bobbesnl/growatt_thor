@@ -1,25 +1,20 @@
 """Tests for shape-preserving charging-curve compaction."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import importlib.util
-from pathlib import Path
 import unittest
+from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
 
-
-PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "sessions/series.py"
-)
+PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "sessions/series.py"
 SPEC = importlib.util.spec_from_file_location("thor_session_series_test", PATH)
 module = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(module)
 
 
 def curve(values):
-    start = datetime(2026, 9, 21, 8, tzinfo=timezone.utc)
+    start = datetime(2026, 9, 21, 8, tzinfo=UTC)
     return [
         [(start + timedelta(minutes=index)).isoformat(), value]
         for index, value in enumerate(values)

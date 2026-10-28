@@ -1,11 +1,11 @@
 """Normalize and redact retained OCPP request snapshots."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import date, datetime
 from enum import Enum
 from typing import Any
-
 
 REDACTED = "<redacted>"
 
@@ -29,10 +29,7 @@ def normalize_ocpp_value(value: Any) -> Any:
     if isinstance(value, Enum):
         return normalize_ocpp_value(value.value)
     if isinstance(value, Mapping):
-        return {
-            str(key): normalize_ocpp_value(item)
-            for key, item in value.items()
-        }
+        return {str(key): normalize_ocpp_value(item) for key, item in value.items()}
     if isinstance(value, (list, tuple, set, frozenset)):
         return [normalize_ocpp_value(item) for item in value]
     if isinstance(value, (datetime, date)):
@@ -76,9 +73,7 @@ def redact_ocpp_data(value: Any) -> Any:
         redacted = {}
         for key, item in value.items():
             normalized_key = "".join(
-                character
-                for character in str(key).casefold()
-                if character.isalnum()
+                character for character in str(key).casefold() if character.isalnum()
             )
             redacted[str(key)] = (
                 REDACTED

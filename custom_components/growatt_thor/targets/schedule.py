@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta, timezone
+from datetime import UTC, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 MAX_SCHEDULE_AHEAD = timedelta(days=30)
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def parse_start_at(value: object, *, now: datetime | None = None) -> datetime:
@@ -25,8 +25,8 @@ def parse_start_at(value: object, *, now: datetime | None = None) -> datetime:
         raise ValueError("start_at_must_be_iso_datetime") from None
     if start.tzinfo is None or start.utcoffset() is None:
         raise ValueError("start_at_timezone_required")
-    start = start.astimezone(timezone.utc)
-    current = (now or utc_now()).astimezone(timezone.utc)
+    start = start.astimezone(UTC)
+    current = (now or utc_now()).astimezone(UTC)
     if start <= current:
         raise ValueError("start_at_must_be_future")
     if start - current > MAX_SCHEDULE_AHEAD:
@@ -45,11 +45,11 @@ def stored_start_at(value: object) -> datetime | None:
         return None
     if start.tzinfo is None or start.utcoffset() is None:
         return None
-    return start.astimezone(timezone.utc)
+    return start.astimezone(UTC)
 
 
 def iso_utc(value: datetime) -> str:
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def reservation_expiry(value: datetime, time_zone: str) -> str:
@@ -80,8 +80,8 @@ def next_daily_start(
         raise ValueError("local_time_must_be_naive")
     day = local_now.date()
     while True:
-        candidate = datetime.combine(day, clock, tzinfo=zone).astimezone(timezone.utc)
+        candidate = datetime.combine(day, clock, tzinfo=zone).astimezone(UTC)
         # Compare actual instants, including nonexistent spring clock times.
-        if candidate > now.astimezone(timezone.utc):
+        if candidate > now.astimezone(UTC):
             return candidate
         day += timedelta(days=1)

@@ -1,20 +1,14 @@
 """Switch entities for Growatt THOR load balancing and LCD display."""
+
 from __future__ import annotations
 
 import logging
 
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import EntityCategory
-
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ocpp.v16.enums import ConfigurationStatus
 
-from .runtime.action_errors import (
-    async_require_command_completion,
-    raise_charger_disconnected,
-    raise_write_blocked,
-)
-from .const import DOMAIN
 from .charging.controls import (
     ChargingControl,
     charger_write_block_reason,
@@ -22,11 +16,17 @@ from .charging.controls import (
     control_write_block_reason,
     encode_control_value,
 )
-from .configuration.values import configuration_entity_state
 from .configuration.controls import GrowattConfigurationControlMixin
+from .configuration.values import configuration_entity_state
 from .configuration.writes import (
     ConfigurationWriteStatus,
     pending_configuration_value,
+)
+from .const import DOMAIN
+from .runtime.action_errors import (
+    async_require_command_completion,
+    raise_charger_disconnected,
+    raise_write_blocked,
 )
 from .runtime.write_queue import (
     CONFIGURATION_WRITE_POLICY,
@@ -42,11 +42,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Growatt THOR switches."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
-    async_add_entities([
-        LoadBalancingEnableSwitch(coordinator, entry),
-        LcdDisplaySwitch(coordinator, entry),
-        WarmUpSwitch(coordinator, entry),
-    ])
+    async_add_entities(
+        [
+            LoadBalancingEnableSwitch(coordinator, entry),
+            LcdDisplaySwitch(coordinator, entry),
+            WarmUpSwitch(coordinator, entry),
+        ]
+    )
 
 
 class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
@@ -166,23 +168,20 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
         if accepted:
             self.coordinator.schedule_configuration_refresh()
 
-        new_state = (value == "1")
+        new_state = value == "1"
 
         if result == ConfigurationStatus.accepted:
             if outcome_is_current:
                 self.coordinator.external_limit_power_enable = new_state
                 self.coordinator.async_set_updated_data(True)
-            _LOGGER.info(
-                "✅ Loadbalancing enabled → %s (accepted)",
-                "ON" if new_state else "OFF"
-            )
+            _LOGGER.info("✅ Loadbalancing enabled → %s (accepted)", "ON" if new_state else "OFF")
         elif result == ConfigurationStatus.reboot_required:
             if outcome_is_current:
                 self.coordinator.external_limit_power_enable = new_state
                 self.coordinator.async_set_updated_data(True)
             _LOGGER.warning(
                 "⚠️ Loadbalancing enabled → %s (reboot required)",
-                "ON" if new_state else "OFF"
+                "ON" if new_state else "OFF",
             )
         else:
             _LOGGER.error("❌ Enable loadbalancing change rejected: %s", result)
@@ -287,11 +286,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
     def available(self):
         # A fault can block changing the LCD without invalidating its last
         # reported (or currently pending) state.
-        return (
-            super().available
-            and self.coordinator.connected
-            and self.is_on is not None
-        )
+        return super().available and self.coordinator.connected and self.is_on is not None
 
     async def async_turn_on(self, **kwargs):
         """Zet LCD AAN (G_LCDCloseEnable = Disable)."""
@@ -350,10 +345,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
                 self.coordinator.lcd_close_enable = value
                 self.coordinator.update_configuration_value(key, value)
                 self.coordinator.async_set_updated_data(True)
-            _LOGGER.info(
-                "✅ LCD display → %s (accepted)",
-                "ON" if value == "Disable" else "OFF"
-            )
+            _LOGGER.info("✅ LCD display → %s (accepted)", "ON" if value == "Disable" else "OFF")
         elif result == ConfigurationStatus.reboot_required:
             if outcome_is_current:
                 self.coordinator.lcd_close_enable = value
@@ -361,7 +353,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
                 self.coordinator.async_set_updated_data(True)
             _LOGGER.warning(
                 "⚠️ LCD display → %s (reboot required)",
-                "ON" if value == "Disable" else "OFF"
+                "ON" if value == "Disable" else "OFF",
             )
         else:
             _LOGGER.error("❌ LCD display change rejected: %s", result)
@@ -387,9 +379,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
             "G_LCDCloseEnable",
         )
         effective_value = (
-            desired_value
-            if desired_value is not None
-            else self.coordinator.lcd_close_enable
+            desired_value if desired_value is not None else self.coordinator.lcd_close_enable
         )
         if effective_value == value:
             _LOGGER.debug(
@@ -455,14 +445,10 @@ class BaseModeAwareSwitch(
         return super().available and self._control_available
 
     async def async_turn_on(self, **kwargs):
-        await self._async_write_configuration(
-            encode_control_value(self._control, True)
-        )
+        await self._async_write_configuration(encode_control_value(self._control, True))
 
     async def async_turn_off(self, **kwargs):
-        await self._async_write_configuration(
-            encode_control_value(self._control, False)
-        )
+        await self._async_write_configuration(encode_control_value(self._control, False))
 
 
 class WarmUpSwitch(BaseModeAwareSwitch):

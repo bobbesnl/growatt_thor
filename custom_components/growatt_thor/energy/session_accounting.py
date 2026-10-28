@@ -1,4 +1,5 @@
 """Bounded, restart-safe accounting checkpoint for one charging transaction."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -6,9 +7,8 @@ from datetime import datetime
 from math import isfinite
 from typing import Any
 
-from .observations import SiteObservations, parse_at
 from .accounting import AccountingPolicy, EVEnergyDelta, Tariff, allocate
-
+from .observations import SiteObservations, parse_at
 
 BUCKETS = ("direct_solar", "direct_grid", "battery_unknown", "unknown")
 
@@ -50,9 +50,17 @@ class SessionAccumulator:
         self.power_fallback_kwh += ((previous_w + watts) / 2) * seconds / 3_600_000
         return True
 
-    def observe(self, *, meter_wh: float, at: datetime, site_id: str, charger_id: str,
-                inputs: tuple[SiteObservations, Tariff, AccountingPolicy] | None,
-                context: str | None = None, unit: str | None = "Wh") -> bool:
+    def observe(
+        self,
+        *,
+        meter_wh: float,
+        at: datetime,
+        site_id: str,
+        charger_id: str,
+        inputs: tuple[SiteObservations, Tariff, AccountingPolicy] | None,
+        context: str | None = None,
+        unit: str | None = "Wh",
+    ) -> bool:
         """Accept only a new transaction meter position in timestamp order."""
         if context == "Transaction.Begin" or unit not in (None, "Wh", "kWh"):
             return False
@@ -74,8 +82,14 @@ class SessionAccumulator:
         if meter_wh == previous:
             self.last_meter_at = at
             return False
-        delta = EVEnergyDelta(site_id, charger_id, self.transaction_id,
-                              self.last_meter_at, at, (meter_wh - previous) / 1000)
+        delta = EVEnergyDelta(
+            site_id,
+            charger_id,
+            self.transaction_id,
+            self.last_meter_at,
+            at,
+            (meter_wh - previous) / 1000,
+        )
         if inputs is None:
             self.buckets["unknown"] += delta.kwh
             self.accounting_quality = "unknown"
@@ -84,13 +98,18 @@ class SessionAccumulator:
             policy = inputs[2]
             already_accounted = sum(self.buckets.values()) > 0
             quality_rank = {"measured": 0, "derived": 1, "declared": 2, "unknown": 3}
-            self.accounting_quality = (
-                max((self.accounting_quality if already_accounted else "measured",
-                     result.data_quality.quality), key=lambda value: quality_rank[value])
+            self.accounting_quality = max(
+                (
+                    self.accounting_quality if already_accounted else "measured",
+                    result.data_quality.quality,
+                ),
+                key=lambda value: quality_rank[value],
             )
             for key in BUCKETS:
                 self.buckets[key] += getattr(result, key)
-            if already_accounted and (self.policy_id != result.policy_id or self.policy_topology != policy.topology):
+            if already_accounted and (
+                self.policy_id != result.policy_id or self.policy_topology != policy.topology
+            ):
                 self.policy_id = "mixed"
             elif not already_accounted:
                 self.policy_id = result.policy_id
@@ -131,27 +150,41 @@ class SessionAccumulator:
         coverage = known / total if total else 0.0
         return {
             "source_energy_kwh": {key: round(self.buckets[key], 6) for key in BUCKETS},
-            "effective_grid_cost": round(self.effective_grid_cost, 6) if self.cost_covered else None,
+            "effective_grid_cost": round(self.effective_grid_cost, 6)
+            if self.cost_covered
+            else None,
             "accounting_coverage": round(coverage, 4),
-            "accounting_quality": "unknown" if coverage < 0.999999 or self.policy_id == "mixed" else self.accounting_quality,
-            "accounting_policy": {"id": self.policy_id, "version": self.policy_version,
-                                  "topology": self.policy_topology},
-            "green_energy_kwh": round(self.buckets["direct_solar"], 6) if coverage >= 0.999999 and self.policy_id != "mixed" else None,
+            "accounting_quality": "unknown"
+            if coverage < 0.999999 or self.policy_id == "mixed"
+            else self.accounting_quality,
+            "accounting_policy": {
+                "id": self.policy_id,
+                "version": self.policy_version,
+                "topology": self.policy_topology,
+            },
+            "green_energy_kwh": round(self.buckets["direct_solar"], 6)
+            if coverage >= 0.999999 and self.policy_id != "mixed"
+            else None,
         }
 
     def as_dict(self) -> dict:
-        return {"transaction_id": self.transaction_id, "meter_start_wh": self.meter_start_wh,
-                "last_meter_wh": self.last_meter_wh,
-                "last_meter_at": self.last_meter_at.isoformat() if self.last_meter_at else None,
-                "buckets": {key: round(self.buckets[key], 9) for key in BUCKETS},
-                "effective_grid_cost": self.effective_grid_cost,
-                "cost_covered": self.cost_covered, "policy_id": self.policy_id,
-                "policy_version": self.policy_version, "policy_topology": self.policy_topology,
-                "accounting_quality": self.accounting_quality,
-                "reset_count": self.reset_count,
-                "power_fallback_kwh": round(self.power_fallback_kwh, 9),
-                "last_power_w": self.last_power_w,
-                "last_power_at": self.last_power_at.isoformat() if self.last_power_at else None}
+        return {
+            "transaction_id": self.transaction_id,
+            "meter_start_wh": self.meter_start_wh,
+            "last_meter_wh": self.last_meter_wh,
+            "last_meter_at": self.last_meter_at.isoformat() if self.last_meter_at else None,
+            "buckets": {key: round(self.buckets[key], 9) for key in BUCKETS},
+            "effective_grid_cost": self.effective_grid_cost,
+            "cost_covered": self.cost_covered,
+            "policy_id": self.policy_id,
+            "policy_version": self.policy_version,
+            "policy_topology": self.policy_topology,
+            "accounting_quality": self.accounting_quality,
+            "reset_count": self.reset_count,
+            "power_fallback_kwh": round(self.power_fallback_kwh, 9),
+            "last_power_w": self.last_power_w,
+            "last_power_at": self.last_power_at.isoformat() if self.last_power_at else None,
+        }
 
     @classmethod
     def from_dict(cls, value: Any) -> SessionAccumulator | None:
@@ -164,7 +197,11 @@ class SessionAccumulator:
                 parsed = float(raw) if raw is not None else None
             except (TypeError, ValueError):
                 parsed = None
-            setattr(instance, key, parsed if parsed is None or isfinite(parsed) and parsed >= 0 else None)
+            setattr(
+                instance,
+                key,
+                parsed if parsed is None or isfinite(parsed) and parsed >= 0 else None,
+            )
         instance.last_meter_at = parse_at(value.get("last_meter_at"))
         raw_buckets = value.get("buckets") if isinstance(value.get("buckets"), dict) else {}
         for key in BUCKETS:
@@ -184,9 +221,13 @@ class SessionAccumulator:
         instance.policy_id = str(value.get("policy_id", "grid_first"))
         instance.policy_version = 1
         topology = value.get("policy_topology")
-        instance.policy_topology = topology if topology in ("grid_only", "pv", "pv_battery") else None
+        instance.policy_topology = (
+            topology if topology in ("grid_only", "pv", "pv_battery") else None
+        )
         quality = value.get("accounting_quality")
-        instance.accounting_quality = quality if quality in ("measured", "derived", "declared", "unknown") else "unknown"
+        instance.accounting_quality = (
+            quality if quality in ("measured", "derived", "declared", "unknown") else "unknown"
+        )
         for key in ("power_fallback_kwh", "last_power_w"):
             try:
                 parsed = float(value.get(key))

@@ -1,8 +1,8 @@
 """Local OCPP transaction ID allocation."""
+
 from __future__ import annotations
 
 from typing import Any
-
 
 MIN_TRANSACTION_ID = 1
 
@@ -20,9 +20,7 @@ class TransactionIdAllocator:
     """Allocate monotonically increasing IDs from persisted state."""
 
     def __init__(self, next_transaction_id: Any = MIN_TRANSACTION_ID):
-        self._next_transaction_id = normalize_next_transaction_id(
-            next_transaction_id
-        )
+        self._next_transaction_id = normalize_next_transaction_id(next_transaction_id)
 
     @property
     def next_transaction_id(self) -> int:
@@ -31,9 +29,7 @@ class TransactionIdAllocator:
 
     def restore(self, next_transaction_id: Any) -> None:
         """Restore the next value from Home Assistant storage."""
-        self._next_transaction_id = normalize_next_transaction_id(
-            next_transaction_id
-        )
+        self._next_transaction_id = normalize_next_transaction_id(next_transaction_id)
 
     def allocate(self) -> int:
         """Return one ID and advance the allocator."""

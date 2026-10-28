@@ -1,4 +1,5 @@
 """Short-lived, per-wallbox capture of one explicitly requested RFID swipe."""
+
 from __future__ import annotations
 
 import asyncio
@@ -31,7 +32,9 @@ class RfidLearning:
             raise ValueError("rfid_learning_busy")
         session = LearningSession(monotonic() + LEARNING_SECONDS)
         self._timer = asyncio.get_running_loop().call_later(
-            LEARNING_SECONDS, self.cancel, session,
+            LEARNING_SECONDS,
+            self.cancel,
+            session,
         )
         self._session = session
         return session

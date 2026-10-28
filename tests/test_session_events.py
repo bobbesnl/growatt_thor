@@ -1,12 +1,12 @@
 """Tests for the session event contract and power-transition tracker."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import types
 import unittest
-
+from pathlib import Path
 
 COMPONENT = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 PACKAGE_NAME = "thor_session_events_test"
@@ -60,10 +60,16 @@ class SessionEventTrackerTest(unittest.TestCase):
         tracker.observe_power("2026-10-02T13:01:00Z", 7200)
         self.assertTrue(tracker.observe_suspension("2026-10-02T14:00:00Z", "suspended_ev"))
         pause = dict(tracker.events[-1])
-        self.assertEqual(pause, {
-            "type": "charging_paused", "at": "2026-10-02T14:00:00Z",
-            "source": "ocpp", "certainty": "observed", "reason": "suspended_ev",
-        })
+        self.assertEqual(
+            pause,
+            {
+                "type": "charging_paused",
+                "at": "2026-10-02T14:00:00Z",
+                "source": "ocpp",
+                "certainty": "observed",
+                "reason": "suspended_ev",
+            },
+        )
         self.assertFalse(tracker.observe_suspension("2026-10-02T14:01:00Z", "suspended_ev"))
         self.assertFalse(tracker.observe_power("2026-10-02T13:59:00Z", 7200))
         self.assertFalse(tracker.observe_power("2026-10-02T14:02:00Z", 0))
@@ -82,7 +88,9 @@ class SessionEventTrackerTest(unittest.TestCase):
         self.assertTrue(tracker.observe_suspension("2026-10-02T14:01:00Z", "suspended_ev"))
         self.assertFalse(tracker.observe_suspension("2026-10-02T14:02:00Z", "charging"))
         # Restoration retains deduplication without an extra persisted status flag.
-        restored = session_events.SessionEventTracker(events=list(tracker.events), energy_flowing=False)
+        restored = session_events.SessionEventTracker(
+            events=list(tracker.events), energy_flowing=False
+        )
         self.assertFalse(restored.observe_suspension("2026-10-02T14:03:00Z", "suspended_ev"))
         restored.stop("2026-10-02T15:00:00Z", reason="EVDisconnected")
         self.assertEqual(restored.events[-1]["type"], "transaction_stopped")
@@ -91,18 +99,12 @@ class SessionEventTrackerTest(unittest.TestCase):
         self.assertEqual(restored.events[-2]["at"], "2026-10-02T14:01:00Z")
 
     def test_stop_request_is_recorded_once_and_only_when_called(self):
-        tracker = session_events.SessionEventTracker.start(
-            "2026-09-17T10:00:00Z"
-        )
+        tracker = session_events.SessionEventTracker.start("2026-09-17T10:00:00Z")
 
         self.assertTrue(tracker.record_stop_requested("2026-09-17T10:10:00Z"))
         self.assertFalse(tracker.record_stop_requested("2026-09-17T10:11:00Z"))
 
-        requested = [
-            event
-            for event in tracker.events
-            if event["type"] == "stop_requested"
-        ]
+        requested = [event for event in tracker.events if event["type"] == "stop_requested"]
         self.assertEqual(len(requested), 1)
         self.assertEqual(requested[0]["source"], "home_assistant")
 
@@ -111,12 +113,13 @@ class SessionEventTrackerTest(unittest.TestCase):
         tracker.record_stop_requested("2026-10-05T14:08:56Z", reason="energy_guard_battery")
         tracker.stop("2026-10-05T14:09:01Z", reason="Remote")
         events = session_events.normalize_session_events(tracker.events)
-        self.assertEqual(next(event['reason'] for event in events if event['type'] == 'stop_requested'), 'energy_guard_battery')
+        self.assertEqual(
+            next(event["reason"] for event in events if event["type"] == "stop_requested"),
+            "energy_guard_battery",
+        )
 
     def test_zero_power_only_session_does_not_invent_energy_flow_stop(self):
-        tracker = session_events.SessionEventTracker.start(
-            "2026-09-17T10:00:00Z"
-        )
+        tracker = session_events.SessionEventTracker.start("2026-09-17T10:00:00Z")
         tracker.observe_power("2026-09-17T10:01:00Z", 0)
 
         tracker.stop("2026-09-17T10:02:00Z", reason="EVDisconnected")
@@ -159,15 +162,24 @@ class SessionEventTrackerTest(unittest.TestCase):
             "unplugged", "2026-10-27 16:07:37", "growatt", "observed"
         )
         events = session_events.merge_growatt_record_events(
-            tracker.events + [legacy_unplug], plug_time=None, start_time=None,
-            end_time="2026-10-27 16:07:37", unplug_time="2026-10-27 16:07:37",
+            tracker.events + [legacy_unplug],
+            plug_time=None,
+            start_time=None,
+            end_time="2026-10-27 16:07:37",
+            unplug_time="2026-10-27 16:07:37",
         )
         self.assertNotIn("unplugged", {event["type"] for event in events})
-        self.assertEqual(next(event["at"] for event in events if event["type"] == "energy_flow_stopped"), "2026-10-27T13:54:13Z")
+        self.assertEqual(
+            next(event["at"] for event in events if event["type"] == "energy_flow_stopped"),
+            "2026-10-27T13:54:13Z",
+        )
         real_unplug = session_events.session_event(
             "unplugged", "2026-10-27T15:00:00Z", "ocpp", "derived"
         )
-        self.assertEqual(session_events.normalize_session_events([legacy_unplug, real_unplug]), [real_unplug])
+        self.assertEqual(
+            session_events.normalize_session_events([legacy_unplug, real_unplug]),
+            [real_unplug],
+        )
 
     def test_invalid_or_oversized_event_payload_is_filtered_and_bounded(self):
         payload = [
@@ -178,13 +190,13 @@ class SessionEventTrackerTest(unittest.TestCase):
                 "certainty": "observed",
             },
             *[
-            {
-                "type": "energy_flow_started",
-                "at": f"2026-09-17T10:{index:02d}:00Z",
-                "source": "meter",
-                "certainty": "derived",
-            }
-            for index in range(90)
+                {
+                    "type": "energy_flow_started",
+                    "at": f"2026-09-17T10:{index:02d}:00Z",
+                    "source": "meter",
+                    "certainty": "derived",
+                }
+                for index in range(90)
             ],
         ]
         payload.append(
@@ -200,12 +212,7 @@ class SessionEventTrackerTest(unittest.TestCase):
 
         self.assertEqual(len(normalized), session_events.MAX_SESSION_EVENTS)
         self.assertEqual(normalized[0]["type"], "transaction_started")
-        self.assertTrue(
-            all(
-                event["type"] in session_events.EVENT_TYPES
-                for event in normalized
-            )
-        )
+        self.assertTrue(all(event["type"] in session_events.EVENT_TYPES for event in normalized))
 
 
 if __name__ == "__main__":

@@ -4,12 +4,12 @@ Service handlers may be invoked concurrently by dashboards and automations.
 This module owns the timing rules for those calls so that the Home Assistant
 registration layer only has to translate inputs and failures.
 """
+
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from typing import TypeVar
-
 
 ResultT = TypeVar("ResultT")
 

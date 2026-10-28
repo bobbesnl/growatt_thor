@@ -1,21 +1,19 @@
 """Tests for backward-compatible session CSV handling."""
+
 from __future__ import annotations
 
 import csv
-from datetime import date, datetime
 import importlib.util
-from pathlib import Path
 import stat
 import sys
 import tempfile
 import types
 import unittest
+from datetime import date, datetime
+from pathlib import Path
 from unittest.mock import patch
 
-
-COMPONENT_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor"
-)
+COMPONENT_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 PACKAGE_NAME = "growatt_thor_session_csv_test_package"
 PACKAGE = types.ModuleType(PACKAGE_NAME)
 PACKAGE.__path__ = [str(COMPONENT_PATH)]
@@ -88,35 +86,46 @@ def _legacy_row(**overrides):
 class SessionCsvTest(unittest.TestCase):
     def test_card_names_survive_csv_migration_and_are_safely_exported(self):
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / 'sessions.csv'
-            with path.open('w', newline='', encoding='utf-8') as stream:
-                writer = csv.DictWriter(stream, fieldnames=LEGACY_HEADERS + ['custom'])
+            path = Path(directory) / "sessions.csv"
+            with path.open("w", newline="", encoding="utf-8") as stream:
+                writer = csv.DictWriter(stream, fieldnames=LEGACY_HEADERS + ["custom"])
                 writer.writeheader()
-                writer.writerow(_legacy_row(custom='preserved'))
+                writer.writerow(_legacy_row(custom="preserved"))
             alias = '=1+1, "Family car"'
-            session_csv.append_session_row(path, _row(
-                transaction_id='8', session_id='ha-new',
-                authorized_identifier='00AbC', authorized_alias=alias,
-            ))
-            with path.open(newline='', encoding='utf-8') as stream:
+            session_csv.append_session_row(
+                path,
+                _row(
+                    transaction_id="8",
+                    session_id="ha-new",
+                    authorized_identifier="00AbC",
+                    authorized_alias=alias,
+                ),
+            )
+            with path.open(newline="", encoding="utf-8") as stream:
                 rows = list(csv.DictReader(stream))
-            self.assertEqual(rows[0]['authorized_alias'], '')
-            self.assertEqual(rows[0]['custom'], 'preserved')
-            self.assertEqual(rows[1]['authorized_identifier'], '00AbC')
-            self.assertEqual(rows[1]['authorized_alias'], alias)
-            target = Path(directory) / 'export.csv'
-            session_csv.export_session_rows(path, target,
-                date_from=datetime(2026, 8, 24), date_to=datetime(2026, 8, 25))
-            with target.open(newline='', encoding='utf-8') as stream:
+            self.assertEqual(rows[0]["authorized_alias"], "")
+            self.assertEqual(rows[0]["custom"], "preserved")
+            self.assertEqual(rows[1]["authorized_identifier"], "00AbC")
+            self.assertEqual(rows[1]["authorized_alias"], alias)
+            target = Path(directory) / "export.csv"
+            session_csv.export_session_rows(
+                path,
+                target,
+                date_from=datetime(2026, 8, 24),
+                date_to=datetime(2026, 8, 25),
+            )
+            with target.open(newline="", encoding="utf-8") as stream:
                 exported = list(csv.DictReader(stream))
-            self.assertEqual(exported[0]['authorized_alias'], '')
-            self.assertEqual(exported[1]['authorized_identifier'], '00AbC')
-            self.assertEqual(exported[1]['authorized_alias'], "'" + alias)
+            self.assertEqual(exported[0]["authorized_alias"], "")
+            self.assertEqual(exported[1]["authorized_identifier"], "00AbC")
+            self.assertEqual(exported[1]["authorized_alias"], "'" + alias)
 
     def test_interrupted_retention_replays_result_without_double_counting(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sessions.csv"
-            session_csv.append_session_row(path, _row(start_time="2099-01-01 10:00:00", session_id="one"))
+            session_csv.append_session_row(
+                path, _row(start_time="2099-01-01 10:00:00", session_id="one")
+            )
             with patch.object(session_csv, "_rewrite_rows", side_effect=OSError("interrupted")):
                 with self.assertRaises(OSError):
                     session_csv.enforce_session_retention(path, today=date(2101, 1, 1))
@@ -140,14 +149,21 @@ class SessionCsvTest(unittest.TestCase):
     def test_accounting_columns_round_trip_and_old_row_stays_unknown(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sessions.csv"
-            session_csv.append_session_row(path, _row(
-                source_energy_kwh={"direct_solar": 0.2, "direct_grid": 0.1,
-                                   "battery_unknown": 0.0, "unknown": 0.112},
-                effective_grid_cost=-0.03,
-                accounting_coverage=0.728,
-                accounting_quality="derived",
-                accounting_policy={"id": "grid_first", "version": 1},
-            ))
+            session_csv.append_session_row(
+                path,
+                _row(
+                    source_energy_kwh={
+                        "direct_solar": 0.2,
+                        "direct_grid": 0.1,
+                        "battery_unknown": 0.0,
+                        "unknown": 0.112,
+                    },
+                    effective_grid_cost=-0.03,
+                    accounting_coverage=0.728,
+                    accounting_quality="derived",
+                    accounting_policy={"id": "grid_first", "version": 1},
+                ),
+            )
             item = session_csv.dashboard_session_data(path)["items"][0]
             self.assertEqual(item["source_energy_kwh"]["direct_solar"], 0.2)
             self.assertEqual(item["effective_grid_cost"], -0.03)
@@ -155,6 +171,7 @@ class SessionCsvTest(unittest.TestCase):
             detail = session_csv.session_detail_data(path, item["session_id"])
             self.assertEqual(detail["source_energy_kwh"], item["source_energy_kwh"])
             self.assertIsNone(session_csv._session_item(_row(), details=False)["source_energy_kwh"])
+
     """Verify new files and in-place migration of historical logs."""
 
     def test_new_log_keeps_supplied_source_aware_identity(self):
@@ -421,9 +438,17 @@ class SessionCsvTest(unittest.TestCase):
                 for value in values:
                     writer.writerow(_row(start_time="2026-08-24 10:00:00", location=value))
             before = source.read_bytes()
-            session_csv.export_session_rows(source, target, date_from=datetime(2026, 8, 24), date_to=datetime(2026, 8, 25))
+            session_csv.export_session_rows(
+                source,
+                target,
+                date_from=datetime(2026, 8, 24),
+                date_to=datetime(2026, 8, 25),
+            )
             with target.open(newline="", encoding="utf-8") as stream:
-                self.assertEqual([row["location"] for row in csv.DictReader(stream)], ["'" + value for value in values])
+                self.assertEqual(
+                    [row["location"] for row in csv.DictReader(stream)],
+                    ["'" + value for value in values],
+                )
             self.assertEqual(source.read_bytes(), before)
 
     def test_export_without_source_still_creates_complete_empty_csv(self):

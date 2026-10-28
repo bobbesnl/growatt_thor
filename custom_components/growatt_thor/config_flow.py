@@ -1,3 +1,8 @@
+import logging
+from html import escape
+from math import isfinite
+
+import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
@@ -9,30 +14,42 @@ from homeassistant.helpers.selector import (
     TextSelector,
     TextSelectorConfig,
 )
-import voluptuous as vol
-import logging
-from html import escape
-from math import isfinite
 
 from .charging.authorization import (
-    AuthorizationPolicy,
     CONF_ALLOW_HA_REMOTE_START,
     CONF_AUTHORIZATION,
     CONF_AUTHORIZED_TAGS,
     CONF_RESTRICT_AUTHORIZATION,
+    AuthorizationPolicy,
     policy_from_input,
 )
-from .runtime.action_errors import async_require_command_completion
-from .runtime.ownership import entry_runtime_data
+from .configuration.validation import (
+    NumericValidationError,
+    NumericValidationReason,
+    validate_bind_address,
+    validate_poll_interval,
+    validate_tcp_port,
+)
 from .const import (
-    CONFIG_ENTRY_VERSION,
-    DOMAIN,
-    DEFAULT_PORT,
-    CONF_PORT,
     CONF_LOCATION,
     CONF_POLL_INTERVAL,
+    CONF_PORT,
+    CONFIG_ENTRY_VERSION,
     DEFAULT_POLL_INTERVAL,
+    DEFAULT_PORT,
+    DOMAIN,
     MIN_POLL_INTERVAL,
+)
+from .energy.accounting_runtime import (
+    CONF_FIXED_PRICE,
+    CONF_GRID_ENTITY,
+    CONF_GRID_SIGN,
+    CONF_HOUSE_ENTITY,
+    CONF_SITE_PROFILE,
+    CONF_SOLAR_ENTITY,
+    CONF_TARIFF_ENTITY,
+    GRID_SIGNS,
+    PROFILES,
 )
 from .energy.currency import configured_currency, normalized_price_unit
 from .energy.sources import (
@@ -40,27 +57,21 @@ from .energy.sources import (
     BATTERY_POWER_SIGNS,
     CONF_BATTERY_POWER_ENTITY,
     CONF_BATTERY_POWER_SIGN,
+    duplicate_source_fields,
     is_power_sensor,
     power_sensor_options,
     tariff_sensor_options,
-    duplicate_source_fields,
 )
 from .energy.stop_guard import (
-    AUTO_STOP_MODES, CONF_AUTO_STOP_MODE, CONF_STOP_THRESHOLD, CONF_STOP_HOLD,
-    STOP_THRESHOLD_W, STOP_HOLD_SECONDS,
+    AUTO_STOP_MODES,
+    CONF_AUTO_STOP_MODE,
+    CONF_STOP_HOLD,
+    CONF_STOP_THRESHOLD,
+    STOP_HOLD_SECONDS,
+    STOP_THRESHOLD_W,
 )
-from .energy.accounting_runtime import (
-    CONF_FIXED_PRICE, CONF_GRID_ENTITY, CONF_GRID_SIGN, CONF_HOUSE_ENTITY,
-    CONF_SITE_PROFILE, CONF_SOLAR_ENTITY, CONF_TARIFF_ENTITY, GRID_SIGNS,
-    PROFILES,
-)
-from .configuration.validation import (
-    NumericValidationError,
-    NumericValidationReason,
-    validate_poll_interval,
-    validate_tcp_port,
-    validate_bind_address,
-)
+from .runtime.action_errors import async_require_command_completion
+from .runtime.ownership import entry_runtime_data
 from .runtime.write_queue import (
     VOLATILE_CONTROL_WRITE_POLICY,
     ChargerWriteResult,
@@ -92,7 +103,9 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             normalized_input = dict(user_input)
             try:
-                normalized_input["bind_address"] = validate_bind_address(user_input.get("bind_address", "0.0.0.0"))
+                normalized_input["bind_address"] = validate_bind_address(
+                    user_input.get("bind_address", "0.0.0.0")
+                )
             except ValueError:
                 errors["bind_address"] = "invalid_bind_address"
             try:
@@ -135,7 +148,10 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         default=DEFAULT_PORT,
                     ): NumberSelector(
                         NumberSelectorConfig(
-                            min=1, max=65535, step=1, mode=NumberSelectorMode.BOX,
+                            min=1,
+                            max=65535,
+                            step=1,
+                            mode=NumberSelectorMode.BOX,
                         )
                     ),
                     vol.Optional("bind_address", default="0.0.0.0"): str,
@@ -143,12 +159,12 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(
                         CONF_POLL_INTERVAL,
                         default=DEFAULT_POLL_INTERVAL,
-                        description={
-                            "suggested_value": DEFAULT_POLL_INTERVAL
-                        }
+                        description={"suggested_value": DEFAULT_POLL_INTERVAL},
                     ): NumberSelector(
                         NumberSelectorConfig(
-                            min=MIN_POLL_INTERVAL, step=1, mode=NumberSelectorMode.BOX,
+                            min=MIN_POLL_INTERVAL,
+                            step=1,
+                            mode=NumberSelectorMode.BOX,
                         )
                     ),
                 }
@@ -166,9 +182,7 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         for existing in self._async_current_entries():
             try:
                 ports.add(
-                    validate_tcp_port(
-                        getattr(existing, "data", {}).get(CONF_PORT, DEFAULT_PORT)
-                    )
+                    validate_tcp_port(getattr(existing, "data", {}).get(CONF_PORT, DEFAULT_PORT))
                 )
             except NumericValidationError:
                 # An unusable stored port cannot conflict; its own setup
@@ -264,13 +278,18 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             step_id="general",
             data_schema=vol.Schema(
                 {
-                    vol.Optional("bind_address", default=self.config_entry.data.get("bind_address", "0.0.0.0")): str,
+                    vol.Optional(
+                        "bind_address",
+                        default=self.config_entry.data.get("bind_address", "0.0.0.0"),
+                    ): str,
                     vol.Required(
                         CONF_POLL_INTERVAL,
                         default=current_poll_interval,
                     ): NumberSelector(
                         NumberSelectorConfig(
-                            min=MIN_POLL_INTERVAL, step=1, mode=NumberSelectorMode.BOX,
+                            min=MIN_POLL_INTERVAL,
+                            step=1,
+                            mode=NumberSelectorMode.BOX,
                         )
                     ),
                     vol.Required(
@@ -289,9 +308,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
     async def async_step_energy_sources(self, user_input=None):
         """Configure optional display-only household energy observations."""
         errors = {}
-        configured_entity = self.config_entry.data.get(
-            CONF_BATTERY_POWER_ENTITY, ""
-        )
+        configured_entity = self.config_entry.data.get(CONF_BATTERY_POWER_ENTITY, "")
         configured_sign = self.config_entry.data.get(
             CONF_BATTERY_POWER_SIGN, BATTERY_POSITIVE_DISCHARGE
         )
@@ -317,14 +334,24 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     CONF_SOLAR_ENTITY: self.config_entry.data.get(CONF_SOLAR_ENTITY),
                     CONF_HOUSE_ENTITY: self.config_entry.data.get(CONF_HOUSE_ENTITY),
                     CONF_GRID_ENTITY: self.config_entry.data.get(CONF_GRID_ENTITY)
-                    if self.config_entry.data.get("site_grid_source") == "ha_sensor" else None,
+                    if self.config_entry.data.get("site_grid_source") == "ha_sensor"
+                    else None,
                 }
-                if (self.config_entry.data.get(CONF_SITE_PROFILE, "disabled") != "disabled"
-                        and CONF_BATTERY_POWER_ENTITY in duplicate_source_fields(assignments)):
+                if self.config_entry.data.get(
+                    CONF_SITE_PROFILE, "disabled"
+                ) != "disabled" and CONF_BATTERY_POWER_ENTITY in duplicate_source_fields(
+                    assignments
+                ):
                     errors[CONF_BATTERY_POWER_ENTITY] = "duplicate_power_source"
-            elif self.config_entry.data.get(CONF_SITE_PROFILE) in ("pv_battery", "grohome_load_first"):
+            elif self.config_entry.data.get(CONF_SITE_PROFILE) in (
+                "pv_battery",
+                "grohome_load_first",
+            ):
                 errors[CONF_BATTERY_POWER_ENTITY] = "profile_requires_battery"
-            elif self.config_entry.data.get(CONF_AUTO_STOP_MODE) in ("battery", "battery_or_grid"):
+            elif self.config_entry.data.get(CONF_AUTO_STOP_MODE) in (
+                "battery",
+                "battery_or_grid",
+            ):
                 errors[CONF_BATTERY_POWER_ENTITY] = "auto_stop_requires_battery"
 
             if not errors:
@@ -343,9 +370,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 if coordinator:
                     coordinator.battery_power_entity = battery_entity
                     coordinator.battery_power_sign = (
-                        battery_sign
-                        if battery_entity
-                        else BATTERY_POSITIVE_DISCHARGE
+                        battery_sign if battery_entity else BATTERY_POSITIVE_DISCHARGE
                     )
                     coordinator.site_accounting_options = dict(updated_data)
                     coordinator.async_set_updated_data(True)
@@ -353,7 +378,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
 
         current_battery_entity = (
             user_input.get(CONF_BATTERY_POWER_ENTITY, "")
-            if user_input is not None else configured_entity
+            if user_input is not None
+            else configured_entity
         ) or ""
         current_battery_sign = (user_input or {}).get(
             CONF_BATTERY_POWER_SIGN,
@@ -364,7 +390,10 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             source_keys = [CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY]
             if self.config_entry.data.get("site_grid_source") == "ha_sensor":
                 source_keys.append(CONF_GRID_ENTITY)
-            excluded = {self.config_entry.data.get(key) for key in source_keys} - {None, ""}
+            excluded = {self.config_entry.data.get(key) for key in source_keys} - {
+                None,
+                "",
+            }
         return self.async_show_form(
             step_id="energy_sources",
             data_schema=vol.Schema(
@@ -374,11 +403,15 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                         description={"suggested_value": current_battery_entity},
                     ): SelectSelector(
                         SelectSelectorConfig(
-                            options=[option for option in power_sensor_options(
-                                getattr(self.hass, "states", {}),
-                                current_battery_entity or None,
-                                exclude=excluded,
-                            ) if option["value"]],
+                            options=[
+                                option
+                                for option in power_sensor_options(
+                                    getattr(self.hass, "states", {}),
+                                    current_battery_entity or None,
+                                    exclude=excluded,
+                                )
+                                if option["value"]
+                            ],
                             mode="dropdown",
                             custom_value=True,
                         )
@@ -413,14 +446,21 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 (CONF_STOP_HOLD, STOP_HOLD_SECONDS, 30, 1800),
             ):
                 value = user_input.get(key, current.get(key, default))
-                if not isinstance(value, (int, float)) or not isfinite(value) or not low <= value <= high:
+                if (
+                    not isinstance(value, (int, float))
+                    or not isfinite(value)
+                    or not low <= value <= high
+                ):
                     errors[key] = "invalid_stop_settings"
             if auto_stop_mode not in AUTO_STOP_MODES:
                 errors[CONF_AUTO_STOP_MODE] = "invalid_auto_stop_mode"
             elif auto_stop_mode != "off":
                 if profile == "disabled":
                     errors[CONF_AUTO_STOP_MODE] = "auto_stop_requires_profile"
-                elif auto_stop_mode in ("battery", "battery_or_grid") and not current.get(CONF_BATTERY_POWER_ENTITY):
+                elif auto_stop_mode in (
+                    "battery",
+                    "battery_or_grid",
+                ) and not current.get(CONF_BATTERY_POWER_ENTITY):
                     errors[CONF_AUTO_STOP_MODE] = "auto_stop_requires_battery"
             grid_source = user_input.get("site_grid_source", "none")
             if auto_stop_mode in ("grid", "battery_or_grid") and grid_source == "none":
@@ -436,21 +476,34 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             if user_input.get(CONF_GRID_SIGN) not in GRID_SIGNS:
                 errors[CONF_GRID_SIGN] = "invalid_grid_sign"
             tariff_entity = user_input.get(CONF_TARIFF_ENTITY)
-            if profile != "disabled" and not tariff_entity and user_input.get(CONF_FIXED_PRICE) is None:
+            if (
+                profile != "disabled"
+                and not tariff_entity
+                and user_input.get(CONF_FIXED_PRICE) is None
+            ):
                 errors[CONF_FIXED_PRICE] = "tariff_required"
             if tariff_entity:
                 state = states.get(tariff_entity)
-                unit = getattr(state, "attributes", {}).get("unit_of_measurement") if state else None
-                if not tariff_entity.startswith("sensor.") or normalized_price_unit(unit, configured_currency(self.hass)) is None:
+                unit = (
+                    getattr(state, "attributes", {}).get("unit_of_measurement") if state else None
+                )
+                if (
+                    not tariff_entity.startswith("sensor.")
+                    or normalized_price_unit(unit, configured_currency(self.hass)) is None
+                ):
                     errors[CONF_TARIFF_ENTITY] = "invalid_tariff_sensor"
             if grid_source not in ("none", "thor_external", "ha_sensor"):
                 errors["site_grid_source"] = "invalid_grid_source"
-            if profile in ("pv_battery", "grohome_load_first") and not current.get(CONF_BATTERY_POWER_ENTITY):
+            if profile in ("pv_battery", "grohome_load_first") and not current.get(
+                CONF_BATTERY_POWER_ENTITY
+            ):
                 errors[CONF_SITE_PROFILE] = "profile_requires_battery"
             if profile != "disabled":
                 assignments = {
                     CONF_BATTERY_POWER_ENTITY: current.get(CONF_BATTERY_POWER_ENTITY),
-                    CONF_GRID_ENTITY: user_input.get(CONF_GRID_ENTITY) if grid_source == "ha_sensor" else None,
+                    CONF_GRID_ENTITY: user_input.get(CONF_GRID_ENTITY)
+                    if grid_source == "ha_sensor"
+                    else None,
                     CONF_SOLAR_ENTITY: user_input.get(CONF_SOLAR_ENTITY),
                     CONF_HOUSE_ENTITY: user_input.get(CONF_HOUSE_ENTITY),
                 }
@@ -465,12 +518,25 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     errors[CONF_FIXED_PRICE] = "invalid_fixed_price"
             if not errors:
                 updated = dict(current)
-                keys = (CONF_SITE_PROFILE, CONF_GRID_ENTITY, CONF_GRID_SIGN,
-                        CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY, CONF_TARIFF_ENTITY,
-                        CONF_FIXED_PRICE, "site_grid_source", CONF_AUTO_STOP_MODE,
-                        CONF_STOP_THRESHOLD, CONF_STOP_HOLD)
+                keys = (
+                    CONF_SITE_PROFILE,
+                    CONF_GRID_ENTITY,
+                    CONF_GRID_SIGN,
+                    CONF_SOLAR_ENTITY,
+                    CONF_HOUSE_ENTITY,
+                    CONF_TARIFF_ENTITY,
+                    CONF_FIXED_PRICE,
+                    "site_grid_source",
+                    CONF_AUTO_STOP_MODE,
+                    CONF_STOP_THRESHOLD,
+                    CONF_STOP_HOLD,
+                )
                 for key in keys:
-                    value = user_input.get(key, current.get(key)) if key in (CONF_STOP_THRESHOLD, CONF_STOP_HOLD) else user_input.get(key)
+                    value = (
+                        user_input.get(key, current.get(key))
+                        if key in (CONF_STOP_THRESHOLD, CONF_STOP_HOLD)
+                        else user_input.get(key)
+                    )
                     if value in (None, ""):
                         updated.pop(key, None)
                     else:
@@ -487,57 +553,123 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
 
         # Redisplay the submitted draft on validation errors, including cleared fields.
         if user_input is not None:
-            for key in (CONF_GRID_ENTITY, CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY, CONF_TARIFF_ENTITY, CONF_FIXED_PRICE):
+            for key in (
+                CONF_GRID_ENTITY,
+                CONF_SOLAR_ENTITY,
+                CONF_HOUSE_ENTITY,
+                CONF_TARIFF_ENTITY,
+                CONF_FIXED_PRICE,
+            ):
                 current.pop(key, None)
             current.update(user_input)
         states = getattr(self.hass, "states", {})
 
         def power_selector(key: str, role: str) -> SelectSelector:
-            other_keys = {CONF_BATTERY_POWER_ENTITY, CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY}
+            other_keys = {
+                CONF_BATTERY_POWER_ENTITY,
+                CONF_SOLAR_ENTITY,
+                CONF_HOUSE_ENTITY,
+            }
             if current.get("site_grid_source") == "ha_sensor":
                 other_keys.add(CONF_GRID_ENTITY)
             excluded = {current.get(other) for other in other_keys - {key}} - {None, ""}
             options = power_sensor_options(states, current.get(key), role=role, exclude=excluded)
             # custom_value enables HA's searchable picker; server validation still
             # rejects unknown entities, incompatible units and conflicting roles.
-            return SelectSelector(SelectSelectorConfig(
-                options=[item for item in options if item["value"]],
-                mode="dropdown", custom_value=True,
-            ))
+            return SelectSelector(
+                SelectSelectorConfig(
+                    options=[item for item in options if item["value"]],
+                    mode="dropdown",
+                    custom_value=True,
+                )
+            )
 
         def source_field(key: str):
             return vol.Optional(key, description={"suggested_value": current.get(key, "")})
 
         price_key = (
-            vol.Optional(CONF_FIXED_PRICE, description={"suggested_value": current[CONF_FIXED_PRICE]})
-            if current.get(CONF_FIXED_PRICE) is not None else vol.Optional(CONF_FIXED_PRICE)
+            vol.Optional(
+                CONF_FIXED_PRICE,
+                description={"suggested_value": current[CONF_FIXED_PRICE]},
+            )
+            if current.get(CONF_FIXED_PRICE) is not None
+            else vol.Optional(CONF_FIXED_PRICE)
         )
         return self.async_show_form(
             step_id="site_accounting",
-            data_schema=vol.Schema({
-                vol.Required(CONF_SITE_PROFILE, default=current.get(CONF_SITE_PROFILE, "disabled")): SelectSelector(SelectSelectorConfig(options=list(PROFILES), translation_key=CONF_SITE_PROFILE, mode="dropdown")),
-                vol.Required(CONF_AUTO_STOP_MODE, default=current.get(CONF_AUTO_STOP_MODE, "off")): SelectSelector(SelectSelectorConfig(options=list(AUTO_STOP_MODES), translation_key=CONF_AUTO_STOP_MODE, mode="dropdown")),
-                vol.Required(CONF_STOP_THRESHOLD, default=current.get(CONF_STOP_THRESHOLD, STOP_THRESHOLD_W)): vol.All(vol.Coerce(float), vol.Range(min=100, max=10000)),
-                vol.Required(CONF_STOP_HOLD, default=current.get(CONF_STOP_HOLD, STOP_HOLD_SECONDS)): vol.All(vol.Coerce(float), vol.Range(min=30, max=1800)),
-                vol.Required("site_grid_source", default=current.get("site_grid_source", "none")): SelectSelector(SelectSelectorConfig(options=["none", "thor_external", "ha_sensor"], translation_key="site_grid_source", mode="dropdown")),
-                source_field(CONF_GRID_ENTITY): power_selector(CONF_GRID_ENTITY, "grid"),
-                vol.Required(CONF_GRID_SIGN, default=current.get(CONF_GRID_SIGN, "positive_import")): SelectSelector(SelectSelectorConfig(options=list(GRID_SIGNS), translation_key=CONF_GRID_SIGN, mode="dropdown")),
-                source_field(CONF_SOLAR_ENTITY): power_selector(CONF_SOLAR_ENTITY, "solar"),
-                source_field(CONF_HOUSE_ENTITY): power_selector(CONF_HOUSE_ENTITY, "household"),
-                source_field(CONF_TARIFF_ENTITY): SelectSelector(SelectSelectorConfig(
-                    options=tariff_sensor_options(states, configured_currency(self.hass), current.get(CONF_TARIFF_ENTITY)),
-                    mode="dropdown", custom_value=True,
-                )),
-                price_key: float,
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_SITE_PROFILE,
+                        default=current.get(CONF_SITE_PROFILE, "disabled"),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=list(PROFILES),
+                            translation_key=CONF_SITE_PROFILE,
+                            mode="dropdown",
+                        )
+                    ),
+                    vol.Required(
+                        CONF_AUTO_STOP_MODE,
+                        default=current.get(CONF_AUTO_STOP_MODE, "off"),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=list(AUTO_STOP_MODES),
+                            translation_key=CONF_AUTO_STOP_MODE,
+                            mode="dropdown",
+                        )
+                    ),
+                    vol.Required(
+                        CONF_STOP_THRESHOLD,
+                        default=current.get(CONF_STOP_THRESHOLD, STOP_THRESHOLD_W),
+                    ): vol.All(vol.Coerce(float), vol.Range(min=100, max=10000)),
+                    vol.Required(
+                        CONF_STOP_HOLD,
+                        default=current.get(CONF_STOP_HOLD, STOP_HOLD_SECONDS),
+                    ): vol.All(vol.Coerce(float), vol.Range(min=30, max=1800)),
+                    vol.Required(
+                        "site_grid_source",
+                        default=current.get("site_grid_source", "none"),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=["none", "thor_external", "ha_sensor"],
+                            translation_key="site_grid_source",
+                            mode="dropdown",
+                        )
+                    ),
+                    source_field(CONF_GRID_ENTITY): power_selector(CONF_GRID_ENTITY, "grid"),
+                    vol.Required(
+                        CONF_GRID_SIGN,
+                        default=current.get(CONF_GRID_SIGN, "positive_import"),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=list(GRID_SIGNS),
+                            translation_key=CONF_GRID_SIGN,
+                            mode="dropdown",
+                        )
+                    ),
+                    source_field(CONF_SOLAR_ENTITY): power_selector(CONF_SOLAR_ENTITY, "solar"),
+                    source_field(CONF_HOUSE_ENTITY): power_selector(CONF_HOUSE_ENTITY, "household"),
+                    source_field(CONF_TARIFF_ENTITY): SelectSelector(
+                        SelectSelectorConfig(
+                            options=tariff_sensor_options(
+                                states,
+                                configured_currency(self.hass),
+                                current.get(CONF_TARIFF_ENTITY),
+                            ),
+                            mode="dropdown",
+                            custom_value=True,
+                        )
+                    ),
+                    price_key: float,
+                }
+            ),
             errors=errors,
         )
 
     async def async_step_authorization(self, user_input=None):
         """Change only local policy, without sending charger configuration writes."""
-        policy = AuthorizationPolicy.from_config(
-            self.config_entry.data.get(CONF_AUTHORIZATION)
-        )
+        policy = AuthorizationPolicy.from_config(self.config_entry.data.get(CONF_AUTHORIZATION))
         errors = {}
         if user_input is not None:
             try:
@@ -549,34 +681,32 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 return self.async_create_entry(title="", data={})
 
         visible_tags = policy.editable_tags()
-        if user_input is not None and isinstance(
-            user_input.get(CONF_AUTHORIZED_TAGS), str
-        ):
+        if user_input is not None and isinstance(user_input.get(CONF_AUTHORIZED_TAGS), str):
             visible_tags = user_input[CONF_AUTHORIZED_TAGS]
 
         return self.async_show_form(
             step_id="authorization",
-            data_schema=vol.Schema({
-                vol.Required(
-                    CONF_RESTRICT_AUTHORIZATION,
-                    default=(user_input or {}).get(
-                        CONF_RESTRICT_AUTHORIZATION, policy.restricted
-                    ),
-                ): bool,
-                vol.Required(
-                    CONF_ALLOW_HA_REMOTE_START,
-                    default=(user_input or {}).get(
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_RESTRICT_AUTHORIZATION,
+                        default=(user_input or {}).get(
+                            CONF_RESTRICT_AUTHORIZATION, policy.restricted
+                        ),
+                    ): bool,
+                    vol.Required(
                         CONF_ALLOW_HA_REMOTE_START,
-                        policy.allow_ha_remote_start,
-                    ),
-                ): bool,
-                vol.Optional(
-                    CONF_AUTHORIZED_TAGS,
-                    default=visible_tags,
-                ): TextSelector(
-                    TextSelectorConfig(multiline=True)
-                ),
-            }),
+                        default=(user_input or {}).get(
+                            CONF_ALLOW_HA_REMOTE_START,
+                            policy.allow_ha_remote_start,
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_AUTHORIZED_TAGS,
+                        default=visible_tags,
+                    ): TextSelector(TextSelectorConfig(multiline=True)),
+                }
+            ),
             errors=errors,
             description_placeholders={"count": str(len(policy.id_tags))},
         )
@@ -595,7 +725,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         learning = getattr(self, "_rfid_learning", None)
         session = getattr(self, "_rfid_session", None)
         if (
-            coordinator is None or not coordinator.connected
+            coordinator is None
+            or not coordinator.connected
             or learning is not coordinator.authorization.learning
         ):
             if learning is not None and session is not None:
@@ -626,7 +757,9 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 return await self.async_step_confirm_rfid()
             errors["base"] = "rfid_not_seen"
         return self.async_show_form(
-            step_id="learn_rfid", data_schema=vol.Schema({}), errors=errors,
+            step_id="learn_rfid",
+            data_schema=vol.Schema({}),
+            errors=errors,
         )
 
     async def async_step_confirm_rfid(self, user_input=None):
@@ -637,9 +770,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             return self.async_abort(reason=str(exc))
         if tag is None:
             return await self.async_step_learn_rfid()
-        policy = AuthorizationPolicy.from_config(
-            self.config_entry.data.get(CONF_AUTHORIZATION)
-        )
+        policy = AuthorizationPolicy.from_config(self.config_entry.data.get(CONF_AUTHORIZATION))
         errors = {}
         alias = (user_input or {}).get("alias", policy.aliases.get(tag, ""))
         if user_input is not None:
@@ -652,9 +783,9 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 self._rfid_learning.cancel(self._rfid_session)
                 return self.async_create_entry(title="", data={})
         # Identifiers are exact wire values, but the description is Markdown.
-        display_tag = escape(tag, quote=False).translate(str.maketrans({
-            char: "\\" + char for char in "\\`*_{}[]()#+-.!|>"
-        }))
+        display_tag = escape(tag, quote=False).translate(
+            str.maketrans({char: "\\" + char for char in "\\`*_{}[]()#+-.!|>"})
+        )
         return self.async_show_form(
             step_id="confirm_rfid",
             data_schema=vol.Schema({vol.Optional("alias", default=alias): str}),

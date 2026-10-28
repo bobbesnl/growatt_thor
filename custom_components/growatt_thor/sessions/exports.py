@@ -1,10 +1,11 @@
 """Short-lived, unguessable session downloads with restart-safe cleanup."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from pathlib import Path
 import time
+from pathlib import Path
 from uuid import uuid4
 
 EXPORT_LIFETIME_SECONDS = 15 * 60
@@ -38,4 +39,6 @@ def ensure_export_cleanup(hass) -> None:
             await hass.async_add_executor_job(cleanup_expired_exports, hass.config.path("www"))
             await asyncio.sleep(60)
 
-    hass.data[_CLEANUP_KEY] = hass.async_create_background_task(clean(), "growatt_thor_export_cleanup")
+    hass.data[_CLEANUP_KEY] = hass.async_create_background_task(
+        clean(), "growatt_thor_export_cleanup"
+    )

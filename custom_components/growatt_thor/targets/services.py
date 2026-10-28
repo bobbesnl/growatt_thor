@@ -1,4 +1,5 @@
 """Home Assistant schemas and dispatch for native charging targets."""
+
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
@@ -12,10 +13,13 @@ from ..const import DOMAIN
 from ..runtime.ownership import resolve_entry_runtime
 from .runtime import (
     SERVICES,
+)
+from .runtime import (
     async_setup_target_runtime as async_setup_target_services,
+)
+from .runtime import (
     async_unload_target_runtime as async_unload_target_services,
 )
-
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant, ServiceCall
@@ -53,9 +57,7 @@ def async_register_target_services(hass: HomeAssistant) -> None:
         vol.Optional("replace_request_id"): str,
     }
     prepared_target_schema = {
-        vol.Optional("kind", default="energy"): vol.In(
-            ["duration", "energy", "budget"]
-        ),
+        vol.Optional("kind", default="energy"): vol.In(["duration", "energy", "budget"]),
         vol.Required("value"): vol.Any(str, int, float),
         vol.Required("confirm_experimental"): vol.All(bool, vol.In([True])),
         vol.Optional("entry_id"): str,
@@ -68,9 +70,7 @@ def async_register_target_services(hass: HomeAssistant) -> None:
         schema=vol.Schema(
             {
                 **target_schema,
-                vol.Optional("start", default="now"): vol.In(
-                    ["now", "once", "recurring"]
-                ),
+                vol.Optional("start", default="now"): vol.In(["now", "once", "recurring"]),
             }
         ),
         supports_response=SupportsResponse.ONLY,
@@ -138,5 +138,3 @@ def async_register_target_services(hass: HomeAssistant) -> None:
             }
         ),
     )
-
-

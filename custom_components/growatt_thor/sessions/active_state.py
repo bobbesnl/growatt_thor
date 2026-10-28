@@ -1,4 +1,5 @@
 """Bounded persistent state for one active OCPP charging session."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -6,9 +7,9 @@ from dataclasses import dataclass, field
 from math import isfinite
 from typing import Any
 
-from .telemetry import context_curves
 from .events import normalize_session_events
 from .series import SESSION_CURVE_POINT_LIMIT, downsample_curve
+from .telemetry import context_curves
 
 
 def _text(value: Any, *, limit: int = 256) -> str | None:
@@ -46,7 +47,7 @@ class ActiveSessionState:
     energy_flowing: bool | None = None
 
     @classmethod
-    def from_dict(cls, value: Any) -> "ActiveSessionState":
+    def from_dict(cls, value: Any) -> ActiveSessionState:
         """Restore only display-safe, bounded fields from storage."""
         data = value if isinstance(value, Mapping) else {}
         energy_flowing = data.get("energy_flowing")
@@ -67,7 +68,9 @@ class ActiveSessionState:
                 limit=SESSION_CURVE_POINT_LIMIT,
                 event_times=(event.get("at") for event in events),
             ),
-            site_house_load_source=data.get("site_house_load_source") if data.get("site_house_load_source") in ("configured_sensor", "site_balance", "mixed") else None,
+            site_house_load_source=data.get("site_house_load_source")
+            if data.get("site_house_load_source") in ("configured_sensor", "site_balance", "mixed")
+            else None,
             context_curves=context_curves(data, event_times=(event.get("at") for event in events)),
             events=events,
             energy_flowing=energy_flowing,
@@ -86,7 +89,11 @@ class ActiveSessionState:
             "energy_wh": self.energy_wh,
             "power_curve": self.power_curve,
             **self.context_curves,
-            **({"site_house_load_source": self.site_house_load_source} if self.site_house_load_source else {}),
+            **(
+                {"site_house_load_source": self.site_house_load_source}
+                if self.site_house_load_source
+                else {}
+            ),
             "events": self.events,
             "energy_flowing": self.energy_flowing,
         }

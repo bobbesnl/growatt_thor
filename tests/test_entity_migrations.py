@@ -1,16 +1,14 @@
 """Tests for one-time Home Assistant entity-registry migrations."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import types
 import unittest
+from pathlib import Path
 
-
-COMPONENT_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor"
-)
+COMPONENT_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 INIT_PATH = COMPONENT_PATH / "__init__.py"
 PACKAGE_NAME = "growatt_thor_entity_migrations_test_package"
 PACKAGE = types.ModuleType(PACKAGE_NAME)
@@ -52,20 +50,14 @@ class _Entity:
         self.options = {
             "conversation": {"should_expose": False},
             "sensor": {"suggested_display_precision": 1},
-            "sensor.private": {
-                "suggested_unit_of_measurement": unit_of_measurement
-            },
+            "sensor.private": {"suggested_unit_of_measurement": unit_of_measurement},
         }
 
 
 class _Registry:
     def __init__(self, unit_of_measurement="min", *, exists=True):
         self.entity = _Entity(unit_of_measurement) if exists else None
-        self.entities = (
-            {self.entity.entity_id: self.entity}
-            if self.entity is not None
-            else {}
-        )
+        self.entities = {self.entity.entity_id: self.entity} if self.entity is not None else {}
         self.updates = []
 
     def async_get_entity_id(self, domain, platform, unique_id):
@@ -88,9 +80,7 @@ class _Registry:
         self.updates.append((entity_id, changes))
 
     def async_update_entity_options(self, entity_id, domain, options):
-        self.updates.append(
-            (entity_id, {"domain": domain, "options": options})
-        )
+        self.updates.append((entity_id, {"domain": domain, "options": options}))
 
 
 class _ExternalMeterRegistry:
@@ -163,9 +153,7 @@ class EntityMigrationTest(unittest.TestCase):
 
     def test_private_legacy_unit_is_migrated_when_public_unit_is_hours(self):
         registry = _Registry("h")
-        registry.entity.options["sensor.private"][
-            "suggested_unit_of_measurement"
-        ] = "min"
+        registry.entity.options["sensor.private"]["suggested_unit_of_measurement"] = "min"
 
         self.assertTrue(
             entity_migrations.migrate_session_duration_unit(
@@ -232,10 +220,7 @@ class EntityMigrationTest(unittest.TestCase):
         self.assertEqual(changed, tuple(expected))
         self.assertEqual(
             registry.updates,
-            [
-                (entity_id, {"disabled_by": "integration"})
-                for entity_id in expected
-            ],
+            [(entity_id, {"disabled_by": "integration"}) for entity_id in expected],
         )
 
     def test_existing_disabled_readback_is_preserved(self):
@@ -300,9 +285,7 @@ class EntityMigrationTest(unittest.TestCase):
             "migrated_data[PENDING_EXTERNAL_METER_READBACK_MIGRATION] = True",
             source,
         )
-        platform_setup = source.index(
-            "await hass.config_entries.async_forward_entry_setups"
-        )
+        platform_setup = source.index("await hass.config_entries.async_forward_entry_setups")
         completion = source.index(
             "_complete_external_meter_readback_migration(hass, entry)",
             platform_setup,
@@ -313,8 +296,7 @@ class EntityMigrationTest(unittest.TestCase):
         source = INIT_PATH.read_text(encoding="utf-8")
         self.assertIn("registry.async_get_device_by_identifier(", source)
         self.assertIn(
-            '(DOMAIN, entry.entry_id, "grid_connection"),\n'
-            "        entry.entry_id,",
+            '(DOMAIN, entry.entry_id, "grid_connection"),\n        entry.entry_id,',
             source,
         )
         self.assertNotIn("registry.async_get_device(", source)

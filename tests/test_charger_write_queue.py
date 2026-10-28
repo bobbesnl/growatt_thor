@@ -1,22 +1,25 @@
 """Queue lifecycle exercised directly without a coordinator or HA entity stand-ins."""
+
 import asyncio
 import importlib
-from pathlib import Path
 import sys
 import types
 import unittest
+from pathlib import Path
 from unittest.mock import AsyncMock
 
-package = types.ModuleType('thor_queue_owner_test')
-package.__path__ = [str(Path(__file__).parents[1] / 'custom_components/growatt_thor')]
+package = types.ModuleType("thor_queue_owner_test")
+package.__path__ = [str(Path(__file__).parents[1] / "custom_components/growatt_thor")]
 sys.modules[package.__name__] = package
-queue_module = importlib.import_module(package.__name__ + '.runtime.charger_write_queue')
-results = importlib.import_module(package.__name__ + '.runtime.write_queue')
+queue_module = importlib.import_module(package.__name__ + ".runtime.charger_write_queue")
+results = importlib.import_module(package.__name__ + ".runtime.write_queue")
 
 
 class Owner:
     def __init__(self):
-        self.hass = types.SimpleNamespace(loop=asyncio.get_running_loop(), async_create_task=asyncio.create_task)
+        self.hass = types.SimpleNamespace(
+            loop=asyncio.get_running_loop(), async_create_task=asyncio.create_task
+        )
         self.runtime_data = {}
         self.connected = True
         self.published = []
@@ -25,7 +28,7 @@ class Owner:
         self.schedule_configuration_refresh = lambda **kwargs: None
 
     def now(self):
-        return '2026-10-25T10:00:00Z'
+        return "2026-10-25T10:00:00Z"
 
     def publish_write_result(self, result):
         self.published.append(result)
@@ -58,13 +61,16 @@ class ChargerWriteQueueTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(left.has_pending)
         self.assertFalse(right.has_pending)
         self.assertTrue(right.idle.is_set())
-        callback = AsyncMock(return_value=results.ChargerWriteResult.success('Accepted'))
-        done = await right.enqueue(callback, command_name='Independent')
-        self.assertEqual((await done.async_wait(timeout=.2)).status, results.ChargerCommandStatus.CONFIRMED)
+        callback = AsyncMock(return_value=results.ChargerWriteResult.success("Accepted"))
+        done = await right.enqueue(callback, command_name="Independent")
+        self.assertEqual(
+            (await done.async_wait(timeout=0.2)).status,
+            results.ChargerCommandStatus.CONFIRMED,
+        )
         self.assertEqual(len(right_owner.published), 1)
         self.assertEqual(left_owner.published, [])
         release.set()
-        await pending.async_wait(timeout=.2)
+        await pending.async_wait(timeout=0.2)
         await left.async_shutdown()
         await right.async_shutdown()
 
@@ -81,13 +87,23 @@ class ChargerWriteQueueTest(unittest.IsolatedAsyncioTestCase):
         running = await queue.enqueue(active)
         await entered.wait()
         never_sent = AsyncMock()
-        waiting = await queue.enqueue(never_sent, command_name='Pending', on_unsent=lambda result: cleanup.append(result.status))
+        waiting = await queue.enqueue(
+            never_sent,
+            command_name="Pending",
+            on_unsent=lambda result: cleanup.append(result.status),
+        )
         waiting.add_done_callback(lambda result: completed.append(result.status))
         await queue.async_shutdown()
         await queue.async_shutdown()
         await asyncio.sleep(0)
-        self.assertEqual((await running.async_wait(timeout=.2)).status, results.ChargerCommandStatus.UNCERTAIN)
-        self.assertEqual((await waiting.async_wait(timeout=.2)).status, results.ChargerCommandStatus.SKIPPED)
+        self.assertEqual(
+            (await running.async_wait(timeout=0.2)).status,
+            results.ChargerCommandStatus.UNCERTAIN,
+        )
+        self.assertEqual(
+            (await waiting.async_wait(timeout=0.2)).status,
+            results.ChargerCommandStatus.SKIPPED,
+        )
         self.assertEqual(cleanup, [results.ChargerWriteStatus.SKIPPED])
         self.assertEqual(completed, [results.ChargerCommandStatus.SKIPPED])
         self.assertEqual(len(owner.published), 2)
@@ -97,16 +113,24 @@ class ChargerWriteQueueTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_publication_failure_does_not_strand_completion_or_later_work(self):
         owner, queue = make_queue()
+
         def publish(result):
             owner.published.append(result)
-            raise RuntimeError('listener failed')
+            raise RuntimeError("listener failed")
+
         owner.publish_write_result = publish
         write = AsyncMock(return_value=results.ChargerWriteResult.success())
-        with self.assertLogs(queue_module._LOGGER, level='ERROR'):
-            first = await queue.enqueue(write, command_name='First')
-            second = await queue.enqueue(write, command_name='Second')
-            self.assertEqual((await first.async_wait(timeout=.2)).status, results.ChargerCommandStatus.CONFIRMED)
-            self.assertEqual((await second.async_wait(timeout=.2)).status, results.ChargerCommandStatus.CONFIRMED)
+        with self.assertLogs(queue_module._LOGGER, level="ERROR"):
+            first = await queue.enqueue(write, command_name="First")
+            second = await queue.enqueue(write, command_name="Second")
+            self.assertEqual(
+                (await first.async_wait(timeout=0.2)).status,
+                results.ChargerCommandStatus.CONFIRMED,
+            )
+            self.assertEqual(
+                (await second.async_wait(timeout=0.2)).status,
+                results.ChargerCommandStatus.CONFIRMED,
+            )
         self.assertEqual(queue.last_result.command_id, second.command_id)
         self.assertEqual(len(owner.published), 2)
         await queue.async_shutdown()
@@ -115,9 +139,9 @@ class ChargerWriteQueueTest(unittest.IsolatedAsyncioTestCase):
         owner, queue = make_queue()
         await queue.async_shutdown()
         write = AsyncMock()
-        handle = await queue.enqueue(write, command_name='Late')
-        result = await handle.async_wait(timeout=.2)
-        self.assertEqual(result.reason, 'integration_unloaded')
+        handle = await queue.enqueue(write, command_name="Late")
+        result = await handle.async_wait(timeout=0.2)
+        self.assertEqual(result.reason, "integration_unloaded")
         self.assertEqual(result.status, results.ChargerCommandStatus.SKIPPED)
         write.assert_not_awaited()
         self.assertTrue(queue.idle.is_set())

@@ -6,6 +6,7 @@ succeeded, even when no charger command was queued or confirmed. These helpers
 keep both boundaries explicit and ensure every caller uses the same translated
 error.
 """
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -19,7 +20,6 @@ from .write_queue import (
     ChargerCommandStatus,
     ChargerCommandWaitTimeout,
 )
-
 
 DEFAULT_ACTION_COMMAND_WAIT_TIMEOUT = 30.0
 
@@ -49,9 +49,13 @@ def raise_write_blocked(reason: str) -> None:
         reason,
         (ServiceValidationError, "action_not_allowed"),
     )
-    placeholders = None if translation_key != "action_not_allowed" else {
-        "reason": reason,
-    }
+    placeholders = (
+        None
+        if translation_key != "action_not_allowed"
+        else {
+            "reason": reason,
+        }
+    )
     raise exception_type(
         translation_domain=DOMAIN,
         translation_key=translation_key,

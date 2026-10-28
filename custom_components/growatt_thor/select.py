@@ -1,4 +1,5 @@
 """Select entities for verified Growatt THOR charging controls."""
+
 from __future__ import annotations
 
 import asyncio
@@ -9,12 +10,6 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ocpp.v16.enums import ConfigurationStatus
 
-from .runtime.action_errors import (
-    async_require_command_completion,
-    raise_action_validation,
-    raise_charger_disconnected,
-    raise_write_blocked,
-)
 from .charging.controls import (
     PV_LINKAGE_WORKING_MODES,
     ChargingControl,
@@ -25,21 +20,26 @@ from .charging.controls import (
     encode_working_mode,
     selected_working_mode,
 )
+from .charging.pv_linkage import PvBoostMode
+from .configuration.controls import GrowattConfigurationControlMixin
 from .configuration.values import (
     CONFIGURATION_ENTITY_OPTIONS,
     configuration_entity_state,
 )
-from .configuration.controls import GrowattConfigurationControlMixin
 from .configuration.writes import ConfigurationWriteStatus
 from .const import DOMAIN
-from .charging.pv_linkage import PvBoostMode
+from .runtime.action_errors import (
+    async_require_command_completion,
+    raise_action_validation,
+    raise_charger_disconnected,
+    raise_write_blocked,
+)
 from .runtime.write_queue import (
     CONFIGURATION_WRITE_POLICY,
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
 )
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -86,9 +86,8 @@ class AuthorizationModeSelect(GrowattConfigurationControlMixin, CoordinatorEntit
         return super().available and self._control_available and self.current_option is not None
 
     async def async_select_option(self, option: str) -> None:
-        await self._async_write_configuration(
-            encode_control_value(self._control, option)
-        )
+        await self._async_write_configuration(encode_control_value(self._control, option))
+
 
 class WorkingModeSelect(CoordinatorEntity, SelectEntity):
     """Select a charging strategy through the captured indirect writes."""
@@ -97,6 +96,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
     _attr_translation_key = "working_mode"
     _attr_icon = "mdi:ev-station"
     _attr_entity_category = EntityCategory.CONFIG
+
     def __init__(self, coordinator, entry):
         super().__init__(coordinator)
         self.hass = coordinator.hass
@@ -129,11 +129,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
     def available(self):
         # An active charging transaction prevents mode changes, but the last
         # reported strategy remains useful state and must stay visible.
-        return (
-            super().available
-            and self.coordinator.connected
-            and self.current_option is not None
-        )
+        return super().available and self.coordinator.connected and self.current_option is not None
 
     @property
     def _write_block_reason(self) -> str | None:
@@ -212,10 +208,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
         generation: int,
         intent: int,
     ) -> ChargerWriteResult:
-        if (
-            option in PV_LINKAGE_WORKING_MODES
-            and not self.coordinator.external_meter_ready_for_pv
-        ):
+        if option in PV_LINKAGE_WORKING_MODES and not self.coordinator.external_meter_ready_for_pv:
             _LOGGER.warning(
                 "Skipping queued PV Linkage change: external meter health is %s",
                 self.coordinator.external_meter_health,
@@ -330,9 +323,7 @@ class WorkingModeSelect(CoordinatorEntity, SelectEntity):
     ) -> None:
         """Confirm the effective mode through the shared, coalesced readback."""
         try:
-            refresh_task = self.coordinator.schedule_configuration_refresh(
-                delay=delay
-            )
+            refresh_task = self.coordinator.schedule_configuration_refresh(delay=delay)
             # This entity owns only its waiter.  Shielding keeps cancellation
             # (for a newer selection or entity removal) from cancelling the
             # readback shared by all configuration entities.
@@ -363,16 +354,12 @@ class ExternalSamplingMethodSelect(
     _attr_translation_key = "external_sampling_method"
     _attr_entity_category = EntityCategory.CONFIG
     _attr_icon = "mdi:connection"
-    _attr_options = list(
-        CONFIGURATION_ENTITY_OPTIONS["G_ExternalSamplingCurWring"]
-    )
+    _attr_options = list(CONFIGURATION_ENTITY_OPTIONS["G_ExternalSamplingCurWring"])
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator)
         self.hass = coordinator.hass
-        self._attr_unique_id = (
-            f"{entry.entry_id}_external_sampling_method_control"
-        )
+        self._attr_unique_id = f"{entry.entry_id}_external_sampling_method_control"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
             "name": "Growatt THOR External Meter",
@@ -389,16 +376,10 @@ class ExternalSamplingMethodSelect(
 
     @property
     def available(self):
-        return (
-            super().available
-            and self._control_available
-            and self.current_option is not None
-        )
+        return super().available and self._control_available and self.current_option is not None
 
     async def async_select_option(self, option: str) -> None:
-        await self._async_write_configuration(
-            encode_control_value(self._control, option)
-        )
+        await self._async_write_configuration(encode_control_value(self._control, option))
 
 
 class PowerMeterTypeSelect(
@@ -435,16 +416,10 @@ class PowerMeterTypeSelect(
 
     @property
     def available(self):
-        return (
-            super().available
-            and self._control_available
-            and self.current_option is not None
-        )
+        return super().available and self._control_available and self.current_option is not None
 
     async def async_select_option(self, option: str) -> None:
-        await self._async_write_configuration(
-            encode_control_value(self._control, option)
-        )
+        await self._async_write_configuration(encode_control_value(self._control, option))
 
 
 class PvBoostDraftSelect(CoordinatorEntity, SelectEntity):
@@ -504,6 +479,4 @@ class PvBoostDraftSelect(CoordinatorEntity, SelectEntity):
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot edit PV Boost mode: %s", block_reason)
             raise_write_blocked(block_reason)
-        self.coordinator.update_pv_linkage_draft(
-            pv_boost_mode_draft=PvBoostMode(option)
-        )
+        self.coordinator.update_pv_linkage_draft(pv_boost_mode_draft=PvBoostMode(option))

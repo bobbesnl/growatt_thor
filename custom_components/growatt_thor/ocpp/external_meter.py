@@ -1,9 +1,9 @@
 """Parsing for Growatt external-meter DataTransfer payloads."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from urllib.parse import parse_qsl
-
 
 _VOLTAGE_FIELDS = {
     "u-voltage": "L1",
@@ -40,11 +40,7 @@ def _normalized_token(value: object) -> str:
     """Normalize OCPP enum and string values for fault matching."""
     if hasattr(value, "value"):
         value = value.value
-    return "".join(
-        character
-        for character in str(value or "").casefold()
-        if character.isalnum()
-    )
+    return "".join(character for character in str(value or "").casefold() if character.isalnum())
 
 
 def status_reports_external_meter_fault(

@@ -1,45 +1,44 @@
 from __future__ import annotations
 
-from .runtime.time import utc_timestamp
-from .sessions.time import session_time_zone
-
 from dataclasses import dataclass
 
 from homeassistant.components.sensor import (
-    SensorEntity,
     SensorDeviceClass,
+    SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.helpers.entity import EntityCategory
 from homeassistant.const import (
-    UnitOfPower,
-    UnitOfEnergy,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
+    UnitOfEnergy,
+    UnitOfPower,
     UnitOfTemperature,
     UnitOfTime,
 )
+from homeassistant.helpers.entity import EntityCategory
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .charging.faults import CHARGER_FAULT_OPTIONS
 from .configuration.values import (
     CONFIGURATION_ENTITY_OPTIONS,
     configuration_entity_state,
 )
-from .charging.faults import CHARGER_FAULT_OPTIONS
 from .const import DOMAIN
-from .energy.currency import configured_currency, electricity_price_unit
-from .ocpp.external_meter import EXTERNAL_METER_HEALTH_OPTIONS
-from .ocpp.diagnostics import boot_notification_field
-from .ocpp.status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
 from .energy.accounting_runtime import CONF_SITE_PROFILE, coverage_percent
+from .energy.currency import configured_currency, electricity_price_unit
+from .ocpp.diagnostics import boot_notification_field
+from .ocpp.external_meter import EXTERNAL_METER_HEALTH_OPTIONS
+from .ocpp.status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
+from .runtime.time import utc_timestamp
+from .runtime.write_queue import COMMAND_COMPLETION_STATUSES
 from .sessions.records import (
     SESSION_CHARGE_MODE_OPTIONS,
     SESSION_WORK_MODE_OPTIONS,
     normalize_session_charge_mode,
     normalize_session_work_mode,
 )
-from .runtime.write_queue import COMMAND_COMPLETION_STATUSES
+from .sessions.time import session_time_zone
 
 
 @dataclass(frozen=True)
@@ -253,9 +252,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             translation_key="reported_external_sampling_method",
             entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
-            options=list(
-                CONFIGURATION_ENTITY_OPTIONS["G_ExternalSamplingCurWring"]
-            ),
+            options=list(CONFIGURATION_ENTITY_OPTIONS["G_ExternalSamplingCurWring"]),
             icon="mdi:connection",
             entity_registry_enabled_default=False,
         ),
@@ -269,9 +266,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             translation_key="warm_up_after_full_charge",
             entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
-            options=list(
-                CONFIGURATION_ENTITY_OPTIONS["G_FullContinueChargeEnable"]
-            ),
+            options=list(CONFIGURATION_ENTITY_OPTIONS["G_FullContinueChargeEnable"]),
             icon="mdi:car-defrost-front",
             entity_registry_enabled_default=False,
         ),
@@ -357,6 +352,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
     ),
 )
 
+
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     boot_sensors = [
@@ -368,11 +364,18 @@ async def async_setup_entry(hass, entry, async_add_entities):
         for description in CONFIGURATION_SENSOR_DESCRIPTIONS
     ]
     site_sensors = (
-        [SiteAccountingSensor(coordinator, entry, key) for key in (
-            "energy_kwh", "direct_solar_kwh", "direct_grid_kwh",
-            "battery_unknown_kwh", "unknown_kwh", "effective_grid_cost",
-            "coverage",
-        )]
+        [
+            SiteAccountingSensor(coordinator, entry, key)
+            for key in (
+                "energy_kwh",
+                "direct_solar_kwh",
+                "direct_grid_kwh",
+                "battery_unknown_kwh",
+                "unknown_kwh",
+                "effective_grid_cost",
+                "coverage",
+            )
+        ]
         if entry.data.get(CONF_SITE_PROFILE, "disabled") != "disabled"
         else []
     )
@@ -388,7 +391,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
             ChargingPowerSensor(coordinator, entry),
             EnergyChargedSensor(coordinator, entry),
             ServerUrlSensor(coordinator, entry),
-
             # ── Laatste sessie ────────────────────────
             LastSessionEnergySensor(coordinator, entry),
             LastSessionCostSensor(coordinator, entry),
@@ -401,26 +403,20 @@ async def async_setup_entry(hass, entry, async_add_entities):
             LastSessionTransactionIdSensor(coordinator, entry),
             LastSessionChargeModeSensor(coordinator, entry),
             LastSessionWorkModeSensor(coordinator, entry),
-
             # ── Cumulatief totaal (Energy Dashboard) ──
             TotalEnergyChargedSensor(coordinator, entry),
             *site_sensors,
-
             # ── Fase-specifiek (diagnostics tijdens laden) ──
             CurrentSensor(coordinator, entry, "L1"),
             CurrentSensor(coordinator, entry, "L2"),
             CurrentSensor(coordinator, entry, "L3"),
-
             VoltageSensor(coordinator, entry, "L1"),
             VoltageSensor(coordinator, entry, "L2"),
             VoltageSensor(coordinator, entry, "L3"),
-
             PhasePowerSensor(coordinator, entry, "L1"),
             PhasePowerSensor(coordinator, entry, "L2"),
             PhasePowerSensor(coordinator, entry, "L3"),
-
             TemperatureSensor(coordinator, entry),
-
             # ── Load Balancing Grid sensors ───────────
             ExternalMeterHealthSensor(coordinator, entry),
             GridPowerSensor(coordinator, entry),
@@ -430,10 +426,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
             GridCurrentSensor(coordinator, entry, "L1"),
             GridCurrentSensor(coordinator, entry, "L2"),
             GridCurrentSensor(coordinator, entry, "L3"),
-
             # ── Elektricteitstarief ───────────────────
             ElectricityPriceSensor(coordinator, entry),
-
             # ── Read-only Growatt configuration ──────
             *configuration_sensors,
         ]
@@ -443,6 +437,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 # ─────────────────────────────
 # Base voor charger sensors (EV Charger device)
 # ─────────────────────────────
+
 
 class BaseSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
@@ -466,19 +461,27 @@ class SiteAccountingSensor(BaseSensor):
         self.key = key
         self._attr_translation_key = f"site_{key}"
         self._attr_device_class = (
-            SensorDeviceClass.MONETARY if key == "effective_grid_cost"
-            else SensorDeviceClass.ENERGY if key != "coverage" else None
+            SensorDeviceClass.MONETARY
+            if key == "effective_grid_cost"
+            else SensorDeviceClass.ENERGY
+            if key != "coverage"
+            else None
         )
         self._attr_state_class = (
-            SensorStateClass.TOTAL if key == "effective_grid_cost"
-            else SensorStateClass.MEASUREMENT if key == "coverage"
+            SensorStateClass.TOTAL
+            if key == "effective_grid_cost"
+            else SensorStateClass.MEASUREMENT
+            if key == "coverage"
             else SensorStateClass.TOTAL_INCREASING
         )
         if key in ("battery_unknown_kwh", "unknown_kwh"):
             self._attr_entity_registry_enabled_default = False
         self._attr_native_unit_of_measurement = (
-            configured_currency(coordinator.hass) if key == "effective_grid_cost"
-            else "%" if key == "coverage" else UnitOfEnergy.KILO_WATT_HOUR
+            configured_currency(coordinator.hass)
+            if key == "effective_grid_cost"
+            else "%"
+            if key == "coverage"
+            else UnitOfEnergy.KILO_WATT_HOUR
         )
 
     @property
@@ -539,10 +542,7 @@ class LastCommandResultSensor(BaseSensor):
 
     @property
     def available(self):
-        return (
-            super().available
-            and self.coordinator.last_command_result is not None
-        )
+        return super().available and self.coordinator.last_command_result is not None
 
     @property
     def extra_state_attributes(self):
@@ -560,6 +560,7 @@ class LastCommandResultSensor(BaseSensor):
 # ─────────────────────────────
 # Base for external meter sensors
 # ─────────────────────────────
+
 
 class BaseExternalMeterSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
@@ -589,10 +590,12 @@ class BaseExternalMeterSensor(CoordinatorEntity, SensorEntity):
 # Read-only retained configuration
 # ─────────────────────────────
 
+
 class GrowattConfigurationSensor(CoordinatorEntity, SensorEntity):
     """Expose one retained Growatt configuration value."""
 
     _attr_has_entity_name = True
+
     def __init__(self, coordinator, entry, definition):
         super().__init__(coordinator)
         self.entity_description = definition.entity_description
@@ -600,9 +603,7 @@ class GrowattConfigurationSensor(CoordinatorEntity, SensorEntity):
         self._has_information = definition.has_information
 
         if definition.external_meter:
-            self._attr_unique_id = (
-                f"{entry.entry_id}_external_meter_{self.entity_description.key}"
-            )
+            self._attr_unique_id = f"{entry.entry_id}_external_meter_{self.entity_description.key}"
             self._attr_device_info = {
                 "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
                 "name": "Growatt THOR External Meter",
@@ -652,6 +653,7 @@ class GrowattConfigurationSensor(CoordinatorEntity, SensorEntity):
 # Retained OCPP BootNotification metadata
 # ─────────────────────────────
 
+
 class OcppBootSensor(BaseSensor):
     """Expose one retained BootNotification field."""
 
@@ -676,6 +678,7 @@ class OcppBootSensor(BaseSensor):
 # Server URL (DIAGNOSTIC - EV Charger)
 # ─────────────────────────────
 
+
 class ServerUrlSensor(BaseSensor):
     _attr_translation_key = "server_url"
     _attr_icon = "mdi:server"
@@ -693,16 +696,19 @@ class ServerUrlSensor(BaseSensor):
 # Status (HOOFDSENSOR - EV Charger)
 # ─────────────────────────────
 
+
 class StatusSensor(BaseSensor):
     # The card projection and connection activity change on most OCPP frames.
     # Keep them live without storing a fresh large attribute blob each time.
-    _unrecorded_attributes = frozenset({
-        "thor_card",
-        "last_message_at",
-        "last_heartbeat_at",
-        "last_message_action",
-        "connection_started_at",
-    })
+    _unrecorded_attributes = frozenset(
+        {
+            "thor_card",
+            "last_message_at",
+            "last_heartbeat_at",
+            "last_message_action",
+            "connection_started_at",
+        }
+    )
     _attr_translation_key = "status"
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = (*OCPP_STATUS_OPTIONS, "offline")
@@ -736,8 +742,9 @@ class StatusSensor(BaseSensor):
         }
 
     def _dashboard_attributes(self):
-        from .presentation.card_data import dashboard_attributes
         from homeassistant.helpers import entity_registry as er
+
+        from .presentation.card_data import dashboard_attributes
 
         data = dashboard_attributes(self.coordinator)
         prefix = f"{self.coordinator.source_instance_id}_"
@@ -753,13 +760,13 @@ class StatusSensor(BaseSensor):
             "last_session_cost",
         }
         data["entities"] = {
-            item.unique_id[len(prefix):]: item.entity_id
+            item.unique_id[len(prefix) :]: item.entity_id
             for item in er.async_entries_for_config_entry(
                 er.async_get(self.hass), self.coordinator.source_instance_id
             )
             if item.platform == "growatt_thor"
             and item.unique_id.startswith(prefix)
-            and item.unique_id[len(prefix):] in wanted
+            and item.unique_id[len(prefix) :] in wanted
             and not item.disabled_by
         }
         return data
@@ -768,6 +775,7 @@ class StatusSensor(BaseSensor):
 # ─────────────────────────────
 # Charge Point ID (HOOFDSENSOR - EV Charger)
 # ─────────────────────────────
+
 
 class ChargePointIdSensor(BaseSensor):
     _attr_translation_key = "charge_point_id"
@@ -790,6 +798,7 @@ class ChargePointIdSensor(BaseSensor):
 # Charging power (HOOFDSENSOR - EV Charger)
 # ─────────────────────────────
 
+
 class ChargingPowerSensor(BaseSensor):
     _attr_translation_key = "charging_power"
     _attr_device_class = SensorDeviceClass.POWER
@@ -810,6 +819,7 @@ class ChargingPowerSensor(BaseSensor):
 # ─────────────────────────────
 # Energy charged live (HOOFDSENSOR - EV Charger)
 # ─────────────────────────────
+
 
 class EnergyChargedSensor(BaseSensor):
     _attr_translation_key = "energy_charged"
@@ -838,6 +848,7 @@ class EnergyChargedSensor(BaseSensor):
 # Total energy charged - cumulatief persistent (Energy Dashboard)
 # ─────────────────────────────
 
+
 class TotalEnergyChargedSensor(BaseSensor):
     _attr_translation_key = "total_energy_charged"
     _attr_device_class = SensorDeviceClass.ENERGY
@@ -860,6 +871,7 @@ class TotalEnergyChargedSensor(BaseSensor):
 # Electricity price (EV Charger)
 # ─────────────────────────────
 
+
 class ElectricityPriceSensor(BaseSensor):
     _attr_translation_key = "electricity_price"
     _attr_icon = "mdi:cash"
@@ -869,9 +881,7 @@ class ElectricityPriceSensor(BaseSensor):
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "electricity_price")
-        self._attr_native_unit_of_measurement = electricity_price_unit(
-            coordinator.hass
-        )
+        self._attr_native_unit_of_measurement = electricity_price_unit(coordinator.hass)
 
     @property
     def native_value(self):
@@ -882,6 +892,7 @@ class ElectricityPriceSensor(BaseSensor):
 # ─────────────────────────────
 # Last session: energy (kWh)
 # ─────────────────────────────
+
 
 class LastSessionEnergySensor(BaseSensor):
     _attr_translation_key = "last_session_energy"
@@ -897,12 +908,17 @@ class LastSessionEnergySensor(BaseSensor):
 
     @property
     def native_value(self):
-        return round(self.coordinator.last_session_energy, 3) if self.coordinator.last_session_energy is not None else None
+        return (
+            round(self.coordinator.last_session_energy, 3)
+            if self.coordinator.last_session_energy is not None
+            else None
+        )
 
 
 # ─────────────────────────────
 # Last session: cost
 # ─────────────────────────────
+
 
 class LastSessionCostSensor(BaseSensor):
     _attr_translation_key = "last_session_cost"
@@ -911,18 +927,21 @@ class LastSessionCostSensor(BaseSensor):
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "last_session_cost")
-        self._attr_native_unit_of_measurement = configured_currency(
-            coordinator.hass
-        )
+        self._attr_native_unit_of_measurement = configured_currency(coordinator.hass)
 
     @property
     def native_value(self):
-        return round(self.coordinator.last_session_cost, 2) if self.coordinator.last_session_cost is not None else None
+        return (
+            round(self.coordinator.last_session_cost, 2)
+            if self.coordinator.last_session_cost is not None
+            else None
+        )
 
 
 # ─────────────────────────────
 # Last session: duration (minutes)
 # ─────────────────────────────
+
 
 class LastSessionDurationSensor(BaseSensor):
     _attr_translation_key = "last_session_duration"
@@ -976,6 +995,7 @@ class LastSessionEffectiveChargingDurationSensor(BaseSensor):
 # Last session: start time
 # ─────────────────────────────
 
+
 class LastSessionStartSensor(BaseSensor):
     _attr_translation_key = "last_session_start"
     _attr_icon = "mdi:clock-start"
@@ -985,12 +1005,15 @@ class LastSessionStartSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return utc_timestamp(self.coordinator.last_session_start, session_time_zone(self.coordinator))
+        return utc_timestamp(
+            self.coordinator.last_session_start, session_time_zone(self.coordinator)
+        )
 
 
 # ─────────────────────────────
 # Last session: end time
 # ─────────────────────────────
+
 
 class LastSessionEndSensor(BaseSensor):
     _attr_translation_key = "last_session_end"
@@ -1008,6 +1031,7 @@ class LastSessionEndSensor(BaseSensor):
 # Last session: plug time
 # ─────────────────────────────
 
+
 class LastSessionPlugTimeSensor(BaseSensor):
     _attr_translation_key = "last_session_plug_time"
     _attr_icon = "mdi:power-plug"
@@ -1017,12 +1041,15 @@ class LastSessionPlugTimeSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return utc_timestamp(self.coordinator.last_session_plug_time, session_time_zone(self.coordinator))
+        return utc_timestamp(
+            self.coordinator.last_session_plug_time, session_time_zone(self.coordinator)
+        )
 
 
 # ─────────────────────────────
 # Last session: unplug time
 # ─────────────────────────────
+
 
 class LastSessionUnplugTimeSensor(BaseSensor):
     _attr_translation_key = "last_session_unplug_time"
@@ -1033,12 +1060,16 @@ class LastSessionUnplugTimeSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return utc_timestamp(self.coordinator.last_session_unplug_time, session_time_zone(self.coordinator))
+        return utc_timestamp(
+            self.coordinator.last_session_unplug_time,
+            session_time_zone(self.coordinator),
+        )
 
 
 # ─────────────────────────────
 # Last session: transaction ID (DIAGNOSTIC)
 # ─────────────────────────────
+
 
 class LastSessionTransactionIdSensor(BaseSensor):
     _attr_translation_key = "last_session_transaction_id"
@@ -1057,6 +1088,7 @@ class LastSessionTransactionIdSensor(BaseSensor):
 # Last session: charge mode (DIAGNOSTIC)
 # ─────────────────────────────
 
+
 class LastSessionChargeModeSensor(BaseSensor):
     _attr_translation_key = "last_session_charge_mode"
     _attr_device_class = SensorDeviceClass.ENUM
@@ -1069,9 +1101,7 @@ class LastSessionChargeModeSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return normalize_session_charge_mode(
-            self.coordinator.last_session_charge_mode
-        )
+        return normalize_session_charge_mode(self.coordinator.last_session_charge_mode)
 
     @property
     def available(self):
@@ -1086,6 +1116,7 @@ class LastSessionChargeModeSensor(BaseSensor):
 # Last session: work mode (DIAGNOSTIC)
 # ─────────────────────────────
 
+
 class LastSessionWorkModeSensor(BaseSensor):
     _attr_translation_key = "last_session_work_mode"
     _attr_device_class = SensorDeviceClass.ENUM
@@ -1098,9 +1129,7 @@ class LastSessionWorkModeSensor(BaseSensor):
 
     @property
     def native_value(self):
-        return normalize_session_work_mode(
-            self.coordinator.last_session_work_mode
-        )
+        return normalize_session_work_mode(self.coordinator.last_session_work_mode)
 
     @property
     def available(self):
@@ -1114,6 +1143,7 @@ class LastSessionWorkModeSensor(BaseSensor):
 # ─────────────────────────────
 # Phase currents (DIAGNOSTIC - EV Charger)
 # ─────────────────────────────
+
 
 class CurrentSensor(BaseSensor):
     _attr_translation_key = "current"
@@ -1140,6 +1170,7 @@ class CurrentSensor(BaseSensor):
 # Phase voltages (DIAGNOSTIC - EV Charger)
 # ─────────────────────────────
 
+
 class VoltageSensor(BaseSensor):
     _attr_translation_key = "voltage"
     _attr_device_class = SensorDeviceClass.VOLTAGE
@@ -1164,6 +1195,7 @@ class VoltageSensor(BaseSensor):
 # ─────────────────────────────
 # Phase power (DIAGNOSTIC - EV Charger)
 # ─────────────────────────────
+
 
 class PhasePowerSensor(BaseSensor):
     _attr_translation_key = "phase_power"
@@ -1190,6 +1222,7 @@ class PhasePowerSensor(BaseSensor):
 # Temperature (DIAGNOSTIC - EV Charger)
 # ─────────────────────────────
 
+
 class TemperatureSensor(BaseSensor):
     _attr_translation_key = "temperature"
     _attr_device_class = SensorDeviceClass.TEMPERATURE
@@ -1215,6 +1248,7 @@ class TemperatureSensor(BaseSensor):
 # ─────────────────────────────
 # Grid / external meter
 # ─────────────────────────────
+
 
 class ExternalMeterHealthSensor(BaseExternalMeterSensor):
     """Show whether external Modbus measurements are trustworthy."""
@@ -1246,6 +1280,7 @@ class ExternalMeterHealthSensor(BaseExternalMeterSensor):
             "info": self.coordinator.external_meter_fault_info,
             "consecutive_timeouts": self.coordinator.meterval_consecutive_timeouts,
         }
+
 
 class GridPowerSensor(BaseExternalMeterSensor):
     _attr_translation_key = "grid_power"
@@ -1294,11 +1329,7 @@ class GridVoltageSensor(BaseExternalMeterSensor):
 
     @property
     def available(self):
-        return (
-            super().available
-            and self.coordinator.connected
-            and self.native_value is not None
-        )
+        return super().available and self.coordinator.connected and self.native_value is not None
 
 
 class GridCurrentSensor(BaseExternalMeterSensor):
@@ -1322,8 +1353,4 @@ class GridCurrentSensor(BaseExternalMeterSensor):
 
     @property
     def available(self):
-        return (
-            super().available
-            and self.coordinator.connected
-            and self.native_value is not None
-        )
+        return super().available and self.coordinator.connected and self.native_value is not None

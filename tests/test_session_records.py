@@ -1,17 +1,14 @@
 """Tests for structured Growatt currentrecord and frozenrecord parsing."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import unittest
-
+from pathlib import Path
 
 MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "sessions/records.py"
+    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "sessions/records.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_session_records_test_target",

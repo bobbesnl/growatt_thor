@@ -1,10 +1,11 @@
 """Bounded, shape-preserving time-series helpers for charging sessions."""
+
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime
 from math import isfinite
-from typing import Any, Iterable
-
+from typing import Any
 
 SESSION_CURVE_POINT_LIMIT = 96
 ACTIVE_POWER_THRESHOLD_W = 100.0
@@ -47,8 +48,7 @@ def _evenly_bounded(indices: Iterable[int], limit: int) -> set[int]:
     if limit <= 1:
         return {ordered[0]}
     return {
-        ordered[round(position * (len(ordered) - 1) / (limit - 1))]
-        for position in range(limit)
+        ordered[round(position * (len(ordered) - 1) / (limit - 1))] for position in range(limit)
     }
 
 
@@ -89,9 +89,7 @@ def downsample_curve(
             mandatory.update((index - 1, index))
 
     valid_event_times = [
-        timestamp
-        for raw in event_times
-        if (timestamp := _timestamp(raw)) is not None
+        timestamp for raw in event_times if (timestamp := _timestamp(raw)) is not None
     ]
     for event_time in valid_event_times:
         nearest = min(
@@ -121,15 +119,10 @@ def downsample_curve(
             continue
         duration = max(next_time - previous_time, 1.0)
         expected = previous_value + (
-            (next_value - previous_value)
-            * (current_time - previous_time)
-            / duration
+            (next_value - previous_value) * (current_time - previous_time) / duration
         )
         candidates.append((abs(current_value - expected), index))
 
     remaining = limit - len(mandatory)
-    selected = mandatory | {
-        index
-        for _, index in sorted(candidates, reverse=True)[:remaining]
-    }
+    selected = mandatory | {index for _, index in sorted(candidates, reverse=True)[:remaining]}
     return [points[index] for index in sorted(selected)]

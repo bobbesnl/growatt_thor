@@ -1,21 +1,18 @@
 """Tests for lossless OCPP MeterValues parsing."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import Enum
 import importlib.util
-from pathlib import Path
 import sys
 import types
 import unittest
+from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
 from types import SimpleNamespace
 
-
 MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "ocpp/meter_samples.py"
+    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "ocpp/meter_samples.py"
 )
 package = types.ModuleType("thor_meter_time_test")
 package.__path__ = [str(MODULE_PATH.parent.parent)]
@@ -60,44 +57,56 @@ class MeterSamplesTest(unittest.TestCase):
 
     def test_reported_fixed_clock_survives_the_installation_winter_time_change(self):
         settings = {
-            'G_TimeZone': SimpleNamespace(raw_value='UTC+2'),
-            'G_DaylightSavingTime': SimpleNamespace(raw_value='00-00&00-00'),
+            "G_TimeZone": SimpleNamespace(raw_value="UTC+2"),
+            "G_DaylightSavingTime": SimpleNamespace(raw_value="00-00&00-00"),
         }
-        zone = meter_samples.meter_time_zone(settings, 'Europe/Berlin')
+        zone = meter_samples.meter_time_zone(settings, "Europe/Berlin")
         for raw, expected in (
-            ('2026-10-27T13:18:04', '2026-10-27T11:18:04Z'),
-            ('2026-10-02T13:18:04', '2026-10-02T11:18:04Z'),
-            ('2026-10-25T02:30:00', '2026-10-25T00:30:00Z'),
-            ('2026-10-27T11:18:04Z', '2026-10-27T11:18:04Z'),
-            ('2026-10-27T12:18:04+01:00', '2026-10-27T11:18:04Z'),
+            ("2026-10-27T13:18:04", "2026-10-27T11:18:04Z"),
+            ("2026-10-02T13:18:04", "2026-10-02T11:18:04Z"),
+            ("2026-10-25T02:30:00", "2026-10-25T00:30:00Z"),
+            ("2026-10-27T11:18:04Z", "2026-10-27T11:18:04Z"),
+            ("2026-10-27T12:18:04+01:00", "2026-10-27T11:18:04Z"),
         ):
             with self.subTest(raw=raw):
                 entry = meter_samples.parse_meter_values(
-                    {'timestamp': raw, 'sampledValue': []}, time_zone=zone,
+                    {"timestamp": raw, "sampledValue": []},
+                    time_zone=zone,
                 )[0]
                 self.assertEqual(entry.timestamp, expected)
-                self.assertEqual(entry.raw['timestamp'], raw)
+                self.assertEqual(entry.raw["timestamp"], raw)
 
-    def test_fixed_offsets_are_validated_and_unverified_dst_keeps_installation_zone(self):
-        settings = {'G_DaylightSavingTime': SimpleNamespace(raw_value='00-00&00-00')}
+    def test_fixed_offsets_are_validated_and_unverified_dst_keeps_installation_zone(
+        self,
+    ):
+        settings = {"G_DaylightSavingTime": SimpleNamespace(raw_value="00-00&00-00")}
         for label, expected in (
-            ('UTC', '2026-10-27T13:18:04Z'),
-            ('UTC+1', '2026-10-27T12:18:04Z'),
-            ('UTC-5', '2026-10-27T18:18:04Z'),
-            ('UTC+05:30', '2026-10-27T07:48:04Z'),
+            ("UTC", "2026-10-27T13:18:04Z"),
+            ("UTC+1", "2026-10-27T12:18:04Z"),
+            ("UTC-5", "2026-10-27T18:18:04Z"),
+            ("UTC+05:30", "2026-10-27T07:48:04Z"),
         ):
-            settings['G_TimeZone'] = SimpleNamespace(raw_value=label)
-            zone = meter_samples.meter_time_zone(settings, 'Europe/Berlin')
-            self.assertEqual(meter_samples.normalize_meter_timestamp('2026-10-27T13:18:04', zone), expected)
-        for value in ('UTC+15', 'UTC+14:30', 'UTC+2:99', 'Europe/Berlin', '', None):
-            settings['G_TimeZone'] = SimpleNamespace(raw_value=value)
-            self.assertEqual(meter_samples.meter_time_zone(settings, 'Europe/Berlin'), 'Europe/Berlin')
-        settings['G_TimeZone'] = SimpleNamespace(raw_value='UTC+2')
-        for value in ('03-29&10-25', '', None):
-            settings['G_DaylightSavingTime'] = SimpleNamespace(raw_value=value)
-            self.assertEqual(meter_samples.meter_time_zone(settings, 'Europe/Berlin'), 'Europe/Berlin')
-        settings.pop('G_DaylightSavingTime')
-        self.assertEqual(meter_samples.meter_time_zone(settings, 'Europe/Berlin'), 'Europe/Berlin')
+            settings["G_TimeZone"] = SimpleNamespace(raw_value=label)
+            zone = meter_samples.meter_time_zone(settings, "Europe/Berlin")
+            self.assertEqual(
+                meter_samples.normalize_meter_timestamp("2026-10-27T13:18:04", zone),
+                expected,
+            )
+        for value in ("UTC+15", "UTC+14:30", "UTC+2:99", "Europe/Berlin", "", None):
+            settings["G_TimeZone"] = SimpleNamespace(raw_value=value)
+            self.assertEqual(
+                meter_samples.meter_time_zone(settings, "Europe/Berlin"),
+                "Europe/Berlin",
+            )
+        settings["G_TimeZone"] = SimpleNamespace(raw_value="UTC+2")
+        for value in ("03-29&10-25", "", None):
+            settings["G_DaylightSavingTime"] = SimpleNamespace(raw_value=value)
+            self.assertEqual(
+                meter_samples.meter_time_zone(settings, "Europe/Berlin"),
+                "Europe/Berlin",
+            )
+        settings.pop("G_DaylightSavingTime")
+        self.assertEqual(meter_samples.meter_time_zone(settings, "Europe/Berlin"), "Europe/Berlin")
         self.assertIsNone(meter_samples.meter_time_zone({}, None))
 
     def test_local_wallbox_timestamps_use_installation_zone_and_preserve_raw(self):
@@ -111,7 +120,8 @@ class MeterSamplesTest(unittest.TestCase):
         ):
             with self.subTest(raw=raw):
                 entry = meter_samples.parse_meter_values(
-                    {"timestamp": raw, "sampledValue": []}, time_zone="Europe/Berlin",
+                    {"timestamp": raw, "sampledValue": []},
+                    time_zone="Europe/Berlin",
                 )[0]
                 self.assertEqual(entry.timestamp, expected)
                 self.assertEqual(entry.raw["timestamp"], raw)
@@ -205,23 +215,37 @@ class MeterSamplesTest(unittest.TestCase):
         self.assertEqual(parsed[0].raw["sampledValue"], [])
 
     def test_builds_total_power_curve_point_with_unit_conversion(self):
-        entry = meter_samples.parse_meter_values({
-            "timestamp": "2026-09-12T10:00:00Z",
-            "sampledValue": [
-                {"value": "3.2", "measurand": "Power.Active.Import", "unit": "kW", "phase": "L1"},
-                {"value": "3100", "measurand": "Power.Active.Import", "unit": "W", "phase": "L2"},
-            ],
-        })[0]
+        entry = meter_samples.parse_meter_values(
+            {
+                "timestamp": "2026-09-12T10:00:00Z",
+                "sampledValue": [
+                    {
+                        "value": "3.2",
+                        "measurand": "Power.Active.Import",
+                        "unit": "kW",
+                        "phase": "L1",
+                    },
+                    {
+                        "value": "3100",
+                        "measurand": "Power.Active.Import",
+                        "unit": "W",
+                        "phase": "L2",
+                    },
+                ],
+            }
+        )[0]
         self.assertEqual(
             meter_samples.charging_power_curve_point(entry),
             ["2026-09-12T10:00:00Z", 6300.0],
         )
 
     def test_curve_point_does_not_invent_missing_power(self):
-        entry = meter_samples.parse_meter_values({
-            "timestamp": "2026-09-12T10:00:00Z",
-            "sampledValue": [{"value": "12", "measurand": "Current.Import", "unit": "A"}],
-        })[0]
+        entry = meter_samples.parse_meter_values(
+            {
+                "timestamp": "2026-09-12T10:00:00Z",
+                "sampledValue": [{"value": "12", "measurand": "Current.Import", "unit": "A"}],
+            }
+        )[0]
         self.assertIsNone(meter_samples.charging_power_curve_point(entry))
 
 

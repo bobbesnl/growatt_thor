@@ -1,10 +1,11 @@
 """Local OCPP authorisation policy; independent of card/cloud provisioning."""
+
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from hashlib import sha256
 from time import monotonic
-from typing import Mapping
 
 from .rfid_learning import RfidLearning
 
@@ -17,15 +18,15 @@ CONF_TAG_ALIASES = "aliases"
 
 
 def _valid_alias(value: object) -> bool:
-    return isinstance(value, str) and len(value) <= 80 and all(
-        char.isprintable() for char in value
-    )
+    return isinstance(value, str) and len(value) <= 80 and all(char.isprintable() for char in value)
 
 
 def _valid_id_tag(value: object) -> bool:
     # Preserve the wire identifier exactly, including case and leading zeroes.
-    return isinstance(value, str) and 1 <= len(value) <= 20 and all(
-        33 <= ord(char) <= 126 for char in value
+    return (
+        isinstance(value, str)
+        and 1 <= len(value) <= 20
+        and all(33 <= ord(char) <= 126 for char in value)
     )
 
 
@@ -64,16 +65,13 @@ class AuthorizationPolicy:
                 # Keep the independent form preference visible while the
                 # obsolete or corrupt card list itself remains fail-closed.
                 allow_ha_remote_start=(
-                    allow_ha_remote_start
-                    if type(allow_ha_remote_start) is bool
-                    else False
+                    allow_ha_remote_start if type(allow_ha_remote_start) is bool else False
                 ),
                 valid=False,
                 # An obsolete RFID list must not revoke an explicitly saved,
                 # independent HA permission. Missing/malformed flags grant nothing.
                 independent_ha_permission=(
-                    type(restricted) is bool
-                    and data.get(CONF_ALLOW_HA_REMOTE_START) is True
+                    type(restricted) is bool and data.get(CONF_ALLOW_HA_REMOTE_START) is True
                 ),
             )
         aliases = data.get(CONF_TAG_ALIASES, {})
@@ -83,9 +81,13 @@ class AuthorizationPolicy:
             allow_ha_remote_start=allow_ha_remote_start,
             # Names are optional display metadata; corrupt names must not
             # change which identifiers are authorized.
-            aliases={key: value for key, value in aliases.items()
-                     if key in id_tags and _valid_alias(value)}
-            if isinstance(aliases, dict) else {},
+            aliases={
+                key: value
+                for key, value in aliases.items()
+                if key in id_tags and _valid_alias(value)
+            }
+            if isinstance(aliases, dict)
+            else {},
         )
 
     def status(self, id_tag: object) -> str:
@@ -131,9 +133,7 @@ class AuthorizationPolicy:
         return (self.valid or self.independent_ha_permission) and self.allow_ha_remote_start
 
 
-def policy_from_input(
-    existing: AuthorizationPolicy, user_input: Mapping
-) -> AuthorizationPolicy:
+def policy_from_input(existing: AuthorizationPolicy, user_input: Mapping) -> AuthorizationPolicy:
     """Replace the editable list when supplied; an omitted field preserves it."""
     text = user_input.get(CONF_AUTHORIZED_TAGS)
     restricted = user_input.get(CONF_RESTRICT_AUTHORIZATION, False)
@@ -199,11 +199,7 @@ class LocalAuthorization:
     def _consume_ha_remote_start(self, id_tag: object) -> bool:
         grant = self._pending_ha_remote_start
         self._pending_ha_remote_start = None
-        if (
-            grant is None
-            or not self.policy.allows_ha_remote_start()
-            or not _valid_id_tag(id_tag)
-        ):
+        if grant is None or not self.policy.allows_ha_remote_start() or not _valid_id_tag(id_tag):
             return False
         digest, expires_at = grant
         return monotonic() <= expires_at and _digest(id_tag) == digest
@@ -218,15 +214,9 @@ class LocalAuthorization:
     ) -> str:
         if action == "Authorize" and _valid_id_tag(id_tag):
             self.learning.capture(id_tag)
-        ha_remote_start = (
-            action == "StartTransaction" and self._consume_ha_remote_start(id_tag)
-        )
+        ha_remote_start = action == "StartTransaction" and self._consume_ha_remote_start(id_tag)
         charger_mode_grant = action == "StartTransaction" and not card_policy_applies
-        status = (
-            "Accepted"
-            if ha_remote_start or charger_mode_grant
-            else self.policy.status(id_tag)
-        )
+        status = "Accepted" if ha_remote_start or charger_mode_grant else self.policy.status(id_tag)
         source = (
             "home_assistant"
             if ha_remote_start

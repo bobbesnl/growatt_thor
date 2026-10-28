@@ -61,14 +61,16 @@ installed integration ships its already-built card assets.
 ```sh
 python3.12 -m venv .local/dev-venv
 . .local/dev-venv/bin/activate
-python -m pip install -r tests/requirements-auth.txt
+python -m pip install -r tests/requirements-auth.txt ruff==0.17.3
+ruff check .
+ruff format --check .
 python -m unittest discover -s tests -q
 ```
 
 Despite its historical name, `requirements-auth.txt` supplies the OCPP and schema
 dependencies used by several regression suites. Many tests load focused modules
 with small HA fakes; they exercise contracts without launching Home Assistant.
-Install the dependencies so those cases are not silently skipped. A targeted
+Install the dependencies so those cases are not silently skipped. Ruff checks Python style and import hygiene with a 100-character line length and Python 3.12 syntax; `ruff format custom_components tests` applies the formatter. Enum and type-alias modernizations remain excluded because their runtime representation can change. A targeted
 backend run can use `python -m unittest discover -s tests -p 'test_session_outbox.py' -v`.
 
 ```sh

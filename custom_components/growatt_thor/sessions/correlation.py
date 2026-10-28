@@ -1,4 +1,5 @@
 """Correlate OCPP transactions with Growatt session data."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -11,7 +12,6 @@ from .identity import (
     SOURCE_HOME_ASSISTANT,
     build_session_id,
 )
-
 
 CORRELATION_MATCHED = "matched"
 CORRELATION_OCPP_ONLY = "ocpp_only"
@@ -59,9 +59,7 @@ def _transaction_id(transaction: Mapping[str, Any]) -> str | None:
     start = _mapping(transaction.get("start"))
     response = _mapping(start.get("response"))
     stop_request = _request(transaction.get("stop"))
-    return _optional_text(
-        response.get("transaction_id", stop_request.get("transaction_id"))
-    )
+    return _optional_text(response.get("transaction_id", stop_request.get("transaction_id")))
 
 
 def _record_info(snapshot: Any) -> dict[str, Any] | None:
@@ -79,9 +77,7 @@ def _record_info(snapshot: Any) -> dict[str, Any] | None:
         "record": record,
         "message_id": message_id,
         "received_at": _optional_text(snapshot_mapping.get("received_at")),
-        "transaction_id": _optional_text(
-            getattr(record, "transaction_id", None)
-        ),
+        "transaction_id": _optional_text(getattr(record, "transaction_id", None)),
         "dedup_key": getattr(record, "dedup_key", None),
     }
 
@@ -92,11 +88,7 @@ def _select_records(
     transaction_started_at: str | None,
     time_zone: str | None = None,
 ) -> list[dict[str, Any]]:
-    records = [
-        info
-        for snapshot in snapshots
-        if (info := _record_info(snapshot)) is not None
-    ]
+    records = [info for snapshot in snapshots if (info := _record_info(snapshot)) is not None]
     if transaction_id is not None:
         started_at = _timestamp(transaction_started_at, time_zone)
         return [
@@ -116,11 +108,7 @@ def _select_records(
         ),
     )
     if latest["dedup_key"] is not None:
-        return [
-            info
-            for info in records
-            if info["dedup_key"] == latest["dedup_key"]
-        ]
+        return [info for info in records if info["dedup_key"] == latest["dedup_key"]]
     return [latest]
 
 
@@ -150,10 +138,12 @@ def _latest_meter_energy_wh(
         return None
     if not _at_or_after(
         snapshot.get("received_at"),
-        _timestamp(transaction_started_at, time_zone), time_zone,
+        _timestamp(transaction_started_at, time_zone),
+        time_zone,
     ) or not _at_or_before(
         snapshot.get("received_at"),
-        _timestamp(transaction_stopped_at, time_zone), time_zone,
+        _timestamp(transaction_stopped_at, time_zone),
+        time_zone,
     ):
         return None
 
@@ -161,10 +151,7 @@ def _latest_meter_energy_wh(
     for entry in snapshot.get("meter_values", ()):
         for sample in _mapping(entry).get("sampled_values", ()):
             sample_mapping = _mapping(sample)
-            if (
-                sample_mapping.get("measurand")
-                != "Energy.Active.Import.Register"
-            ):
+            if sample_mapping.get("measurand") != "Energy.Active.Import.Register":
                 continue
             value = _optional_float(sample_mapping.get("numeric_value"))
             if value is None:
@@ -227,42 +214,30 @@ def build_unified_session(
         time_zone,
     )
     growatt_energy = (
-        _optional_float(getattr(record, "energy_wh", None))
-        if record is not None
-        else None
+        _optional_float(getattr(record, "energy_wh", None)) if record is not None else None
     )
     comparison_energy = meter_delta
     if comparison_energy is None:
         comparison_energy = latest_meter_energy
 
     record_transaction_id = (
-        _optional_text(getattr(record, "transaction_id", None))
-        if record is not None
-        else None
+        _optional_text(getattr(record, "transaction_id", None)) if record is not None else None
     )
     connector_id = _optional_text(start_request.get("connector_id"))
     if connector_id is None and record is not None:
         connector_id = _optional_text(getattr(record, "connector_id", None))
 
-    session_source = (
-        SOURCE_HOME_ASSISTANT if has_ocpp else SOURCE_EXTERNAL_OR_UNKNOWN
-    )
+    session_source = SOURCE_HOME_ASSISTANT if has_ocpp else SOURCE_EXTERNAL_OR_UNKNOWN
     if has_ocpp:
-        session_started_at = (
-            _optional_text(start_request.get("timestamp"))
-            or _optional_text(start_snapshot.get("received_at"))
+        session_started_at = _optional_text(start_request.get("timestamp")) or _optional_text(
+            start_snapshot.get("received_at")
         )
-        session_ended_at = (
-            _optional_text(stop_request.get("timestamp"))
-            or _optional_text(stop_snapshot.get("received_at"))
+        session_ended_at = _optional_text(stop_request.get("timestamp")) or _optional_text(
+            stop_snapshot.get("received_at")
         )
     else:
-        session_started_at = _optional_text(
-            getattr(record, "start_time", None)
-        )
-        session_ended_at = _optional_text(
-            getattr(record, "end_time", None)
-        )
+        session_started_at = _optional_text(getattr(record, "start_time", None))
+        session_ended_at = _optional_text(getattr(record, "end_time", None))
     session_id = build_session_id(
         source=session_source,
         source_instance_id=source_instance_id,
@@ -271,9 +246,7 @@ def build_unified_session(
         started_at=session_started_at,
         ended_at=session_ended_at,
         record_id=(
-            _optional_text(getattr(record, "record_id", None))
-            if record is not None
-            else None
+            _optional_text(getattr(record, "record_id", None)) if record is not None else None
         ),
     )
 
@@ -291,17 +264,11 @@ def build_unified_session(
                     ("ocpp", has_ocpp),
                     (
                         "currentrecord",
-                        any(
-                            info["message_id"] == "currentrecord"
-                            for info in matching_records
-                        ),
+                        any(info["message_id"] == "currentrecord" for info in matching_records),
                     ),
                     (
                         "frozenrecord",
-                        any(
-                            info["message_id"] == "frozenrecord"
-                            for info in matching_records
-                        ),
+                        any(info["message_id"] == "frozenrecord" for info in matching_records),
                     ),
                 )
                 if available
@@ -315,9 +282,7 @@ def build_unified_session(
             "growatt_transaction_id": record_transaction_id,
             "connector_id": connector_id,
             "growatt_record_id": (
-                _optional_text(getattr(record, "record_id", None))
-                if record is not None
-                else None
+                _optional_text(getattr(record, "record_id", None)) if record is not None else None
             ),
         },
         "timing": {
@@ -326,30 +291,16 @@ def build_unified_session(
             ),
             "ocpp": {
                 "start_timestamp": _optional_text(start_request.get("timestamp")),
-                "start_received_at": _optional_text(
-                    start_snapshot.get("received_at")
-                ),
+                "start_received_at": _optional_text(start_snapshot.get("received_at")),
                 "stop_timestamp": _optional_text(stop_request.get("timestamp")),
-                "stop_received_at": _optional_text(
-                    stop_snapshot.get("received_at")
-                ),
+                "stop_received_at": _optional_text(stop_snapshot.get("received_at")),
             },
             "growatt": {
-                "plug_time": _optional_text(
-                    getattr(record, "plug_time", None)
-                ),
-                "start_time": _optional_text(
-                    getattr(record, "start_time", None)
-                ),
-                "end_time": _optional_text(
-                    getattr(record, "end_time", None)
-                ),
-                "unplug_time": _optional_text(
-                    getattr(record, "unplug_time", None)
-                ),
-                "duration_minutes": _optional_float(
-                    getattr(record, "duration_minutes", None)
-                ),
+                "plug_time": _optional_text(getattr(record, "plug_time", None)),
+                "start_time": _optional_text(getattr(record, "start_time", None)),
+                "end_time": _optional_text(getattr(record, "end_time", None)),
+                "unplug_time": _optional_text(getattr(record, "unplug_time", None)),
+                "duration_minutes": _optional_float(getattr(record, "duration_minutes", None)),
             },
         },
         "metering": {
@@ -366,21 +317,15 @@ def build_unified_session(
         },
         "billing": {
             "growatt_cost": (
-                _optional_float(getattr(record, "cost", None))
-                if record is not None
-                else None
+                _optional_float(getattr(record, "cost", None)) if record is not None else None
             ),
         },
         "modes": {
             "growatt_charge_mode": (
-                _optional_text(getattr(record, "charge_mode", None))
-                if record is not None
-                else None
+                _optional_text(getattr(record, "charge_mode", None)) if record is not None else None
             ),
             "growatt_work_mode": (
-                _optional_text(getattr(record, "work_mode", None))
-                if record is not None
-                else None
+                _optional_text(getattr(record, "work_mode", None)) if record is not None else None
             ),
         },
         "stop_reason": _optional_text(stop_request.get("reason")),

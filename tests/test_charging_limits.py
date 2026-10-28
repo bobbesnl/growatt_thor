@@ -1,16 +1,13 @@
 """Tests for model-aware charging current limits."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "charging/limits.py"
+    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "charging/limits.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_charging_limits_test_target",

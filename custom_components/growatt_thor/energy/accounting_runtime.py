@@ -1,14 +1,20 @@
 """Site accounting input normalization and bounded transaction checkpoint."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from math import isfinite
 
-from .currency import configured_currency
-from .tariffs import tariff_from_state
-from .observations import SiteObservations, align_accounting_observations, parse_at, read_site_observations
 from .accounting import AccountingPolicy, Tariff
+from .currency import configured_currency
+from .observations import (
+    SiteObservations,
+    align_accounting_observations,
+    parse_at,
+    read_site_observations,
+)
 from .session_accounting import SessionAccumulator
+from .tariffs import tariff_from_state
 
 CONF_SITE_PROFILE = "site_accounting_profile"
 CONF_GRID_ENTITY = "site_grid_power_entity"
@@ -33,10 +39,14 @@ def coverage_percent(totals: dict[str, float]) -> float | None:
 def site_policy(profile: str) -> AccountingPolicy:
     if profile == "grohome_load_first":
         return AccountingPolicy("load_first", topology="pv_battery")
-    return AccountingPolicy(topology=profile if profile in ("grid_only", "pv", "pv_battery") else "grid_only")
+    return AccountingPolicy(
+        topology=profile if profile in ("grid_only", "pv", "pv_battery") else "grid_only"
+    )
 
 
-def site_inputs(coordinator, at: datetime, *, received_at: datetime | None = None) -> tuple[SiteObservations, Tariff, AccountingPolicy] | None:
+def site_inputs(
+    coordinator, at: datetime, *, received_at: datetime | None = None
+) -> tuple[SiteObservations, Tariff, AccountingPolicy] | None:
     """Read configured power observations and the current valid tariff."""
     options = getattr(coordinator, "site_accounting_options", {}) or {}
     profile = options.get(CONF_SITE_PROFILE, "disabled")
@@ -51,10 +61,16 @@ def site_inputs(coordinator, at: datetime, *, received_at: datetime | None = Non
     price = options.get(CONF_FIXED_PRICE)
     if options.get(CONF_TARIFF_ENTITY):
         state = states.get(options[CONF_TARIFF_ENTITY]) if states else None
-        return site, tariff_from_state(
-            state, configured_currency(hass), at=at,
-            time_zone=getattr(getattr(hass, "config", None), "time_zone", "UTC"),
-        ), site_policy(profile)
+        return (
+            site,
+            tariff_from_state(
+                state,
+                configured_currency(hass),
+                at=at,
+                time_zone=getattr(getattr(hass, "config", None), "time_zone", "UTC"),
+            ),
+            site_policy(profile),
+        )
     try:
         price = float(price) if price is not None else None
     except (TypeError, ValueError):

@@ -44,11 +44,7 @@ async def run_target_sequence(
             return
         await save("sending_start")
         status = await start()
-        await save(
-            "start_accepted"
-            if status == "Accepted"
-            else "start_rejected_target_may_remain"
-        )
+        await save("start_accepted" if status == "Accepted" else "start_rejected_target_may_remain")
     except asyncio.CancelledError:
         # Last persisted sending/accepted state already requires reconciliation.
         raise
@@ -88,9 +84,7 @@ async def run_reservation_sequence(
         await save("sending_reservation")
         status = await reserve()
         await save(
-            "scheduled"
-            if status == "Accepted"
-            else "reservation_rejected_target_may_remain"
+            "scheduled" if status == "Accepted" else "reservation_rejected_target_may_remain"
         )
     except asyncio.CancelledError:
         raise

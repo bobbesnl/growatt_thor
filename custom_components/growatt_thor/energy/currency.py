@@ -1,6 +1,6 @@
 """Currency helpers for charger price and session cost entities."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 DEFAULT_CURRENCY = "EUR"
 _CURRENCY_SYMBOLS = {"EUR": "€"}

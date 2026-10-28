@@ -1,20 +1,16 @@
 """Per-entry coordinator state: storage, poll pause and live power (F09)."""
+
 from __future__ import annotations
 
 import asyncio
 import importlib.util
-from pathlib import Path
 import sys
 import types
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
-
-PACKAGE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-)
+PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 COORDINATOR_MODULE = "custom_components.growatt_thor.coordinator"
 
 
@@ -31,9 +27,7 @@ def _load_coordinator_module():
 
     homeassistant = types.ModuleType("homeassistant")
     helpers = types.ModuleType("homeassistant.helpers")
-    update_coordinator = types.ModuleType(
-        "homeassistant.helpers.update_coordinator"
-    )
+    update_coordinator = types.ModuleType("homeassistant.helpers.update_coordinator")
     storage = types.ModuleType("homeassistant.helpers.storage")
     update_coordinator.DataUpdateCoordinator = _DataUpdateCoordinator
     storage.Store = _Store
@@ -87,8 +81,14 @@ class _MemoryStore:
 def _build_coordinator(store=None, legacy_store=None, entry_id="entry_test"):
     def init_base(self, hass, *args, **kwargs):
         self.hass = hass
-    with patch.object(coordinator_module.DataUpdateCoordinator, "__init__", init_base), patch.object(coordinator_module, "Store", lambda *args: _MemoryStore()):
-        coordinator = coordinator_module.GrowattCoordinator(types.SimpleNamespace(config=None), entry_id)
+
+    with (
+        patch.object(coordinator_module.DataUpdateCoordinator, "__init__", init_base),
+        patch.object(coordinator_module, "Store", lambda *args: _MemoryStore()),
+    ):
+        coordinator = coordinator_module.GrowattCoordinator(
+            types.SimpleNamespace(config=None), entry_id
+        )
     coordinator.updates = 0
 
     def _updated(_data):
@@ -112,16 +112,12 @@ def _build_coordinator(store=None, legacy_store=None, entry_id="entry_test"):
     coordinator.configuration_values = {}
     coordinator._store = store or _MemoryStore()
     coordinator._legacy_store = legacy_store
-    coordinator._transaction_id_allocator = (
-        coordinator_module.TransactionIdAllocator()
-    )
+    coordinator._transaction_id_allocator = coordinator_module.TransactionIdAllocator()
     coordinator.total_energy_charged = 0.0
     coordinator.last_charger_fault = None
     coordinator.effective_charging = coordinator_module.EffectiveChargingTracker()
     coordinator._pending_effective_charging_minutes = {}
-    coordinator._restore_last_session_state(
-        coordinator_module.LastSessionState.from_dict(None)
-    )
+    coordinator._restore_last_session_state(coordinator_module.LastSessionState.from_dict(None))
     return coordinator
 
 
@@ -268,14 +264,26 @@ class LivePowerResetTest(unittest.TestCase):
 
 
 def _meter_values(power_w, current_a, timestamp="2026-10-14T01:25:50Z"):
-    return [{
-        "timestamp": timestamp,
-        "sampled_value": [
-            {"value": str(power_w), "measurand": "Power.Active.Import", "unit": "W", "phase": "L1"},
-            {"value": str(current_a), "measurand": "Current.Import", "unit": "A", "phase": "L1"},
-            {"value": "228", "measurand": "Voltage", "unit": "V", "phase": "L1"},
-        ],
-    }]
+    return [
+        {
+            "timestamp": timestamp,
+            "sampled_value": [
+                {
+                    "value": str(power_w),
+                    "measurand": "Power.Active.Import",
+                    "unit": "W",
+                    "phase": "L1",
+                },
+                {
+                    "value": str(current_a),
+                    "measurand": "Current.Import",
+                    "unit": "A",
+                    "phase": "L1",
+                },
+                {"value": "228", "measurand": "Voltage", "unit": "V", "phase": "L1"},
+            ],
+        }
+    ]
 
 
 class DelayedMeterValuesTest(unittest.TestCase):
@@ -311,9 +319,7 @@ class DelayedMeterValuesTest(unittest.TestCase):
 
         # Warm-up: the vehicle draws again and the charger reports Charging.
         coordinator.set_status("Charging")
-        coordinator.process_meter_values(
-            _meter_values(106, 0.5, timestamp="2026-10-14T06:15:37Z")
-        )
+        coordinator.process_meter_values(_meter_values(106, 0.5, timestamp="2026-10-14T06:15:37Z"))
 
         self.assertEqual(coordinator.power, 106)
         self.assertEqual(coordinator.currents["L1"], 0.5)
@@ -423,8 +429,15 @@ class TransactionBindingTest(unittest.IsolatedAsyncioTestCase):
 
 class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
     def record(self, tx, energy=5000):
-        from custom_components.growatt_thor.sessions.records import parse_growatt_session_record
-        return parse_growatt_session_record("currentrecord", f"transactionId={tx}&starttime=2026-10-01 10:00:00&endtime=2026-10-01 11:00:00&costenergy={energy}&costmoney=100")
+        from custom_components.growatt_thor.sessions.records import (
+            parse_growatt_session_record,
+        )
+
+        return parse_growatt_session_record(
+            "currentrecord",
+            f"transactionId={tx}&starttime=2026-10-01 10:00:00&endtime=2026-10-01 11:00:00&"
+            f"costenergy={energy}&costmoney=100",
+        )
 
     def make_coordinator(self, data=None):
         c = _build_coordinator(_MemoryStore(data))
@@ -432,16 +445,20 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
         c.runtime_data["append_session_to_csv"] = object()
         return c
 
-    async def test_card_name_is_a_restart_safe_session_snapshot_not_a_later_lookup(self):
+    async def test_card_name_is_a_restart_safe_session_snapshot_not_a_later_lookup(
+        self,
+    ):
         c = self.make_coordinator()
         c._schedule_storage_save = lambda: None
-        c.authorization.policy = c.authorization.policy.with_card('00RFID', 'Original name')
-        c.start_transaction(1, id_tag='00RFID', meter_start=0)
+        c.authorization.policy = c.authorization.policy.with_card("00RFID", "Original name")
+        c.start_transaction(1, id_tag="00RFID", meter_start=0)
         # A restart during charging must retain the name as it was at start.
         active = self.make_coordinator(c._storage_data())
         await active.async_load_storage()
         active._schedule_storage_save = lambda: None
-        active.authorization.policy = active.authorization.policy.with_card('00RFID', 'Renamed later')
+        active.authorization.policy = active.authorization.policy.with_card(
+            "00RFID", "Renamed later"
+        )
         active.stop_transaction(transaction_id=1, meter_stop=5000)
         # Another restart before the final vendor record must retain it too.
         completed = self.make_coordinator(active._storage_data())
@@ -449,10 +466,10 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
         completed.sessions.process_session_record(self.record(2))
         completed.sessions.process_session_record(self.record(1))
         unrelated, original = completed.sessions.outbox.snapshot()
-        self.assertEqual(unrelated['authorized_identifier'], '')
-        self.assertEqual(unrelated['authorized_alias'], '')
-        self.assertEqual(original['authorized_identifier'], '00RFID')
-        self.assertEqual(original['authorized_alias'], 'Original name')
+        self.assertEqual(unrelated["authorized_identifier"], "")
+        self.assertEqual(unrelated["authorized_alias"], "")
+        self.assertEqual(original["authorized_identifier"], "00RFID")
+        self.assertEqual(original["authorized_alias"], "Original name")
 
     async def test_nonconsecutive_replay_after_restart_is_not_applied_twice(self):
         c = self.make_coordinator()
@@ -467,7 +484,9 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(restored.last_session_transaction_id, "2")
         self.assertEqual(len(restored.sessions.outbox.snapshot()), 2)
 
-    async def test_replay_with_changed_correlation_keeps_original_history_identity(self):
+    async def test_replay_with_changed_correlation_keeps_original_history_identity(
+        self,
+    ):
         c = self.make_coordinator()
         c._schedule_storage_save = lambda: None
         c.start_transaction(1, id_tag="private", meter_start=0)
@@ -503,7 +522,9 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(restored.last_site_accounting)
         self.assertEqual(restored._storage_data()["pending_completed_sessions"], [])
 
-    async def test_multiple_pending_completions_are_bounded_and_match_older_record(self):
+    async def test_multiple_pending_completions_are_bounded_and_match_older_record(
+        self,
+    ):
         c = self.make_coordinator()
         c._schedule_storage_save = lambda: None
         for tx in range(12):

@@ -1,11 +1,15 @@
 """Expiry applies to public downloads, including those left across restart."""
+
 import importlib.util
 import os
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
-spec = importlib.util.spec_from_file_location('session_exports', Path(__file__).parents[1] / 'custom_components/growatt_thor/sessions/exports.py')
+spec = importlib.util.spec_from_file_location(
+    "session_exports",
+    Path(__file__).parents[1] / "custom_components/growatt_thor/sessions/exports.py",
+)
 exports = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(exports)
 
@@ -16,10 +20,10 @@ class SessionExportsTest(unittest.TestCase):
             first = exports.new_export_path(directory)
             second = exports.new_export_path(directory)
             self.assertNotEqual(first, second)
-            old = Path(directory) / 'growatt_thor_export_2026-01-01_2026-12-31.csv'
-            unrelated = Path(directory) / 'history.csv'
+            old = Path(directory) / "growatt_thor_export_2026-01-01_2026-12-31.csv"
+            unrelated = Path(directory) / "history.csv"
             for path in (first, second, old, unrelated):
-                path.write_text('private')
+                path.write_text("private")
                 os.utime(path, (1000, 1000))
             os.utime(second, (1900, 1900))
             exports.cleanup_expired_exports(directory, now=1900)

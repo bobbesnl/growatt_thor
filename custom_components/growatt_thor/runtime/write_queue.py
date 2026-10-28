@@ -7,6 +7,7 @@ skipped because the connection disappeared.  Keeping those states explicit
 prevents misleading "write succeeded" messages and makes reconnect behaviour
 possible to reason about from diagnostics a year from now.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -97,7 +98,7 @@ class ChargerWriteResult:
     charger_result: str | None = None
 
     @classmethod
-    def success(cls, charger_result: object = None) -> "ChargerWriteResult":
+    def success(cls, charger_result: object = None) -> ChargerWriteResult:
         """Return a result for a charger-acknowledged command."""
         return cls(
             ChargerWriteStatus.SUCCESS,
@@ -109,7 +110,7 @@ class ChargerWriteResult:
         cls,
         reason: str,
         charger_result: object = None,
-    ) -> "ChargerWriteResult":
+    ) -> ChargerWriteResult:
         """Return a result for a command that definitively did not succeed."""
         return cls(
             ChargerWriteStatus.FAILED,
@@ -122,7 +123,7 @@ class ChargerWriteResult:
         cls,
         reason: str,
         charger_result: object = None,
-    ) -> "ChargerWriteResult":
+    ) -> ChargerWriteResult:
         """Return a result when only part of a compound command succeeded."""
         return cls(
             ChargerWriteStatus.PARTIAL,
@@ -131,17 +132,17 @@ class ChargerWriteResult:
         )
 
     @classmethod
-    def skipped(cls, reason: str) -> "ChargerWriteResult":
+    def skipped(cls, reason: str) -> ChargerWriteResult:
         """Return a result for a command deliberately not sent."""
         return cls(ChargerWriteStatus.SKIPPED, reason=reason)
 
     @classmethod
-    def uncertain(cls, reason: str) -> "ChargerWriteResult":
+    def uncertain(cls, reason: str) -> ChargerWriteResult:
         """Return a result whose request may have reached the charger."""
         return cls(ChargerWriteStatus.UNCERTAIN, reason=reason)
 
     @classmethod
-    def expired(cls, reason: str = "expired_before_send") -> "ChargerWriteResult":
+    def expired(cls, reason: str = "expired_before_send") -> ChargerWriteResult:
         """Return a terminal result for an intent that was never sent."""
         return cls(ChargerWriteStatus.EXPIRED, reason=reason)
 
@@ -168,7 +169,7 @@ class ChargerCommandResult:
         queued_at: str,
         completed_at: str,
         result: ChargerWriteResult,
-    ) -> "ChargerCommandResult":
+    ) -> ChargerCommandResult:
         """Map queue-internal detail to the stable automation contract."""
         status = {
             ChargerWriteStatus.SUCCESS: ChargerCommandStatus.CONFIRMED,
@@ -245,7 +246,7 @@ class ChargerCommandHandle:
                 asyncio.shield(self._completion),
                 timeout=timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise ChargerCommandWaitTimeout(self.command_id) from None
 
 

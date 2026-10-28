@@ -1,17 +1,14 @@
 """Tests for strict service, entity, and config-entry input validation."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import unittest
-
+from pathlib import Path
 
 MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "configuration/validation.py"
+    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "configuration/validation.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_value_validation_test_target",
@@ -50,9 +47,7 @@ class NumericValidationTest(unittest.TestCase):
     def test_non_finite_numbers_are_always_rejected(self):
         for value in (float("nan"), float("inf"), float("-inf")):
             with self.subTest(value=value):
-                with self.assertRaises(
-                    validation.NumericValidationError
-                ) as raised:
+                with self.assertRaises(validation.NumericValidationError) as raised:
                     validation.validate_number(
                         value,
                         minimum=-2,
@@ -67,9 +62,7 @@ class NumericValidationTest(unittest.TestCase):
     def test_bounds_are_checked_before_payload_formatting(self):
         for value in (-2.01, 2.01):
             with self.subTest(value=value):
-                with self.assertRaises(
-                    validation.NumericValidationError
-                ) as raised:
+                with self.assertRaises(validation.NumericValidationError) as raised:
                     validation.validate_number(
                         value,
                         minimum=-2,
@@ -84,9 +77,7 @@ class NumericValidationTest(unittest.TestCase):
     def test_step_mismatch_is_rejected_instead_of_rounded(self):
         for value, step in ((6.6, 1), (4.25, 0.1), (0.011, 0.01)):
             with self.subTest(value=value, step=step):
-                with self.assertRaises(
-                    validation.NumericValidationError
-                ) as raised:
+                with self.assertRaises(validation.NumericValidationError) as raised:
                     validation.validate_number(
                         value,
                         minimum=0,
@@ -149,9 +140,7 @@ class ExportDateRangeValidationTest(unittest.TestCase):
             (None, "2026-08-25"),
         ):
             with self.subTest(date_from=date_from, date_to=date_to):
-                with self.assertRaises(
-                    validation.DateRangeValidationError
-                ) as raised:
+                with self.assertRaises(validation.DateRangeValidationError) as raised:
                     validation.parse_export_date_range(date_from, date_to)
                 self.assertEqual(
                     raised.exception.reason,
@@ -159,9 +148,7 @@ class ExportDateRangeValidationTest(unittest.TestCase):
                 )
 
     def test_reversed_range_has_distinct_reason(self):
-        with self.assertRaises(
-            validation.DateRangeValidationError
-        ) as raised:
+        with self.assertRaises(validation.DateRangeValidationError) as raised:
             validation.parse_export_date_range(
                 "2026-08-25",
                 "2026-08-24",
@@ -179,8 +166,8 @@ if __name__ == "__main__":
 
 class BindAddressValidationTest(unittest.TestCase):
     def test_accepts_ip_literals_only(self):
-        for value in ('0.0.0.0', '192.168.1.2', '::1'):
+        for value in ("0.0.0.0", "192.168.1.2", "::1"):
             self.assertEqual(validation.validate_bind_address(value), value)
-        for value in ('', 'localhost', '192.168.1.999', None, 123):
+        for value in ("", "localhost", "192.168.1.999", None, 123):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 validation.validate_bind_address(value)

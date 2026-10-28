@@ -1,4 +1,5 @@
 """Bounded session context histories, independent of source-energy accounting."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -12,8 +13,11 @@ from ..runtime.time import utc_timestamp
 from .series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 
 CONTEXT_CURVES = (
-    "measured_current_sum_curve_a", "configured_current_limit_curve_a",
-    "site_pv_surplus_curve_w", "site_house_load_curve_w", "site_battery_curve_w",
+    "measured_current_sum_curve_a",
+    "configured_current_limit_curve_a",
+    "site_pv_surplus_curve_w",
+    "site_house_load_curve_w",
+    "site_battery_curve_w",
 )
 
 
@@ -21,9 +25,17 @@ def context_curves(value, *, limit=SESSION_CURVE_POINT_LIMIT, event_times=()):
     source = value if isinstance(value, Mapping) else {}
     event_times = tuple(event_times)
     return {
-        key: curve for key in CONTEXT_CURVES
-        if (curve := downsample_curve(source.get(key), limit=limit,
-            event_times=event_times, signed=key == "site_battery_curve_w", gaps=True))
+        key: curve
+        for key in CONTEXT_CURVES
+        if (
+            curve := downsample_curve(
+                source.get(key),
+                limit=limit,
+                event_times=event_times,
+                signed=key == "site_battery_curve_w",
+                gaps=True,
+            )
+        )
         and any(point[1] is not None for point in curve)
     }
 
@@ -31,7 +43,9 @@ def context_curves(value, *, limit=SESSION_CURVE_POINT_LIMIT, event_times=()):
 class SessionTelemetry:
     def __init__(self, value=None):
         self.curves = context_curves(value)
-        self.house_load_source = (value or {}).get("site_house_load_source") if isinstance(value, Mapping) else None
+        self.house_load_source = (
+            (value or {}).get("site_house_load_source") if isinstance(value, Mapping) else None
+        )
         if self.house_load_source not in ("configured_sensor", "site_balance", "mixed"):
             self.house_load_source = None
 
@@ -56,7 +70,9 @@ class SessionTelemetry:
         else:
             points.append([timestamp, value])
         if len(points) > SESSION_CURVE_POINT_LIMIT * 2:
-            self.curves[key] = downsample_curve(points, signed=key == "site_battery_curve_w", gaps=True)
+            self.curves[key] = downsample_curve(
+                points, signed=key == "site_battery_curve_w", gaps=True
+            )
         return True
 
     def snapshot(self, *, event_times=()):
@@ -70,9 +86,15 @@ class SessionTelemetry:
         instant = parse_at(at)
         if instant is None:
             return False
+
         def value(observation):
             return observation.value_at(instant) if observation is not None else None
-        solar, house, battery = value(site.solar), value(site.household), value(site.battery)
+
+        solar, house, battery = (
+            value(site.solar),
+            value(site.household),
+            value(site.battery),
+        )
         if solar is not None and solar < 0:
             solar = None
         if house is not None and house < 0:
@@ -84,13 +106,30 @@ class SessionTelemetry:
             meter = charging_meter_values(snapshot)
             sampled = parse_at(meter.get("sample_at"))
             ev = meter.get("power_w")
-            if str(getattr(coordinator, "status", "")).lower() in {"suspended_ev", "suspended_evse", "suspendedev", "suspendedevse", "finishing"}:
+            if str(getattr(coordinator, "status", "")).lower() in {
+                "suspended_ev",
+                "suspended_evse",
+                "suspendedev",
+                "suspendedevse",
+                "finishing",
+            }:
                 ev = 0.0
-            elif sampled is None or not 0 <= (instant - sampled).total_seconds() <= coordinator._effective_meter_gap_seconds():
+            elif (
+                sampled is None
+                or not 0
+                <= (instant - sampled).total_seconds()
+                <= coordinator._effective_meter_gap_seconds()
+            ):
                 ev = None
             grid = value(site.grid)
             # Battery absence is known only for a declared battery-free topology.
-            battery_balance = battery if getattr(coordinator, "battery_power_entity", None) else (0.0 if options.get("site_accounting_profile") in ("pv", "grid_only") else None)
+            battery_balance = (
+                battery
+                if getattr(coordinator, "battery_power_entity", None)
+                else (
+                    0.0 if options.get("site_accounting_profile") in ("pv", "grid_only") else None
+                )
+            )
             if all(reading is not None for reading in (grid, battery_balance, ev)):
                 balance = solar + grid + battery_balance - ev
                 if balance >= 0:
@@ -100,10 +139,14 @@ class SessionTelemetry:
                 self.house_load_source = "mixed"
             else:
                 self.house_load_source = source
-        limit = configuration_numeric_value(getattr(coordinator, "configuration_values", {}).get("G_MaxCurrent"))
+        limit = configuration_numeric_value(
+            getattr(coordinator, "configuration_values", {}).get("G_MaxCurrent")
+        )
         values = {
             "site_house_load_curve_w": house,
-            "site_pv_surplus_curve_w": max(0, solar - house) if solar is not None and house is not None else None,
+            "site_pv_surplus_curve_w": max(0, solar - house)
+            if solar is not None and house is not None
+            else None,
             "site_battery_curve_w": battery,
             "configured_current_limit_curve_a": limit,
         }
@@ -114,7 +157,11 @@ class SessionTelemetry:
 
     def observe_meter(self, entry, received_at, max_age):
         sampled, received = parse_at(entry.timestamp), parse_at(received_at)
-        if sampled is None or received is None or not 0 <= (received - sampled).total_seconds() <= max_age:
+        if (
+            sampled is None
+            or received is None
+            or not 0 <= (received - sampled).total_seconds() <= max_age
+        ):
             return False
         currents = charging_meter_values({"meter_values": [entry.as_dict()]})["currents_a"]
         amps = sum(currents) if all(value is not None for value in currents) else None
@@ -130,7 +177,14 @@ def async_setup_session_history(hass, coordinator):
 
     async def state_changed(event):
         options = coordinator.site_accounting_options
-        sources = {options.get(key) for key in ("site_solar_power_entity", "site_house_power_entity", "site_grid_power_entity")}
+        sources = {
+            options.get(key)
+            for key in (
+                "site_solar_power_entity",
+                "site_house_power_entity",
+                "site_grid_power_entity",
+            )
+        }
         sources.add(coordinator.battery_power_entity)
         sources.discard(None)
         if event.data.get("entity_id") in sources:
@@ -146,4 +200,5 @@ def async_setup_session_history(hass, coordinator):
     def stop():
         unsubscribe()
         cancel_timer()
+
     return stop

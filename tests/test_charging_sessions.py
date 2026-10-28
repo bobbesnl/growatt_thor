@@ -1,16 +1,14 @@
 """Tests for correlation of OCPP and Growatt charging session data."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import types
 import unittest
+from pathlib import Path
 
-
-COMPONENT_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor"
-)
+COMPONENT_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 PACKAGE_NAME = "growatt_thor_charging_sessions_test_package"
 PACKAGE = types.ModuleType(PACKAGE_NAME)
 PACKAGE.__path__ = [str(COMPONENT_PATH)]

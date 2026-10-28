@@ -1,20 +1,16 @@
 """Regression tests for charger write queue hardening."""
+
 from __future__ import annotations
 
 import ast
 import asyncio
 import importlib.util
-from pathlib import Path
 import sys
 import types
 import unittest
+from pathlib import Path
 
-
-PACKAGE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-)
+PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 MODULE_PATH = PACKAGE_PATH / "coordinator.py"
 
 
@@ -28,9 +24,7 @@ class _Store:
 
 homeassistant = types.ModuleType("homeassistant")
 helpers = types.ModuleType("homeassistant.helpers")
-update_coordinator = types.ModuleType(
-    "homeassistant.helpers.update_coordinator"
-)
+update_coordinator = types.ModuleType("homeassistant.helpers.update_coordinator")
 storage = types.ModuleType("homeassistant.helpers.storage")
 update_coordinator.DataUpdateCoordinator = _DataUpdateCoordinator
 storage.Store = _Store
@@ -77,7 +71,9 @@ def _build_coordinator(loop):
     coordinator.runtime_data = {}
     coordinator._connection_changed = asyncio.Event()
     coordinator._connection_changed.set()
-    coordinator.write_queue = coordinator_module.ChargerWriteQueue(coordinator, coordinator._connection_changed)
+    coordinator.write_queue = coordinator_module.ChargerWriteQueue(
+        coordinator, coordinator._connection_changed
+    )
     coordinator._shutting_down = False
     coordinator._configuration_refresh_task = None
     coordinator._auto_charge_schedule_task = None
@@ -128,9 +124,7 @@ class ActiveSessionPersistenceTest(unittest.TestCase):
         source._session_event_tracker = coordinator_module.SessionEventTracker.start(
             "2026-09-21T08:00:00Z"
         )
-        source._session_event_tracker.observe_power(
-            "2026-09-21T08:01:00Z", 7100
-        )
+        source._session_event_tracker.observe_power("2026-09-21T08:01:00Z", 7100)
 
         stored = source._active_session_state()
         restored = coordinator_module.GrowattCoordinator.__new__(
@@ -189,9 +183,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
     def _policy(self, expires_after, reconnect=None):
         """Create a short-lived policy so timing tests stay fast."""
         if reconnect is None:
-            reconnect = (
-                write_queue_module.ChargerWriteReconnectPolicy.RETAIN_UNTIL_EXPIRY
-            )
+            reconnect = write_queue_module.ChargerWriteReconnectPolicy.RETAIN_UNTIL_EXPIRY
         return coordinator_module.ChargerWriteQueuePolicy(
             expires_after=expires_after,
             reconnect=reconnect,
@@ -344,9 +336,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         coordinator = _build_coordinator(asyncio.get_running_loop())
 
         async def write():
-            return write_queue_module.ChargerWriteResult.partial(
-                "second_step_rejected"
-            )
+            return write_queue_module.ChargerWriteResult.partial("second_step_rejected")
 
         with self.assertLogs("custom_components.growatt_thor", level="ERROR"):
             handle = await coordinator.queue_write(write)
@@ -590,9 +580,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         )
         await asyncio.sleep(0.01)
 
-        coordinator.runtime_data[
-            "charge_point"
-        ] = current_charge_point
+        coordinator.runtime_data["charge_point"] = current_charge_point
         coordinator.connected = True
         coordinator._connection_changed.set()
         await coordinator.write_queue.task
@@ -625,9 +613,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             await coordinator.write_queue.task
 
         self.assertEqual(calls, [])
-        self.assertTrue(
-            any("discarded_on_disconnect" in line for line in logs.output)
-        )
+        self.assertTrue(any("discarded_on_disconnect" in line for line in logs.output))
 
     async def test_volatile_command_expires_behind_active_write(self):
         coordinator = _build_coordinator(asyncio.get_running_loop())
@@ -770,9 +756,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         cleanup_results = []
 
         async def write():
-            return write_queue_module.ChargerWriteResult.skipped(
-                "active_transaction"
-            )
+            return write_queue_module.ChargerWriteResult.skipped("active_transaction")
 
         with self.assertLogs("custom_components.growatt_thor", level="WARNING"):
             await coordinator.queue_write(
@@ -1132,9 +1116,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         async def write(charge_point):
             calls.append(charge_point)
             if len(calls) == 1:
-                coordinator.runtime_data[
-                    "charge_point"
-                ] = second_charge_point
+                coordinator.runtime_data["charge_point"] = second_charge_point
                 raise write_queue_module.ChargerConnectionUnavailable(
                     "connection replaced before send"
                 )
@@ -1157,9 +1139,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
         async def write():
             nonlocal calls
             calls += 1
-            raise write_queue_module.ChargerRequestOutcomeUncertain(
-                "connection lost after send"
-            )
+            raise write_queue_module.ChargerRequestOutcomeUncertain("connection lost after send")
 
         with self.assertLogs("custom_components.growatt_thor", level="WARNING") as logs:
             await coordinator.queue_write(write, command_name="ChangeConfiguration")
@@ -1283,10 +1263,7 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             await task
 
         self.assertTrue(
-            any(
-                "Failed to queue debounced Auto Charge schedule" in line
-                for line in logs.output
-            )
+            any("Failed to queue debounced Auto Charge schedule" in line for line in logs.output)
         )
         self.assertIsNone(coordinator._auto_charge_schedule_task)
 
@@ -1304,15 +1281,11 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             manual_start=coordinator_module.time(0, 0),
             manual_end=coordinator_module.time(2, 0),
         )
-        self.assertFalse(
-            coordinator.mark_pv_linkage_draft_applied(older_draft)
-        )
+        self.assertFalse(coordinator.mark_pv_linkage_draft_applied(older_draft))
         self.assertTrue(coordinator.pv_linkage_draft_dirty)
 
         current_draft = coordinator.pv_linkage_draft()
-        self.assertTrue(
-            coordinator.mark_pv_linkage_draft_applied(current_draft)
-        )
+        self.assertTrue(coordinator.mark_pv_linkage_draft_applied(current_draft))
         self.assertFalse(coordinator.pv_linkage_draft_dirty)
 
     async def test_partial_outcome_is_never_logged_as_success(self):
@@ -1382,13 +1355,8 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
         missing = []
         for filename in self.PRODUCTION_FILES:
             tree = ast.parse((PACKAGE_PATH / filename).read_text())
-            for call in (
-                node for node in ast.walk(tree) if isinstance(node, ast.Call)
-            ):
-                if not (
-                    isinstance(call.func, ast.Attribute)
-                    and call.func.attr == "queue_write"
-                ):
+            for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+                if not (isinstance(call.func, ast.Attribute) and call.func.attr == "queue_write"):
                     continue
                 keyword_names = {keyword.arg for keyword in call.keywords}
                 if "policy" not in keyword_names:
@@ -1415,13 +1383,8 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
         found = {}
         for filename in {item[0] for item in expected}:
             tree = ast.parse((PACKAGE_PATH / filename).read_text())
-            for call in (
-                node for node in ast.walk(tree) if isinstance(node, ast.Call)
-            ):
-                if not (
-                    isinstance(call.func, ast.Attribute)
-                    and call.func.attr == "queue_write"
-                ):
+            for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+                if not (isinstance(call.func, ast.Attribute) and call.func.attr == "queue_write"):
                     continue
                 keywords = {
                     keyword.arg: keyword.value
@@ -1452,27 +1415,27 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
         stop_class = next(
             node
             for node in tree.body
-            if isinstance(node, ast.ClassDef)
-            and node.name == "StopChargingCommand"
+            if isinstance(node, ast.ClassDef) and node.name == "StopChargingCommand"
         )
         integer_constants = [
             node.value
             for node in ast.walk(stop_class)
-            if isinstance(node, ast.Constant)
-            and type(node.value) is int
+            if isinstance(node, ast.Constant) and type(node.value) is int
         ]
-        attributes = [
-            node.attr
-            for node in ast.walk(stop_class)
-            if isinstance(node, ast.Attribute)
-        ]
+        attributes = [node.attr for node in ast.walk(stop_class) if isinstance(node, ast.Attribute)]
 
         self.assertNotIn(0, integer_constants)
         self.assertIn("transaction_id", attributes)
         self.assertIn("transaction_is_active", attributes)
 
     def test_start_and_stop_share_one_opposing_intent_queue_lane(self):
-        tree = ast.parse((PACKAGE_PATH / "button.py").read_text() + "\n" + (PACKAGE_PATH / "charging/commands.py").read_text().replace("from __future__ import annotations", ""))
+        tree = ast.parse(
+            (PACKAGE_PATH / "button.py").read_text()
+            + "\n"
+            + (PACKAGE_PATH / "charging/commands.py")
+            .read_text()
+            .replace("from __future__ import annotations", "")
+        )
         classes = {
             node.name: node
             for node in tree.body
@@ -1504,8 +1467,7 @@ class WriteQueuePolicyWiringTest(unittest.TestCase):
         stop_calls = {
             node.func.attr: node
             for node in ast.walk(classes["StopChargingCommand"])
-            if isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
         }
         cancellation = stop_calls["cancel_queued_writes"]
         cancellation_keywords = {

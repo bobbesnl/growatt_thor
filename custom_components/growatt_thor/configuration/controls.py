@@ -1,34 +1,34 @@
 """Shared behavior for Growatt ChangeConfiguration entities."""
+
 from __future__ import annotations
 
 import logging
 
 from ocpp.v16.enums import ConfigurationStatus
 
-from ..runtime.action_errors import (
-    async_require_command_completion,
-    raise_charger_disconnected,
-    raise_write_blocked,
-)
 from ..charging.controls import (
     CONTROL_DEFINITIONS,
     ChargingControl,
     control_is_applicable,
     control_write_block_reason,
 )
-from .values import configuration_value_from_item
-from .writes import (
-    ConfigurationWriteStatus,
-    pending_configuration_value,
-)
 from ..const import DOMAIN
+from ..runtime.action_errors import (
+    async_require_command_completion,
+    raise_charger_disconnected,
+    raise_write_blocked,
+)
 from ..runtime.write_queue import (
     CONFIGURATION_WRITE_POLICY,
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
 )
-
+from .values import configuration_value_from_item
+from .writes import (
+    ConfigurationWriteStatus,
+    pending_configuration_value,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,9 +44,7 @@ class GrowattConfigurationControlMixin:
 
     @property
     def _configuration_value(self):
-        reported = self.coordinator.configuration_values.get(
-            self._configuration_key
-        )
+        reported = self.coordinator.configuration_values.get(self._configuration_key)
         pending_raw_value = pending_configuration_value(
             self.coordinator.configuration_writes,
             self._configuration_key,
@@ -60,9 +58,7 @@ class GrowattConfigurationControlMixin:
             {
                 "key": self._configuration_key,
                 "value": pending_raw_value,
-                "readonly": (
-                    reported.readonly if reported is not None else False
-                ),
+                "readonly": (reported.readonly if reported is not None else False),
             }
         )
 

@@ -4,11 +4,11 @@ Keeping these rules independent of Home Assistant entities makes the unusual
 automation edge cases explicit and cheap to regression-test.  The queue still
 performs the final check immediately before an OCPP request is sent.
 """
+
 from __future__ import annotations
 
-from typing import Final
 from collections.abc import Mapping
-
+from typing import Final
 
 REMOTE_START_COMMAND: Final = "RemoteStartTransaction"
 REMOTE_STOP_COMMAND: Final = "RemoteStopTransaction"
@@ -28,7 +28,8 @@ def target_blocks_manual_start(request: object) -> bool:
     if not request:
         return False
     return not isinstance(request, Mapping) or request.get("state") not in {
-        "blocked_before_target", "target_rejected",
+        "blocked_before_target",
+        "target_rejected",
     }
 
 
@@ -58,11 +59,7 @@ def stop_revalidation_failure(
     reconnect delayed delivery of the command.
     """
     if current_transaction_id != expected_transaction_id:
-        return (
-            "transaction_ended"
-            if current_transaction_id is None
-            else "transaction_changed"
-        )
+        return "transaction_ended" if current_transaction_id is None else "transaction_changed"
     if not transaction_active:
         return "transaction_ended"
     return None

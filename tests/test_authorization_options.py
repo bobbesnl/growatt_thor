@@ -1,15 +1,16 @@
 """Exercise the real options flow with a minimal HA form/storage harness."""
+
 import importlib
 import importlib.util
 import json
-from pathlib import Path
 import sys
-from types import ModuleType, SimpleNamespace
 import unittest
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
-HAS_VOL = importlib.util.find_spec('voluptuous') is not None
-HAS_SERIALIZER = importlib.util.find_spec('voluptuous_serialize') is not None
+HAS_VOL = importlib.util.find_spec("voluptuous") is not None
+HAS_SERIALIZER = importlib.util.find_spec("voluptuous_serialize") is not None
 if HAS_SERIALIZER:
     # Load schema classes before load_flow temporarily patches sys.modules.
     import voluptuous_serialize
@@ -17,46 +18,46 @@ if HAS_SERIALIZER:
 
 class EnergySourceTranslationTest(unittest.TestCase):
     def test_rfid_learning_and_alias_help_are_available_in_every_language(self):
-        translations = Path(__file__).parents[1] / 'custom_components/growatt_thor/translations'
-        for path in sorted(translations.glob('*.json')):
-            options = json.loads(path.read_text())['options']
+        translations = Path(__file__).parents[1] / "custom_components/growatt_thor/translations"
+        for path in sorted(translations.glob("*.json")):
+            options = json.loads(path.read_text())["options"]
             with self.subTest(language=path.stem):
-                steps = options['step']
-                self.assertTrue(steps['init']['menu_options']['learn_rfid'])
-                self.assertTrue(steps['init']['menu_option_descriptions']['learn_rfid'])
-                self.assertTrue(steps['learn_rfid']['description'])
-                self.assertIn('{id_tag}', steps['confirm_rfid']['description'])
-                self.assertTrue(steps['confirm_rfid']['data']['alias'])
-                self.assertIn(' | ', steps['authorization']['data_description']['authorized_id_tags'])
-                for key in ('rfid_learning_expired', 'rfid_learning_busy', 'rfid_charger_unavailable'):
-                    self.assertTrue(options['abort'][key])
-                for key in ('rfid_not_seen', 'invalid_rfid_alias'):
-                    self.assertTrue(options['error'][key])
+                steps = options["step"]
+                self.assertTrue(steps["init"]["menu_options"]["learn_rfid"])
+                self.assertTrue(steps["init"]["menu_option_descriptions"]["learn_rfid"])
+                self.assertTrue(steps["learn_rfid"]["description"])
+                self.assertIn("{id_tag}", steps["confirm_rfid"]["description"])
+                self.assertTrue(steps["confirm_rfid"]["data"]["alias"])
+                self.assertIn(
+                    " | ",
+                    steps["authorization"]["data_description"]["authorized_id_tags"],
+                )
+                for key in (
+                    "rfid_learning_expired",
+                    "rfid_learning_busy",
+                    "rfid_charger_unavailable",
+                ):
+                    self.assertTrue(options["abort"][key])
+                for key in ("rfid_not_seen", "invalid_rfid_alias"):
+                    self.assertTrue(options["error"][key])
 
     def test_optional_energy_source_step_is_complete_in_every_language(self):
         translation_dir = (
-            Path(__file__).parents[1]
-            / 'custom_components'
-            / 'growatt_thor'
-            / 'translations'
+            Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "translations"
         )
-        for path in sorted(translation_dir.glob('*.json')):
-            payload = json.loads(path.read_text(encoding='utf-8'))
-            steps = payload['options']['step']
+        for path in sorted(translation_dir.glob("*.json")):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            steps = payload["options"]["step"]
             with self.subTest(language=path.stem):
-                self.assertTrue(
-                    steps['init']['menu_options']['energy_sources']
-                )
-                self.assertTrue(
-                    steps['init']['menu_option_descriptions']['energy_sources']
-                )
+                self.assertTrue(steps["init"]["menu_options"]["energy_sources"])
+                self.assertTrue(steps["init"]["menu_option_descriptions"]["energy_sources"])
                 self.assertEqual(
-                    set(steps['energy_sources']['data']),
-                    {'battery_power_entity', 'battery_power_sign'},
+                    set(steps["energy_sources"]["data"]),
+                    {"battery_power_entity", "battery_power_sign"},
                 )
                 self.assertNotIn(
-                    'battery_power_entity',
-                    steps['general']['data'],
+                    "battery_power_entity",
+                    steps["general"]["data"],
                 )
 
 
@@ -86,7 +87,7 @@ class TextSelector:
 
     def __call__(self, value):
         if not isinstance(value, str):
-            raise ValueError('Expected text')
+            raise ValueError("Expected text")
         return value
 
 
@@ -102,45 +103,51 @@ class NumberSelector:
 
 def serialized_form_fields(form):
     """Use the real schema serializer; unsupported callables must fail."""
+
     def custom_serializer(value):
         if isinstance(value, NumberSelector):
             return {"selector": {"number": value.config}}
         return voluptuous_serialize.UNSUPPORTED
 
     fields = voluptuous_serialize.convert(
-        form['data_schema'], custom_serializer=custom_serializer,
+        form["data_schema"],
+        custom_serializer=custom_serializer,
     )
-    return {field['name']: field for field in json.loads(json.dumps(fields))}
+    return {field["name"]: field for field in json.loads(json.dumps(fields))}
 
 
 def load_flow():
-    package = ModuleType('thor_auth_flow_target')
-    package.__path__ = [str(Path(__file__).parents[1] / 'custom_components/growatt_thor')]
+    package = ModuleType("thor_auth_flow_target")
+    package.__path__ = [str(Path(__file__).parents[1] / "custom_components/growatt_thor")]
     sys.modules[package.__name__] = package
-    ha = ModuleType('homeassistant')
+    ha = ModuleType("homeassistant")
     ha.config_entries = SimpleNamespace(ConfigFlow=FlowBase, OptionsFlow=FlowBase)
-    core = ModuleType('homeassistant.core')
+    core = ModuleType("homeassistant.core")
     core.callback = lambda function: function
-    exceptions = ModuleType('homeassistant.exceptions')
+    exceptions = ModuleType("homeassistant.exceptions")
     exceptions.HomeAssistantError = Exception
     exceptions.ServiceValidationError = Exception
-    selectors = ModuleType('homeassistant.helpers.selector')
+    selectors = ModuleType("homeassistant.helpers.selector")
     selectors.SelectSelector = selectors.TextSelector = TextSelector
     selectors.SelectSelectorConfig = selectors.TextSelectorConfig = dict
     selectors.NumberSelector = NumberSelector
     selectors.NumberSelectorConfig = dict
-    selectors.NumberSelectorMode = SimpleNamespace(BOX='box')
-    with patch.dict(sys.modules, {
-        'homeassistant': ha, 'homeassistant.core': core,
-        'homeassistant.exceptions': exceptions,
-        'homeassistant.helpers': ModuleType('homeassistant.helpers'),
-        'homeassistant.helpers.selector': selectors,
-    }):
-        flow = importlib.import_module(package.__name__ + '.config_flow')
-    return flow, importlib.import_module(package.__name__ + '.charging.authorization')
+    selectors.NumberSelectorMode = SimpleNamespace(BOX="box")
+    with patch.dict(
+        sys.modules,
+        {
+            "homeassistant": ha,
+            "homeassistant.core": core,
+            "homeassistant.exceptions": exceptions,
+            "homeassistant.helpers": ModuleType("homeassistant.helpers"),
+            "homeassistant.helpers.selector": selectors,
+        },
+    ):
+        flow = importlib.import_module(package.__name__ + ".config_flow")
+    return flow, importlib.import_module(package.__name__ + ".charging.authorization")
 
 
-@unittest.skipUnless(HAS_VOL, 'Install tests/requirements-auth.txt for options-flow tests')
+@unittest.skipUnless(HAS_VOL, "Install tests/requirements-auth.txt for options-flow tests")
 class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
@@ -149,8 +156,8 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.flow = self.module.GrowattThorOptionsFlow()
         self.entry = SimpleNamespace(
-            entry_id='entry-test',
-            data={'port': 9000, 'location': 'Test location'},
+            entry_id="entry-test",
+            data={"port": 9000, "location": "Test location"},
         )
         self.flow.config_entry = self.entry
         self.coordinator = SimpleNamespace(
@@ -166,507 +173,589 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
 
         # Each loaded config entry owns its runtime under its entry ID.
         self.runtime_data = {
-            'config_entry_id': 'entry-test',
-            'coordinator': self.coordinator,
+            "config_entry_id": "entry-test",
+            "coordinator": self.coordinator,
         }
         self.other_coordinator = SimpleNamespace(
             authorization=self.auth.LocalAuthorization(),
-            location='Other charger',
+            location="Other charger",
         )
         self.other_runtime_data = {
-            'config_entry_id': 'entry-other',
-            'coordinator': self.other_coordinator,
-            'poll_interval': 30,
+            "config_entry_id": "entry-other",
+            "coordinator": self.other_coordinator,
+            "poll_interval": 30,
         }
         self.flow.hass = SimpleNamespace(
-            data={'growatt_thor': {
-                'entry-test': self.runtime_data,
-                'entry-other': self.other_runtime_data,
-            }},
+            data={
+                "growatt_thor": {
+                    "entry-test": self.runtime_data,
+                    "entry-other": self.other_runtime_data,
+                }
+            },
             states={},
             config_entries=SimpleNamespace(async_update_entry=update),
         )
 
     async def test_entry_menu_separates_local_settings_and_actions(self):
         result = await self.flow.async_step_init()
-        self.assertEqual(result['step_id'], 'init')
+        self.assertEqual(result["step_id"], "init")
         self.assertEqual(
-            result['menu_options'],
-            ['general', 'energy_sources', 'site_accounting', 'authorization', 'learn_rfid', 'confirm_ap_mode'],
+            result["menu_options"],
+            [
+                "general",
+                "energy_sources",
+                "site_accounting",
+                "authorization",
+                "learn_rfid",
+                "confirm_ap_mode",
+            ],
         )
         general = await self.flow.async_step_general()
-        field_names = {marker.schema for marker in general['data_schema'].schema}
-        self.assertNotIn('charger_mode', field_names)
-        self.assertNotIn('battery_power_entity', field_names)
+        field_names = {marker.schema for marker in general["data_schema"].schema}
+        self.assertNotIn("charger_mode", field_names)
+        self.assertNotIn("battery_power_entity", field_names)
         energy_sources = await self.flow.async_step_energy_sources()
-        energy_fields = {
-            marker.schema for marker in energy_sources['data_schema'].schema
-        }
+        energy_fields = {marker.schema for marker in energy_sources["data_schema"].schema}
         self.assertEqual(
             energy_fields,
-            {'battery_power_entity', 'battery_power_sign'},
+            {"battery_power_entity", "battery_power_sign"},
         )
 
-    @unittest.skipUnless(HAS_SERIALIZER, 'Install tests/requirements-auth.txt')
+    @unittest.skipUnless(HAS_SERIALIZER, "Install tests/requirements-auth.txt")
     async def test_general_form_uses_frontend_serializable_validators(self):
-        self.entry.data['poll_interval'] = 45
+        self.entry.data["poll_interval"] = 45
         fields = serialized_form_fields(await self.flow.async_step_general())
-        self.assertEqual(fields['poll_interval']['selector']['number'], {
-            'min': self.module.MIN_POLL_INTERVAL, 'step': 1, 'mode': 'box',
-        })
-        self.assertEqual(fields['poll_interval']['default'], 45)
-        self.assertEqual(fields['location']['type'], 'string')
-        invalid = await self.flow.async_step_general({'poll_interval': 5.5})
-        self.assertEqual(invalid['errors'], {'poll_interval': 'invalid_poll_interval'})
+        self.assertEqual(
+            fields["poll_interval"]["selector"]["number"],
+            {
+                "min": self.module.MIN_POLL_INTERVAL,
+                "step": 1,
+                "mode": "box",
+            },
+        )
+        self.assertEqual(fields["poll_interval"]["default"], 45)
+        self.assertEqual(fields["location"]["type"], "string")
+        invalid = await self.flow.async_step_general({"poll_interval": 5.5})
+        self.assertEqual(invalid["errors"], {"poll_interval": "invalid_poll_interval"})
         serialized_form_fields(invalid)
 
     def site_draft(self, **changes):
-        self.entry.data['battery_power_entity'] = 'sensor.battery'
+        self.entry.data["battery_power_entity"] = "sensor.battery"
         self.flow.hass.states = {
-            name: SimpleNamespace(state='100', attributes={
-                'unit_of_measurement': unit, 'friendly_name': 'Same friendly name',
-            })
+            name: SimpleNamespace(
+                state="100",
+                attributes={
+                    "unit_of_measurement": unit,
+                    "friendly_name": "Same friendly name",
+                },
+            )
             for name, unit in (
-                ('sensor.battery', 'W'), ('sensor.solar', 'W'),
-                ('sensor.house', 'kW'), ('sensor.grid', 'W'),
-                ('sensor.price', '€/kWh'), ('sensor.cents', 'ct/kWh'),
-                ('sensor.energy', 'kWh'),
+                ("sensor.battery", "W"),
+                ("sensor.solar", "W"),
+                ("sensor.house", "kW"),
+                ("sensor.grid", "W"),
+                ("sensor.price", "€/kWh"),
+                ("sensor.cents", "ct/kWh"),
+                ("sensor.energy", "kWh"),
             )
         }
         return {
-            'site_accounting_profile': 'pv_battery', 'site_auto_stop_mode': 'off',
-            'site_grid_source': 'ha_sensor', 'site_grid_power_entity': 'sensor.grid',
-            'site_grid_power_sign': 'positive_import', 'site_solar_power_entity': 'sensor.solar',
-            'site_house_power_entity': 'sensor.house', 'site_tariff_entity': 'sensor.price',
+            "site_accounting_profile": "pv_battery",
+            "site_auto_stop_mode": "off",
+            "site_grid_source": "ha_sensor",
+            "site_grid_power_entity": "sensor.grid",
+            "site_grid_power_sign": "positive_import",
+            "site_solar_power_entity": "sensor.solar",
+            "site_house_power_entity": "sensor.house",
+            "site_tariff_entity": "sensor.price",
             **changes,
         }
 
     async def test_duplicate_sources_are_rejected_without_losing_the_draft(self):
-        draft = self.site_draft(site_solar_power_entity='sensor.battery')
+        draft = self.site_draft(site_solar_power_entity="sensor.battery")
         form = await self.flow.async_step_site_accounting(draft)
-        self.assertEqual(form['errors'], {'site_solar_power_entity': 'duplicate_power_source'})
-        fields = {key.schema: key for key in form['data_schema'].schema}
-        self.assertEqual(fields['site_solar_power_entity'].description['suggested_value'], 'sensor.battery')
+        self.assertEqual(form["errors"], {"site_solar_power_entity": "duplicate_power_source"})
+        fields = {key.schema: key for key in form["data_schema"].schema}
+        self.assertEqual(
+            fields["site_solar_power_entity"].description["suggested_value"],
+            "sensor.battery",
+        )
         self.assertEqual(self.updates, [])
-        draft['site_solar_power_entity'] = 'sensor.grid'
+        draft["site_solar_power_entity"] = "sensor.grid"
         form = await self.flow.async_step_site_accounting(draft)
-        self.assertEqual(set(form['errors']), {'site_solar_power_entity', 'site_grid_power_entity'})
+        self.assertEqual(set(form["errors"]), {"site_solar_power_entity", "site_grid_power_entity"})
 
     async def test_searchable_source_choices_show_ids_and_filter_units_and_roles(self):
         self.entry.data.update(self.site_draft())
         form = await self.flow.async_step_site_accounting()
-        fields = {key.schema: value for key, value in form['data_schema'].schema.items()}
-        for field in ('site_grid_power_entity', 'site_solar_power_entity', 'site_house_power_entity', 'site_tariff_entity'):
+        fields = {key.schema: value for key, value in form["data_schema"].schema.items()}
+        for field in (
+            "site_grid_power_entity",
+            "site_solar_power_entity",
+            "site_house_power_entity",
+            "site_tariff_entity",
+        ):
             config = fields[field].config
-            self.assertEqual(config['mode'], 'dropdown')
-            self.assertTrue(config['custom_value'])
-            for option in config['options']:
-                self.assertIn(option['value'], option['label'])
-        solar = {item['value'] for item in fields['site_solar_power_entity'].config['options']}
-        self.assertEqual(solar, {'sensor.solar'})
-        prices = [item['value'] for item in fields['site_tariff_entity'].config['options']]
-        self.assertEqual(prices, ['sensor.price'])
+            self.assertEqual(config["mode"], "dropdown")
+            self.assertTrue(config["custom_value"])
+            for option in config["options"]:
+                self.assertIn(option["value"], option["label"])
+        solar = {item["value"] for item in fields["site_solar_power_entity"].config["options"]}
+        self.assertEqual(solar, {"sensor.solar"})
+        prices = [item["value"] for item in fields["site_tariff_entity"].config["options"]]
+        self.assertEqual(prices, ["sensor.price"])
         battery = await self.flow.async_step_energy_sources()
-        fields = {key.schema: value for key, value in battery['data_schema'].schema.items()}
-        self.assertTrue(fields['battery_power_entity'].config['custom_value'])
-        self.assertEqual(fields['battery_power_entity'].config['mode'], 'dropdown')
+        fields = {key.schema: value for key, value in battery["data_schema"].schema.items()}
+        self.assertTrue(fields["battery_power_entity"].config["custom_value"])
+        self.assertEqual(fields["battery_power_entity"].config["mode"], "dropdown")
         self.assertEqual(
-            [item['value'] for item in fields['battery_power_entity'].config['options']],
-            ['sensor.battery'],
+            [item["value"] for item in fields["battery_power_entity"].config["options"]],
+            ["sensor.battery"],
         )
 
     async def test_missing_price_selection_remains_visible_for_repair(self):
-        self.entry.data.update(self.site_draft(site_tariff_entity='sensor.removed_price'))
+        self.entry.data.update(self.site_draft(site_tariff_entity="sensor.removed_price"))
         form = await self.flow.async_step_site_accounting()
-        fields = {key.schema: value for key, value in form['data_schema'].schema.items()}
-        options = fields['site_tariff_entity'].config['options']
-        self.assertIn('sensor.removed_price', [item['value'] for item in options])
+        fields = {key.schema: value for key, value in form["data_schema"].schema.items()}
+        options = fields["site_tariff_entity"].config["options"]
+        self.assertIn("sensor.removed_price", [item["value"] for item in options])
 
     async def test_typed_sensor_ids_cannot_bypass_validation(self):
         for field, entity, error in (
-            ('site_solar_power_entity', 'sensor.missing', 'invalid_power_sensor'),
-            ('site_house_power_entity', 'sensor.energy', 'invalid_power_sensor'),
-            ('site_tariff_entity', 'sensor.cents', 'invalid_tariff_sensor'),
-            ('site_solar_power_entity', 'sensor.battery', 'duplicate_power_source'),
+            ("site_solar_power_entity", "sensor.missing", "invalid_power_sensor"),
+            ("site_house_power_entity", "sensor.energy", "invalid_power_sensor"),
+            ("site_tariff_entity", "sensor.cents", "invalid_tariff_sensor"),
+            ("site_solar_power_entity", "sensor.battery", "duplicate_power_source"),
         ):
             with self.subTest(field=field, entity=entity):
-                form = await self.flow.async_step_site_accounting(self.site_draft(**{field: entity}))
-                self.assertEqual(form['errors'][field], error)
+                form = await self.flow.async_step_site_accounting(
+                    self.site_draft(**{field: entity})
+                )
+                self.assertEqual(form["errors"][field], error)
         self.assertEqual(self.updates, [])
 
     async def test_optional_sources_can_be_cleared_without_reinserting_defaults(self):
         self.entry.data.update(self.site_draft())
         form = await self.flow.async_step_site_accounting()
         draft = self.site_draft()
-        draft.pop('site_house_power_entity')
-        draft.pop('site_tariff_entity')
-        draft['site_fixed_price'] = -.1
-        validated = form['data_schema'](draft)
-        self.assertNotIn('site_house_power_entity', validated)
-        self.assertNotIn('site_tariff_entity', validated)
+        draft.pop("site_house_power_entity")
+        draft.pop("site_tariff_entity")
+        draft["site_fixed_price"] = -0.1
+        validated = form["data_schema"](draft)
+        self.assertNotIn("site_house_power_entity", validated)
+        self.assertNotIn("site_tariff_entity", validated)
         result = await self.flow.async_step_site_accounting(validated)
-        self.assertEqual(result['data'], {})
-        self.assertNotIn('site_house_power_entity', self.entry.data)
-        self.assertNotIn('site_tariff_entity', self.entry.data)
-        self.assertEqual(self.entry.data['site_fixed_price'], -.1)
+        self.assertEqual(result["data"], {})
+        self.assertNotIn("site_house_power_entity", self.entry.data)
+        self.assertNotIn("site_tariff_entity", self.entry.data)
+        self.assertEqual(self.entry.data["site_fixed_price"], -0.1)
 
     async def test_invalid_fixed_price_grid_source_and_missing_battery(self):
-        for price in (float('nan'), float('inf')):
-            form = await self.flow.async_step_site_accounting(self.site_draft(site_fixed_price=price))
-            self.assertEqual(form['errors']['site_fixed_price'], 'invalid_fixed_price')
-        form = await self.flow.async_step_site_accounting(self.site_draft(site_grid_source='bogus'))
-        self.assertEqual(form['errors']['site_grid_source'], 'invalid_grid_source')
+        for price in (float("nan"), float("inf")):
+            form = await self.flow.async_step_site_accounting(
+                self.site_draft(site_fixed_price=price)
+            )
+            self.assertEqual(form["errors"]["site_fixed_price"], "invalid_fixed_price")
+        form = await self.flow.async_step_site_accounting(self.site_draft(site_grid_source="bogus"))
+        self.assertEqual(form["errors"]["site_grid_source"], "invalid_grid_source")
         draft = self.site_draft()
-        self.entry.data.pop('battery_power_entity')
+        self.entry.data.pop("battery_power_entity")
         form = await self.flow.async_step_site_accounting(draft)
-        self.assertEqual(form['errors']['site_accounting_profile'], 'profile_requires_battery')
+        self.assertEqual(form["errors"]["site_accounting_profile"], "profile_requires_battery")
         self.assertEqual(self.updates, [])
 
-    async def test_battery_edit_cannot_introduce_conflicts_or_remove_required_source(self):
+    async def test_battery_edit_cannot_introduce_conflicts_or_remove_required_source(
+        self,
+    ):
         self.entry.data.update(self.site_draft())
-        for value, error in (('sensor.solar', 'duplicate_power_source'), ('', 'profile_requires_battery')):
-            form = await self.flow.async_step_energy_sources({
-                'battery_power_entity': value, 'battery_power_sign': 'positive_charge',
-            })
-            self.assertEqual(form['errors']['battery_power_entity'], error)
+        for value, error in (
+            ("sensor.solar", "duplicate_power_source"),
+            ("", "profile_requires_battery"),
+        ):
+            form = await self.flow.async_step_energy_sources(
+                {
+                    "battery_power_entity": value,
+                    "battery_power_sign": "positive_charge",
+                }
+            )
+            self.assertEqual(form["errors"]["battery_power_entity"], error)
         self.assertEqual(self.updates, [])
 
     async def test_stop_settings_defaults_validation_and_storage(self):
         draft = self.site_draft()
         form = await self.flow.async_step_site_accounting()
-        validated = form['data_schema'](draft)
-        self.assertEqual(validated['site_stop_threshold_w'], 500)
-        self.assertEqual(validated['site_stop_hold_seconds'], 180)
-        for key, value in (('site_stop_threshold_w', 0), ('site_stop_hold_seconds', 10),
-                           ('site_stop_threshold_w', float('nan'))):
+        validated = form["data_schema"](draft)
+        self.assertEqual(validated["site_stop_threshold_w"], 500)
+        self.assertEqual(validated["site_stop_hold_seconds"], 180)
+        for key, value in (
+            ("site_stop_threshold_w", 0),
+            ("site_stop_hold_seconds", 10),
+            ("site_stop_threshold_w", float("nan")),
+        ):
             result = await self.flow.async_step_site_accounting({**draft, key: value})
-            self.assertEqual(result['errors'][key], 'invalid_stop_settings')
-        await self.flow.async_step_site_accounting({**draft, 'site_stop_threshold_w': 750, 'site_stop_hold_seconds': 240})
-        self.assertEqual(self.entry.data['site_stop_threshold_w'], 750)
-        self.assertEqual(self.entry.data['site_stop_hold_seconds'], 240)
+            self.assertEqual(result["errors"][key], "invalid_stop_settings")
+        await self.flow.async_step_site_accounting(
+            {**draft, "site_stop_threshold_w": 750, "site_stop_hold_seconds": 240}
+        )
+        self.assertEqual(self.entry.data["site_stop_threshold_w"], 750)
+        self.assertEqual(self.entry.data["site_stop_hold_seconds"], 240)
 
     async def test_site_selectors_use_user_translations_not_server_language(self):
         """HA must localize choices per browser, even on a German server."""
-        translation_dir = (
-            Path(__file__).parents[1]
-            / 'custom_components/growatt_thor/translations'
-        )
+        translation_dir = Path(__file__).parents[1] / "custom_components/growatt_thor/translations"
         expected = {
-            'site_accounting_profile': list(self.module.PROFILES),
-            'site_auto_stop_mode': list(self.module.AUTO_STOP_MODES),
-            'site_grid_source': ['none', 'thor_external', 'ha_sensor'],
-            'site_grid_power_sign': list(self.module.GRID_SIGNS),
+            "site_accounting_profile": list(self.module.PROFILES),
+            "site_auto_stop_mode": list(self.module.AUTO_STOP_MODES),
+            "site_grid_source": ["none", "thor_external", "ha_sensor"],
+            "site_grid_power_sign": list(self.module.GRID_SIGNS),
         }
-        for server_language in ('de', 'en', 'fr'):
+        for server_language in ("de", "en", "fr"):
             self.flow.hass.config = SimpleNamespace(language=server_language)
             form = await self.flow.async_step_site_accounting()
             fields = {
-                marker.schema: validator
-                for marker, validator in form['data_schema'].schema.items()
+                marker.schema: validator for marker, validator in form["data_schema"].schema.items()
             }
             for field, options in expected.items():
                 with self.subTest(server_language=server_language, field=field):
-                    self.assertEqual(fields[field].config['options'], options)
-                    self.assertEqual(fields[field].config['translation_key'], field)
-            for path in sorted(translation_dir.glob('*.json')):
-                payload = json.loads(path.read_text(encoding='utf-8'))
+                    self.assertEqual(fields[field].config["options"], options)
+                    self.assertEqual(fields[field].config["translation_key"], field)
+            for path in sorted(translation_dir.glob("*.json")):
+                payload = json.loads(path.read_text(encoding="utf-8"))
                 with self.subTest(language=path.stem):
-                    labels = payload['options']['step']['site_accounting']['data']
+                    labels = payload["options"]["step"]["site_accounting"]["data"]
                     self.assertEqual(set(labels), set(fields))
-                    for error in ('duplicate_power_source', 'profile_requires_battery',
-                                  'invalid_grid_source', 'invalid_fixed_price'):
-                        self.assertTrue(payload['options']['error'][error])
+                    for error in (
+                        "duplicate_power_source",
+                        "profile_requires_battery",
+                        "invalid_grid_source",
+                        "invalid_fixed_price",
+                    ):
+                        self.assertTrue(payload["options"]["error"][error])
                     for field, options in expected.items():
-                        translated = payload['selector'][field]['options']
+                        translated = payload["selector"][field]["options"]
                         self.assertEqual(set(translated), set(options))
                         self.assertTrue(all(translated.values()))
         self.assertEqual(self.updates, [])
 
     async def test_learn_rejected_card_confirms_name_without_changing_permissions(self):
-        await self.flow.async_step_authorization({
-            'restrict_authorization': True, 'allow_ha_remote_start': False,
-            'authorized_id_tags': 'OLD | Existing card',
-        })
+        await self.flow.async_step_authorization(
+            {
+                "restrict_authorization": True,
+                "allow_ha_remote_start": False,
+                "authorized_id_tags": "OLD | Existing card",
+            }
+        )
         self.updates.clear()
         form = await self.flow.async_step_learn_rfid()
-        self.assertEqual(form['step_id'], 'learn_rfid')
-        self.other_coordinator.authorization.decide('OTHER', 'Authorize', 'now')
+        self.assertEqual(form["step_id"], "learn_rfid")
+        self.other_coordinator.authorization.decide("OTHER", "Authorize", "now")
         waiting = await self.flow.async_step_learn_rfid({})
-        self.assertEqual(waiting['errors'], {'base': 'rfid_not_seen'})
+        self.assertEqual(waiting["errors"], {"base": "rfid_not_seen"})
         runtime = self.coordinator.authorization
-        self.assertEqual(runtime.decide('00AbC', 'Authorize', 'now'), 'Invalid')
-        runtime.decide('SECOND', 'Authorize', 'now')
+        self.assertEqual(runtime.decide("00AbC", "Authorize", "now"), "Invalid")
+        runtime.decide("SECOND", "Authorize", "now")
         confirmation = await self.flow.async_step_learn_rfid({})
-        self.assertEqual(confirmation['step_id'], 'confirm_rfid')
-        self.assertEqual(confirmation['description_placeholders']['id_tag'], '00AbC')
+        self.assertEqual(confirmation["step_id"], "confirm_rfid")
+        self.assertEqual(confirmation["description_placeholders"]["id_tag"], "00AbC")
         self.assertEqual(self.updates, [])
-        self.assertEqual(runtime.policy.status('00AbC'), 'Invalid')
-        invalid = await self.flow.async_step_confirm_rfid({'alias': 'x' * 81})
-        self.assertEqual(invalid['errors'], {'base': 'invalid_rfid_alias'})
+        self.assertEqual(runtime.policy.status("00AbC"), "Invalid")
+        invalid = await self.flow.async_step_confirm_rfid({"alias": "x" * 81})
+        self.assertEqual(invalid["errors"], {"base": "invalid_rfid_alias"})
         self.assertEqual(self.updates, [])
-        result = await self.flow.async_step_confirm_rfid({'alias': 'Family car'})
-        self.assertEqual(result['data'], {})
-        self.assertEqual(runtime.policy.status('00AbC'), 'Accepted')
-        self.assertEqual(runtime.policy.status('SECOND'), 'Invalid')
-        self.assertEqual(runtime.policy.aliases, {'OLD': 'Existing card', '00AbC': 'Family car'})
+        result = await self.flow.async_step_confirm_rfid({"alias": "Family car"})
+        self.assertEqual(result["data"], {})
+        self.assertEqual(runtime.policy.status("00AbC"), "Accepted")
+        self.assertEqual(runtime.policy.status("SECOND"), "Invalid")
+        self.assertEqual(runtime.policy.aliases, {"OLD": "Existing card", "00AbC": "Family car"})
         self.assertFalse(runtime.policy.allow_ha_remote_start)
         self.assertTrue(runtime.policy.restricted)
-        self.assertEqual(self.entry.data['location'], 'Test location')
+        self.assertEqual(self.entry.data["location"], "Test location")
         self.assertEqual(self.other_coordinator.authorization.policy.id_tags, set())
         self.assertIsNone(self.flow._rfid_session.id_tag)
         reopened = await self.flow.async_step_authorization()
-        self.assertEqual(reopened['data_schema']({})['authorized_id_tags'],
-                         '00AbC | Family car\nOLD | Existing card')
+        self.assertEqual(
+            reopened["data_schema"]({})["authorized_id_tags"],
+            "00AbC | Family car\nOLD | Existing card",
+        )
 
     async def test_learning_timeout_and_disconnect_never_save(self):
         await self.flow.async_step_learn_rfid()
-        self.coordinator.authorization.decide('SECRET', 'Authorize', 'now')
+        self.coordinator.authorization.decide("SECRET", "Authorize", "now")
         self.flow._rfid_session.expires_at = 0
         expired = await self.flow.async_step_learn_rfid({})
-        self.assertEqual(expired, {'type': 'abort', 'reason': 'rfid_learning_expired'})
+        self.assertEqual(expired, {"type": "abort", "reason": "rfid_learning_expired"})
         self.assertIsNone(self.flow._rfid_session.id_tag)
         self.assertEqual(self.updates, [])
         self.flow._rfid_session = None
         await self.flow.async_step_learn_rfid()
-        self.coordinator.authorization.decide('SECRET', 'Authorize', 'now')
+        self.coordinator.authorization.decide("SECRET", "Authorize", "now")
         self.coordinator.connected = False
-        result = await self.flow.async_step_confirm_rfid({'alias': 'Never saved'})
-        self.assertEqual(result, {'type': 'abort', 'reason': 'rfid_charger_unavailable'})
+        result = await self.flow.async_step_confirm_rfid({"alias": "Never saved"})
+        self.assertEqual(result, {"type": "abort", "reason": "rfid_charger_unavailable"})
         self.assertIsNone(self.flow._rfid_session.id_tag)
         self.assertEqual(self.updates, [])
 
     async def test_learning_requires_loaded_connected_entry(self):
         self.flow.hass.data = {}
         result = await self.flow.async_step_learn_rfid()
-        self.assertEqual(result, {'type': 'abort', 'reason': 'rfid_charger_unavailable'})
+        self.assertEqual(result, {"type": "abort", "reason": "rfid_charger_unavailable"})
 
-    async def test_learning_does_not_overwrite_newer_policy_or_use_reloaded_runtime(self):
+    async def test_learning_does_not_overwrite_newer_policy_or_use_reloaded_runtime(
+        self,
+    ):
         await self.flow.async_step_learn_rfid()
-        self.coordinator.authorization.decide('NEW', 'Authorize', 'now')
-        policy = self.auth.policy_from_input(self.auth.AuthorizationPolicy(), {
-            'restrict_authorization': True, 'allow_ha_remote_start': False,
-            'authorized_id_tags': 'CONCURRENT | Saved elsewhere',
-        })
-        self.entry.data['local_authorization'] = policy.as_config()
-        await self.flow.async_step_confirm_rfid({'alias': 'New card'})
-        self.assertEqual(self.coordinator.authorization.policy.id_tags, {'NEW', 'CONCURRENT'})
+        self.coordinator.authorization.decide("NEW", "Authorize", "now")
+        policy = self.auth.policy_from_input(
+            self.auth.AuthorizationPolicy(),
+            {
+                "restrict_authorization": True,
+                "allow_ha_remote_start": False,
+                "authorized_id_tags": "CONCURRENT | Saved elsewhere",
+            },
+        )
+        self.entry.data["local_authorization"] = policy.as_config()
+        await self.flow.async_step_confirm_rfid({"alias": "New card"})
+        self.assertEqual(self.coordinator.authorization.policy.id_tags, {"NEW", "CONCURRENT"})
         self.assertFalse(self.coordinator.authorization.policy.allow_ha_remote_start)
         self.flow._rfid_session = None
         await self.flow.async_step_learn_rfid()
         previous = self.coordinator.authorization
-        previous.decide('NEVER-SAVE', 'Authorize', 'now')
+        previous.decide("NEVER-SAVE", "Authorize", "now")
         self.coordinator.authorization = self.auth.LocalAuthorization()
         self.updates.clear()
-        result = await self.flow.async_step_confirm_rfid({'alias': 'Reloaded'})
-        self.assertEqual(result['reason'], 'rfid_charger_unavailable')
+        result = await self.flow.async_step_confirm_rfid({"alias": "Reloaded"})
+        self.assertEqual(result["reason"], "rfid_charger_unavailable")
         self.assertEqual(self.updates, [])
         self.assertIsNone(self.flow._rfid_session.id_tag)
 
     async def test_named_allowlist_can_be_edited_offline(self):
         self.flow.hass.data = {}
-        await self.flow.async_step_authorization({
-            'restrict_authorization': True, 'authorized_id_tags': '00AbC | Family car',
-        })
+        await self.flow.async_step_authorization(
+            {
+                "restrict_authorization": True,
+                "authorized_id_tags": "00AbC | Family car",
+            }
+        )
         reopened = await self.flow.async_step_authorization()
-        self.assertEqual(reopened['data_schema']({})['authorized_id_tags'], '00AbC | Family car')
+        self.assertEqual(reopened["data_schema"]({})["authorized_id_tags"], "00AbC | Family car")
 
     async def test_save_preserves_existing_data_and_applies_live(self):
-        result = await self.flow.async_step_authorization({
-            'restrict_authorization': True,
-            'allow_ha_remote_start': False,
-            'authorized_id_tags': 'TEST-CARD',
-        })
-        self.assertEqual(result['data'], {})
-        self.assertEqual(self.entry.data['port'], 9000)
-        self.assertEqual(self.entry.data['location'], 'Test location')
-        self.assertEqual(
-            self.entry.data['local_authorization']['id_tags'],
-            ['TEST-CARD'],
+        result = await self.flow.async_step_authorization(
+            {
+                "restrict_authorization": True,
+                "allow_ha_remote_start": False,
+                "authorized_id_tags": "TEST-CARD",
+            }
         )
-        self.assertEqual(self.coordinator.authorization.policy.status('TEST-CARD'), 'Accepted')
-        self.assertEqual(self.coordinator.authorization.policy.status('OTHER-CARD'), 'Invalid')
+        self.assertEqual(result["data"], {})
+        self.assertEqual(self.entry.data["port"], 9000)
+        self.assertEqual(self.entry.data["location"], "Test location")
+        self.assertEqual(
+            self.entry.data["local_authorization"]["id_tags"],
+            ["TEST-CARD"],
+        )
+        self.assertEqual(self.coordinator.authorization.policy.status("TEST-CARD"), "Accepted")
+        self.assertEqual(self.coordinator.authorization.policy.status("OTHER-CARD"), "Invalid")
         self.assertFalse(self.coordinator.authorization.policy.allows_ha_remote_start())
         form = await self.flow.async_step_authorization()
-        self.assertEqual(form['description_placeholders']['count'], '1')
-        self.assertEqual(form['data_schema']({})['authorized_id_tags'], 'TEST-CARD')
+        self.assertEqual(form["description_placeholders"]["count"], "1")
+        self.assertEqual(form["data_schema"]({})["authorized_id_tags"], "TEST-CARD")
 
     async def test_invalid_input_does_not_mutate_and_remains_editable(self):
-        result = await self.flow.async_step_authorization({
-            'restrict_authorization': True, 'authorized_id_tags': 'SECRET INVALID TAG',
-        })
-        self.assertEqual(result['errors'], {'base': 'invalid_authorization'})
+        result = await self.flow.async_step_authorization(
+            {
+                "restrict_authorization": True,
+                "authorized_id_tags": "SECRET INVALID TAG",
+            }
+        )
+        self.assertEqual(result["errors"], {"base": "invalid_authorization"})
         self.assertEqual(self.updates, [])
         self.assertEqual(
-            result['data_schema']({})['authorized_id_tags'],
-            'SECRET INVALID TAG',
+            result["data_schema"]({})["authorized_id_tags"],
+            "SECRET INVALID TAG",
         )
-        self.assertTrue(result['data_schema']({})['restrict_authorization'])
+        self.assertTrue(result["data_schema"]({})["restrict_authorization"])
 
     async def test_can_save_while_charger_integration_is_offline(self):
         self.flow.hass.data = {}
-        await self.flow.async_step_authorization({'restrict_authorization': True})
-        policy = self.auth.AuthorizationPolicy.from_config(self.entry.data['local_authorization'])
-        self.assertEqual(policy.status('TEST-CARD'), 'Invalid')
+        await self.flow.async_step_authorization({"restrict_authorization": True})
+        policy = self.auth.AuthorizationPolicy.from_config(self.entry.data["local_authorization"])
+        self.assertEqual(policy.status("TEST-CARD"), "Invalid")
 
     async def test_general_options_apply_poll_interval_to_running_schedule(self):
         updates = []
         schedule = SimpleNamespace(update=updates.append)
-        self.runtime_data['poll_interval_schedule'] = schedule
+        self.runtime_data["poll_interval_schedule"] = schedule
 
-        result = await self.flow.async_step_general({
-            'poll_interval': '45',
-            'location': 'Garage',
-        })
+        result = await self.flow.async_step_general(
+            {
+                "poll_interval": "45",
+                "location": "Garage",
+            }
+        )
 
-        self.assertEqual(result['data'], {})
-        self.assertEqual(self.entry.data['poll_interval'], 45)
-        self.assertEqual(self.coordinator.location, 'Garage')
-        self.assertEqual(self.runtime_data['poll_interval'], 45)
+        self.assertEqual(result["data"], {})
+        self.assertEqual(self.entry.data["poll_interval"], 45)
+        self.assertEqual(self.coordinator.location, "Garage")
+        self.assertEqual(self.runtime_data["poll_interval"], 45)
         self.assertEqual(updates, [45])
         # Another charger's runtime is never touched by this entry's options.
-        self.assertEqual(self.other_runtime_data['poll_interval'], 30)
-        self.assertEqual(self.other_coordinator.location, 'Other charger')
+        self.assertEqual(self.other_runtime_data["poll_interval"], 30)
+        self.assertEqual(self.other_coordinator.location, "Other charger")
 
     async def test_general_options_reject_ambiguous_poll_intervals(self):
         for invalid, expected in (
-            (4, 'poll_interval_too_low'),
-            (5.5, 'invalid_poll_interval'),
-            (float('nan'), 'invalid_poll_interval'),
+            (4, "poll_interval_too_low"),
+            (5.5, "invalid_poll_interval"),
+            (float("nan"), "invalid_poll_interval"),
         ):
             with self.subTest(invalid=invalid):
-                result = await self.flow.async_step_general({
-                    'poll_interval': invalid,
-                    'location': 'Garage',
-                })
+                result = await self.flow.async_step_general(
+                    {
+                        "poll_interval": invalid,
+                        "location": "Garage",
+                    }
+                )
                 self.assertEqual(
-                    result['errors'],
-                    {'poll_interval': expected},
+                    result["errors"],
+                    {"poll_interval": expected},
                 )
         self.assertEqual(self.updates, [])
 
     async def test_editable_list_is_persistent_and_blank_clears_it(self):
-        await self.flow.async_step_authorization({
-            'restrict_authorization': True, 'authorized_id_tags': 'TEST-CARD',
-        })
-        await self.flow.async_step_authorization({'restrict_authorization': True})
-        self.assertEqual(self.coordinator.authorization.policy.status('TEST-CARD'), 'Accepted')
-        await self.flow.async_step_authorization({
-            'restrict_authorization': True, 'authorized_id_tags': '',
-        })
-        self.assertEqual(self.coordinator.authorization.policy.status('TEST-CARD'), 'Invalid')
+        await self.flow.async_step_authorization(
+            {
+                "restrict_authorization": True,
+                "authorized_id_tags": "TEST-CARD",
+            }
+        )
+        await self.flow.async_step_authorization({"restrict_authorization": True})
+        self.assertEqual(self.coordinator.authorization.policy.status("TEST-CARD"), "Accepted")
+        await self.flow.async_step_authorization(
+            {
+                "restrict_authorization": True,
+                "authorized_id_tags": "",
+            }
+        )
+        self.assertEqual(self.coordinator.authorization.policy.status("TEST-CARD"), "Invalid")
 
     async def test_optional_battery_power_sensor_is_saved_and_applied_live(self):
         self.flow.hass.states = {
-            'sensor.home_battery_power': SimpleNamespace(
-                state='1.5',
+            "sensor.home_battery_power": SimpleNamespace(
+                state="1.5",
                 attributes={
-                    'friendly_name': 'Home battery power',
-                    'unit_of_measurement': 'kW',
+                    "friendly_name": "Home battery power",
+                    "unit_of_measurement": "kW",
                 },
             )
         }
-        result = await self.flow.async_step_energy_sources({
-            'battery_power_entity': 'sensor.home_battery_power',
-            'battery_power_sign': 'positive_charge',
-        })
-        self.assertEqual(result['data'], {})
-        self.assertEqual(
-            self.entry.data['battery_power_entity'], 'sensor.home_battery_power'
+        result = await self.flow.async_step_energy_sources(
+            {
+                "battery_power_entity": "sensor.home_battery_power",
+                "battery_power_sign": "positive_charge",
+            }
         )
-        self.assertEqual(self.entry.data['battery_power_sign'], 'positive_charge')
-        self.assertEqual(
-            self.coordinator.battery_power_entity, 'sensor.home_battery_power'
-        )
+        self.assertEqual(result["data"], {})
+        self.assertEqual(self.entry.data["battery_power_entity"], "sensor.home_battery_power")
+        self.assertEqual(self.entry.data["battery_power_sign"], "positive_charge")
+        self.assertEqual(self.coordinator.battery_power_entity, "sensor.home_battery_power")
 
     async def test_battery_selector_filters_and_orders_candidates(self):
         self.flow.hass.states = {
-            'sensor.pv_power': SimpleNamespace(
-                state='4000',
-                attributes={'friendly_name': 'PV power', 'unit_of_measurement': 'W'},
+            "sensor.pv_power": SimpleNamespace(
+                state="4000",
+                attributes={"friendly_name": "PV power", "unit_of_measurement": "W"},
             ),
-            'sensor.battery_power': SimpleNamespace(
-                state='1000',
+            "sensor.battery_power": SimpleNamespace(
+                state="1000",
                 attributes={
-                    'friendly_name': 'Battery combined power',
-                    'unit_of_measurement': 'W',
+                    "friendly_name": "Battery combined power",
+                    "unit_of_measurement": "W",
                 },
             ),
-            'sensor.battery_energy': SimpleNamespace(
-                state='8',
+            "sensor.battery_energy": SimpleNamespace(
+                state="8",
                 attributes={
-                    'friendly_name': 'Battery energy',
-                    'unit_of_measurement': 'kWh',
+                    "friendly_name": "Battery energy",
+                    "unit_of_measurement": "kWh",
                 },
             ),
         }
         form = await self.flow.async_step_energy_sources()
         fields = {
-            marker.schema: validator
-            for marker, validator in form['data_schema'].schema.items()
+            marker.schema: validator for marker, validator in form["data_schema"].schema.items()
         }
-        options = fields['battery_power_entity'].config['options']
+        options = fields["battery_power_entity"].config["options"]
         self.assertEqual(
-            [option['value'] for option in options],
-            ['sensor.battery_power', 'sensor.pv_power'],
+            [option["value"] for option in options],
+            ["sensor.battery_power", "sensor.pv_power"],
         )
 
     async def test_battery_sensor_requires_a_power_unit(self):
         self.flow.hass.states = {
-            'sensor.battery_energy': SimpleNamespace(
-                state='8',
-                attributes={'unit_of_measurement': 'kWh'},
+            "sensor.battery_energy": SimpleNamespace(
+                state="8",
+                attributes={"unit_of_measurement": "kWh"},
             )
         }
-        result = await self.flow.async_step_energy_sources({
-            'battery_power_entity': 'sensor.battery_energy',
-            'battery_power_sign': 'positive_discharge',
-        })
-        self.assertEqual(
-            result['errors'], {'battery_power_entity': 'invalid_power_sensor'}
+        result = await self.flow.async_step_energy_sources(
+            {
+                "battery_power_entity": "sensor.battery_energy",
+                "battery_power_sign": "positive_discharge",
+            }
         )
+        self.assertEqual(result["errors"], {"battery_power_entity": "invalid_power_sensor"})
         self.assertEqual(self.updates, [])
 
     async def test_general_save_preserves_optional_energy_source(self):
-        self.entry.data.update({
-            'battery_power_entity': 'sensor.battery_power',
-            'battery_power_sign': 'positive_charge',
-        })
+        self.entry.data.update(
+            {
+                "battery_power_entity": "sensor.battery_power",
+                "battery_power_sign": "positive_charge",
+            }
+        )
 
-        await self.flow.async_step_general({
-            'poll_interval': 30,
-            'location': 'Garage',
-        })
+        await self.flow.async_step_general(
+            {
+                "poll_interval": 30,
+                "location": "Garage",
+            }
+        )
 
         self.assertEqual(
-            self.entry.data['battery_power_entity'],
-            'sensor.battery_power',
+            self.entry.data["battery_power_entity"],
+            "sensor.battery_power",
         )
-        self.assertEqual(self.entry.data['battery_power_sign'], 'positive_charge')
+        self.assertEqual(self.entry.data["battery_power_sign"], "positive_charge")
 
     async def test_blank_energy_source_disables_battery_flow_live(self):
-        self.entry.data.update({
-            'battery_power_entity': 'sensor.battery_power',
-            'battery_power_sign': 'positive_charge',
-        })
-        self.coordinator.battery_power_entity = 'sensor.battery_power'
-        self.coordinator.battery_power_sign = 'positive_charge'
+        self.entry.data.update(
+            {
+                "battery_power_entity": "sensor.battery_power",
+                "battery_power_sign": "positive_charge",
+            }
+        )
+        self.coordinator.battery_power_entity = "sensor.battery_power"
+        self.coordinator.battery_power_sign = "positive_charge"
 
-        result = await self.flow.async_step_energy_sources({
-            'battery_power_entity': '',
-            'battery_power_sign': 'invalid-but-irrelevant',
-        })
+        result = await self.flow.async_step_energy_sources(
+            {
+                "battery_power_entity": "",
+                "battery_power_sign": "invalid-but-irrelevant",
+            }
+        )
 
-        self.assertEqual(result['data'], {})
-        self.assertNotIn('battery_power_entity', self.entry.data)
-        self.assertNotIn('battery_power_sign', self.entry.data)
+        self.assertEqual(result["data"], {})
+        self.assertNotIn("battery_power_entity", self.entry.data)
+        self.assertNotIn("battery_power_sign", self.entry.data)
         self.assertIsNone(self.coordinator.battery_power_entity)
         self.assertEqual(
             self.coordinator.battery_power_sign,
-            'positive_discharge',
+            "positive_discharge",
         )
 
 
-@unittest.skipUnless(HAS_VOL, 'Install tests/requirements-auth.txt for config-flow tests')
+@unittest.skipUnless(HAS_VOL, "Install tests/requirements-auth.txt for config-flow tests")
 class ConfigFlowSetupTest(unittest.IsolatedAsyncioTestCase):
     """A second charger is a second entry on a port of its own."""
 
@@ -683,11 +772,13 @@ class ConfigFlowSetupTest(unittest.IsolatedAsyncioTestCase):
         form = await flow.async_step_user()
         self.assertEqual(form["step_id"], "user")
 
-        result = await flow.async_step_user({
-            "port": 9001,
-            "location": "",
-            "poll_interval": 30,
-        })
+        result = await flow.async_step_user(
+            {
+                "port": 9001,
+                "location": "",
+                "poll_interval": 30,
+            }
+        )
 
         self.assertEqual(result["data"]["port"], 9001)
         self.assertEqual(result["title"], "Growatt THOR EV Charger (port 9001)")
@@ -698,11 +789,13 @@ class ConfigFlowSetupTest(unittest.IsolatedAsyncioTestCase):
             SimpleNamespace(entry_id="existing", data={"port": 9000}),
         ]
 
-        result = await flow.async_step_user({
-            "port": "9000",
-            "location": "",
-            "poll_interval": 30,
-        })
+        result = await flow.async_step_user(
+            {
+                "port": "9000",
+                "location": "",
+                "poll_interval": 30,
+            }
+        )
 
         self.assertEqual(result["errors"], {"port": "port_already_configured"})
 
@@ -710,11 +803,13 @@ class ConfigFlowSetupTest(unittest.IsolatedAsyncioTestCase):
         flow = self.module.GrowattThorConfigFlow()
         flow.current_entries = []
 
-        result = await flow.async_step_user({
-            "port": 9000,
-            "location": "",
-            "poll_interval": 30,
-        })
+        result = await flow.async_step_user(
+            {
+                "port": 9000,
+                "location": "",
+                "poll_interval": 30,
+            }
+        )
 
         self.assertEqual(result["title"], "Growatt THOR EV Charger")
 
@@ -726,52 +821,69 @@ class ConfigFlowSetupTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result["step_id"], "user")
 
-    @unittest.skipUnless(HAS_SERIALIZER, 'Install tests/requirements-auth.txt')
+    @unittest.skipUnless(HAS_SERIALIZER, "Install tests/requirements-auth.txt")
     async def test_setup_form_serializes_port_and_interval_selectors(self):
         flow = self.module.GrowattThorConfigFlow()
         fields = serialized_form_fields(await flow.async_step_user())
-        self.assertEqual(fields['port']['selector']['number'], {
-            'min': 1, 'max': 65535, 'step': 1, 'mode': 'box',
-        })
-        self.assertEqual(fields['port']['default'], self.module.DEFAULT_PORT)
-        self.assertEqual(fields['poll_interval']['selector']['number'], {
-            'min': self.module.MIN_POLL_INTERVAL, 'step': 1, 'mode': 'box',
-        })
         self.assertEqual(
-            fields['poll_interval']['default'], self.module.DEFAULT_POLL_INTERVAL
+            fields["port"]["selector"]["number"],
+            {
+                "min": 1,
+                "max": 65535,
+                "step": 1,
+                "mode": "box",
+            },
         )
+        self.assertEqual(fields["port"]["default"], self.module.DEFAULT_PORT)
+        self.assertEqual(
+            fields["poll_interval"]["selector"]["number"],
+            {
+                "min": self.module.MIN_POLL_INTERVAL,
+                "step": 1,
+                "mode": "box",
+            },
+        )
+        self.assertEqual(fields["poll_interval"]["default"], self.module.DEFAULT_POLL_INTERVAL)
         # Number selectors may submit integral floats; retain strict normalization.
-        result = await flow.async_step_user({
-            'port': 9000.0, 'location': '', 'poll_interval': 30.0,
-        })
-        self.assertIs(type(result['data']['port']), int)
-        self.assertIs(type(result['data']['poll_interval']), int)
+        result = await flow.async_step_user(
+            {
+                "port": 9000.0,
+                "location": "",
+                "poll_interval": 30.0,
+            }
+        )
+        self.assertIs(type(result["data"]["port"]), int)
+        self.assertIs(type(result["data"]["poll_interval"]), int)
 
     async def test_port_must_be_an_exact_protocol_port(self):
-        for invalid in (0, 65536, 9000.5, float('nan')):
+        for invalid in (0, 65536, 9000.5, float("nan")):
             with self.subTest(invalid=invalid):
                 flow = self.module.GrowattThorConfigFlow()
                 flow.current_entries = []
-                result = await flow.async_step_user({
-                    'port': invalid,
-                    'location': '',
-                    'poll_interval': 30,
-                })
-                self.assertEqual(result['errors'], {'port': 'invalid_port'})
+                result = await flow.async_step_user(
+                    {
+                        "port": invalid,
+                        "location": "",
+                        "poll_interval": 30,
+                    }
+                )
+                self.assertEqual(result["errors"], {"port": "invalid_port"})
 
     async def test_valid_numeric_strings_are_normalized_without_rounding(self):
         flow = self.module.GrowattThorConfigFlow()
         flow.current_entries = []
 
-        result = await flow.async_step_user({
-            'port': '9000',
-            'location': '',
-            'poll_interval': '30',
-        })
+        result = await flow.async_step_user(
+            {
+                "port": "9000",
+                "location": "",
+                "poll_interval": "30",
+            }
+        )
 
-        self.assertEqual(result['data']['port'], 9000)
-        self.assertEqual(result['data']['poll_interval'], 30)
+        self.assertEqual(result["data"]["port"], 9000)
+        self.assertEqual(result["data"]["poll_interval"], 30)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

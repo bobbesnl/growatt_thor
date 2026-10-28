@@ -1,4 +1,5 @@
 """Dashboard contract tests without a Home Assistant runtime."""
+
 import importlib.util
 import sys
 import types
@@ -10,7 +11,9 @@ NAME = "thor_card_test_target"
 package = types.ModuleType(NAME)
 package.__path__ = [str(ROOT)]
 sys.modules[NAME] = package
-spec = importlib.util.spec_from_file_location(f"{NAME}.presentation.card_data", ROOT / "presentation/card_data.py")
+spec = importlib.util.spec_from_file_location(
+    f"{NAME}.presentation.card_data", ROOT / "presentation/card_data.py"
+)
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
@@ -21,56 +24,94 @@ def packet(samples):
 
 
 def sample(value, phase=None, unit="W", measurand="Power.Active.Import"):
-    return {"numeric_value": value, "phase": phase, "unit": unit, "measurand": measurand}
+    return {
+        "numeric_value": value,
+        "phase": phase,
+        "unit": unit,
+        "measurand": measurand,
+    }
 
 
 class CardDataTest(unittest.TestCase):
-    def test_fixed_wallbox_clock_normalizes_active_start_without_changing_identity(self):
-        request = {'timestamp': '2026-10-27T13:01:23'}
+    def test_fixed_wallbox_clock_normalizes_active_start_without_changing_identity(
+        self,
+    ):
+        request = {"timestamp": "2026-10-27T13:01:23"}
         c = types.SimpleNamespace(
-            transaction_is_active=True, transaction_id=7,
-            active_transaction={'start': {
-                'received_at': '2026-10-27T11:01:25Z',
-                'request': request, 'response': {'transaction_id': 7},
-            }},
-            hass=types.SimpleNamespace(config=types.SimpleNamespace(time_zone='Europe/Berlin')),
+            transaction_is_active=True,
+            transaction_id=7,
+            active_transaction={
+                "start": {
+                    "received_at": "2026-10-27T11:01:25Z",
+                    "request": request,
+                    "response": {"transaction_id": 7},
+                }
+            },
+            hass=types.SimpleNamespace(config=types.SimpleNamespace(time_zone="Europe/Berlin")),
             configuration_values={},
         )
         before = module.dashboard_active_session(c)
-        self.assertEqual(before['start_time'], '2026-10-27T12:01:23Z')
+        self.assertEqual(before["start_time"], "2026-10-27T12:01:23Z")
         c.configuration_values = {
-            'G_TimeZone': types.SimpleNamespace(raw_value='UTC+2'),
-            'G_DaylightSavingTime': types.SimpleNamespace(raw_value='00-00&00-00'),
+            "G_TimeZone": types.SimpleNamespace(raw_value="UTC+2"),
+            "G_DaylightSavingTime": types.SimpleNamespace(raw_value="00-00&00-00"),
         }
         after = module.dashboard_active_session(c)
-        self.assertEqual(after['start_time'], '2026-10-27T11:01:23Z')
-        self.assertEqual(before['session_id'], after['session_id'])
-        self.assertEqual(request, {'timestamp': '2026-10-27T13:01:23'})
-        request['timestamp'] = '2026-10-27T11:01:23Z'
-        self.assertEqual(module.dashboard_active_session(c)['start_time'], '2026-10-27T11:01:23Z')
+        self.assertEqual(after["start_time"], "2026-10-27T11:01:23Z")
+        self.assertEqual(before["session_id"], after["session_id"])
+        self.assertEqual(request, {"timestamp": "2026-10-27T13:01:23"})
+        request["timestamp"] = "2026-10-27T11:01:23Z"
+        self.assertEqual(module.dashboard_active_session(c)["start_time"], "2026-10-27T11:01:23Z")
 
     def test_live_sources_balance_fresh_charger_power_and_disappear_when_stale(self):
         at = "2026-09-22T12:00:00Z"
         coordinator = types.SimpleNamespace(
-            last_meter_values={"received_at": at, "meter_values": [{
-                "timestamp": at,
-                "sampled_values": [sample(3000)],
-            }]},
-            last_status_notification=None, active_transaction={"start": {"received_at": at}},
-            boot_notification=None, source_instance_id="test", charge_point_id="thor",
-            transaction_id=2, configuration_values={}, transaction_is_active=True,
-            energy=3000, max_current=None, _effective_meter_gap_seconds=lambda: 180,
-            external_meter_health="healthy", grid_power=1000,
-            external_meter_last_updated_at=at, external_meter_poll_interval=30,
-            site_accounting_options={"site_accounting_profile": "pv", "site_grid_source": "thor_external",
-                                     "site_solar_power_entity": "sensor.pv", "site_fixed_price": .2},
-            hass=types.SimpleNamespace(states={"sensor.pv": types.SimpleNamespace(
-                state="2", attributes={"unit_of_measurement": "kW"}, last_updated=at)}),
+            last_meter_values={
+                "received_at": at,
+                "meter_values": [
+                    {
+                        "timestamp": at,
+                        "sampled_values": [sample(3000)],
+                    }
+                ],
+            },
+            last_status_notification=None,
+            active_transaction={"start": {"received_at": at}},
+            boot_notification=None,
+            source_instance_id="test",
+            charge_point_id="thor",
+            transaction_id=2,
+            configuration_values={},
+            transaction_is_active=True,
+            energy=3000,
+            max_current=None,
+            _effective_meter_gap_seconds=lambda: 180,
+            external_meter_health="healthy",
+            grid_power=1000,
+            external_meter_last_updated_at=at,
+            external_meter_poll_interval=30,
+            site_accounting_options={
+                "site_accounting_profile": "pv",
+                "site_grid_source": "thor_external",
+                "site_solar_power_entity": "sensor.pv",
+                "site_fixed_price": 0.2,
+            },
+            hass=types.SimpleNamespace(
+                states={
+                    "sensor.pv": types.SimpleNamespace(
+                        state="2",
+                        attributes={"unit_of_measurement": "kW"},
+                        last_updated=at,
+                    )
+                }
+            ),
             now=lambda: at,
         )
         sources = module.dashboard_attributes(coordinator)["power_flow"]["charging_sources"]
-        self.assertEqual(sources, {"solar_w": 2000.0, "grid_w": 1000.0,
-                                   "battery_w": 0.0, "unknown_w": 0.0})
+        self.assertEqual(
+            sources,
+            {"solar_w": 2000.0, "grid_w": 1000.0, "battery_w": 0.0, "unknown_w": 0.0},
+        )
         coordinator.now = lambda: "2026-09-22T12:05:00Z"
         self.assertNotIn("charging_sources", module.dashboard_attributes(coordinator)["power_flow"])
 
@@ -143,10 +184,7 @@ class CardDataTest(unittest.TestCase):
         self.assertEqual(data["total_energy_kwh"], 42.0)
 
     def test_state_payload_budget_drops_completed_details_before_rows(self):
-        curve = [
-            [f"2026-09-14T08:{minute:02d}:00Z", 7000 + minute]
-            for minute in range(60)
-        ]
+        curve = [[f"2026-09-14T08:{minute:02d}:00Z", 7000 + minute] for minute in range(60)]
         attributes = {
             "schema": 1,
             "sessions": {
@@ -173,7 +211,9 @@ class CardDataTest(unittest.TestCase):
         self.assertNotIn("power_curve", result["sessions"]["items"][-1])
         self.assertTrue(result["sessions"]["items"][-1]["detail_available"])
 
-    def test_active_session_can_recover_from_transaction_id_without_start_snapshot(self):
+    def test_active_session_can_recover_from_transaction_id_without_start_snapshot(
+        self,
+    ):
         coordinator = types.SimpleNamespace(
             transaction_is_active=True,
             active_transaction=None,
@@ -204,22 +244,47 @@ class CardDataTest(unittest.TestCase):
         self.assertEqual(data["total_count"], 1)
 
     def test_power_scale_identity_distinguishes_single_and_three_phase(self):
-        for model, phases, power in [("THOR_03AS-S", 1, 3.7), ("THOR_07AS", 1, 7.4), ("THOR_11AS", 3, 11), ("THOR_22AS", 3, 22), ("THOR_44AS", 3, 44)]:
-            self.assertEqual(module.charging_power_identity(model), {"nominal_phases": phases, "rated_power_kw": power})
+        for model, phases, power in [
+            ("THOR_03AS-S", 1, 3.7),
+            ("THOR_07AS", 1, 7.4),
+            ("THOR_11AS", 3, 11),
+            ("THOR_22AS", 3, 22),
+            ("THOR_44AS", 3, 44),
+        ]:
+            self.assertEqual(
+                module.charging_power_identity(model),
+                {"nominal_phases": phases, "rated_power_kw": power},
+            )
         self.assertIsNone(module.charging_power_identity("unknown")["rated_power_kw"])
-        self.assertIsNone(module.charging_power_identity("THOR_07AS", "THOR_22AS")["nominal_phases"])
+        self.assertIsNone(
+            module.charging_power_identity("THOR_07AS", "THOR_22AS")["nominal_phases"]
+        )
 
     def test_authorization_mode_is_safe_reported_configuration_not_policy(self):
         coordinator = types.SimpleNamespace(
-            last_meter_values=None, last_status_notification=None,
-            active_transaction=None, boot_notification=None, source_instance_id="test",
-            configuration_values={}, transaction_is_active=False, energy=None,
-            _effective_meter_gap_seconds=lambda: 180, external_meter_health="not_reported",
-            grid_power=None, external_meter_last_updated_at=None,
+            last_meter_values=None,
+            last_status_notification=None,
+            active_transaction=None,
+            boot_notification=None,
+            source_instance_id="test",
+            configuration_values={},
+            transaction_is_active=False,
+            energy=None,
+            _effective_meter_gap_seconds=lambda: 180,
+            external_meter_health="not_reported",
+            grid_power=None,
+            external_meter_last_updated_at=None,
         )
         self.assertIsNone(module.dashboard_attributes(coordinator)["auth_mode"])
-        for raw, expected in [("1", "home_assistant_rfid"), ("2", "rfid_only"), ("3", "plug_and_charge"), ("bad", None)]:
-            coordinator.configuration_values = {"G_ChargerMode": types.SimpleNamespace(raw_value=raw)}
+        for raw, expected in [
+            ("1", "home_assistant_rfid"),
+            ("2", "rfid_only"),
+            ("3", "plug_and_charge"),
+            ("bad", None),
+        ]:
+            coordinator.configuration_values = {
+                "G_ChargerMode": types.SimpleNamespace(raw_value=raw)
+            }
             result = module.dashboard_attributes(coordinator)
             self.assertEqual(result["auth_mode"], expected)
             self.assertNotIn("authorization", result)
@@ -227,16 +292,21 @@ class CardDataTest(unittest.TestCase):
 
     def test_power_flow_preserves_signed_grid_balance_and_pv_allowance(self):
         coordinator = types.SimpleNamespace(
-            last_meter_values=None, last_status_notification=None,
-            active_transaction=None, boot_notification=None, source_instance_id="test",
+            last_meter_values=None,
+            last_status_notification=None,
+            active_transaction=None,
+            boot_notification=None,
+            source_instance_id="test",
             configuration_values={
-                "G_SolarLimitPower": types.SimpleNamespace(
-                    raw_value="3.96", parsed_value=3.96
-                )
+                "G_SolarLimitPower": types.SimpleNamespace(raw_value="3.96", parsed_value=3.96)
             },
-            transaction_is_active=False, energy=None, max_current=None,
-            _effective_meter_gap_seconds=lambda: 180, external_meter_health="healthy",
-            grid_power=-3446, external_meter_last_updated_at="2026-09-09T12:00:00Z",
+            transaction_is_active=False,
+            energy=None,
+            max_current=None,
+            _effective_meter_gap_seconds=lambda: 180,
+            external_meter_health="healthy",
+            grid_power=-3446,
+            external_meter_last_updated_at="2026-09-09T12:00:00Z",
         )
 
         self.assertEqual(
@@ -283,9 +353,7 @@ class CardDataTest(unittest.TestCase):
 
         power_flow = module.dashboard_attributes(coordinator)["power_flow"]
         self.assertEqual(power_flow["battery_w"], 1250)
-        self.assertEqual(
-            power_flow["battery_received_at"], "2026-09-12T10:00:01Z"
-        )
+        self.assertEqual(power_flow["battery_received_at"], "2026-09-12T10:00:01Z")
         self.assertEqual(power_flow["battery_sign"], "positive_discharge")
 
     def test_missing_phases_are_not_zero(self):
@@ -294,42 +362,75 @@ class CardDataTest(unittest.TestCase):
         self.assertIsNone(data["power_w"])
 
     def test_units_and_total_power_are_not_double_counted(self):
-        data = module.dashboard_meter_values(packet([sample(8.3, unit="kW"), sample(2700, "L1"), sample(2800, "L2"), sample(2800, "L3")]))
+        data = module.dashboard_meter_values(
+            packet(
+                [
+                    sample(8.3, unit="kW"),
+                    sample(2700, "L1"),
+                    sample(2800, "L2"),
+                    sample(2800, "L3"),
+                ]
+            )
+        )
         self.assertEqual(data["power_w"], 8300)
 
     def test_partial_power_is_not_reported_as_total(self):
         self.assertIsNone(module.dashboard_meter_values(packet([sample(2700, "L1")]))["power_w"])
-        self.assertEqual(module.dashboard_meter_values(packet([sample(0, "L1"), sample(0, "L2"), sample(0, "L3")]))["power_w"], 0)
+        self.assertEqual(
+            module.dashboard_meter_values(
+                packet([sample(0, "L1"), sample(0, "L2"), sample(0, "L3")])
+            )["power_w"],
+            0,
+        )
 
     def test_nonfinite_and_unsupported_units_are_missing(self):
-        data = module.dashboard_meter_values(packet([sample(float("nan"), "L1", "A", "Current.Import"), sample(12, "L2", "kA", "Current.Import"), sample(float("inf"))]))
+        data = module.dashboard_meter_values(
+            packet(
+                [
+                    sample(float("nan"), "L1", "A", "Current.Import"),
+                    sample(12, "L2", "kA", "Current.Import"),
+                    sample(float("inf")),
+                ]
+            )
+        )
         self.assertEqual(data["currents_a"], [None, None, None])
         self.assertIsNone(data["power_w"])
 
     def test_latest_entry_does_not_retain_prior_phases(self):
         first = packet([sample(12, "L1", "A", "Current.Import")])
-        first["meter_values"].append({"timestamp":"later", "sampled_values":[sample(0, "L2", "A", "Current.Import")]})
+        first["meter_values"].append(
+            {
+                "timestamp": "later",
+                "sampled_values": [sample(0, "L2", "A", "Current.Import")],
+            }
+        )
         self.assertEqual(module.dashboard_meter_values(first)["currents_a"], [None, 0, None])
 
     def test_unphased_current_is_not_assigned_to_l1(self):
-        self.assertEqual(module.dashboard_meter_values(packet([sample(12, None, "A", "Current.Import")]))["currents_a"], [None, None, None])
+        self.assertEqual(
+            module.dashboard_meter_values(packet([sample(12, None, "A", "Current.Import")]))[
+                "currents_a"
+            ],
+            [None, None, None],
+        )
 
     def test_empty_packet(self):
         self.assertIsNone(module.dashboard_meter_values(None)["power_w"])
 
 
-
 class LivePowerStatusTest(unittest.TestCase):
     def test_card_keeps_raw_values_but_zeroes_non_charging_display(self):
-        raw = packet([sample(971), sample(4.2, phase='L1', unit='A', measurand='Current.Import')])
-        coordinator = types.SimpleNamespace(last_meter_values=raw, connected=True, status='SuspendedEV')
-        self.assertEqual(module.live_dashboard_meter_values(coordinator)['power_w'], 0)
-        self.assertEqual(module.live_dashboard_meter_values(coordinator)['currents_a'], [0, 0, 0])
-        self.assertEqual(module.dashboard_meter_values(raw)['power_w'], 971)
-        coordinator.status = 'Charging'
-        self.assertEqual(module.live_dashboard_meter_values(coordinator)['power_w'], 971)
+        raw = packet([sample(971), sample(4.2, phase="L1", unit="A", measurand="Current.Import")])
+        coordinator = types.SimpleNamespace(
+            last_meter_values=raw, connected=True, status="SuspendedEV"
+        )
+        self.assertEqual(module.live_dashboard_meter_values(coordinator)["power_w"], 0)
+        self.assertEqual(module.live_dashboard_meter_values(coordinator)["currents_a"], [0, 0, 0])
+        self.assertEqual(module.dashboard_meter_values(raw)["power_w"], 971)
+        coordinator.status = "Charging"
+        self.assertEqual(module.live_dashboard_meter_values(coordinator)["power_w"], 971)
         coordinator.connected = False
-        self.assertEqual(module.live_dashboard_meter_values(coordinator)['power_w'], 0)
+        self.assertEqual(module.live_dashboard_meter_values(coordinator)["power_w"], 0)
 
 
 if __name__ == "__main__":

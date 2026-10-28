@@ -5,19 +5,19 @@ on free local ports.  Only Home Assistant itself and the coordinator are
 replaced by small stand-ins, so the tests check which port and runtime each
 entry owns after a failure (review on PR #58).
 """
+
 import asyncio
 import importlib.util
-from pathlib import Path
 import socket
 import sys
-from types import ModuleType, SimpleNamespace
 import unittest
-from unittest.mock import AsyncMock, patch
+from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import ModuleType, SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 HAS_DEPS = all(
-    importlib.util.find_spec(name) is not None
-    for name in ("ocpp", "websockets", "voluptuous")
+    importlib.util.find_spec(name) is not None for name in ("ocpp", "websockets", "voluptuous")
 )
 
 PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
@@ -77,7 +77,11 @@ def _install_home_assistant_stand_ins():
     _default(exceptions, "HomeAssistantError", _HomeAssistantError)
     _default(exceptions, "ConfigEntryNotReady", _ConfigEntryNotReady)
     _default(exceptions, "ServiceValidationError", _ServiceValidationError)
-    _default(_module("homeassistant.helpers.config_validation"), "config_entry_only_config_schema", lambda domain: {})
+    _default(
+        _module("homeassistant.helpers.config_validation"),
+        "config_entry_only_config_schema",
+        lambda domain: {},
+    )
     _module("homeassistant.helpers.device_registry")
     _module("homeassistant.helpers.entity_registry")
     _default(_module("homeassistant.helpers.storage"), "Store", object)
@@ -232,9 +236,19 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
         # on the real entry lifecycle and actual listening sockets.
         self.extra_patches = []
         for name, attrs in {
-            "charging.pv_service": {"async_setup_pv_linkage_service": AsyncMock(), "async_unload_pv_linkage_service": lambda *args: None},
-            "targets.services": {"async_setup_target_services": AsyncMock(), "async_unload_target_services": lambda *args: None},
-            "energy.stop_runtime": {"EnergyStopGuard": lambda *args: SimpleNamespace(refresh=lambda: None, async_shutdown=AsyncMock())},
+            "charging.pv_service": {
+                "async_setup_pv_linkage_service": AsyncMock(),
+                "async_unload_pv_linkage_service": lambda *args: None,
+            },
+            "targets.services": {
+                "async_setup_target_services": AsyncMock(),
+                "async_unload_target_services": lambda *args: None,
+            },
+            "energy.stop_runtime": {
+                "EnergyStopGuard": lambda *args: SimpleNamespace(
+                    refresh=lambda: None, async_shutdown=AsyncMock()
+                )
+            },
         }.items():
             module = ModuleType(PACKAGE_NAME + "." + name)
             module.__dict__.update(attrs)
@@ -243,9 +257,7 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
             self.extra_patches.append(p)
 
     async def asyncTearDown(self):
-        for entry_id, runtime in list(
-            self.hass.data.get(integration.DOMAIN, {}).items()
-        ):
+        for _entry_id, runtime in list(self.hass.data.get(integration.DOMAIN, {}).items()):
             server = runtime.get("server")
             if server is not None:
                 server.close()
@@ -277,6 +289,7 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_saved_charger_identity_survives_setup_and_rejects_foreign_id(self):
         from unittest.mock import AsyncMock
+
         entry = self.entry("bound", _free_port())
         entry.data["bind_address"] = "127.0.0.1"
         self.assertTrue(await integration.async_setup_entry(self.hass, entry))
@@ -293,7 +306,9 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ws.close.call_args.kwargs["code"], 1008)
         self.assertNotIn("charge_point", c.runtime_data)
 
-    async def test_failed_platform_setup_frees_its_port_and_keeps_the_other_charger(self):
+    async def test_failed_platform_setup_frees_its_port_and_keeps_the_other_charger(
+        self,
+    ):
         right = self.entry("entry-right", _free_port())
         left = self.entry("entry-left", _free_port())
         self.hass.config_entries.fail_platform_setup.add("entry-left")

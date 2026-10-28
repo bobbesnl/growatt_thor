@@ -1,16 +1,12 @@
 """Test optional Home Assistant energy-source normalization."""
+
 import importlib.util
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "energy/sources.py"
-)
+MODULE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "energy/sources.py"
 SPEC = importlib.util.spec_from_file_location("thor_energy_sources_test_target", MODULE_PATH)
 energy_sources = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(energy_sources)
@@ -30,9 +26,7 @@ class EnergySourcesTest(unittest.TestCase):
             "sensor.pv_power": state("4200", "W", "PV power"),
             "sensor.storage_flow": state("700", "W", "House storage"),
             "sensor.home_battery_power": state("1.5", "kW", "Home battery power"),
-            "sensor.battery_combined_power": state(
-                "-900", "W", "Battery combined power"
-            ),
+            "sensor.battery_combined_power": state("-900", "W", "Battery combined power"),
             "sensor.battery_energy": state("8", "kWh", "Battery energy"),
             "switch.battery_power": state("1", "W", "Battery switch"),
         }
@@ -60,7 +54,10 @@ class EnergySourcesTest(unittest.TestCase):
         options = energy_sources.power_sensor_options(states, role="solar")
         self.assertEqual(options[1]["value"], "sensor.pv")
         options = energy_sources.power_sensor_options(
-            states, "sensor.battery", role="solar", exclude={"sensor.battery"},
+            states,
+            "sensor.battery",
+            role="solar",
+            exclude={"sensor.battery"},
         )
         self.assertIn("sensor.battery", [item["value"] for item in options])
         states["sensor.battery"].attributes["unit_of_measurement"] = "kWh"
@@ -86,7 +83,7 @@ class EnergySourcesTest(unittest.TestCase):
         self.assertIsNone(energy_sources.power_w(state("2", "kWh", "Battery")))
 
     def test_battery_flow_uses_one_documented_positive_discharge_contract(self):
-        updated = datetime(2026, 9, 12, 10, 0, tzinfo=timezone.utc)
+        updated = datetime(2026, 9, 12, 10, 0, tzinfo=UTC)
         battery = state("1.5", "kW", "Battery", updated=updated)
         coordinator = SimpleNamespace(
             hass=SimpleNamespace(states={"sensor.battery": battery}),
@@ -102,13 +99,13 @@ class EnergySourcesTest(unittest.TestCase):
             },
         )
         coordinator.battery_power_sign = energy_sources.BATTERY_POSITIVE_CHARGE
-        self.assertEqual(
-            energy_sources.battery_power_attributes(coordinator)["battery_w"], -1500
-        )
+        self.assertEqual(energy_sources.battery_power_attributes(coordinator)["battery_w"], -1500)
         # A repeated unchanged report is still current; a restored value is not live.
-        battery.last_reported = datetime(2026, 9, 12, 10, 5, tzinfo=timezone.utc)
-        self.assertEqual(energy_sources.battery_power_attributes(coordinator)["battery_received_at"],
-                         "2026-09-12T10:05:00Z")
+        battery.last_reported = datetime(2026, 9, 12, 10, 5, tzinfo=UTC)
+        self.assertEqual(
+            energy_sources.battery_power_attributes(coordinator)["battery_received_at"],
+            "2026-09-12T10:05:00Z",
+        )
         battery.attributes["restored"] = True
         self.assertIsNone(energy_sources.battery_power_attributes(coordinator)["battery_w"])
         coordinator.battery_power_entity = None

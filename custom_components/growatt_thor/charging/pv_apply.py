@@ -5,6 +5,7 @@ Manual and Smart Boost therefore require two independent OCPP requests.  This
 module keeps the unavoidable partial-success handling outside the Home
 Assistant button entity so that the behaviour can be tested directly.
 """
+
 from __future__ import annotations
 
 import logging
@@ -12,18 +13,17 @@ import logging
 from ocpp.v16.enums import ConfigurationStatus, DataTransferStatus
 
 from ..configuration.writes import ConfigurationWriteStatus
+from ..runtime.write_queue import (
+    ChargerConnectionUnavailable,
+    ChargerRequestOutcomeUncertain,
+    ChargerWriteResult,
+)
 from .pv_linkage import (
     ConfigurationWrite,
     DataTransferWrite,
     PvLinkageApplyResult,
     PvLinkageApplyStatus,
 )
-from ..runtime.write_queue import (
-    ChargerConnectionUnavailable,
-    ChargerRequestOutcomeUncertain,
-    ChargerWriteResult,
-)
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,11 +54,9 @@ async def apply_pv_linkage_writes(
             if isinstance(write, ConfigurationWrite):
                 active_step = write.key
                 active_configuration_key = write.key
-                active_configuration_generation = (
-                    coordinator.begin_configuration_write(
-                        write.key,
-                        write.value,
-                    )
+                active_configuration_generation = coordinator.begin_configuration_write(
+                    write.key,
+                    write.value,
                 )
                 result = await charge_point.change_configuration(
                     write.key,
@@ -68,13 +66,11 @@ async def apply_pv_linkage_writes(
                     ConfigurationStatus.accepted,
                     ConfigurationStatus.reboot_required,
                 }
-                outcome_is_current = (
-                    coordinator.acknowledge_configuration_write(
-                        write.key,
-                        generation=active_configuration_generation,
-                        accepted=accepted,
-                        result=result,
-                    )
+                outcome_is_current = coordinator.acknowledge_configuration_write(
+                    write.key,
+                    generation=active_configuration_generation,
+                    accepted=accepted,
+                    result=result,
                 )
                 if not accepted:
                     _LOGGER.error(
@@ -146,18 +142,13 @@ async def apply_pv_linkage_writes(
                 completed_steps += 1
                 continue
 
-            raise TypeError(
-                f"Unsupported PV Linkage write: {type(write).__name__}"
-            )
+            raise TypeError(f"Unsupported PV Linkage write: {type(write).__name__}")
     except ChargerConnectionUnavailable as exc:
         if completed_steps == 0:
             # No step was acknowledged, so the queue can safely rebind the
             # whole operation to a new connection and retry it.
             raise
-        if (
-            active_configuration_key is not None
-            and active_configuration_generation is not None
-        ):
+        if active_configuration_key is not None and active_configuration_generation is not None:
             coordinator.mark_configuration_write(
                 active_configuration_key,
                 ConfigurationWriteStatus.SKIPPED,
@@ -177,10 +168,7 @@ async def apply_pv_linkage_writes(
             str(exc),
         )
     except ChargerRequestOutcomeUncertain as exc:
-        if (
-            active_configuration_key is not None
-            and active_configuration_generation is not None
-        ):
+        if active_configuration_key is not None and active_configuration_generation is not None:
             coordinator.mark_configuration_write(
                 active_configuration_key,
                 ConfigurationWriteStatus.UNCERTAIN,
@@ -200,10 +188,7 @@ async def apply_pv_linkage_writes(
         # An unexpected transport/client failure does not prove whether the
         # active request reached the charger. Preserve the draft and reconcile
         # readable state instead of labelling the operation as rejected.
-        if (
-            active_configuration_key is not None
-            and active_configuration_generation is not None
-        ):
+        if active_configuration_key is not None and active_configuration_generation is not None:
             coordinator.mark_configuration_write(
                 active_configuration_key,
                 ConfigurationWriteStatus.UNCERTAIN,

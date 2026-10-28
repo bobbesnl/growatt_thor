@@ -1,8 +1,8 @@
 """Model-aware charging current limits for Growatt chargers."""
+
 from __future__ import annotations
 
 import re
-
 
 MIN_CHARGING_CURRENT_A = 6
 DEFAULT_MAX_CHARGING_CURRENT_A = 32

@@ -1,18 +1,15 @@
 """Regression tests for integration-service concurrency and failure rules."""
+
 from __future__ import annotations
 
 import asyncio
 import importlib.util
-from pathlib import Path
 import sys
 import unittest
-
+from pathlib import Path
 
 MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "runtime/services.py"
+    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "runtime/services.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_service_runtime_test_target",
@@ -57,9 +54,7 @@ class IntegrationServiceOperationsTest(unittest.IsolatedAsyncioTestCase):
     """Ensure automations cannot build duplicate service-operation backlogs."""
 
     def setUp(self):
-        self.operations = service_runtime.IntegrationServiceOperations(
-            asyncio.create_task
-        )
+        self.operations = service_runtime.IntegrationServiceOperations(asyncio.create_task)
 
     async def test_many_refresh_callers_share_one_physical_sequence(self):
         charge_point = _ChargePoint()
@@ -70,10 +65,7 @@ class IntegrationServiceOperationsTest(unittest.IsolatedAsyncioTestCase):
 
         first = asyncio.create_task(self.operations.async_refresh(runtime))
         await charge_point.status_started.wait()
-        followers = [
-            asyncio.create_task(self.operations.async_refresh(runtime))
-            for _ in range(19)
-        ]
+        followers = [asyncio.create_task(self.operations.async_refresh(runtime)) for _ in range(19)]
         await asyncio.sleep(0)
         charge_point.release_status.set()
 
@@ -94,13 +86,9 @@ class IntegrationServiceOperationsTest(unittest.IsolatedAsyncioTestCase):
             "charge_point": charge_point,
             "coordinator": _Coordinator(),
         }
-        cancelled_caller = asyncio.create_task(
-            self.operations.async_refresh(runtime)
-        )
+        cancelled_caller = asyncio.create_task(self.operations.async_refresh(runtime))
         await charge_point.status_started.wait()
-        surviving_caller = asyncio.create_task(
-            self.operations.async_refresh(runtime)
-        )
+        surviving_caller = asyncio.create_task(self.operations.async_refresh(runtime))
 
         cancelled_caller.cancel()
         with self.assertRaises(asyncio.CancelledError):
@@ -158,9 +146,7 @@ class IntegrationServiceOperationsTest(unittest.IsolatedAsyncioTestCase):
             },
         ):
             with self.subTest(runtime=runtime):
-                with self.assertRaises(
-                    service_runtime.ChargerServiceUnavailable
-                ):
+                with self.assertRaises(service_runtime.ChargerServiceUnavailable):
                     await self.operations.async_refresh(runtime)
 
     async def test_failed_refresh_releases_slot_for_explicit_retry(self):
@@ -198,14 +184,10 @@ class IntegrationServiceOperationsTest(unittest.IsolatedAsyncioTestCase):
             await release.wait()
             return 7
 
-        first = asyncio.create_task(
-            self.operations.async_export("/tmp/export.csv", export)
-        )
+        first = asyncio.create_task(self.operations.async_export("/tmp/export.csv", export))
         await started.wait()
         followers = [
-            asyncio.create_task(
-                self.operations.async_export("/tmp/export.csv", export)
-            )
+            asyncio.create_task(self.operations.async_export("/tmp/export.csv", export))
             for _ in range(9)
         ]
         await asyncio.sleep(0)

@@ -3,6 +3,7 @@
 Power observations describe the same time interval as the authoritative EV delta.
 A priority is a declared booking policy, never evidence of electron provenance.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,9 +11,10 @@ from datetime import datetime
 from math import isfinite
 from typing import Literal
 
+from .observations import BucketQuality, PowerObservation, SiteObservations
+
 TOLERANCE_KWH = 1e-6
 POLICY_VERSION = 1
-from .observations import BucketQuality, PowerObservation, SiteObservations
 
 
 @dataclass(frozen=True)
@@ -53,7 +55,11 @@ class Tariff:
         if self.observed_at.tzinfo is None or at.tzinfo is None:
             return None
         age = (at - self.observed_at).total_seconds()
-        return self.price_per_kwh if age >= 0 and (self.max_age_s is None or age <= self.max_age_s) else None
+        return (
+            self.price_per_kwh
+            if age >= 0 and (self.max_age_s is None or age <= self.max_age_s)
+            else None
+        )
 
 
 @dataclass(frozen=True)
@@ -96,8 +102,12 @@ class Allocation:
         }
 
 
-def allocate(delta: EVEnergyDelta, site: SiteObservations, tariff: Tariff,
-             policy: AccountingPolicy) -> Allocation:
+def allocate(
+    delta: EVEnergyDelta,
+    site: SiteObservations,
+    tariff: Tariff,
+    policy: AccountingPolicy,
+) -> Allocation:
     """Allocate one positive EV meter delta; unproven residual remains unknown."""
     if not isfinite(delta.kwh) or delta.kwh < 0 or delta.hours <= 0:
         raise ValueError("EV delta and interval must be positive and finite")
@@ -121,8 +131,17 @@ def allocate(delta: EVEnergyDelta, site: SiteObservations, tariff: Tariff,
     direct_solar = energy("direct_solar", site.direct_solar) if site.direct_solar else None
     grid = energy("grid", site.grid) if policy.topology != "grid_only" else None
     solar = energy("solar", site.solar) if policy.topology != "grid_only" else None
-    household = energy("household", site.household) if site.household and policy.topology != "grid_only" else None
-    if household is None and policy.policy_id == "load_first" and policy.topology != "grid_only" and "household" not in missing:
+    household = (
+        energy("household", site.household)
+        if site.household and policy.topology != "grid_only"
+        else None
+    )
+    if (
+        household is None
+        and policy.policy_id == "load_first"
+        and policy.topology != "grid_only"
+        and "household" not in missing
+    ):
         missing.append("household")
     battery = energy("battery", site.battery) if policy.topology == "pv_battery" else None
     battery_charge = None
@@ -148,17 +167,24 @@ def allocate(delta: EVEnergyDelta, site: SiteObservations, tariff: Tariff,
             # before EVSE. Thermal load follows EVSE and cannot reduce its share.
             available_solar = (
                 max(0.0, solar - household - (battery_charge or 0.0))
-                if solar is not None and household is not None
+                if solar is not None
+                and household is not None
                 and (policy.topology != "pv_battery" or battery_charge is not None)
                 else None
             )
         else:
             available_solar = (
                 max(0.0, solar - (household or 0.0) - (battery_charge or 0.0))
-                if solar is not None and (policy.topology != "pv_battery" or battery_charge is not None)
+                if solar is not None
+                and (policy.topology != "pv_battery" or battery_charge is not None)
                 else None
             )
-        if policy.policy_id == "load_first" and direct_solar is None and available_solar is not None and grid is not None:
+        if (
+            policy.policy_id == "load_first"
+            and direct_solar is None
+            and available_solar is not None
+            and grid is not None
+        ):
             solar_share = min(remaining, available_solar)
             solar_kwh += solar_share
             remaining -= solar_share
@@ -169,7 +195,12 @@ def allocate(delta: EVEnergyDelta, site: SiteObservations, tariff: Tariff,
         if battery is not None and grid is not None:
             battery_kwh = min(remaining, battery)
             remaining -= battery_kwh
-        if policy.policy_id == "grid_first" and direct_solar is None and available_solar is not None and grid is not None:
+        if (
+            policy.policy_id == "grid_first"
+            and direct_solar is None
+            and available_solar is not None
+            and grid is not None
+        ):
             solar_share = min(remaining, available_solar)
             solar_kwh += solar_share
             remaining -= solar_share
@@ -177,16 +208,31 @@ def allocate(delta: EVEnergyDelta, site: SiteObservations, tariff: Tariff,
     # Clamp floating arithmetic and keep the balance exact.
     unknown = max(0.0, delta.kwh - grid_kwh - solar_kwh - battery_kwh)
     coverage = max(0.0, min(1.0, (delta.kwh - unknown) / delta.kwh)) if delta.kwh else 1.0
-    quality: BucketQuality = "unknown" if unknown > TOLERANCE_KWH else (
-        "measured" if direct_grid is not None or direct_solar is not None else
-        "declared" if policy.policy_id == "load_first" or policy.topology == "grid_only" else
-        "derived" if measured else "unknown"
+    quality: BucketQuality = (
+        "unknown"
+        if unknown > TOLERANCE_KWH
+        else (
+            "measured"
+            if direct_grid is not None or direct_solar is not None
+            else "declared"
+            if policy.policy_id == "load_first" or policy.topology == "grid_only"
+            else "derived"
+            if measured
+            else "unknown"
+        )
     )
     price = tariff.price_at(delta.end_at)
     cost = grid_kwh * price if price is not None else None
-    return Allocation(solar_kwh, grid_kwh, battery_kwh, unknown, cost,
-                      DataQuality(quality, coverage, tuple(missing)),
-                      policy.policy_id, policy.policy_version)
+    return Allocation(
+        solar_kwh,
+        grid_kwh,
+        battery_kwh,
+        unknown,
+        cost,
+        DataQuality(quality, coverage, tuple(missing)),
+        policy.policy_id,
+        policy.policy_version,
+    )
 
 
 def split_parallel(total: Allocation, deltas: tuple[EVEnergyDelta, ...]) -> tuple[Allocation, ...]:
@@ -194,13 +240,33 @@ def split_parallel(total: Allocation, deltas: tuple[EVEnergyDelta, ...]) -> tupl
     total_kwh = sum(delta.kwh for delta in deltas)
     if total_kwh <= 0:
         return ()
-    if abs(total_kwh - sum((total.direct_solar, total.direct_grid,
-                            total.battery_unknown, total.unknown))) > TOLERANCE_KWH:
+    if (
+        abs(
+            total_kwh
+            - sum(
+                (
+                    total.direct_solar,
+                    total.direct_grid,
+                    total.battery_unknown,
+                    total.unknown,
+                )
+            )
+        )
+        > TOLERANCE_KWH
+    ):
         raise ValueError("Site allocation does not match charger deltas")
+
     def share(delta: EVEnergyDelta) -> Allocation:
         ratio = delta.kwh / total_kwh
-        return Allocation(total.direct_solar * ratio, total.direct_grid * ratio,
-                          total.battery_unknown * ratio, total.unknown * ratio,
-                          total.effective_grid_cost * ratio if total.effective_grid_cost is not None else None,
-                          total.data_quality, total.policy_id, total.policy_version)
+        return Allocation(
+            total.direct_solar * ratio,
+            total.direct_grid * ratio,
+            total.battery_unknown * ratio,
+            total.unknown * ratio,
+            total.effective_grid_cost * ratio if total.effective_grid_cost is not None else None,
+            total.data_quality,
+            total.policy_id,
+            total.policy_version,
+        )
+
     return tuple(share(delta) for delta in deltas)

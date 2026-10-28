@@ -1,29 +1,29 @@
 """Backward-compatible charging session CSV helpers."""
+
 from __future__ import annotations
 
 import csv
-from functools import wraps
-from threading import RLock
-from datetime import date, datetime, timedelta
 import json
-from math import isfinite
 import os
-from pathlib import Path
 import stat
 import tempfile
+from datetime import date, datetime, timedelta
+from functools import wraps
+from math import isfinite
+from pathlib import Path
+from threading import RLock
 from typing import Any
-
-from .time import session_times
-from .telemetry import CONTEXT_CURVES, context_curves
-from ..runtime.time import utc_timestamp
 from zoneinfo import ZoneInfo
+
+from ..runtime.time import utc_timestamp
+from .events import normalize_session_events
 from .identity import (
     SOURCE_LEGACY_UNKNOWN,
     build_session_id,
 )
-from .events import normalize_session_events
 from .series import SESSION_CURVE_POINT_LIMIT, downsample_curve
-
+from .telemetry import CONTEXT_CURVES, context_curves
+from .time import session_times
 
 DASHBOARD_SESSION_LIMIT = 20
 SESSION_RETENTION_DAYS = 365
@@ -95,8 +95,12 @@ def _atomic_json(path: Path, payload: dict) -> None:
     temporary_path = None
     try:
         with tempfile.NamedTemporaryFile(
-            "w", encoding="utf-8", dir=path.parent,
-            prefix=f".{path.name}.", suffix=".tmp", delete=False,
+            "w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
         ) as temporary:
             temporary_path = Path(temporary.name)
             json.dump(payload, temporary, separators=(",", ":"), sort_keys=True)
@@ -124,13 +128,19 @@ def _history_operation(operation):
         with _HISTORY_LOCK:
             _recover_history(Path(path))
             return operation(path, *args, **kwargs)
+
     return locked
 
 
 def _commit_history(path, headers, rows, summary):
-    _atomic_json(_journal_path(path), {
-        "headers": headers, "rows": rows, "summary": summary,
-    })
+    _atomic_json(
+        _journal_path(path),
+        {
+            "headers": headers,
+            "rows": rows,
+            "summary": summary,
+        },
+    )
     _recover_history(path)
 
 
@@ -165,12 +175,12 @@ def _load_archive_summary(path: Path) -> dict[str, Any]:
     return {
         "schema": ARCHIVE_SUMMARY_SCHEMA,
         "owners": decoded.get("owners", {}) if isinstance(decoded.get("owners"), dict) else {},
-        "recent_session_ids": [value for value in decoded.get("recent_session_ids", []) if isinstance(value, str)][-SESSION_RETENTION_ROWS:],
+        "recent_session_ids": [
+            value for value in decoded.get("recent_session_ids", []) if isinstance(value, str)
+        ][-SESSION_RETENTION_ROWS:],
         "total_energy_kwh": _csv_float(decoded.get("total_energy_kwh")) or 0.0,
         "total_cost": _csv_float(decoded.get("total_cost")) or 0.0,
-        "total_green_energy_kwh": (
-            _csv_float(decoded.get("total_green_energy_kwh")) or 0.0
-        ),
+        "total_green_energy_kwh": (_csv_float(decoded.get("total_green_energy_kwh")) or 0.0),
         "has_green_energy": bool(decoded.get("has_green_energy")),
         "green_partial_count": _archive_partial_count(decoded),
         "total_count": max(0, int(_csv_float(decoded.get("total_count")) or 0)),
@@ -200,9 +210,14 @@ def _session_green(row: dict[str, Any]) -> tuple[float | None, bool]:
         return reported, False
     energy = _csv_float(row.get("energy_kwh"))
     sources = _accounting_sources(row.get("source_energy_kwh"))
-    if (sources is not None and energy is not None and isfinite(energy) and energy > 0
-            and abs(sum(sources.values()) - energy) <= 0.001
-            and sum(sources[key] for key in ("direct_solar", "direct_grid", "battery_unknown")) > 0):
+    if (
+        sources is not None
+        and energy is not None
+        and isfinite(energy)
+        and energy > 0
+        and abs(sum(sources.values()) - energy) <= 0.001
+        and sum(sources[key] for key in ("direct_solar", "direct_grid", "battery_unknown")) > 0
+    ):
         return sources["direct_solar"], sources["unknown"] > 1e-9
     return None, energy is None or not isfinite(energy) or energy > 0
 
@@ -224,16 +239,34 @@ def _scoped_archive(archive, entry_id, charge_point_id, include_unassigned=False
         # Old 2.0 summaries had no owner labels. Preserve them only for the
         # sole entry present at migration; never duplicate them across chargers.
         owners = archive.get("owners", {}).values()
-        for field in ("total_energy_kwh", "total_cost", "total_green_energy_kwh", "total_count"):
-            result[field] = archive[field] - sum(_csv_float(bucket.get(field)) or 0 for bucket in owners)
-        result["has_green_energy"] = bool(archive.get("has_green_energy")) and result["total_count"] > 0
-        result["green_partial_count"] = max(0, _archive_partial_count(archive) - sum(_archive_partial_count(bucket) for bucket in owners))
+        for field in (
+            "total_energy_kwh",
+            "total_cost",
+            "total_green_energy_kwh",
+            "total_count",
+        ):
+            result[field] = archive[field] - sum(
+                _csv_float(bucket.get(field)) or 0 for bucket in owners
+            )
+        result["has_green_energy"] = (
+            bool(archive.get("has_green_energy")) and result["total_count"] > 0
+        )
+        result["green_partial_count"] = max(
+            0,
+            _archive_partial_count(archive)
+            - sum(_archive_partial_count(bucket) for bucket in owners),
+        )
     keys = ["entry:" + entry_id]
     if charge_point_id:
         keys.append("charger:" + charge_point_id)
     for key in keys:
         bucket = archive.get("owners", {}).get(key, {})
-        for field in ("total_energy_kwh", "total_cost", "total_green_energy_kwh", "total_count"):
+        for field in (
+            "total_energy_kwh",
+            "total_cost",
+            "total_green_energy_kwh",
+            "total_count",
+        ):
             result[field] += _csv_float(bucket.get(field)) or 0
         result["has_green_energy"] |= bool(bucket.get("has_green_energy"))
         result["green_partial_count"] += _archive_partial_count(bucket)
@@ -272,12 +305,20 @@ def _session_item(row: dict[str, Any], *, details: bool, time_zone: str = "UTC")
         decoded_curves = {}
         for key in CONTEXT_CURVES:
             try:
-                decoded_curves[key] = json.loads(row[key]) if isinstance(row.get(key), str) else row.get(key)
+                decoded_curves[key] = (
+                    json.loads(row[key]) if isinstance(row.get(key), str) else row.get(key)
+                )
             except (ValueError, TypeError):
                 continue
-        if row.get("site_house_load_source") in ("configured_sensor", "site_balance", "mixed"):
+        if row.get("site_house_load_source") in (
+            "configured_sensor",
+            "site_balance",
+            "mixed",
+        ):
             item["site_house_load_source"] = row["site_house_load_source"]
-        item.update(context_curves(decoded_curves, event_times=(event.get("at") for event in events)))
+        item.update(
+            context_curves(decoded_curves, event_times=(event.get("at") for event in events))
+        )
         item["events"] = events
     return session_times(item, time_zone)
 
@@ -296,16 +337,16 @@ def dashboard_session_data(
     csv_path = Path(path)
     archive = _load_archive_summary(csv_path)
     if source_instance_id is not None:
-        archive = _scoped_archive(archive, source_instance_id, charge_point_id, include_unassigned_archive)
+        archive = _scoped_archive(
+            archive, source_instance_id, charge_point_id, include_unassigned_archive
+        )
     if not csv_path.is_file():
         return {
             "items": [],
             "total_energy_kwh": round(archive["total_energy_kwh"], 3),
             "total_cost": round(archive["total_cost"], 2),
             "total_green_energy_kwh": (
-                round(archive["total_green_energy_kwh"], 3)
-                if archive["has_green_energy"]
-                else None
+                round(archive["total_green_energy_kwh"], 3) if archive["has_green_energy"] else None
             ),
             "total_count": archive["total_count"],
             "total_green_partial": _archive_partial_count(archive) > 0,
@@ -333,7 +374,7 @@ def dashboard_session_data(
                 has_green = True
             items.append(row)
     items.sort(key=lambda item: item.get("start_time") or "", reverse=True)
-    bounded_rows = items[:max(1, min(limit, DASHBOARD_SESSION_LIMIT))]
+    bounded_rows = items[: max(1, min(limit, DASHBOARD_SESSION_LIMIT))]
     return {
         # Only the newest completed session is pushed with detail data. Older
         # selected rows are loaded on demand through the integration websocket.
@@ -350,7 +391,14 @@ def dashboard_session_data(
 
 
 @_history_operation
-def session_detail_data(path: str | Path, session_id: str, *, source_instance_id=None, charge_point_id=None, time_zone="UTC") -> dict[str, Any] | None:
+def session_detail_data(
+    path: str | Path,
+    session_id: str,
+    *,
+    source_instance_id=None,
+    charge_point_id=None,
+    time_zone="UTC",
+) -> dict[str, Any] | None:
     """Load one retained session with bounded curve and event details."""
     csv_path = Path(path)
     if not csv_path.is_file() or not session_id:
@@ -358,7 +406,9 @@ def session_detail_data(path: str | Path, session_id: str, *, source_instance_id
     with csv_path.open("r", newline="", encoding="utf-8") as source:
         rows = [normalize_session_row(row) for row in csv.DictReader(source)]
     for row in reversed(rows):
-        if row.get("session_id") == session_id and _belongs_to_entry(row, source_instance_id, charge_point_id):
+        if row.get("session_id") == session_id and _belongs_to_entry(
+            row, source_instance_id, charge_point_id
+        ):
             return _session_item(row, details=True, time_zone=time_zone)
     return None
 
@@ -400,7 +450,10 @@ def _accounting_sources(value: Any) -> dict | None:
 
 def _accounting_policy(value: Any) -> dict | None:
     decoded = _accounting_json(value)
-    if decoded.get("id") not in ("grid_first", "load_first", "mixed") or decoded.get("version") != 1:
+    if (
+        decoded.get("id") not in ("grid_first", "load_first", "mixed")
+        or decoded.get("version") != 1
+    ):
         return None
     policy = {"id": decoded["id"], "version": 1}
     if decoded.get("topology") in ("grid_only", "pv", "pv_battery"):
@@ -504,9 +557,7 @@ def _session_date(value: Any) -> date | None:
     if not isinstance(value, str) or not value.strip():
         return None
     try:
-        return datetime.fromisoformat(
-            value.strip().replace("Z", "+00:00")
-        ).date()
+        return datetime.fromisoformat(value.strip().replace("Z", "+00:00")).date()
     except ValueError:
         return None
 
@@ -562,16 +613,18 @@ def enforce_session_retention(
 
     archive = _load_archive_summary(csv_path)
     for row in removed:
-        owner = ("entry:" + row["source_instance_id"]) if row.get("source_instance_id") else ("charger:" + str(row.get("charger_id", "")))
+        owner = (
+            ("entry:" + row["source_instance_id"])
+            if row.get("source_instance_id")
+            else ("charger:" + str(row.get("charger_id", "")))
+        )
         bucket = archive.setdefault("owners", {}).setdefault(owner, _empty_archive_summary())
         _add_archive_row(bucket, row)
         _add_archive_row(archive, row)
 
     archive["total_energy_kwh"] = round(archive["total_energy_kwh"], 3)
     archive["total_cost"] = round(archive["total_cost"], 2)
-    archive["total_green_energy_kwh"] = round(
-        archive["total_green_energy_kwh"], 3
-    )
+    archive["total_green_energy_kwh"] = round(archive["total_green_energy_kwh"], 3)
     _commit_history(csv_path, headers, retained, archive)
     return len(removed)
 
@@ -612,9 +665,9 @@ def append_session_row(path: str | Path, row: dict[str, Any]) -> None:
         enforce_session_retention(csv_path)
         return
     if session_id:
-        archive["recent_session_ids"] = (
-            archive["recent_session_ids"] + [session_id]
-        )[-SESSION_RETENTION_ROWS:]
+        archive["recent_session_ids"] = (archive["recent_session_ids"] + [session_id])[
+            -SESSION_RETENTION_ROWS:
+        ]
     _commit_history(csv_path, headers, rows + [normalized_row], archive)
     enforce_session_retention(csv_path)
 
@@ -709,8 +762,7 @@ def export_session_rows(
             )
             writer.writeheader()
             writer.writerows(
-                {key: sanitize_export_cell(value) for key, value in row.items()}
-                for row in rows
+                {key: sanitize_export_cell(value) for key, value in row.items()} for row in rows
             )
             temporary.flush()
             os.fsync(temporary.fileno())

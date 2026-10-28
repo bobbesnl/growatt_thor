@@ -1,4 +1,5 @@
 """Normalize persistent Growatt charger fault events."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -6,7 +7,6 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 from urllib.parse import unquote
-
 
 CHARGER_FAULT_OPTIONS = (
     "emergency_stop",
@@ -35,9 +35,7 @@ def _connector_id(value: object) -> int | str | None:
 
 def _token(value: object) -> str:
     return "".join(
-        character
-        for character in str(_text(value) or "").casefold()
-        if character.isalnum()
+        character for character in str(_text(value) or "").casefold() if character.isalnum()
     )
 
 
@@ -50,10 +48,7 @@ def classify_charger_fault(
     """Map confirmed faults to stable Home Assistant states."""
     if _text(growatt_error_code) == "100" or "emergencystop" in _token(message):
         return "emergency_stop"
-    if (
-        _token(ocpp_error_code) == "powermeterfailure"
-        or _token(message) == "485fault"
-    ):
+    if _token(ocpp_error_code) == "powermeterfailure" or _token(message) == "485fault":
         return "power_meter_failure"
     return "other_fault"
 
@@ -74,7 +69,7 @@ class ChargerFault:
     sources: tuple[str, ...] = ()
 
     @classmethod
-    def from_dict(cls, value: Any) -> "ChargerFault | None":
+    def from_dict(cls, value: Any) -> ChargerFault | None:
         """Restore a fault defensively from Home Assistant storage."""
         if not isinstance(value, Mapping):
             return None
@@ -142,9 +137,10 @@ def fault_from_status_notification(
 
 def _events_are_close(first: str, second: str) -> bool:
     try:
-        return abs(
-            (datetime.fromisoformat(first) - datetime.fromisoformat(second)).total_seconds()
-        ) <= 30
+        return (
+            abs((datetime.fromisoformat(first) - datetime.fromisoformat(second)).total_seconds())
+            <= 30
+        )
     except (TypeError, ValueError):
         return False
 

@@ -52,9 +52,7 @@ class TargetEncodingTest(unittest.TestCase):
         for value in ["0.5", "1441"]:
             with self.assertRaises(ValueError):
                 model.ChargingTarget.parse("duration", value)
-        self.assertEqual(
-            model.ChargingTarget.parse("duration", "60.00").wire_value, "60"
-        )
+        self.assertEqual(model.ChargingTarget.parse("duration", "60.00").wire_value, "60")
         self.assertEqual(model.ChargingTarget.parse("energy", "4.50").wire_value, "4.5")
 
     def test_capture_matrix_reports_supported_activation_and_stop_evidence(self):
@@ -63,13 +61,9 @@ class TargetEncodingTest(unittest.TestCase):
                 plan = model.target_plan(model.ChargingTarget.parse(kind, "4"), start)
                 self.assertTrue(plan["pilot_supported"])
                 self.assertNotIn("capture", plan)
-                self.assertEqual(
-                    plan["automatic_stop_verified"], kind in {"duration", "energy"}
-                )
+                self.assertEqual(plan["automatic_stop_verified"], kind in {"duration", "energy"})
         plan = model.target_plan(model.ChargingTarget.parse("budget", "49.99"), "once")
-        self.assertEqual(
-            plan["activation"], "ReserveNow+target+RemoteStartTransaction"
-        )
+        self.assertEqual(plan["activation"], "ReserveNow+target+RemoteStartTransaction")
         self.assertNotIn("expiryDate", plan)  # no fabricated conversion to start time
 
     def test_budget_blocks_sub_unit_firmware_edge_case(self):
@@ -194,9 +188,7 @@ class ReservationSequenceTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.states[-1], "target_accepted_reservation_blocked")
 
 
-@unittest.skipUnless(
-    importlib.util.find_spec("ocpp"), "Requires tests/requirements-auth.txt"
-)
+@unittest.skipUnless(importlib.util.find_spec("ocpp"), "Requires tests/requirements-auth.txt")
 class TargetWireTest(unittest.IsolatedAsyncioTestCase):
     async def test_real_ocpp_serialization_preserves_connector_id(self):
         from ocpp.messages import CallResult

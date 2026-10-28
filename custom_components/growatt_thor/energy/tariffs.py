@@ -1,4 +1,5 @@
 """Read current HA tariff states without treating an unchanged price as stale."""
+
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta
@@ -11,8 +12,9 @@ from .currency import normalized_price_unit
 from .observations import parse_at
 
 
-def _daily_bounds(start: object, end: object, at: datetime | None,
-                  time_zone: str) -> tuple[datetime, datetime] | None:
+def _daily_bounds(
+    start: object, end: object, at: datetime | None, time_zone: str
+) -> tuple[datetime, datetime] | None:
     """Resolve time-only slots in HA's local day, including slots crossing midnight."""
     if not isinstance(start, str) or not isinstance(end, str) or at is None or at.tzinfo is None:
         return None
@@ -28,20 +30,24 @@ def _daily_bounds(start: object, end: object, at: datetime | None,
     overnight = end_time < start_time
     if overnight and local.time() < end_time:
         day -= timedelta(days=1)
-    return (datetime.combine(day, start_time, zone),
-            datetime.combine(day + timedelta(days=int(overnight)), end_time, zone))
+    return (
+        datetime.combine(day, start_time, zone),
+        datetime.combine(day + timedelta(days=int(overnight)), end_time, zone),
+    )
 
 
-def tariff_from_state(state: Any, currency: str, *, at: datetime | None = None,
-                      time_zone: str = "UTC") -> Tariff:
+def tariff_from_state(
+    state: Any, currency: str, *, at: datetime | None = None, time_zone: str = "UTC"
+) -> Tariff:
     """Honor availability and declared validity; state age is not price validity."""
     unknown = Tariff(None, currency=currency)
     if state is None:
         return unknown
     attributes = getattr(state, "attributes", {})
-    if attributes.get("restored") or normalized_price_unit(
-        attributes.get("unit_of_measurement"), currency
-    ) is None:
+    if (
+        attributes.get("restored")
+        or normalized_price_unit(attributes.get("unit_of_measurement"), currency) is None
+    ):
         return unknown
     try:
         price = float(state.state)
@@ -58,7 +64,9 @@ def tariff_from_state(state: Any, currency: str, *, at: datetime | None = None,
     keys = slot_keys if slot else ("valid_from", "valid_to")
     # Some tariff integrations expose a daily schedule (e.g. 05:00–00:00),
     # rather than dated slots. Anchor it to the sample's local day, not UTC.
-    daily = _daily_bounds(*(attributes.get(key) for key in slot_keys), at, time_zone) if slot else None
+    daily = (
+        _daily_bounds(*(attributes.get(key) for key in slot_keys), at, time_zone) if slot else None
+    )
     bounds: list[datetime | None] = []
     if daily is not None:
         start, end = daily
@@ -86,6 +94,10 @@ def tariff_from_state(state: Any, currency: str, *, at: datetime | None = None,
     # HA leaves last_updated unchanged while a fixed or repeated tariff is valid.
     # Retain its lower time bound so a new price cannot rewrite earlier EV deltas.
     return Tariff(
-        price, currency=currency, observed_at=observed_at,
-        max_age_s=None, valid_from=start, valid_to=end,
+        price,
+        currency=currency,
+        observed_at=observed_at,
+        max_age_s=None,
+        valid_from=start,
+        valid_to=end,
     )

@@ -1,10 +1,10 @@
 """Regression tests for Remote Start/Stop transaction decisions."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 MODULE_PATH = (
     Path(__file__).parents[1]
@@ -28,8 +28,16 @@ class SessionControlDecisionTest(unittest.TestCase):
         self.assertFalse(session_controls.target_blocks_manual_start(None))
         for state in ("blocked_before_target", "target_rejected"):
             self.assertFalse(session_controls.target_blocks_manual_start({"state": state}))
-        for state in ("scheduled", "sending_target", "target_accepted", "outcome_unknown",
-                      "completed", "active", "start_rejected_target_may_remain", "unknown"):
+        for state in (
+            "scheduled",
+            "sending_target",
+            "target_accepted",
+            "outcome_unknown",
+            "completed",
+            "active",
+            "start_rejected_target_may_remain",
+            "unknown",
+        ):
             self.assertTrue(session_controls.target_blocks_manual_start({"state": state}))
         self.assertTrue(session_controls.target_blocks_manual_start("invalid"))
 

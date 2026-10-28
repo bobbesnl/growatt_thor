@@ -1,4 +1,5 @@
 """Pure, transaction-scoped decision for the optional charging stop guard."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -49,7 +50,11 @@ class StopGuardTracker:
     window instead of being interpreted as zero or as a stop condition.
     """
 
-    def __init__(self, threshold_w: float = STOP_THRESHOLD_W, hold_seconds: float = STOP_HOLD_SECONDS) -> None:
+    def __init__(
+        self,
+        threshold_w: float = STOP_THRESHOLD_W,
+        hold_seconds: float = STOP_HOLD_SECONDS,
+    ) -> None:
         self.threshold_w = threshold_w
         self.hold_seconds = hold_seconds
         self.transaction_id: int | None = None
@@ -64,8 +69,14 @@ class StopGuardTracker:
         battery protection. Missing PV readings keep the ordinary hold time.
         """
         solar, ev = value.solar_power_w, value.ev_power_w
-        covered = (solar is not None and ev is not None and isfinite(solar)
-                   and isfinite(ev) and ev > 0 and solar >= ev)
+        covered = (
+            solar is not None
+            and ev is not None
+            and isfinite(solar)
+            and isfinite(ev)
+            and ev > 0
+            and solar >= ev
+        )
         return self.hold_seconds + (PV_GRACE_SECONDS if covered else 0)
 
     def evaluate(self, at: datetime, mode: str, value: StopObservation) -> StopReason | None:

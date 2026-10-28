@@ -1,4 +1,5 @@
 """Optional Home Assistant power sources used by the dashboard contract."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -59,9 +60,7 @@ def _candidate_score(entity_id: str, state, role: str = "battery") -> int:
         return sum(50 for term in terms if term in text)
     score = sum(weight for term, weight in _BATTERY_TERMS.items() if term in text)
     if score:
-        score += sum(
-            weight for term, weight in _BIDIRECTIONAL_TERMS.items() if term in text
-        )
+        score += sum(weight for term, weight in _BIDIRECTIONAL_TERMS.items() if term in text)
     return score
 
 
@@ -70,16 +69,19 @@ def _state_map(states) -> dict:
     async_all = getattr(states, "async_all", None)
     if callable(async_all):
         return {
-            state.entity_id: state
-            for state in async_all()
-            if getattr(state, "entity_id", None)
+            state.entity_id: state for state in async_all() if getattr(state, "entity_id", None)
         }
     items = getattr(states, "items", None)
     return dict(items()) if callable(items) else {}
 
 
-def power_sensor_options(states, configured_entity: str | None = None, *,
-                         role: str = "battery", exclude: set[str] | None = None) -> list[dict]:
+def power_sensor_options(
+    states,
+    configured_entity: str | None = None,
+    *,
+    role: str = "battery",
+    exclude: set[str] | None = None,
+) -> list[dict]:
     """Rank likely sources without inferring their physical role from a name."""
     state_map = _state_map(states)
     candidates = []
@@ -166,7 +168,9 @@ def duplicate_source_fields(assignments: dict[str, str | None]) -> set[str]:
     return {field for field, entity in assignments.items() if entity and selected.count(entity) > 1}
 
 
-def tariff_sensor_options(states, currency: str, configured_entity: str | None = None) -> list[dict]:
+def tariff_sensor_options(
+    states, currency: str, configured_entity: str | None = None
+) -> list[dict]:
     """Offer compatible prices, retaining an old selection so it can be repaired."""
     from .currency import normalized_price_unit
 

@@ -44,10 +44,7 @@ class ChargingTarget:
             number = Decimal(text)
         except InvalidOperation as exc:
             raise ValueError("invalid_target_value") from exc
-        if (
-            not number.is_finite()
-            or not PILOT_MINIMUM[kind] <= number <= PILOT_MAXIMUM[kind]
-        ):
+        if not number.is_finite() or not PILOT_MINIMUM[kind] <= number <= PILOT_MAXIMUM[kind]:
             raise ValueError("target_outside_pilot_bounds")
         if kind == "duration" and number != number.to_integral_value():
             raise ValueError("duration_requires_whole_minutes")

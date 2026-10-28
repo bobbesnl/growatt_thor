@@ -1,14 +1,15 @@
 """Mode-aware capabilities for Growatt charging configuration controls."""
+
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from types import MappingProxyType
-from typing import Final, Mapping
+from typing import Final
 
-from ..configuration.values import ConfigurationValue, configuration_entity_state
 from ..configuration.validation import format_decimal, validate_number
-
+from ..configuration.values import ConfigurationValue, configuration_entity_state
 
 WORKING_MODE_OPTIONS = ("fast", "pv_linkage", "pv_linkage_plus", "off_peak")
 PV_LINKAGE_WORKING_MODES = frozenset({"pv_linkage", "pv_linkage_plus"})
@@ -66,98 +67,97 @@ class ControlDefinition:
     check_reported_readonly: bool = True
 
 
-CONTROL_DEFINITIONS: Final[Mapping[ChargingControl, ControlDefinition]] = (
-    MappingProxyType(
-        {
-            ChargingControl.AUTHORIZATION_MODE: ControlDefinition(
-                ControlCapability.WRITABLE, "G_ChargerMode",
-            ),
-            ChargingControl.LOAD_BALANCING: ControlDefinition(
-                ControlCapability.WRITABLE,
-                "G_ExternalLimitPowerEnable",
-                working_modes=frozenset({"fast", "off_peak"}),
-            ),
-            ChargingControl.LOAD_BALANCING_LIMIT: ControlDefinition(
-                ControlCapability.WRITABLE,
-                "G_ExternalLimitPower",
-                working_modes=frozenset({"fast", "off_peak"}),
-            ),
-            ChargingControl.AUTO_CHARGE_SCHEDULE: ControlDefinition(
-                ControlCapability.WRITABLE,
-                "G_AutoChargeTime",
-                working_modes=frozenset({"fast"}),
-            ),
-            ChargingControl.WORKING_MODE: ControlDefinition(
-                ControlCapability.WRITABLE,
-                "G_WorkingMode",
-                check_reported_readonly=False,
-            ),
-            ChargingControl.SOLAR_MODE: ControlDefinition(
-                ControlCapability.WRITABLE,
-                "G_SolarMode",
-                working_modes=frozenset({"pv_linkage"}),
-            ),
-            ChargingControl.SOLAR_GRID_IMPORT_LIMIT: ControlDefinition(
-                ControlCapability.WRITABLE,
-                "G_SolarLimitPower",
-                working_modes=frozenset({"pv_linkage"}),
-                solar_modes=frozenset({"pv_linkage"}),
-            ),
-            ChargingControl.SOLAR_BOOST: ControlDefinition(
-                ControlCapability.COMPOUND,
-                "G_SolarBoost",
-                working_modes=frozenset({"pv_linkage"}),
-                solar_modes=frozenset({"pv_linkage", "pv_linkage_plus"}),
-            ),
-            ChargingControl.SOLAR_THRESHOLD_CURRENT: ControlDefinition(
-                ControlCapability.READ_ONLY,
-                "G_SolarThresholdCurr",
-                working_modes=frozenset({"pv_linkage"}),
-            ),
-            ChargingControl.GRID_OFF_PEAK_CHARGING: ControlDefinition(
-                ControlCapability.READ_ONLY,
-                "G_PeakValleyEnable",
-                charger_modes=frozenset({"plug_and_charge"}),
-            ),
-            ChargingControl.OFF_PEAK_ENABLE: ControlDefinition(
-                ControlCapability.READ_ONLY,
-                "G_OffPeakEnable",
-                working_modes=frozenset({"off_peak"}),
-            ),
-            ChargingControl.OFF_PEAK_SCHEDULE: ControlDefinition(
-                ControlCapability.COMPOUND,
-                "G_OffPeakTime",
-                working_modes=frozenset({"off_peak"}),
-            ),
-            ChargingControl.OFF_PEAK_CURRENT: ControlDefinition(
-                ControlCapability.READ_ONLY,
-                "G_OffPeakCurr",
-                working_modes=frozenset({"off_peak"}),
-            ),
-            ChargingControl.WARM_UP: ControlDefinition(
-                ControlCapability.WRITABLE,
-                "G_FullContinueChargeEnable",
-            ),
-            ChargingControl.DELAYED_CHARGING: ControlDefinition(
-                ControlCapability.READ_ONLY,
-                "G_RandDelayChargeTime",
-            ),
-            ChargingControl.EXTERNAL_SAMPLING_METHOD: ControlDefinition(
-                ControlCapability.WRITABLE,
-                "G_ExternalSamplingCurWring",
-            ),
-            ChargingControl.POWER_METER_TYPE: ControlDefinition(
-                ControlCapability.WRITABLE,
-                "G_PowerMeterType",
-                external_sampling_methods=frozenset({"power_meter"}),
-            ),
-            ChargingControl.POWER_METER_ADDRESS: ControlDefinition(
-                ControlCapability.WRITABLE,
-                "G_PowerMeterAddr",
-                external_sampling_methods=frozenset({"power_meter"}),
-            ),
-        }
-    )
+CONTROL_DEFINITIONS: Final[Mapping[ChargingControl, ControlDefinition]] = MappingProxyType(
+    {
+        ChargingControl.AUTHORIZATION_MODE: ControlDefinition(
+            ControlCapability.WRITABLE,
+            "G_ChargerMode",
+        ),
+        ChargingControl.LOAD_BALANCING: ControlDefinition(
+            ControlCapability.WRITABLE,
+            "G_ExternalLimitPowerEnable",
+            working_modes=frozenset({"fast", "off_peak"}),
+        ),
+        ChargingControl.LOAD_BALANCING_LIMIT: ControlDefinition(
+            ControlCapability.WRITABLE,
+            "G_ExternalLimitPower",
+            working_modes=frozenset({"fast", "off_peak"}),
+        ),
+        ChargingControl.AUTO_CHARGE_SCHEDULE: ControlDefinition(
+            ControlCapability.WRITABLE,
+            "G_AutoChargeTime",
+            working_modes=frozenset({"fast"}),
+        ),
+        ChargingControl.WORKING_MODE: ControlDefinition(
+            ControlCapability.WRITABLE,
+            "G_WorkingMode",
+            check_reported_readonly=False,
+        ),
+        ChargingControl.SOLAR_MODE: ControlDefinition(
+            ControlCapability.WRITABLE,
+            "G_SolarMode",
+            working_modes=frozenset({"pv_linkage"}),
+        ),
+        ChargingControl.SOLAR_GRID_IMPORT_LIMIT: ControlDefinition(
+            ControlCapability.WRITABLE,
+            "G_SolarLimitPower",
+            working_modes=frozenset({"pv_linkage"}),
+            solar_modes=frozenset({"pv_linkage"}),
+        ),
+        ChargingControl.SOLAR_BOOST: ControlDefinition(
+            ControlCapability.COMPOUND,
+            "G_SolarBoost",
+            working_modes=frozenset({"pv_linkage"}),
+            solar_modes=frozenset({"pv_linkage", "pv_linkage_plus"}),
+        ),
+        ChargingControl.SOLAR_THRESHOLD_CURRENT: ControlDefinition(
+            ControlCapability.READ_ONLY,
+            "G_SolarThresholdCurr",
+            working_modes=frozenset({"pv_linkage"}),
+        ),
+        ChargingControl.GRID_OFF_PEAK_CHARGING: ControlDefinition(
+            ControlCapability.READ_ONLY,
+            "G_PeakValleyEnable",
+            charger_modes=frozenset({"plug_and_charge"}),
+        ),
+        ChargingControl.OFF_PEAK_ENABLE: ControlDefinition(
+            ControlCapability.READ_ONLY,
+            "G_OffPeakEnable",
+            working_modes=frozenset({"off_peak"}),
+        ),
+        ChargingControl.OFF_PEAK_SCHEDULE: ControlDefinition(
+            ControlCapability.COMPOUND,
+            "G_OffPeakTime",
+            working_modes=frozenset({"off_peak"}),
+        ),
+        ChargingControl.OFF_PEAK_CURRENT: ControlDefinition(
+            ControlCapability.READ_ONLY,
+            "G_OffPeakCurr",
+            working_modes=frozenset({"off_peak"}),
+        ),
+        ChargingControl.WARM_UP: ControlDefinition(
+            ControlCapability.WRITABLE,
+            "G_FullContinueChargeEnable",
+        ),
+        ChargingControl.DELAYED_CHARGING: ControlDefinition(
+            ControlCapability.READ_ONLY,
+            "G_RandDelayChargeTime",
+        ),
+        ChargingControl.EXTERNAL_SAMPLING_METHOD: ControlDefinition(
+            ControlCapability.WRITABLE,
+            "G_ExternalSamplingCurWring",
+        ),
+        ChargingControl.POWER_METER_TYPE: ControlDefinition(
+            ControlCapability.WRITABLE,
+            "G_PowerMeterType",
+            external_sampling_methods=frozenset({"power_meter"}),
+        ),
+        ChargingControl.POWER_METER_ADDRESS: ControlDefinition(
+            ControlCapability.WRITABLE,
+            "G_PowerMeterAddr",
+            external_sampling_methods=frozenset({"power_meter"}),
+        ),
+    }
 )
 
 
@@ -216,20 +216,13 @@ def control_write_block_reason(
         charger_faulted=charger_faulted,
     ):
         return block_reason
-    if (
-        definition.write_policy == ControlWritePolicy.IDLE_ONLY
-        and transaction_active
-    ):
+    if definition.write_policy == ControlWritePolicy.IDLE_ONLY and transaction_active:
         return "active_transaction"
     if not control_is_applicable(control, values):
         return "control_not_applicable"
 
     reported = values.get(definition.configuration_key)
-    if (
-        definition.check_reported_readonly
-        and reported is not None
-        and reported.readonly is True
-    ):
+    if definition.check_reported_readonly and reported is not None and reported.readonly is True:
         return "configuration_read_only"
 
     return None
@@ -255,9 +248,7 @@ def transaction_state_is_active(
     status: object,
 ) -> bool:
     """Combine retained transaction identifiers and OCPP charging states."""
-    normalized_status = (
-        status.value if hasattr(status, "value") else str(status or "")
-    )
+    normalized_status = status.value if hasattr(status, "value") else str(status or "")
     return (
         active_transaction is not None
         or transaction_id is not None

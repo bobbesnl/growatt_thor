@@ -1,17 +1,14 @@
 """Tests for Home Assistant currency-derived entity units."""
+
 from __future__ import annotations
 
 import importlib.util
+import unittest
 from pathlib import Path
 from types import SimpleNamespace
-import unittest
-
 
 MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "energy/currency.py"
+    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "energy/currency.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_currency_test_target",
@@ -34,9 +31,7 @@ class CurrencyTest(unittest.TestCase):
     def test_defaults_to_euro_without_configured_currency(self):
         self.assertEqual(currency.configured_currency(SimpleNamespace()), "EUR")
         self.assertEqual(
-            currency.electricity_price_unit(
-                SimpleNamespace(config=SimpleNamespace(currency=None))
-            ),
+            currency.electricity_price_unit(SimpleNamespace(config=SimpleNamespace(currency=None))),
             "EUR/kWh",
         )
 

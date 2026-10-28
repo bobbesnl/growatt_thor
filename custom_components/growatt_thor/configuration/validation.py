@@ -1,4 +1,5 @@
 """Strict validation for numeric, network, and date-range inputs."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -176,9 +177,7 @@ def parse_export_date_range(
         date_to_value,
         str,
     ):
-        raise DateRangeValidationError(
-            DateRangeValidationReason.INVALID_FORMAT
-        )
+        raise DateRangeValidationError(DateRangeValidationReason.INVALID_FORMAT)
     try:
         date_from = datetime.strptime(date_from_value, "%Y-%m-%d")
         date_to = datetime.strptime(date_to_value, "%Y-%m-%d").replace(
@@ -187,18 +186,15 @@ def parse_export_date_range(
             second=59,
         )
     except ValueError:
-        raise DateRangeValidationError(
-            DateRangeValidationReason.INVALID_FORMAT
-        ) from None
+        raise DateRangeValidationError(DateRangeValidationReason.INVALID_FORMAT) from None
 
     if date_from > date_to:
-        raise DateRangeValidationError(
-            DateRangeValidationReason.REVERSED_RANGE
-        )
+        raise DateRangeValidationError(DateRangeValidationReason.REVERSED_RANGE)
     return date_from, date_to
 
 
 def validate_bind_address(value: object) -> str:
     """Accept explicit local IP literals, avoiding DNS-dependent listeners."""
     from ipaddress import ip_address
+
     return str(ip_address(value)) if isinstance(value, str) else str(ip_address("invalid"))

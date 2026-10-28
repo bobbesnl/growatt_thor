@@ -1,4 +1,5 @@
 """Diagnostics support for Growatt THOR."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -6,8 +7,6 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .sessions.time import session_time_zone
-from .sessions.correlation import build_unified_session
 from .configuration.values import (
     INFORMATIONAL_CONFIGURATION_KEYS,
     OPERATIONAL_CONFIGURATION_KEYS,
@@ -16,9 +15,11 @@ from .configuration.values import (
 )
 from .configuration.writes import serialize_configuration_writes
 from .const import DOMAIN
-from .runtime.ownership import entry_runtime_data
 from .ocpp.diagnostics import redact_ocpp_data
+from .runtime.ownership import entry_runtime_data
+from .sessions.correlation import build_unified_session
 from .sessions.records import session_record_diagnostics
+from .sessions.time import session_time_zone
 
 
 async def async_get_config_entry_diagnostics(
@@ -61,7 +62,7 @@ async def async_get_config_entry_diagnostics(
                 "session_records": {
                     "current": None,
                     "frozen": None,
-                }
+                },
             },
             "sessions": {
                 "active": None,
@@ -87,9 +88,7 @@ async def async_get_config_entry_diagnostics(
         )
 
     active_transaction = (
-        dict(coordinator.active_transaction)
-        if coordinator.active_transaction is not None
-        else None
+        dict(coordinator.active_transaction) if coordinator.active_transaction is not None else None
     )
     if active_transaction is not None:
         active_transaction["effective_charging_duration_minutes"] = (
@@ -118,9 +117,7 @@ async def async_get_config_entry_diagnostics(
             }
         ),
         "growatt": {
-            "charging_target_request": getattr(
-                coordinator, "charging_target_request", None
-            ),
+            "charging_target_request": getattr(coordinator, "charging_target_request", None),
             "last_charger_fault": (
                 coordinator.last_charger_fault.as_dict()
                 if coordinator.last_charger_fault is not None
@@ -135,36 +132,34 @@ async def async_get_config_entry_diagnostics(
                 "fault_info": coordinator.external_meter_fault_info,
             },
             "session_records": {
-                "current": session_record_diagnostics(
-                    coordinator.last_current_record
-                ),
-                "frozen": session_record_diagnostics(
-                    coordinator.last_frozen_record
-                ),
-            }
+                "current": session_record_diagnostics(coordinator.last_current_record),
+                "frozen": session_record_diagnostics(coordinator.last_frozen_record),
+            },
         },
-        "sessions": redact_ocpp_data({
-            "active": (
-                build_unified_session(
-                    active_transaction,
+        "sessions": redact_ocpp_data(
+            {
+                "active": (
+                    build_unified_session(
+                        active_transaction,
+                        meter_values=coordinator.last_meter_values,
+                        session_records=session_records,
+                        charge_point_id=coordinator.charge_point_id,
+                        source_instance_id=coordinator.source_instance_id,
+                        time_zone=session_time_zone(coordinator),
+                    )
+                    if coordinator.active_transaction is not None
+                    else None
+                ),
+                "last_completed": build_unified_session(
+                    coordinator.last_completed_transaction,
                     meter_values=coordinator.last_meter_values,
                     session_records=session_records,
                     charge_point_id=coordinator.charge_point_id,
                     source_instance_id=coordinator.source_instance_id,
                     time_zone=session_time_zone(coordinator),
-                )
-                if coordinator.active_transaction is not None
-                else None
-            ),
-            "last_completed": build_unified_session(
-                coordinator.last_completed_transaction,
-                meter_values=coordinator.last_meter_values,
-                session_records=session_records,
-                charge_point_id=coordinator.charge_point_id,
-                source_instance_id=coordinator.source_instance_id,
-                time_zone=session_time_zone(coordinator),
-            ),
-        }),
+                ),
+            }
+        ),
         "configuration": serialize_configuration_values(
             coordinator.configuration_values,
             redact=True,
@@ -184,9 +179,7 @@ async def async_get_config_entry_diagnostics(
                 else None
             ),
         },
-        "unknown_configuration_keys": list(
-            coordinator.unknown_configuration_keys
-        ),
+        "unknown_configuration_keys": list(coordinator.unknown_configuration_keys),
         "requested_configuration_keys": {
             "operational": list(OPERATIONAL_CONFIGURATION_KEYS),
             "informational": list(INFORMATIONAL_CONFIGURATION_KEYS),

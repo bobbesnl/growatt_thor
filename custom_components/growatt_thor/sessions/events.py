@@ -1,4 +1,5 @@
 """Session-scoped event markers for the Lovelace history chart."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -7,7 +8,6 @@ from math import isfinite
 from typing import Any
 
 from ..runtime.time import utc_timestamp
-
 
 ACTIVE_POWER_THRESHOLD_W = 100.0
 # A normal session needs only a handful of semantic anchors.  Keep enough room
@@ -64,9 +64,7 @@ def _bounded_events(events: list[dict[str, str]]) -> list[dict[str, str]]:
             mandatory.add(candidates[len(candidates) // 2])
         else:
             mandatory.update(
-                candidates[
-                    round(position * (len(candidates) - 1) / (remaining - 1))
-                ]
+                candidates[round(position * (len(candidates) - 1) / (remaining - 1))]
                 for position in range(remaining)
             )
     return [event for index, event in enumerate(events) if index in mandatory]
@@ -189,7 +187,7 @@ class SessionEventTracker:
         at: object,
         *,
         plugged_event: dict[str, str] | None = None,
-    ) -> "SessionEventTracker":
+    ) -> SessionEventTracker:
         tracker = cls()
         append_session_event(tracker.events, plugged_event, unique_type=True)
         append_session_event(
@@ -211,8 +209,11 @@ class SessionEventTracker:
         if event is None:
             return False
         last_transition = next(
-            (item for item in reversed(self.events)
-             if item["type"] in {"charging_paused", "energy_flow_started"}),
+            (
+                item
+                for item in reversed(self.events)
+                if item["type"] in {"charging_paused", "energy_flow_started"}
+            ),
             None,
         )
         self.energy_flowing = False
@@ -234,8 +235,11 @@ class SessionEventTracker:
         if not isfinite(power_w) or power_w < 0:
             return False
         last_transition = next(
-            (item for item in reversed(self.events)
-             if item["type"] in {"charging_paused", "energy_flow_started"}),
+            (
+                item
+                for item in reversed(self.events)
+                if item["type"] in {"charging_paused", "energy_flow_started"}
+            ),
             None,
         )
         if last_transition and last_transition.get("source") == "ocpp":
@@ -267,10 +271,7 @@ class SessionEventTracker:
             )
 
         for event in reversed(self.events):
-            if (
-                event.get("type") == "charging_paused"
-                and event.get("certainty") == "provisional"
-            ):
+            if event.get("type") == "charging_paused" and event.get("certainty") == "provisional":
                 event["certainty"] = "derived"
                 break
         return append_session_event(
@@ -294,10 +295,7 @@ class SessionEventTracker:
 
     def stop(self, at: object, *, reason: object | None = None) -> None:
         """Finalize the effective stop and retain the observed OCPP stop."""
-        had_energy_flow = any(
-            event.get("type") == "energy_flow_started"
-            for event in self.events
-        )
+        had_energy_flow = any(event.get("type") == "energy_flow_started" for event in self.events)
         converted_pause = False
         if had_energy_flow and self.energy_flowing is False:
             for event in reversed(self.events):
@@ -312,14 +310,18 @@ class SessionEventTracker:
                         # does not mean energy continued flowing until unplugging.
                         append_session_event(
                             self.events,
-                            session_event("energy_flow_stopped", event["at"], event["source"], "derived"),
+                            session_event(
+                                "energy_flow_stopped",
+                                event["at"],
+                                event["source"],
+                                "derived",
+                            ),
                             unique_type=True,
                         )
                     converted_pause = True
                     break
         if had_energy_flow and (
-            self.energy_flowing is True
-            or (self.energy_flowing is False and not converted_pause)
+            self.energy_flowing is True or (self.energy_flowing is False and not converted_pause)
         ):
             append_session_event(
                 self.events,

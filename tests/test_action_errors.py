@@ -1,21 +1,17 @@
 """Regression tests for Home Assistant action-error reporting."""
+
 from __future__ import annotations
 
 import ast
 import asyncio
 import importlib.util
-from pathlib import Path
 import sys
 import types
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
-
-PACKAGE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-)
+PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 
 
 class _HomeAssistantError(Exception):
@@ -160,9 +156,7 @@ class ActionCommandCompletionTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_confirmed_command_returns_terminal_result(self):
         result = await action_errors.async_require_command_completion(
-            self._completed_handle(
-                action_errors.ChargerCommandStatus.CONFIRMED
-            )
+            self._completed_handle(action_errors.ChargerCommandStatus.CONFIRMED)
         )
 
         self.assertEqual(
@@ -214,11 +208,15 @@ class ActionCommandCompletionTest(unittest.IsolatedAsyncioTestCase):
                     translation_key,
                 )
 
-    async def test_local_denial_explains_the_permission_instead_of_charger_rejection(self):
+    async def test_local_denial_explains_the_permission_instead_of_charger_rejection(
+        self,
+    ):
         with self.assertRaises(_ServiceValidationError) as raised:
             await action_errors.async_require_command_completion(
-                self._completed_handle(action_errors.ChargerCommandStatus.FAILED,
-                                       reason="local_authorization_denied")
+                self._completed_handle(
+                    action_errors.ChargerCommandStatus.FAILED,
+                    reason="local_authorization_denied",
+                )
             )
         self.assertEqual(raised.exception.translation_key, "local_authorization_denied")
 
@@ -243,7 +241,11 @@ class PublicActionWiringTest(unittest.TestCase):
     """Keep the immediate HA action guards connected to the shared helpers."""
 
     EXPECTED_HELPERS = {
-        ("configuration/controls.py", "GrowattConfigurationControlMixin", "_async_write_configuration"): {
+        (
+            "configuration/controls.py",
+            "GrowattConfigurationControlMixin",
+            "_async_write_configuration",
+        ): {
             "async_require_command_completion",
             "raise_write_blocked",
             "raise_charger_disconnected",
@@ -346,15 +348,11 @@ class PublicActionWiringTest(unittest.TestCase):
             }
             with self.subTest(class_name=class_name, method_name=method_name):
                 self.assertTrue(
-                    self.EXPECTED_HELPERS[
-                        (file_name, class_name, method_name)
-                    ].issubset(calls)
+                    self.EXPECTED_HELPERS[(file_name, class_name, method_name)].issubset(calls)
                 )
 
     def test_number_validation_precedes_every_write_or_draft_mutation(self):
-        tree = ast.parse(
-            (PACKAGE_PATH / "number.py").read_text(encoding="utf-8")
-        )
+        tree = ast.parse((PACKAGE_PATH / "number.py").read_text(encoding="utf-8"))
         number_classes = (
             "MaxCurrentNumber",
             "LoadBalancingLimitNumber",
@@ -378,8 +376,7 @@ class PublicActionWiringTest(unittest.TestCase):
             setter = next(
                 node
                 for node in class_node.body
-                if isinstance(node, ast.AsyncFunctionDef)
-                and node.name == "async_set_native_value"
+                if isinstance(node, ast.AsyncFunctionDef) and node.name == "async_set_native_value"
             )
             validation = next(
                 node
@@ -405,35 +402,25 @@ class PublicActionWiringTest(unittest.TestCase):
 
             with self.subTest(class_name=class_name):
                 self.assertTrue(mutations)
-                self.assertTrue(
-                    all(
-                        validation.lineno < mutation.lineno
-                        for mutation in mutations
-                    )
-                )
+                self.assertTrue(all(validation.lineno < mutation.lineno for mutation in mutations))
                 self.assertEqual(round_calls, [])
 
     def test_ap_mode_waits_for_charger_completion_before_success_abort(self):
-        tree = ast.parse(
-            (PACKAGE_PATH / "config_flow.py").read_text(encoding="utf-8")
-        )
+        tree = ast.parse((PACKAGE_PATH / "config_flow.py").read_text(encoding="utf-8"))
         options_flow = next(
             node
             for node in tree.body
-            if isinstance(node, ast.ClassDef)
-            and node.name == "GrowattThorOptionsFlow"
+            if isinstance(node, ast.ClassDef) and node.name == "GrowattThorOptionsFlow"
         )
         activate = next(
             node
             for node in options_flow.body
-            if isinstance(node, ast.AsyncFunctionDef)
-            and node.name == "_activate_ap_mode"
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "_activate_ap_mode"
         )
         calls = {
             node.func.id
             for node in ast.walk(activate)
-            if isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
         }
 
         self.assertIn("async_require_command_completion", calls)

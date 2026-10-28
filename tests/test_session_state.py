@@ -1,18 +1,13 @@
 """Tests for persistent last-session entity state."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import unittest
+from pathlib import Path
 
-
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "sessions/state.py"
-)
+MODULE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "sessions/state.py"
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_session_state_test_target",
     MODULE_PATH,

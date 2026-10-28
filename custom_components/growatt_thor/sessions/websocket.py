@@ -1,16 +1,18 @@
 """Authenticated on-demand session details for the bundled Lovelace card."""
+
 from __future__ import annotations
+
 from functools import partial
 
-from homeassistant.components import websocket_api
-from homeassistant.core import HomeAssistant
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
+from homeassistant.components import websocket_api
+from homeassistant.core import HomeAssistant
 
 from ..const import DOMAIN
 from ..runtime.ownership import entry_runtime_data
-from .csv import session_detail_data
 from ..runtime.time import installation_time_zone
+from .csv import session_detail_data
 
 
 @websocket_api.websocket_command(

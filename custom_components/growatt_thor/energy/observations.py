@@ -1,8 +1,9 @@
 """Shared normalized site observations for display, accounting and controls."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, fields, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from math import isfinite
 from typing import Any, Literal
 
@@ -25,7 +26,11 @@ class PowerObservation:
         if self.observed_at.tzinfo is None or at.tzinfo is None:
             return None
         age = (at - self.observed_at).total_seconds()
-        return self.watts if age >= -self.future_tolerance_s and (self.max_age_s is None or age <= self.max_age_s) else None
+        return (
+            self.watts
+            if age >= -self.future_tolerance_s and (self.max_age_s is None or age <= self.max_age_s)
+            else None
+        )
 
 
 @dataclass(frozen=True)
@@ -40,7 +45,9 @@ class SiteObservations:
 
 
 def align_accounting_observations(
-    site: SiteObservations, sample_at: datetime, received_at: datetime,
+    site: SiteObservations,
+    sample_at: datetime,
+    received_at: datetime,
 ) -> SiteObservations:
     """Allow small reporting offsets only within a live meter packet's transit.
 
@@ -58,7 +65,11 @@ def align_accounting_observations(
     aligned = {}
     for field in fields(site):
         observation = getattr(site, field.name)
-        if observation is None or observation.observed_at is None or observation.observed_at.tzinfo is None:
+        if (
+            observation is None
+            or observation.observed_at is None
+            or observation.observed_at.tzinfo is None
+        ):
             continue
         offset = (observation.observed_at - sample_at).total_seconds()
         if 0 < offset <= tolerance:
@@ -76,7 +87,7 @@ def parse_at(value: Any) -> datetime | None:
             return None
     else:
         return None
-    return parsed.astimezone(timezone.utc) if parsed.tzinfo else None
+    return parsed.astimezone(UTC) if parsed.tzinfo else None
 
 
 def read_site_observations(coordinator, *, require_recent_report: bool = True) -> SiteObservations:
@@ -96,26 +107,47 @@ def read_site_observations(coordinator, *, require_recent_report: bool = True) -
         attributes = getattr(state, "attributes", {})
         if isinstance(attributes, dict) and attributes.get("restored"):
             watts = None
-        observed = parse_at(getattr(state, "last_reported", None)) or parse_at(getattr(state, "last_updated", None))
-        return PowerObservation(watts * sign if watts is not None else None, observed,
-                                max_age_s=120 if require_recent_report else None)
+        observed = parse_at(getattr(state, "last_reported", None)) or parse_at(
+            getattr(state, "last_updated", None)
+        )
+        return PowerObservation(
+            watts * sign if watts is not None else None,
+            observed,
+            max_age_s=120 if require_recent_report else None,
+        )
 
     def sensor(key: str, *, sign: int = 1) -> PowerObservation | None:
         entity_id = options.get(key)
         state = states.get(entity_id) if entity_id and states else None
         return observation(state, sign=sign) if entity_id else None
 
-    grid = sensor("site_grid_power_entity", sign=-1 if options.get("site_grid_power_sign") == "positive_export" else 1) if options.get("site_grid_source") == "ha_sensor" else None
+    grid = (
+        sensor(
+            "site_grid_power_entity",
+            sign=-1 if options.get("site_grid_power_sign") == "positive_export" else 1,
+        )
+        if options.get("site_grid_source") == "ha_sensor"
+        else None
+    )
     if options.get("site_grid_source") == "thor_external":
         if getattr(coordinator, "external_meter_health", None) == "healthy":
             observed = parse_at(getattr(coordinator, "external_meter_last_updated_at", None))
-            grid = PowerObservation(getattr(coordinator, "grid_power", None), observed,
-                                    max_age_s=max(15, int(getattr(coordinator, "external_meter_poll_interval", 30)) * 3 + 5))
+            grid = PowerObservation(
+                getattr(coordinator, "grid_power", None),
+                observed,
+                max_age_s=max(
+                    15,
+                    int(getattr(coordinator, "external_meter_poll_interval", 30)) * 3 + 5,
+                ),
+            )
     battery_entity = getattr(coordinator, "battery_power_entity", None)
     battery = None
     if battery_entity:
         state = states.get(battery_entity) if states else None
-        battery = observation(state, sign=-1 if getattr(coordinator, "battery_power_sign", None) == "positive_charge" else 1)
+        battery = observation(
+            state,
+            sign=-1 if getattr(coordinator, "battery_power_sign", None) == "positive_charge" else 1,
+        )
     return SiteObservations(
         grid=grid,
         solar=sensor("site_solar_power_entity"),

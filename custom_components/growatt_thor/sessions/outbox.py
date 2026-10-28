@@ -1,4 +1,5 @@
 """Durable handoff of completed sessions from HA storage to CSV."""
+
 from __future__ import annotations
 
 import asyncio

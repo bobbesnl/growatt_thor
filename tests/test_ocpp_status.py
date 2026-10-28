@@ -1,19 +1,14 @@
 """Tests for Home Assistant OCPP status normalization."""
+
 from __future__ import annotations
 
-from enum import Enum
 import importlib.util
-from pathlib import Path
 import sys
 import unittest
+from enum import Enum
+from pathlib import Path
 
-
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "ocpp/status.py"
-)
+MODULE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "ocpp/status.py"
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_ocpp_status_test_target",
     MODULE_PATH,

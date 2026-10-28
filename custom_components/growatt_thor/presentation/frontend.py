@@ -1,4 +1,5 @@
 """Serve the bundled dashboard card without modifying Lovelace storage."""
+
 from pathlib import Path
 
 from homeassistant.components.frontend import add_extra_js_url
@@ -15,8 +16,8 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
     if hass.data.get(_REGISTERED):
         return
     integration = await async_get_integration(hass, "growatt_thor")
-    await hass.http.async_register_static_paths([
-        StaticPathConfig(STATIC_URL, str(Path(__file__).parents[1] / "frontend"), False)
-    ])
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(STATIC_URL, str(Path(__file__).parents[1] / "frontend"), False)]
+    )
     add_extra_js_url(hass, f"{STATIC_URL}/thor-card.js?v={integration.version}")
     hass.data[_REGISTERED] = True

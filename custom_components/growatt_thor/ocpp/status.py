@@ -1,8 +1,8 @@
 """Normalize OCPP 1.6 charge point statuses for Home Assistant entities."""
+
 from __future__ import annotations
 
 from typing import Final
-
 
 OCPP_STATUS_OPTIONS: Final[tuple[str, ...]] = (
     "available",
@@ -37,9 +37,5 @@ def normalize_ocpp_status(status: object | None) -> str | None:
         return None
 
     value = status.value if hasattr(status, "value") else str(status)
-    normalized = "".join(
-        character
-        for character in str(value).casefold()
-        if character.isalnum()
-    )
+    normalized = "".join(character for character in str(value).casefold() if character.isalnum())
     return _OCPP_STATUS_ALIASES.get(normalized)

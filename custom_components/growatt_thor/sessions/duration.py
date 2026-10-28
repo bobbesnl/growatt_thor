@@ -1,4 +1,5 @@
 """Accumulate effective charging time from transaction MeterValues."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -6,7 +7,6 @@ from datetime import datetime
 from typing import Any
 
 from ..ocpp.meter_samples import MeterValue
-
 
 ACTIVE_POWER_THRESHOLD_W = 100.0
 DEFAULT_MAX_SAMPLE_GAP_SECONDS = 180.0
@@ -41,10 +41,7 @@ def _entry_power_w(entry: MeterValue) -> float | None:
     generic: list[float] = []
     phased: dict[str, float] = {}
     for sample in entry.samples:
-        if (
-            sample.measurand != "Power.Active.Import"
-            or sample.numeric_value is None
-        ):
+        if sample.measurand != "Power.Active.Import" or sample.numeric_value is None:
             continue
         value = _watts(sample.numeric_value, sample.unit)
         if value is None:
@@ -64,10 +61,7 @@ def _entry_energy_wh(entry: MeterValue) -> float | None:
     generic: list[float] = []
     phased: dict[str, float] = {}
     for sample in entry.samples:
-        if (
-            sample.measurand != "Energy.Active.Import.Register"
-            or sample.numeric_value is None
-        ):
+        if sample.measurand != "Energy.Active.Import.Register" or sample.numeric_value is None:
             continue
         value = _watt_hours(sample.numeric_value, sample.unit)
         if value is None:
@@ -136,9 +130,7 @@ class EffectiveChargingTracker:
                     self.elapsed_seconds += delta_seconds
 
         current_active = (
-            power_w > ACTIVE_POWER_THRESHOLD_W
-            if power_w is not None
-            else energy_increased
+            power_w > ACTIVE_POWER_THRESHOLD_W if power_w is not None else energy_increased
         )
         current_at_text = current_at.isoformat()
         if self.last_sample_at != current_at_text:
@@ -164,22 +156,18 @@ class EffectiveChargingTracker:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, value: Any) -> "EffectiveChargingTracker":
+    def from_dict(cls, value: Any) -> EffectiveChargingTracker:
         """Restore defensively from an older or partially invalid store."""
         data = value if isinstance(value, dict) else {}
         tracker = cls()
         transaction_id = data.get("transaction_id")
-        tracker.transaction_id = (
-            str(transaction_id) if transaction_id not in (None, "") else None
-        )
+        tracker.transaction_id = str(transaction_id) if transaction_id not in (None, "") else None
         try:
             tracker.elapsed_seconds = max(0.0, float(data.get("elapsed_seconds", 0)))
         except (TypeError, ValueError):
             pass
         tracker.last_sample_at = (
-            str(data["last_sample_at"])
-            if data.get("last_sample_at") not in (None, "")
-            else None
+            str(data["last_sample_at"]) if data.get("last_sample_at") not in (None, "") else None
         )
         tracker.last_active = bool(data.get("last_active", False))
         try:

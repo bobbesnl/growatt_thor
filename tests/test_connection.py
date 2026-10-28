@@ -1,17 +1,14 @@
 """Tests for OCPP connection liveness tracking."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import unittest
-
+from pathlib import Path
 
 MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "ocpp/connection.py"
+    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "ocpp/connection.py"
 )
 OCPP_SERVER_PATH = MODULE_PATH.with_name("server.py")
 SPEC = importlib.util.spec_from_file_location(

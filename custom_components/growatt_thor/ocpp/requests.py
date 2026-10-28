@@ -6,6 +6,7 @@ GetConfiguration refresh consists of two CALLs and must not be interleaved
 with a queued ChangeConfiguration.  Keeping that policy in this small class
 makes the firmware workaround explicit and independently testable.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,8 +18,8 @@ from ..runtime.write_queue import (
     ChargerRequestOutcomeUncertain,
 )
 
-
 ResultT = TypeVar("ResultT")
+
 
 # A private sentinel is preferable to ``None`` because valid OCPP helpers may
 # themselves return no payload.  Callers can therefore distinguish "skipped
@@ -71,10 +72,7 @@ class SerializedOcppRequestGate:
             return REQUEST_SKIPPED
 
         async with self._lock:
-            if (
-                not self._connection_is_current()
-                or not self._connection_is_available()
-            ):
+            if not self._connection_is_current() or not self._connection_is_available():
                 raise ChargerConnectionUnavailable(
                     f"{operation_name}: charger connection is no longer current"
                 )
@@ -99,7 +97,7 @@ class SerializedOcppRequestGate:
                 raise ChargerRequestOutcomeUncertain(
                     f"{operation_name}: connection lost before acknowledgement"
                 ) from exc
-            except asyncio.TimeoutError as exc:
+            except TimeoutError as exc:
                 if not timeout_makes_outcome_uncertain:
                     raise
                 # A timeout only says that no acknowledgement arrived.  It

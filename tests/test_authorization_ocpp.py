@@ -1,22 +1,26 @@
 """Wire-level handler tests; install tests/requirements-auth.txt to run."""
+
 import asyncio
 import importlib
 import importlib.util
 import json
-from pathlib import Path
 import sys
-from types import ModuleType, SimpleNamespace
 import unittest
-from unittest.mock import patch, AsyncMock
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
-HAS_OCPP = importlib.util.find_spec('ocpp') is not None and importlib.util.find_spec('websockets') is not None
+HAS_OCPP = (
+    importlib.util.find_spec("ocpp") is not None
+    and importlib.util.find_spec("websockets") is not None
+)
 if HAS_OCPP:
     # Load the actual integration modules without executing HA's package setup.
-    package = ModuleType('thor_auth_wire_target')
-    package.__path__ = [str(Path(__file__).parents[1] / 'custom_components/growatt_thor')]
+    package = ModuleType("thor_auth_wire_target")
+    package.__path__ = [str(Path(__file__).parents[1] / "custom_components/growatt_thor")]
     sys.modules[package.__name__] = package
-    server = importlib.import_module(package.__name__ + '.ocpp.server')
-    auth = importlib.import_module(package.__name__ + '.charging.authorization')
+    server = importlib.import_module(package.__name__ + ".ocpp.server")
+    auth = importlib.import_module(package.__name__ + ".charging.authorization")
 
 
 class Websocket:
@@ -46,7 +50,7 @@ class Coordinator:
         self.configuration_batches = []
 
     def now(self):
-        return '2026-09-04T10:00:00Z'
+        return "2026-09-04T10:00:00Z"
 
     def set_charge_point(self, cp_id):
         # Match the production coordinator: the retained identity survives a
@@ -61,7 +65,7 @@ class Coordinator:
         return self.next_id
 
     def start_transaction(self, transaction_id, id_tag, **kwargs):
-        self.active_transaction = {'start': {'response': {'transaction_id': transaction_id}}}
+        self.active_transaction = {"start": {"response": {"transaction_id": transaction_id}}}
 
     def stop_transaction(self, reason, **kwargs):
         self.stops.append(kwargs)
@@ -70,51 +74,69 @@ class Coordinator:
         self.configuration_batches.append((list(configuration), tuple(unknown_keys)))
 
 
-@unittest.skipUnless(HAS_OCPP, 'Install tests/requirements-auth.txt for real OCPP handler tests')
+@unittest.skipUnless(HAS_OCPP, "Install tests/requirements-auth.txt for real OCPP handler tests")
 class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.coordinator = Coordinator()
         self.ws = Websocket()
         self.hass = SimpleNamespace(data={}, loop=asyncio.get_running_loop())
-        self.cp = server.GrowattChargePoint('TEST-CHARGER', self.ws, self.coordinator, self.hass)
+        self.cp = server.GrowattChargePoint("TEST-CHARGER", self.ws, self.coordinator, self.hass)
 
-    def restrict(self, tags='TEST-CARD', *, allow_ha_remote_start=True):
-        self.coordinator.authorization.policy = auth.policy_from_input(auth.AuthorizationPolicy(), {
-            auth.CONF_RESTRICT_AUTHORIZATION: True,
-            auth.CONF_ALLOW_HA_REMOTE_START: allow_ha_remote_start,
-            auth.CONF_AUTHORIZED_TAGS: tags,
-        })
+    def restrict(self, tags="TEST-CARD", *, allow_ha_remote_start=True):
+        self.coordinator.authorization.policy = auth.policy_from_input(
+            auth.AuthorizationPolicy(),
+            {
+                auth.CONF_RESTRICT_AUTHORIZATION: True,
+                auth.CONF_ALLOW_HA_REMOTE_START: allow_ha_remote_start,
+                auth.CONF_AUTHORIZED_TAGS: tags,
+            },
+        )
 
     async def request(self, action, payload):
-        await self.cp.route_message(json.dumps([2, 'test-message', action, payload]))
-        self.assertEqual(self.ws.sent[-1][:2], [3, 'test-message'])
+        await self.cp.route_message(json.dumps([2, "test-message", action, payload]))
+        self.assertEqual(self.ws.sent[-1][:2], [3, "test-message"])
         return self.ws.sent[-1][2]
 
     async def start(self, tag):
-        return await self.request('StartTransaction', {
-            'connectorId': 1, 'idTag': tag, 'meterStart': 0,
-            'timestamp': '2026-09-04T10:00:00Z',
-        })
+        return await self.request(
+            "StartTransaction",
+            {
+                "connectorId": 1,
+                "idTag": tag,
+                "meterStart": 0,
+                "timestamp": "2026-09-04T10:00:00Z",
+            },
+        )
 
     async def test_boot_and_heartbeat_initialize_each_connection_once(self):
         for heartbeat_first in (False, True):
             with self.subTest(heartbeat_first=heartbeat_first):
                 tasks = []
-                self.hass.async_create_task = lambda coro: tasks.append(asyncio.create_task(coro))
+                self.hass.async_create_task = lambda coro, tasks=tasks: tasks.append(
+                    asyncio.create_task(coro)
+                )
                 self.coordinator.boot_notification = None
+
                 def record(payload):
                     self.coordinator.boot_notification = payload
+
                 self.coordinator.record_boot_notification = record
-                cp = server.GrowattChargePoint('TEST-CHARGER', Websocket(), self.coordinator, self.hass)
+                cp = server.GrowattChargePoint(
+                    "TEST-CHARGER", Websocket(), self.coordinator, self.hass
+                )
                 cp.trigger_get_configuration = AsyncMock()
                 cp.trigger_external_meterval = AsyncMock()
                 cp.trigger_boot_notification = AsyncMock()
-                with patch.object(server.asyncio, 'sleep', AsyncMock()):
+                with patch.object(server.asyncio, "sleep", AsyncMock()):
                     if heartbeat_first:
                         await cp.on_heartbeat()
-                    await cp.on_boot_notification(charge_point_model="THOR", charge_point_vendor="Growatt")
+                    await cp.on_boot_notification(
+                        charge_point_model="THOR", charge_point_vendor="Growatt"
+                    )
                     await cp.on_heartbeat()
-                    await cp.on_boot_notification(charge_point_model="THOR", charge_point_vendor="Growatt")
+                    await cp.on_boot_notification(
+                        charge_point_model="THOR", charge_point_vendor="Growatt"
+                    )
                     await asyncio.gather(*tasks)
                 self.assertEqual(len(tasks), 1)
                 cp.trigger_get_configuration.assert_awaited_once()
@@ -122,189 +144,220 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
                 cp.trigger_boot_notification.assert_not_awaited()
 
     async def test_default_accepts_authorize_and_start(self):
-        result = await self.request('Authorize', {'idTag': 'TEST-CARD'})
-        self.assertEqual(result['idTagInfo']['status'], 'Accepted')
-        self.assertEqual((await self.start('TEST-CARD'))['idTagInfo']['status'], 'Accepted')
+        result = await self.request("Authorize", {"idTag": "TEST-CARD"})
+        self.assertEqual(result["idTagInfo"]["status"], "Accepted")
+        self.assertEqual((await self.start("TEST-CARD"))["idTagInfo"]["status"], "Accepted")
 
     async def test_known_and_unknown_authorize(self):
         self.restrict()
-        for tag, expected in [('TEST-CARD', 'Accepted'), ('UNKNOWN-CARD', 'Invalid')]:
-            result = await self.request('Authorize', {'idTag': tag})
-            self.assertEqual(result['idTagInfo']['status'], expected)
+        for tag, expected in [("TEST-CARD", "Accepted"), ("UNKNOWN-CARD", "Invalid")]:
+            result = await self.request("Authorize", {"idTag": tag})
+            self.assertEqual(result["idTagInfo"]["status"], expected)
 
-    async def test_learning_captures_rejected_wire_identifier_without_logging_or_granting_it(self):
-        self.restrict('OLD | Existing')
+    async def test_learning_captures_rejected_wire_identifier_without_logging_or_granting_it(
+        self,
+    ):
+        self.restrict("OLD | Existing")
         learning = self.coordinator.authorization.learning
         session = learning.begin()
-        with self.assertLogs(server.__name__, level='DEBUG') as logs:
-            result = await self.request('Authorize', {'idTag': '00SecretAbC'})
-        self.assertEqual(result['idTagInfo']['status'], 'Invalid')
-        self.assertEqual(learning.identifier(session), '00SecretAbC')
-        self.assertNotIn('00SecretAbC', '\n'.join(logs.output))
-        self.assertNotIn('00SecretAbC', json.dumps(self.coordinator.authorization.diagnostics()))
-        self.assertEqual((await self.start('00SecretAbC'))['idTagInfo']['status'], 'Invalid')
-        self.coordinator.authorization.policy = self.coordinator.authorization.policy.with_card('00SecretAbC', 'Family car')
+        with self.assertLogs(server.__name__, level="DEBUG") as logs:
+            result = await self.request("Authorize", {"idTag": "00SecretAbC"})
+        self.assertEqual(result["idTagInfo"]["status"], "Invalid")
+        self.assertEqual(learning.identifier(session), "00SecretAbC")
+        self.assertNotIn("00SecretAbC", "\n".join(logs.output))
+        self.assertNotIn("00SecretAbC", json.dumps(self.coordinator.authorization.diagnostics()))
+        self.assertEqual((await self.start("00SecretAbC"))["idTagInfo"]["status"], "Invalid")
+        self.coordinator.authorization.policy = self.coordinator.authorization.policy.with_card(
+            "00SecretAbC", "Family car"
+        )
         learning.cancel(session)
-        self.assertEqual((await self.request('Authorize', {'idTag': '00SecretAbC'}))['idTagInfo']['status'], 'Accepted')
+        self.assertEqual(
+            (await self.request("Authorize", {"idTag": "00SecretAbC"}))["idTagInfo"]["status"],
+            "Accepted",
+        )
 
     async def test_superseded_connection_cannot_supply_learned_card(self):
         session = self.coordinator.authorization.learning.begin()
-        self.coordinator.runtime_data['charge_point'] = object()
-        await self.cp.route_message(json.dumps([2, 'stale-message', 'Authorize', {'idTag': 'OLD-SOCKET'}]))
+        self.coordinator.runtime_data["charge_point"] = object()
+        await self.cp.route_message(
+            json.dumps([2, "stale-message", "Authorize", {"idTag": "OLD-SOCKET"}])
+        )
         self.assertEqual(self.ws.sent, [])
         self.assertIsNone(self.coordinator.authorization.learning.identifier(session))
         self.coordinator.authorization.learning.cancel(session)
 
     async def test_direct_start_denied_but_transaction_retained(self):
         self.restrict()
-        result = await self.start('UNKNOWN-CARD')
-        self.assertEqual(result['idTagInfo']['status'], 'Invalid')
-        self.assertEqual(result['transactionId'], 41)
-        self.assertEqual(self.coordinator.active_transaction['start']['response']['id_tag_info']['status'], 'Invalid')
-        second = await self.start('TEST-CARD')
-        self.assertEqual(second['transactionId'], 42)
-        self.assertEqual(second['idTagInfo']['status'], 'Accepted')
+        result = await self.start("UNKNOWN-CARD")
+        self.assertEqual(result["idTagInfo"]["status"], "Invalid")
+        self.assertEqual(result["transactionId"], 41)
+        self.assertEqual(
+            self.coordinator.active_transaction["start"]["response"]["id_tag_info"]["status"],
+            "Invalid",
+        )
+        second = await self.start("TEST-CARD")
+        self.assertEqual(second["transactionId"], 42)
+        self.assertEqual(second["idTagInfo"]["status"], "Accepted")
 
     async def test_recheck_policy_after_authorize(self):
         self.restrict()
-        await self.request('Authorize', {'idTag': 'TEST-CARD'})
-        self.restrict('')
-        self.assertEqual((await self.start('TEST-CARD'))['idTagInfo']['status'], 'Invalid')
+        await self.request("Authorize", {"idTag": "TEST-CARD"})
+        self.restrict("")
+        self.assertEqual((await self.start("TEST-CARD"))["idTagInfo"]["status"], "Invalid")
 
     async def test_stop_is_processed_without_granting_cached_access(self):
         self.restrict()
-        result = await self.request('StopTransaction', {
-            'transactionId': 41, 'meterStop': 12, 'idTag': 'UNKNOWN-CARD',
-            'timestamp': '2026-09-04T10:01:00Z',
-        })
+        result = await self.request(
+            "StopTransaction",
+            {
+                "transactionId": 41,
+                "meterStop": 12,
+                "idTag": "UNKNOWN-CARD",
+                "timestamp": "2026-09-04T10:01:00Z",
+            },
+        )
         self.assertEqual(result, {})
-        self.assertEqual(self.coordinator.stops[-1]['transaction_id'], 41)
+        self.assertEqual(self.coordinator.stops[-1]["transaction_id"], 41)
 
     async def test_handler_failure_denies_without_leaking_exception_tag(self):
-        with patch.object(self.coordinator.authorization, 'decide', side_effect=RuntimeError('SECRET-TEST-CARD')):
-            with self.assertLogs(server._LOGGER, level='ERROR') as logs:
-                result = await self.request('Authorize', {'idTag': 'SECRET-TEST-CARD'})
-        self.assertEqual(result['idTagInfo']['status'], 'Invalid')
-        self.assertNotIn('SECRET-TEST-CARD', '\n'.join(logs.output))
+        with patch.object(
+            self.coordinator.authorization,
+            "decide",
+            side_effect=RuntimeError("SECRET-TEST-CARD"),
+        ):
+            with self.assertLogs(server._LOGGER, level="ERROR") as logs:
+                result = await self.request("Authorize", {"idTag": "SECRET-TEST-CARD"})
+        self.assertEqual(result["idTagInfo"]["status"], "Invalid")
+        self.assertNotIn("SECRET-TEST-CARD", "\n".join(logs.output))
 
     async def test_real_library_logs_do_not_contain_tag(self):
-        with self.assertLogs(server._LOGGER, level='INFO') as logs:
-            await self.request('Authorize', {'idTag': 'SECRET-TEST-CARD'})
-            self.cp.logger.exception('Invalid frame %s', 'SECRET-TEST-CARD')
-        self.assertNotIn('SECRET-TEST-CARD', '\n'.join(logs.output))
+        with self.assertLogs(server._LOGGER, level="INFO") as logs:
+            await self.request("Authorize", {"idTag": "SECRET-TEST-CARD"})
+            self.cp.logger.exception("Invalid frame %s", "SECRET-TEST-CARD")
+        self.assertNotIn("SECRET-TEST-CARD", "\n".join(logs.output))
 
     async def test_remote_start_denied_without_network_call_when_disabled(self):
         self.restrict(allow_ha_remote_start=False)
-        self.assertEqual(await self.cp.remote_start_transaction(1, '12345678'),
-                         {'status': 'Rejected', 'reason': 'local_authorization_denied'})
+        self.assertEqual(
+            await self.cp.remote_start_transaction(1, "12345678"),
+            {"status": "Rejected", "reason": "local_authorization_denied"},
+        )
         self.assertEqual(self.ws.sent, [])
 
     async def test_remote_start_is_allowed_without_adding_technical_tag_to_cards(self):
         self.restrict()
         with patch.object(
             self.cp,
-            'call',
-            return_value=SimpleNamespace(status='Accepted'),
+            "call",
+            return_value=SimpleNamespace(status="Accepted"),
         ):
             self.assertEqual(
-                await self.cp.remote_start_transaction(1, '12345678'),
-                {'status': 'Accepted'},
+                await self.cp.remote_start_transaction(1, "12345678"),
+                {"status": "Accepted"},
             )
         self.assertEqual(
-            (await self.start('12345678'))['idTagInfo']['status'],
-            'Accepted',
+            (await self.start("12345678"))["idTagInfo"]["status"],
+            "Accepted",
         )
         self.assertEqual(
-            (await self.start('12345678'))['idTagInfo']['status'],
-            'Invalid',
+            (await self.start("12345678"))["idTagInfo"]["status"],
+            "Invalid",
         )
 
     async def test_legacy_card_storage_does_not_block_explicit_ha_start(self):
-        self.coordinator.authorization = auth.LocalAuthorization({
-            'restricted': True, 'tag_hashes': ['0' * 64],
-            'allow_ha_remote_start': True,
-        })
-        with patch.object(self.cp, 'call', return_value=SimpleNamespace(status='Accepted')) as call:
-            self.assertEqual(await self.cp.remote_start_transaction(1, '12345678'),
-                             {'status': 'Accepted'})
+        self.coordinator.authorization = auth.LocalAuthorization(
+            {
+                "restricted": True,
+                "tag_hashes": ["0" * 64],
+                "allow_ha_remote_start": True,
+            }
+        )
+        with patch.object(self.cp, "call", return_value=SimpleNamespace(status="Accepted")) as call:
+            self.assertEqual(
+                await self.cp.remote_start_transaction(1, "12345678"),
+                {"status": "Accepted"},
+            )
             call.assert_awaited_once()
-        self.assertEqual((await self.request('Authorize', {'idTag': '12345678'}))['idTagInfo']['status'], 'Invalid')
-        self.assertEqual((await self.start('12345678'))['idTagInfo']['status'], 'Accepted')
-        self.assertEqual((await self.start('12345678'))['idTagInfo']['status'], 'Invalid')
+        self.assertEqual(
+            (await self.request("Authorize", {"idTag": "12345678"}))["idTagInfo"]["status"],
+            "Invalid",
+        )
+        self.assertEqual((await self.start("12345678"))["idTagInfo"]["status"], "Accepted")
+        self.assertEqual((await self.start("12345678"))["idTagInfo"]["status"], "Invalid")
 
     async def test_remote_start_timeout_keeps_one_shot_authorization(self):
         """A lost response must not make an accepted charger start fail locally."""
         self.restrict()
-        with patch.object(self.cp, 'call', side_effect=asyncio.TimeoutError):
+        with patch.object(self.cp, "call", side_effect=asyncio.TimeoutError):
             with self.assertRaises(server.ChargerRequestOutcomeUncertain):
-                await self.cp.remote_start_transaction(1, '12345678')
+                await self.cp.remote_start_transaction(1, "12345678")
 
         self.assertEqual(
-            (await self.start('12345678'))['idTagInfo']['status'],
-            'Accepted',
+            (await self.start("12345678"))["idTagInfo"]["status"],
+            "Accepted",
         )
 
     async def test_unsent_remote_start_discards_one_shot_authorization(self):
         """A stale connection is safe to retry and must not leave a grant behind."""
         self.restrict()
-        self.coordinator.runtime_data['charge_point'] = object()
+        self.coordinator.runtime_data["charge_point"] = object()
 
         with self.assertRaises(server.ChargerConnectionUnavailable):
-            await self.cp.remote_start_transaction(1, '12345678')
+            await self.cp.remote_start_transaction(1, "12345678")
 
         # The ownership guard correctly ignores all inbound traffic from the
         # stale socket.  Reconnect the same charger before proving that the
         # failed, definitely-unsent Remote Start left no one-shot grant behind.
         self.ws = Websocket()
         self.cp = server.GrowattChargePoint(
-            'TEST-CHARGER',
+            "TEST-CHARGER",
             self.ws,
             self.coordinator,
             self.hass,
         )
         self.assertEqual(
-            (await self.start('12345678'))['idTagInfo']['status'],
-            'Invalid',
+            (await self.start("12345678"))["idTagInfo"]["status"],
+            "Invalid",
         )
 
     async def test_different_charger_cannot_replace_active_connection(self):
         incoming_websocket = Websocket()
 
-        with self.assertLogs(server._LOGGER, level='ERROR') as logs:
+        with self.assertLogs(server._LOGGER, level="ERROR") as logs:
             await server._on_connect(
                 incoming_websocket,
-                '/ocpp/ws/OTHER-CHARGER',
+                "/ocpp/ws/OTHER-CHARGER",
                 self.coordinator,
                 self.hass,
             )
 
         self.assertIs(
-            self.coordinator.runtime_data['charge_point'],
+            self.coordinator.runtime_data["charge_point"],
             self.cp,
         )
         self.assertEqual(incoming_websocket.closed[0][0], 1008)
-        self.assertIn('runtime belongs to', '\n'.join(logs.output))
+        self.assertIn("runtime belongs to", "\n".join(logs.output))
 
     async def test_superseded_connection_cannot_publish_status(self):
         replacement = server.GrowattChargePoint(
-            'TEST-CHARGER',
+            "TEST-CHARGER",
             Websocket(),
             self.coordinator,
             self.hass,
         )
         self.assertIs(
-            self.coordinator.runtime_data['charge_point'],
+            self.coordinator.runtime_data["charge_point"],
             replacement,
         )
 
         with patch.object(
             self.coordinator,
-            'record_status_notification',
+            "record_status_notification",
             create=True,
         ) as record_status:
             await self.cp.on_status_notification(
                 connector_id=1,
-                status='Available',
+                status="Available",
             )
 
         record_status.assert_not_called()
@@ -322,13 +375,13 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
         start_task = asyncio.create_task(
             self.cp.on_start_transaction(
                 connector_id=1,
-                id_tag='TEST-CARD',
+                id_tag="TEST-CARD",
                 meter_start=0,
             )
         )
         await allocator_started.wait()
         server.GrowattChargePoint(
-            'TEST-CHARGER',
+            "TEST-CHARGER",
             Websocket(),
             self.coordinator,
             self.hass,
@@ -345,9 +398,9 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
         """The useful first response is retained even when CALL 2 times out."""
         operational = [
             {
-                'key': 'G_WorkingMode',
-                'value': 'Power Distribution',
-                'readonly': True,
+                "key": "G_WorkingMode",
+                "value": "Power Distribution",
+                "readonly": True,
             }
         ]
         calls = 0
@@ -360,9 +413,9 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
                     configuration_key=operational,
                     unknown_key=[],
                 )
-            raise asyncio.TimeoutError
+            raise TimeoutError
 
-        with patch.object(self.cp, 'call', side_effect=call_side_effect):
+        with patch.object(self.cp, "call", side_effect=call_side_effect):
             self.assertFalse(await self.cp.trigger_get_configuration())
 
         self.assertEqual(calls, 2)
@@ -375,8 +428,8 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
         self.restrict()
         self.coordinator.charger_mode = 3
         self.assertEqual(
-            (await self.start('freevenIdTag'))['idTagInfo']['status'],
-            'Accepted',
+            (await self.start("freevenIdTag"))["idTagInfo"]["status"],
+            "Accepted",
         )
 
     async def test_reload_restores_restricted_policy(self):
@@ -384,8 +437,8 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
         self.coordinator.authorization = auth.LocalAuthorization(
             json.loads(json.dumps(self.coordinator.authorization.policy.as_config()))
         )
-        self.assertEqual((await self.start('UNKNOWN-CARD'))['idTagInfo']['status'], 'Invalid')
+        self.assertEqual((await self.start("UNKNOWN-CARD"))["idTagInfo"]["status"], "Invalid")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

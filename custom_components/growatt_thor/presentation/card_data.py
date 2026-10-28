@@ -5,31 +5,31 @@ otherwise an omitted phase can incorrectly look active from an earlier packet.
 Only the identifier and card name retained for a session are exposed;
 authorisation policy, configured allowlists, raw packets and credentials remain private.
 """
+
 from __future__ import annotations
 
-from collections.abc import Mapping
 import json
 import logging
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta, timezone
 from math import isfinite
 
-from ..energy.meter_observations import charging_meter_values as dashboard_meter_values
 from ..charging.controls import selected_working_mode
 from ..charging.limits import charging_power_identity, maximum_charging_current
 from ..configuration.values import configuration_entity_state
-from ..energy.sources import battery_power_attributes
 from ..energy.accounting import EVEnergyDelta, allocate
 from ..energy.accounting_runtime import parse_at, site_inputs
-from datetime import datetime, timedelta, timezone
+from ..energy.meter_observations import charging_meter_values as dashboard_meter_values
+from ..energy.sources import battery_power_attributes
 from ..ocpp.diagnostics import boot_notification_field
 from ..ocpp.meter_samples import meter_time_zone, normalize_meter_timestamp
 from ..ocpp.status import normalize_ocpp_status
+from ..runtime.time import installation_time_zone, utc_timestamp
+from ..sessions.events import normalize_session_events
+from ..sessions.identity import SOURCE_HOME_ASSISTANT, build_session_id
+from ..sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 from ..sessions.telemetry import CONTEXT_CURVES, context_curves
 from ..sessions.time import session_times
-from ..runtime.time import installation_time_zone, utc_timestamp
-from ..sessions.identity import SOURCE_HOME_ASSISTANT, build_session_id
-from ..sessions.events import normalize_session_events
-from ..sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
-
 
 _LOGGER = logging.getLogger(__name__)
 DASHBOARD_SESSION_LIMIT = 20
@@ -43,9 +43,7 @@ def live_dashboard_meter_values(coordinator):
     """Keep the card consistent with live sensors without changing raw samples."""
     result = dashboard_meter_values(coordinator.last_meter_values)
     status = normalize_ocpp_status(getattr(coordinator, "status", None))
-    if not getattr(coordinator, "connected", True) or (
-        status is not None and status != "charging"
-    ):
+    if not getattr(coordinator, "connected", True) or (status is not None and status != "charging"):
         result["power_w"] = 0
         result["currents_a"] = [0, 0, 0]
     return result
@@ -103,8 +101,7 @@ def dashboard_active_session(coordinator):
     request = _mapping(start.get("request"))
     response = _mapping(start.get("response"))
     transaction_id = _text(
-        getattr(coordinator, "transaction_id", None)
-        or response.get("transaction_id")
+        getattr(coordinator, "transaction_id", None) or response.get("transaction_id")
     )
     start_time = _text(request.get("timestamp") or start.get("received_at"))
     energy_wh = _number(getattr(coordinator, "energy", None))
@@ -132,14 +129,22 @@ def dashboard_active_session(coordinator):
         ),
         "end_time": None,
         "energy_kwh": (
-            metered_kwh if metered_kwh is not None and metered_kwh > 0
-            else fallback_kwh if fallback_kwh > 0
-            else 0.0 if accounting is not None
-            else energy_wh / 1000 if energy_wh is not None else None
+            metered_kwh
+            if metered_kwh is not None and metered_kwh > 0
+            else fallback_kwh
+            if fallback_kwh > 0
+            else 0.0
+            if accounting is not None
+            else energy_wh / 1000
+            if energy_wh is not None
+            else None
         ),
         "energy_source": (
-            "ocpp_meter" if metered_kwh is not None and metered_kwh > 0
-            else "power_fallback" if fallback_kwh > 0 else None
+            "ocpp_meter"
+            if metered_kwh is not None and metered_kwh > 0
+            else "power_fallback"
+            if fallback_kwh > 0
+            else None
         ),
         "green_energy_kwh": None,
         **(accounting.as_session_dict() if metered_kwh is not None and metered_kwh > 0 else {}),
@@ -155,7 +160,11 @@ def dashboard_active_session(coordinator):
             event_times=(event.get("at") for event in events),
         ),
         **(telemetry.metadata() if telemetry is not None else {}),
-        **(telemetry.snapshot(event_times=(event.get("at") for event in events)) if telemetry is not None else {}),
+        **(
+            telemetry.snapshot(event_times=(event.get("at") for event in events))
+            if telemetry is not None
+            else {}
+        ),
         "events": events,
         "detail_available": True,
     }
@@ -164,10 +173,7 @@ def dashboard_active_session(coordinator):
 def dashboard_sessions(coordinator):
     """Combine bounded completed history with one optional active row."""
     history = dict(getattr(coordinator, "dashboard_sessions", {}) or {})
-    items = [
-        dict(item) if isinstance(item, Mapping) else item
-        for item in history.get("items", ())
-    ]
+    items = [dict(item) if isinstance(item, Mapping) else item for item in history.get("items", ())]
     active = dashboard_active_session(coordinator)
     history["items"] = (
         [active] + items[: DASHBOARD_SESSION_LIMIT - 1]
@@ -175,7 +181,10 @@ def dashboard_sessions(coordinator):
         else items[:DASHBOARD_SESSION_LIMIT]
     )
     zone = installation_time_zone(getattr(coordinator, "hass", None))
-    history["items"] = [session_times(item, zone) if isinstance(item, Mapping) else item for item in history["items"]]
+    history["items"] = [
+        session_times(item, zone) if isinstance(item, Mapping) else item
+        for item in history["items"]
+    ]
     return {"schema": 1, **history}
 
 
@@ -219,11 +228,7 @@ def _enforce_card_attribute_budget(attributes: dict) -> dict:
         items.pop()
 
     active = next(
-        (
-            item
-            for item in items
-            if isinstance(item, dict) and item.get("active")
-        ),
+        (item for item in items if isinstance(item, dict) and item.get("active")),
         None,
     )
     if active is not None:
@@ -232,12 +237,16 @@ def _enforce_card_attribute_budget(attributes: dict) -> dict:
                 active.get("power_curve"),
                 limit=limit,
                 event_times=(
-                    event.get("at")
-                    for event in active.get("events", ())
-                    if isinstance(event, dict)
+                    event.get("at") for event in active.get("events", ()) if isinstance(event, dict)
                 ),
             )
-            active.update(context_curves(active, limit=limit, event_times=(event.get("at") for event in active.get("events", ()))))
+            active.update(
+                context_curves(
+                    active,
+                    limit=limit,
+                    event_times=(event.get("at") for event in active.get("events", ())),
+                )
+            )
             if _encoded_size(attributes) <= CARD_ATTRIBUTE_TARGET_BYTES:
                 return attributes
 
@@ -251,7 +260,6 @@ def _enforce_card_attribute_budget(attributes: dict) -> dict:
             size,
         )
     return attributes
-
 
 
 def _pv_linkage_card_data(coordinator, working_mode, grid_import_limit):
@@ -277,9 +285,7 @@ def _pv_linkage_card_data(coordinator, working_mode, grid_import_limit):
     last_apply = getattr(coordinator, "pv_linkage_apply_result", None)
     return {
         "working_mode": (
-            working_mode
-            if working_mode in {"pv_linkage", "pv_linkage_plus"}
-            else "pv_linkage_plus"
+            working_mode if working_mode in {"pv_linkage", "pv_linkage_plus"} else "pv_linkage_plus"
         ),
         "grid_import_limit_kw": _number(grid_import_limit),
         "boost_mode": draft.boost_mode.value if draft is not None else "disabled",
@@ -298,9 +304,7 @@ def _pv_linkage_card_data(coordinator, working_mode, grid_import_limit):
             if draft is not None and draft.smart_finish is not None
             else None
         ),
-        "smart_target_energy_kwh": (
-            draft.smart_target_energy_kwh if draft is not None else None
-        ),
+        "smart_target_energy_kwh": (draft.smart_target_energy_kwh if draft is not None else None),
         "draft_dirty": bool(getattr(coordinator, "pv_linkage_draft_dirty", False)),
         "last_apply": last_apply.as_dict() if last_apply is not None else None,
         "blocked_reason": blocked_reason,
@@ -311,7 +315,7 @@ def dashboard_attributes(coordinator) -> dict:
     """Expose only fields required by the bundled card on the status entity."""
     snapshot = coordinator.last_meter_values or {}
     status = (coordinator.last_status_notification or {}).get("request", {})
-    start = ((coordinator.active_transaction or {}).get("start") or {})
+    start = (coordinator.active_transaction or {}).get("start") or {}
     model = boot_notification_field(coordinator.boot_notification, "charge_point_model")
     firmware = boot_notification_field(coordinator.boot_notification, "firmware_version")
     grid_import_limit = configuration_entity_state(
@@ -324,38 +328,52 @@ def dashboard_attributes(coordinator) -> dict:
     sample_at = parse_at(meter_display.get("sample_at"))
     received_at = parse_at(snapshot.get("received_at"))
     now_method = getattr(coordinator, "now", None)
-    now = parse_at(now_method()) if callable(now_method) else datetime.now(timezone.utc)
+    now = parse_at(now_method()) if callable(now_method) else datetime.now(UTC)
     power_w = meter_display.get("power_w")
-    if (sample_at is not None and received_at is not None and now is not None and power_w is not None
-            and power_w >= 0 and 0 <= (now - sample_at).total_seconds() <= coordinator._effective_meter_gap_seconds()
-            and 0 <= (now - received_at).total_seconds() <= coordinator._effective_meter_gap_seconds()
-            and bool(getattr(coordinator, "transaction_is_active", False))):
+    if (
+        sample_at is not None
+        and received_at is not None
+        and now is not None
+        and power_w is not None
+        and power_w >= 0
+        and 0 <= (now - sample_at).total_seconds() <= coordinator._effective_meter_gap_seconds()
+        and 0 <= (now - received_at).total_seconds() <= coordinator._effective_meter_gap_seconds()
+        and bool(getattr(coordinator, "transaction_is_active", False))
+    ):
         # Live sources have independent update schedules; evaluate them now,
         # after checking the charger's sample and receipt are both still fresh.
         inputs = site_inputs(coordinator, now)
         if inputs is not None:
-            live = allocate(EVEnergyDelta(
-                coordinator.source_instance_id or "site",
-                coordinator.charge_point_id or "charger",
-                str(coordinator.transaction_id),
-                now - timedelta(seconds=1), now, power_w / 3_600_000,
-            ), *inputs)
+            live = allocate(
+                EVEnergyDelta(
+                    coordinator.source_instance_id or "site",
+                    coordinator.charge_point_id or "charger",
+                    str(coordinator.transaction_id),
+                    now - timedelta(seconds=1),
+                    now,
+                    power_w / 3_600_000,
+                ),
+                *inputs,
+            )
             charging_sources = {
                 "solar_w": live.direct_solar * 3_600_000,
                 "grid_w": live.direct_grid * 3_600_000,
                 "battery_w": live.battery_unknown * 3_600_000,
                 "unknown_w": 0.0,
             }
-            charging_sources["unknown_w"] = max(0.0, power_w - sum(
-                charging_sources[key] for key in ("solar_w", "grid_w", "battery_w")
-            ))
+            charging_sources["unknown_w"] = max(
+                0.0,
+                power_w - sum(charging_sources[key] for key in ("solar_w", "grid_w", "battery_w")),
+            )
     attributes = {
         "schema": 1,
         "charging_target_pilot": getattr(coordinator, "charging_target_pilot_enabled", False),
         "connection_started_at": getattr(coordinator, "connection_started_at", None),
         "charging_target": {
-            key: value for key, value in (getattr(coordinator, "charging_target_request", None) or {}).items()
-            if key in {
+            key: value
+            for key, value in (getattr(coordinator, "charging_target_request", None) or {}).items()
+            if key
+            in {
                 "request_id",
                 "kind",
                 "value",
@@ -369,13 +387,21 @@ def dashboard_attributes(coordinator) -> dict:
                 "last_run_state",
                 "enforcement_verified",
             }
-        } or None,
+        }
+        or None,
         "entry_id": coordinator.source_instance_id,
         "working_mode": working_mode,
-        "auth_mode": configuration_entity_state("G_ChargerMode", coordinator.configuration_values.get("G_ChargerMode")),
+        "auth_mode": configuration_entity_state(
+            "G_ChargerMode", coordinator.configuration_values.get("G_ChargerMode")
+        ),
         "transaction_active": coordinator.transaction_is_active,
-        "session_started_at": utc_timestamp(start.get("received_at"), installation_time_zone(getattr(coordinator, "hass", None))),
-        "session_energy_kwh": (_number(coordinator.energy) / 1000 if _number(coordinator.energy) is not None else None),
+        "session_started_at": utc_timestamp(
+            start.get("received_at"),
+            installation_time_zone(getattr(coordinator, "hass", None)),
+        ),
+        "session_energy_kwh": (
+            _number(coordinator.energy) / 1000 if _number(coordinator.energy) is not None else None
+        ),
         "meter_received_at": snapshot.get("received_at"),
         "meter_stale_after": coordinator._effective_meter_gap_seconds(),
         **meter_display,

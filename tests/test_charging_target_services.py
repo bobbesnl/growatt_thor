@@ -5,7 +5,7 @@ import importlib
 import importlib.util
 import sys
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -68,9 +68,7 @@ class Loop:
 class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         package = ModuleType("thor_target_service_test")
-        package.__path__ = [
-            str(Path(__file__).parents[1] / "custom_components/growatt_thor")
-        ]
+        package.__path__ = [str(Path(__file__).parents[1] / "custom_components/growatt_thor")]
         sys.modules[package.__name__] = package
         stubs = {}
         for name in [
@@ -85,9 +83,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         stubs["homeassistant.exceptions"].HomeAssistantError = RuntimeError
         stubs["homeassistant.helpers.storage"].Store = Store
         with patch.dict(sys.modules, stubs):
-            self.module = importlib.import_module(
-                package.__name__ + ".targets.services"
-            )
+            self.module = importlib.import_module(package.__name__ + ".targets.services")
             self.runtime = sys.modules[package.__name__ + ".targets.runtime"]
         config = importlib.import_module(package.__name__ + ".configuration.values")
         self.cp = SimpleNamespace(
@@ -95,7 +91,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
             call=AsyncMock(return_value=SimpleNamespace(status="Accepted")),
         )
         self.queue = []
-        self.now_utc = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+        self.now_utc = datetime(2026, 9, 11, 10, 0, tzinfo=UTC)
 
         async def queue_write(function):
             self.queue.append(function)
@@ -106,9 +102,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
             charger_is_faulted=False,
             status="Available",
             connection_started_at="connection-1",
-            boot_notification={
-                "request": {"firmware_version": self.runtime.CAPTURE_FIRMWARE}
-            },
+            boot_notification={"request": {"firmware_version": self.runtime.CAPTURE_FIRMWARE}},
             configuration_values={
                 key: config.configuration_value_from_item({"key": key, "value": value})
                 for key, value in {
@@ -147,15 +141,22 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_two_entries_route_commands_and_reject_ambiguous_calls(self):
         from copy import copy
+
         other = copy(self.coordinator)
-        other_cp = SimpleNamespace(id="OTHER", call=AsyncMock(return_value=SimpleNamespace(status="Accepted")))
+        other_cp = SimpleNamespace(
+            id="OTHER", call=AsyncMock(return_value=SimpleNamespace(status="Accepted"))
+        )
         other.runtime_data = {"config_entry_id": "OTHER", "charge_point": other_cp}
         other_queue = []
+
         async def enqueue(function):
             other_queue.append(function)
+
         other.queue_write = enqueue
         self.hass.data["growatt_thor"]["OTHER"] = other.runtime_data
-        await self.module.async_setup_target_services(self.hass, SimpleNamespace(entry_id="OTHER"), other)
+        await self.module.async_setup_target_services(
+            self.hass, SimpleNamespace(entry_id="OTHER"), other
+        )
         with self.assertRaisesRegex(RuntimeError, "entry_id_required"):
             await self.start()
         await self.start(entry_id="OTHER")
@@ -164,7 +165,9 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(other_cp.call.await_count, 2)
         self.cp.call.assert_not_awaited()
         self.module.async_unload_target_services(self.hass, SimpleNamespace(entry_id="OTHER"))
-        result = await self.hass.services.invoke("preview_charging_target", entry_id="TEST", kind="energy", value="1")
+        result = await self.hass.services.invoke(
+            "preview_charging_target", entry_id="TEST", kind="energy", value="1"
+        )
         self.assertIsNotNone(result)
         with self.assertRaisesRegex(RuntimeError, "entry_not_loaded"):
             await self.start(entry_id="OTHER")
@@ -208,7 +211,9 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.coordinator._cancel_charging_target_schedule)
         self.assertEqual(Store.retained, retained)
         await self.module.async_setup_target_services(
-            self.hass, SimpleNamespace(entry_id="TEST"), self.coordinator,
+            self.hass,
+            SimpleNamespace(entry_id="TEST"),
+            self.coordinator,
             now_utc=lambda: self.now_utc,
         )
         self.assertEqual(sum(not timer.cancelled for timer in self.hass.loop.timers), 1)
@@ -282,23 +287,46 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
             await self.start()
 
     async def test_restart_normalizes_every_incomplete_write_state(self):
-        for state in ("queued", "reservation_queued", "sending_reservation", "sending_target", "target_accepted", "sending_start", "cancellation_queued", "sending_cancellation"):
+        for state in (
+            "queued",
+            "reservation_queued",
+            "sending_reservation",
+            "sending_target",
+            "target_accepted",
+            "sending_start",
+            "cancellation_queued",
+            "sending_cancellation",
+        ):
             with self.subTest(state=state):
                 Store.retained = {"request_id": "pending", "state": state}
-                await self.module.async_setup_target_services(self.hass, SimpleNamespace(entry_id="TEST"), self.coordinator)
+                await self.module.async_setup_target_services(
+                    self.hass, SimpleNamespace(entry_id="TEST"), self.coordinator
+                )
                 self.assertEqual(Store.retained["state"], "outcome_unknown")
-                await self.hass.services.invoke("acknowledge_target_reset", entry_id="TEST", confirm_native_target_reset=True)
+                await self.hass.services.invoke(
+                    "acknowledge_target_reset",
+                    entry_id="TEST",
+                    confirm_native_target_reset=True,
+                )
                 self.assertIsNone(Store.retained)
                 self.assertFalse(self.queue)
 
     async def test_unexecuted_queue_completion_releases_busy(self):
         queue_module = importlib.import_module("thor_target_service_test.runtime.write_queue")
         for cancellation in (False, True):
-            for status in (queue_module.ChargerCommandStatus.SKIPPED, queue_module.ChargerCommandStatus.EXPIRED):
+            for status in (
+                queue_module.ChargerCommandStatus.SKIPPED,
+                queue_module.ChargerCommandStatus.EXPIRED,
+            ):
                 with self.subTest(cancellation=cancellation, status=status):
-                    instance = self.runtime.ChargingTargetRuntime(self.hass, SimpleNamespace(entry_id="TEST"), self.coordinator)
+                    instance = self.runtime.ChargingTargetRuntime(
+                        self.hass, SimpleNamespace(entry_id="TEST"), self.coordinator
+                    )
                     instance._busy = True
-                    self.coordinator.charging_target_request = {"request_id": "pending", "state": "cancellation_queued" if cancellation else "queued"}
+                    self.coordinator.charging_target_request = {
+                        "request_id": "pending",
+                        "state": "cancellation_queued" if cancellation else "queued",
+                    }
                     handle = queue_module.create_command_handle()
                     self.coordinator.queue_write = AsyncMock(return_value=handle)
                     await instance.enqueue(AsyncMock(), "pending")
@@ -306,7 +334,10 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
                     await asyncio.sleep(0)
                     await asyncio.sleep(0)
                     self.assertFalse(instance._busy)
-                    self.assertEqual(self.coordinator.charging_target_request["state"], "outcome_unknown" if cancellation else "blocked_before_target")
+                    self.assertEqual(
+                        self.coordinator.charging_target_request["state"],
+                        "outcome_unknown" if cancellation else "blocked_before_target",
+                    )
 
     async def test_restart_restores_uncertain_request_without_replaying(self):
         await self.start()
@@ -511,7 +542,10 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(Store.retained["enforcement_verified"], verified)
                 await self.run_due_one_time()
                 self.assertEqual(self.cp.call.call_args_list[-2].args[0].message_id, message)
-                self.assertEqual(type(self.cp.call.call_args_list[-1].args[0]).__name__, "RemoteStartTransaction")
+                self.assertEqual(
+                    type(self.cp.call.call_args_list[-1].args[0]).__name__,
+                    "RemoteStartTransaction",
+                )
 
     async def test_schedule_validates_time_entry_and_mode_before_persisting(self):
         for start_at in (
@@ -533,7 +567,10 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         await self.arm_one_time()
         self.coordinator.status = "Preparing"
         await self.run_due_one_time()
-        self.assertEqual(type(self.cp.call.call_args_list[-1].args[0]).__name__, "RemoteStartTransaction")
+        self.assertEqual(
+            type(self.cp.call.call_args_list[-1].args[0]).__name__,
+            "RemoteStartTransaction",
+        )
         self.assertEqual(Store.retained["state"], "start_accepted")
 
     async def test_due_schedule_rechecks_safety_and_never_sends_when_mode_changed(self):
@@ -604,7 +641,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(len(self.hass.loop.timers), timer_count + 1)
         self.assertEqual(Store.retained["state"], "scheduled")
-        self.now_utc = datetime(2026, 9, 11, 10, 6, tzinfo=timezone.utc)
+        self.now_utc = datetime(2026, 9, 11, 10, 6, tzinfo=UTC)
         await self.module.async_setup_target_services(
             self.hass,
             SimpleNamespace(entry_id="TEST"),
@@ -634,13 +671,16 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         self.cp.call.assert_not_called()
         self.assertEqual(self.queue, [])
         self.assertEqual(self.hass.loop.timers[0].delay, 300)
-        self.now_utc = datetime(2026, 9, 11, 10, 5, tzinfo=timezone.utc)
+        self.now_utc = datetime(2026, 9, 11, 10, 5, tzinfo=UTC)
         task = self.hass.loop.timers[0].callback()
         await task
         await self.queue[0]()
         self.assertEqual(self.cp.call.await_count, 2)
         self.assertEqual(self.cp.call.call_args_list[0].args[0].message_id, "G_SetTime")
-        self.assertEqual(type(self.cp.call.call_args_list[1].args[0]).__name__, "RemoteStartTransaction")
+        self.assertEqual(
+            type(self.cp.call.call_args_list[1].args[0]).__name__,
+            "RemoteStartTransaction",
+        )
         self.assertEqual(Store.retained["state"], "scheduled")
         self.assertEqual(Store.retained["last_run_state"], "start_accepted")
         self.assertEqual(Store.retained["scheduled_for"], "2026-09-12T10:05:00Z")
@@ -649,7 +689,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
     async def test_daily_plug_and_charge_requires_vehicle_at_due_time(self):
         self.plug_mode()
         await self.schedule(recurrence="daily")
-        self.now_utc = datetime(2026, 9, 11, 10, 5, tzinfo=timezone.utc)
+        self.now_utc = datetime(2026, 9, 11, 10, 5, tzinfo=UTC)
         task = self.hass.loop.timers[0].callback()
         await task
         await self.queue[0]()
@@ -661,18 +701,35 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         self.plug_mode()
         await self.schedule(kind="budget", value="1", recurrence="daily")
         self.coordinator.status = "Preparing"
-        self.now_utc = datetime(2026, 9, 11, 10, 5, tzinfo=timezone.utc)
+        self.now_utc = datetime(2026, 9, 11, 10, 5, tzinfo=UTC)
         task = self.hass.loop.timers[0].callback()
         await task
         await self.queue[0]()
         self.assertEqual(self.cp.call.call_args_list[0].args[0].message_id, "G_SetAmount")
-        self.assertEqual(type(self.cp.call.call_args_list[1].args[0]).__name__, "RemoteStartTransaction")
+        self.assertEqual(
+            type(self.cp.call.call_args_list[1].args[0]).__name__,
+            "RemoteStartTransaction",
+        )
         self.assertEqual(Store.retained["last_run_state"], "start_accepted")
 
     async def test_daily_requested_clock_survives_gap_and_restart(self):
-        Store.retained = {"request_id": "dst", "kind": "energy", "value": "1", "state": "scheduled", "recurrence": "daily", "time_zone": "Europe/Berlin", "local_time": "02:30:00", "scheduled_for": "2026-03-29T01:30:00Z"}
-        self.now_utc = datetime(2026, 3, 29, 2, 0, tzinfo=timezone.utc)
-        await self.module.async_setup_target_services(self.hass, SimpleNamespace(entry_id="TEST"), self.coordinator, now_utc=lambda: self.now_utc)
+        Store.retained = {
+            "request_id": "dst",
+            "kind": "energy",
+            "value": "1",
+            "state": "scheduled",
+            "recurrence": "daily",
+            "time_zone": "Europe/Berlin",
+            "local_time": "02:30:00",
+            "scheduled_for": "2026-03-29T01:30:00Z",
+        }
+        self.now_utc = datetime(2026, 3, 29, 2, 0, tzinfo=UTC)
+        await self.module.async_setup_target_services(
+            self.hass,
+            SimpleNamespace(entry_id="TEST"),
+            self.coordinator,
+            now_utc=lambda: self.now_utc,
+        )
         self.assertEqual(Store.retained["scheduled_for"], "2026-03-30T00:30:00Z")
         self.assertEqual(Store.retained["local_time"], "02:30:00")
 
@@ -707,7 +764,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_transaction_callbacks_preserve_daily_schedule(self):
         await self.schedule(recurrence="daily")
-        self.now_utc = datetime(2026, 9, 11, 10, 5, tzinfo=timezone.utc)
+        self.now_utc = datetime(2026, 9, 11, 10, 5, tzinfo=UTC)
         task = self.hass.loop.timers[0].callback()
         await task
         await self.queue[0]()
@@ -726,7 +783,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
 
         self.cp.call.side_effect = accepted_with_fast_start
         await self.schedule(recurrence="daily")
-        self.now_utc = datetime(2026, 9, 11, 10, 5, tzinfo=timezone.utc)
+        self.now_utc = datetime(2026, 9, 11, 10, 5, tzinfo=UTC)
         task = self.hass.loop.timers[0].callback()
         await task
         await self.queue[0]()

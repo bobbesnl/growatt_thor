@@ -1,20 +1,19 @@
-import logging
 import asyncio
-import websockets.exceptions
-from websockets.server import serve
+import logging
 
-from ocpp.v16 import ChargePoint as OcppChargePoint
-from ocpp.v16 import call_result, call
+import websockets.exceptions
 from ocpp.messages import unpack
+from ocpp.routing import on
+from ocpp.v16 import ChargePoint as OcppChargePoint
+from ocpp.v16 import call, call_result
 from ocpp.v16.enums import (
-    RegistrationStatus,
     AuthorizationStatus,
-    DataTransferStatus,
     ConfigurationStatus,
+    DataTransferStatus,
+    RegistrationStatus,
     RemoteStartStopStatus,
 )
-
-from ocpp.routing import on
+from websockets.server import serve
 
 from ..configuration.values import (
     INFORMATIONAL_CONFIGURATION_KEYS,
@@ -22,15 +21,7 @@ from ..configuration.values import (
     normalize_unknown_configuration_keys,
     redact_configuration_value,
 )
-from .connection import (
-    CONNECTION_WATCHDOG_INTERVAL_SECONDS,
-    OCPP_HEARTBEAT_INTERVAL_SECONDS,
-    OcppConnectionActivity,
-)
-from ..sessions.records import parse_growatt_session_record
-from .logging import OcppMetadataLogger
-from ..const import OCPP_SUBPROTOCOL, DEFAULT_PATH, DOMAIN
-from .requests import REQUEST_SKIPPED, SerializedOcppRequestGate
+from ..const import DEFAULT_PATH, DOMAIN, OCPP_SUBPROTOCOL
 from ..runtime.ownership import (
     ChargePointConnectionDecision,
     decide_charge_point_connection,
@@ -40,6 +31,14 @@ from ..runtime.write_queue import (
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
 )
+from ..sessions.records import parse_growatt_session_record
+from .connection import (
+    CONNECTION_WATCHDOG_INTERVAL_SECONDS,
+    OCPP_HEARTBEAT_INTERVAL_SECONDS,
+    OcppConnectionActivity,
+)
+from .logging import OcppMetadataLogger
+from .requests import REQUEST_SKIPPED, SerializedOcppRequestGate
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,13 +46,14 @@ _LOGGER = logging.getLogger(__name__)
 def _preload_ocpp_schemas():
     try:
         import importlib.metadata
+
         version = importlib.metadata.version("ocpp")
         _LOGGER.info("ocpp library version: %s", version)
     except Exception as exc:
         _LOGGER.warning("Could not determine ocpp library version: %s", exc)
 
     try:
-        from ocpp.messages import get_validator, MessageType
+        from ocpp.messages import MessageType, get_validator
         from ocpp.v16.enums import Action
 
         count = 0
@@ -212,7 +212,7 @@ class GrowattChargePoint(OcppChargePoint):
                     ),
                     timeout=5.0,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 _LOGGER.warning("Timed out closing stale OCPP connection: %s", self._cp_id)
                 transport = getattr(self._websocket, "transport", None)
                 if transport is not None:
@@ -265,9 +265,7 @@ class GrowattChargePoint(OcppChargePoint):
             return call_result.Heartbeat(current_time=self.coordinator.now())
         try:
             self._schedule_post_connect_init()
-            return call_result.Heartbeat(
-                current_time=self.coordinator.now()
-            )
+            return call_result.Heartbeat(current_time=self.coordinator.now())
         except Exception as exc:
             _LOGGER.error("Error in Heartbeat handler: %s", exc)
             return call_result.Heartbeat(current_time=self.coordinator.now())
@@ -293,10 +291,7 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.info("Fetching external meter snapshot after connect")
             await self.trigger_external_meterval()
 
-            if (
-                self.coordinator.boot_notification is None
-                and not self._boot_notification_requested
-            ):
+            if self.coordinator.boot_notification is None and not self._boot_notification_requested:
                 self._boot_notification_requested = True
                 await self.trigger_boot_notification()
 
@@ -310,22 +305,16 @@ class GrowattChargePoint(OcppChargePoint):
     @on("Authorize")
     async def on_authorize(self, id_tag, **kwargs):
         if not self._connection_may_update_coordinator("Authorize"):
-            return call_result.Authorize(
-                id_tag_info={"status": AuthorizationStatus.invalid}
-            )
+            return call_result.Authorize(id_tag_info={"status": AuthorizationStatus.invalid})
         try:
             status = self.coordinator.authorization.decide(
                 id_tag, "Authorize", self.coordinator.now()
             )
             _LOGGER.info("Local Authorize decision: %s", status)
-            return call_result.Authorize(
-                id_tag_info={"status": status}
-            )
+            return call_result.Authorize(id_tag_info={"status": status})
         except Exception:
             _LOGGER.error("Local Authorize failed; denying request")
-            return call_result.Authorize(
-                id_tag_info={"status": AuthorizationStatus.invalid}
-            )
+            return call_result.Authorize(id_tag_info={"status": AuthorizationStatus.invalid})
 
     @on("StartTransaction")
     async def on_start_transaction(self, connector_id, id_tag, meter_start, **kwargs):
@@ -341,9 +330,7 @@ class GrowattChargePoint(OcppChargePoint):
             # ID allocation waits on a lock and therefore yields to a possible
             # reconnect.  Recheck ownership before committing transaction state
             # that would otherwise belong to the replacement socket.
-            if not self._connection_may_update_coordinator(
-                "StartTransaction after ID allocation"
-            ):
+            if not self._connection_may_update_coordinator("StartTransaction after ID allocation"):
                 return call_result.StartTransaction(
                     transaction_id=0,
                     id_tag_info={"status": AuthorizationStatus.invalid},
@@ -356,10 +343,7 @@ class GrowattChargePoint(OcppChargePoint):
                 "StartTransaction",
                 self.coordinator.now(),
                 # Plug & Charge is an explicit charger mode, not an RFID identity.
-                card_policy_applies=str(
-                    getattr(self.coordinator, "charger_mode", "")
-                )
-                != "3",
+                card_policy_applies=str(getattr(self.coordinator, "charger_mode", "")) != "3",
             )
             self.coordinator.start_transaction(
                 transaction_id,
@@ -418,7 +402,12 @@ class GrowattChargePoint(OcppChargePoint):
             )
             return call_result.StatusNotification()
         except Exception as exc:
-            _LOGGER.error("Error in StatusNotification handler (status=%s): %s", status, exc, exc_info=True)
+            _LOGGER.error(
+                "Error in StatusNotification handler (status=%s): %s",
+                status,
+                exc,
+                exc_info=True,
+            )
             return call_result.StatusNotification()
 
     @on("MeterValues")
@@ -426,7 +415,7 @@ class GrowattChargePoint(OcppChargePoint):
         if not self._connection_may_update_coordinator("MeterValues"):
             return call_result.MeterValues()
         try:
-            transaction_id = kwargs.get('transaction_id')
+            transaction_id = kwargs.get("transaction_id")
             self.coordinator.process_meter_values(
                 meter_value,
                 connector_id=connector_id,
@@ -446,8 +435,16 @@ class GrowattChargePoint(OcppChargePoint):
         if not self._connection_may_update_coordinator("DataTransfer"):
             return call_result.DataTransfer(status=DataTransferStatus.rejected)
         try:
-            _LOGGER.debug("DataTransfer received: vendor=%s messageId=%s data=%s", vendor_id, message_id, data)
-            if isinstance(data, str) and message_id in ("frozenrecord", "currentrecord"):
+            _LOGGER.debug(
+                "DataTransfer received: vendor=%s messageId=%s data=%s",
+                vendor_id,
+                message_id,
+                data,
+            )
+            if isinstance(data, str) and message_id in (
+                "frozenrecord",
+                "currentrecord",
+            ):
                 record = parse_growatt_session_record(message_id, data)
                 _LOGGER.info(
                     "Parsed %s for transaction %s",
@@ -458,7 +455,13 @@ class GrowattChargePoint(OcppChargePoint):
             elif isinstance(data, str) and message_id == "faultmessage":
                 self.coordinator.process_fault_message(vendor_id, data)
         except Exception as exc:
-            _LOGGER.error("Error in DataTransfer handler (vendor=%s, messageId=%s): %s", vendor_id, message_id, exc, exc_info=True)
+            _LOGGER.error(
+                "Error in DataTransfer handler (vendor=%s, messageId=%s): %s",
+                vendor_id,
+                message_id,
+                exc,
+                exc_info=True,
+            )
         return call_result.DataTransfer(status=DataTransferStatus.accepted)
 
     # ─────────────────────────────
@@ -520,6 +523,7 @@ class GrowattChargePoint(OcppChargePoint):
     async def trigger_external_meterval(self, *, skip_if_writes_pending=False):
         _LOGGER.info("Triggering Growatt get_external_meterval")
         try:
+
             async def request_external_meter():
                 task = asyncio.ensure_future(
                     self.call(
@@ -546,12 +550,10 @@ class GrowattChargePoint(OcppChargePoint):
             )
             if result is REQUEST_SKIPPED:
                 return False
-            if not self._connection_may_update_coordinator(
-                "external meter response"
-            ):
+            if not self._connection_may_update_coordinator("external meter response"):
                 return False
 
-            if hasattr(result, 'data') and isinstance(result.data, str):
+            if hasattr(result, "data") and isinstance(result.data, str):
                 _LOGGER.info("Received external meter values: %s", result.data)
                 if not self.coordinator.process_external_meter(result.data):
                     self.coordinator.record_external_meter_poll_timeout()
@@ -560,22 +562,19 @@ class GrowattChargePoint(OcppChargePoint):
                 _LOGGER.warning("External meterval returned no usable data: %s", result)
             return True
 
-        except asyncio.TimeoutError:
-            if not self._connection_may_update_coordinator(
-                "external meter timeout"
-            ):
+        except TimeoutError:
+            if not self._connection_may_update_coordinator("external meter timeout"):
                 return False
             self.coordinator.record_external_meter_poll_timeout()
             count = self.coordinator.meterval_consecutive_timeouts
 
             if count >= 2:
                 pause = min(60 * (count - 1), 300)
-                self.coordinator.pause_polling_until(
-                    self.hass.loop.time() + pause
-                )
+                self.coordinator.pause_polling_until(self.hass.loop.time() + pause)
                 _LOGGER.debug(
                     "External meterval timeout #%d - pausing poll %ds (THOR likely rebooting)",
-                    count, pause
+                    count,
+                    pause,
                 )
             else:
                 _LOGGER.debug("External meterval timeout - THOR likely disconnected or busy")
@@ -614,16 +613,17 @@ class GrowattChargePoint(OcppChargePoint):
 
             operational_keys = list(OPERATIONAL_CONFIGURATION_KEYS)
 
-            _LOGGER.info("Triggering GetConfiguration CALL 1 (operational keys: %d)", len(operational_keys))
+            _LOGGER.info(
+                "Triggering GetConfiguration CALL 1 (operational keys: %d)",
+                len(operational_keys),
+            )
             result1 = await asyncio.wait_for(
                 self.call(
                     call.GetConfiguration(key=operational_keys),
                 ),
-                timeout=30.0
+                timeout=30.0,
             )
-            if not self._connection_may_update_coordinator(
-                "GetConfiguration CALL 1 response"
-            ):
+            if not self._connection_may_update_coordinator("GetConfiguration CALL 1 response"):
                 return False
             config_keys_1 = self._normalize_configuration_list(
                 getattr(result1, "configuration_key", None),
@@ -635,7 +635,11 @@ class GrowattChargePoint(OcppChargePoint):
                 "unknown_key",
                 "GetConfiguration CALL 1",
             )
-            _LOGGER.info("CALL 1 received: %d keys (%d unknown)", len(config_keys_1), len(unknown_keys_1))
+            _LOGGER.info(
+                "CALL 1 received: %d keys (%d unknown)",
+                len(config_keys_1),
+                len(unknown_keys_1),
+            )
 
             # Apply operational state immediately.  The second call contains
             # diagnostics and has historically been more likely to time out on
@@ -657,16 +661,17 @@ class GrowattChargePoint(OcppChargePoint):
 
             informational_keys = list(INFORMATIONAL_CONFIGURATION_KEYS)
 
-            _LOGGER.info("Triggering GetConfiguration CALL 2 (informational keys: %d)", len(informational_keys))
+            _LOGGER.info(
+                "Triggering GetConfiguration CALL 2 (informational keys: %d)",
+                len(informational_keys),
+            )
             result2 = await asyncio.wait_for(
                 self.call(
                     call.GetConfiguration(key=informational_keys),
                 ),
-                timeout=30.0
+                timeout=30.0,
             )
-            if not self._connection_may_update_coordinator(
-                "GetConfiguration CALL 2 response"
-            ):
+            if not self._connection_may_update_coordinator("GetConfiguration CALL 2 response"):
                 return False
             config_keys_2 = self._normalize_configuration_list(
                 getattr(result2, "configuration_key", None),
@@ -678,21 +683,30 @@ class GrowattChargePoint(OcppChargePoint):
                 "unknown_key",
                 "GetConfiguration CALL 2",
             )
-            _LOGGER.info("CALL 2 received: %d keys (%d unknown)", len(config_keys_2), len(unknown_keys_2))
+            _LOGGER.info(
+                "CALL 2 received: %d keys (%d unknown)",
+                len(config_keys_2),
+                len(unknown_keys_2),
+            )
 
             # ═══════════════════════════════════════════════════════
             # Process all keys (call 1 + call 2)
             # ═══════════════════════════════════════════════════════
 
             all_config_keys = config_keys_1 + config_keys_2
-            all_unknown_keys = normalize_unknown_configuration_keys(
-                unknown_keys_1 + unknown_keys_2
+            all_unknown_keys = normalize_unknown_configuration_keys(unknown_keys_1 + unknown_keys_2)
+            _LOGGER.info(
+                "Total received: %d keys (%d unknown)",
+                len(all_config_keys),
+                len(all_unknown_keys),
             )
-            _LOGGER.info("Total received: %d keys (%d unknown)", len(all_config_keys), len(all_unknown_keys))
 
             for item in all_config_keys:
                 if not isinstance(item, dict):
-                    _LOGGER.debug("Skipping unexpected configuration item type: %s", type(item).__name__)
+                    _LOGGER.debug(
+                        "Skipping unexpected configuration item type: %s",
+                        type(item).__name__,
+                    )
                     continue
 
                 key = item.get("key")
@@ -719,8 +733,10 @@ class GrowattChargePoint(OcppChargePoint):
                 _LOGGER.warning("GetConfiguration returned no usable configuration keys")
             return True
 
-        except asyncio.TimeoutError:
-            _LOGGER.warning("GetConfiguration timeout - Thor likely rebooting, will retry on reconnect")
+        except TimeoutError:
+            _LOGGER.warning(
+                "GetConfiguration timeout - Thor likely rebooting, will retry on reconnect"
+            )
             return False
         except (
             websockets.exceptions.ConnectionClosedError,
@@ -877,6 +893,7 @@ class GrowattChargePoint(OcppChargePoint):
 # WebSocket server
 # ─────────────────────────────
 
+
 async def _close_superseded_connection(charge_point):
     """Close an old same-charger socket after its replacement owns the slot."""
     try:
@@ -887,7 +904,7 @@ async def _close_superseded_connection(charge_point):
             ),
             timeout=5.0,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         _LOGGER.warning(
             "Timed out closing superseded connection for %s",
             charge_point._cp_id,
@@ -926,10 +943,7 @@ async def _on_connect(websocket, path, coordinator, hass):
             active_charge_point_id=active_charge_point_id,
             incoming_charge_point_id=cp_id,
         )
-        if (
-            decision
-            == ChargePointConnectionDecision.REJECT_DIFFERENT_CHARGER
-        ):
+        if decision == ChargePointConnectionDecision.REJECT_DIFFERENT_CHARGER:
             _LOGGER.error(
                 "Rejecting OCPP connection from %s: runtime belongs to %s",
                 cp_id,
@@ -943,10 +957,7 @@ async def _on_connect(websocket, path, coordinator, hass):
 
         _LOGGER.info("THOR connected: %s", cp_id)
         cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
-        if (
-            decision
-            == ChargePointConnectionDecision.REPLACE_SAME_CHARGER
-        ):
+        if decision == ChargePointConnectionDecision.REPLACE_SAME_CHARGER:
             # Publish the replacement first.  The old handler's identity guard
             # then becomes effective before its socket is asked to close.
             hass.async_create_background_task(
@@ -959,7 +970,10 @@ async def _on_connect(websocket, path, coordinator, hass):
         )
         try:
             await cp.start()
-        except (websockets.exceptions.ConnectionClosedError, websockets.exceptions.ConnectionClosedOK):
+        except (
+            websockets.exceptions.ConnectionClosedError,
+            websockets.exceptions.ConnectionClosedOK,
+        ):
             _LOGGER.debug("Connection closed normally during startup - THOR disconnected")
         except Exception as exc:
             _LOGGER.error("Error in connection handler: %s", exc, exc_info=True)
@@ -980,7 +994,7 @@ async def _on_connect(websocket, path, coordinator, hass):
                 )
             try:
                 await asyncio.wait_for(websocket.close(), timeout=5.0)
-            except (asyncio.TimeoutError, Exception):
+            except (TimeoutError, Exception):
                 pass
 
     except Exception as exc:

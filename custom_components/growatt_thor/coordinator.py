@@ -1,24 +1,27 @@
-import logging
+import asyncio
 import json
+import logging
 import re
-from datetime import datetime, time, timezone
 from collections import deque
 from collections.abc import Awaitable, Callable, Mapping
-import asyncio
+from datetime import UTC, datetime, time, timezone
 
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .sessions.active_state import ActiveSessionState
-from .sessions.runtime import SessionLifecycle
 from .charging.authorization import LocalAuthorization
-from .sessions.duration import EffectiveChargingTracker
-from .sessions.correlation import CORRELATION_MATCHED, build_unified_session
 from .charging.controls import transaction_state_is_active
 from .charging.faults import (
     ChargerFault,
     fault_from_data_transfer,
     fault_from_status_notification,
+)
+from .charging.pv_linkage import (
+    PvBoostMode,
+    PvLinkageApplyResult,
+    PvLinkageDraft,
+    draft_matches_reported,
+    parse_manual_period,
 )
 from .configuration.values import (
     ConfigurationValue,
@@ -30,8 +33,8 @@ from .configuration.values import (
     parse_time_sharing_price,
 )
 from .configuration.writes import (
-    ConfigurationWriteStatus,
     ConfigurationWriteState,
+    ConfigurationWriteStatus,
     acknowledge_configuration_write,
     begin_configuration_write,
     configuration_write_is_current,
@@ -39,41 +42,42 @@ from .configuration.writes import (
     mark_configuration_write,
 )
 from .const import DEFAULT_POLL_INTERVAL, DOMAIN
-from .energy.sources import BATTERY_POSITIVE_DISCHARGE
 from .energy.accounting_runtime import SessionAccumulator, parse_at, site_inputs
+from .energy.sources import BATTERY_POSITIVE_DISCHARGE
+from .ocpp.diagnostics import create_ocpp_snapshot
 from .ocpp.external_meter import (
     external_meter_health,
     parse_external_meter_data,
     status_clears_external_meter_fault,
     status_reports_external_meter_fault,
 )
-from .ocpp.meter_samples import charging_power_curve_point, meter_time_zone, parse_meter_values
-from .ocpp.diagnostics import create_ocpp_snapshot
-from .ocpp.status import normalize_ocpp_status
-from .charging.pv_linkage import (
-    PvBoostMode,
-    PvLinkageApplyResult,
-    PvLinkageDraft,
-    draft_matches_reported,
-    parse_manual_period,
+from .ocpp.meter_samples import (
+    charging_power_curve_point,
+    meter_time_zone,
+    parse_meter_values,
 )
-from .sessions.records import GrowattSessionRecord
+from .ocpp.status import normalize_ocpp_status
+from .runtime.charger_write_queue import ChargerWriteQueue
+from .runtime.write_queue import (
+    DEFAULT_WRITE_POLICY,
+    ChargerCommandHandle,
+    ChargerCommandResult,
+    ChargerWriteQueuePolicy,
+)
+from .sessions.active_state import ActiveSessionState
+from .sessions.correlation import CORRELATION_MATCHED, build_unified_session
+from .sessions.duration import EffectiveChargingTracker
 from .sessions.events import (
     SessionEventTracker,
     append_session_event,
     merge_growatt_record_events,
     session_event,
 )
-from .sessions.state import LastSessionState, normalize_record_key
+from .sessions.records import GrowattSessionRecord
+from .sessions.runtime import SessionLifecycle
 from .sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
+from .sessions.state import LastSessionState, normalize_record_key
 from .sessions.transaction_ids import TransactionIdAllocator
-from .runtime.charger_write_queue import ChargerWriteQueue
-from .runtime.write_queue import (
-    ChargerCommandHandle,
-    ChargerCommandResult,
-    ChargerWriteQueuePolicy,
-    DEFAULT_WRITE_POLICY,
-)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -158,13 +162,13 @@ class GrowattCoordinator(DataUpdateCoordinator):
         }
 
         # ── Totaal ─────────────────────────
-        self.power = None        # W
-        self.energy = None       # Wh
+        self.power = None  # W
+        self.energy = None  # Wh
 
         # ── Fase-specifiek ─────────────────
-        self.currents = {}       # {"L1": A, "L2": A, "L3": A}
-        self.voltages = {}       # {"L1": V, "L2": V, "L3": V}
-        self.phase_power = {}    # {"L1": W, "L2": W, "L3": W}
+        self.currents = {}  # {"L1": A, "L2": A, "L3": A}
+        self.voltages = {}  # {"L1": V, "L2": V, "L3": V}
+        self.phase_power = {}  # {"L1": W, "L2": W, "L3": W}
 
         self.temperature = None  # °C
 
@@ -206,28 +210,31 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.pv_linkage_apply_result: PvLinkageApplyResult | None = None
 
         # ── Last session ─────────────────
-        self.last_session_energy = None           # kWh
-        self.last_session_cost = None             # float
-        self.last_session_start = None            # str
-        self.last_session_end = None              # str
-        self.last_session_plug_time = None        # str
-        self.last_session_unplug_time = None      # str
+        self.last_session_energy = None  # kWh
+        self.last_session_cost = None  # float
+        self.last_session_start = None  # str
+        self.last_session_end = None  # str
+        self.last_session_plug_time = None  # str
+        self.last_session_unplug_time = None  # str
         self.last_session_duration_minutes = None  # float
         self.last_session_effective_charging_minutes = None  # float
-        self.last_session_id = None               # str
-        self.last_session_source = None           # str
-        self.last_session_transaction_id = None   # str
-        self.last_session_charge_mode = None      # str
-        self.last_session_work_mode = None        # str
+        self.last_session_id = None  # str
+        self.last_session_source = None  # str
+        self.last_session_transaction_id = None  # str
+        self.last_session_charge_mode = None  # str
+        self.last_session_work_mode = None  # str
         self._last_session_record_key = None
         self._applied_session_record_keys = deque(maxlen=50)
         self.dashboard_sessions = {
-            "items": [], "total_energy_kwh": 0.0, "total_cost": 0.0,
-            "total_green_energy_kwh": None, "total_count": 0,
+            "items": [],
+            "total_energy_kwh": 0.0,
+            "total_cost": 0.0,
+            "total_green_energy_kwh": None,
+            "total_count": 0,
         }
 
         # ── Cumulatief totaal (persistent) ─
-        self.total_energy_charged = 0.0           # kWh
+        self.total_energy_charged = 0.0  # kWh
 
         # ── External meter (grid connection) ───
         self.grid_power = None
@@ -268,32 +275,28 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 )
         if data:
             from .energy.stop_guard import restore_stop_report
+
             self.last_energy_stop = restore_stop_report(data.get("last_energy_stop"))
             self.sessions.outbox.restore(data.get("pending_session_rows"))
             self.total_energy_charged = float(data.get("total_energy_charged", 0.0))
-            self._transaction_id_allocator.restore(
-                data.get("next_transaction_id", 1)
-            )
-            self._restore_last_session_state(
-                LastSessionState.from_dict(data.get("last_session"))
-            )
+            self._transaction_id_allocator.restore(data.get("next_transaction_id", 1))
+            self._restore_last_session_state(LastSessionState.from_dict(data.get("last_session")))
             stored_keys = data.get("applied_session_record_keys", [])
             if isinstance(stored_keys, list):
                 for value in stored_keys[-50:]:
                     key = normalize_record_key(value)
                     if key is not None and key not in self._applied_session_record_keys:
                         self._applied_session_record_keys.append(key)
-            if self._last_session_record_key is not None and self._last_session_record_key not in self._applied_session_record_keys:
+            if (
+                self._last_session_record_key is not None
+                and self._last_session_record_key not in self._applied_session_record_keys
+            ):
                 self._applied_session_record_keys.append(self._last_session_record_key)
-            self.last_charger_fault = ChargerFault.from_dict(
-                data.get("last_charger_fault")
-            )
+            self.last_charger_fault = ChargerFault.from_dict(data.get("last_charger_fault"))
             self.effective_charging = EffectiveChargingTracker.from_dict(
                 data.get("active_effective_charging")
             )
-            active_session = ActiveSessionState.from_dict(
-                data.get("active_session")
-            )
+            active_session = ActiveSessionState.from_dict(data.get("active_session"))
             if active_session.transaction_id is None:
                 # Migration from stores written before the active dashboard
                 # row was persisted. The effective tracker still provides an
@@ -303,9 +306,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     energy_wh=self.effective_charging.last_energy_wh,
                 )
             self._restore_active_session_state(active_session)
-            self.site_accounting = SessionAccumulator.from_dict(
-                data.get("active_site_accounting")
-            )
+            self.site_accounting = SessionAccumulator.from_dict(data.get("active_site_accounting"))
             self.last_site_accounting = SessionAccumulator.from_dict(
                 data.get("pending_site_accounting")
             )
@@ -322,9 +323,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             if isinstance(pending_effective, dict):
                 for key, value in pending_effective.items():
                     try:
-                        self._pending_effective_charging_minutes[str(key)] = float(
-                            value
-                        )
+                        self._pending_effective_charging_minutes[str(key)] = float(value)
                     except (TypeError, ValueError):
                         continue
             self.sessions.restore_completions(data.get("pending_completed_sessions"))
@@ -346,8 +345,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """Save persistent statistics to HA storage."""
         await self._store.async_save(self._storage_data())
         _LOGGER.debug(
-            "💾 Saved to storage: total_energy_charged=%.3f kWh, "
-            "next_transaction_id=%d",
+            "💾 Saved to storage: total_energy_charged=%.3f kWh, next_transaction_id=%d",
             self.total_energy_charged,
             self._transaction_id_allocator.next_transaction_id,
         )
@@ -364,16 +362,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
             "last_session": self._last_session_state().as_dict(),
             "applied_session_record_keys": [list(key) for key in self._applied_session_record_keys],
             "last_charger_fault": (
-                self.last_charger_fault.as_dict()
-                if self.last_charger_fault is not None
-                else None
+                self.last_charger_fault.as_dict() if self.last_charger_fault is not None else None
             ),
             "active_effective_charging": self.effective_charging.as_dict(),
-            "active_session": (
-                active_session.as_dict()
-                if active_session is not None
-                else None
-            ),
+            "active_session": (active_session.as_dict() if active_session is not None else None),
             "active_site_accounting": (
                 self.site_accounting.as_dict() if self.site_accounting else None
             ),
@@ -381,9 +373,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 self.last_site_accounting.as_dict() if self.last_site_accounting else None
             ),
             "site_accounting_totals": dict(self.site_accounting_totals),
-            "pending_effective_charging_minutes": dict(
-                self._pending_effective_charging_minutes
-            ),
+            "pending_effective_charging_minutes": dict(self._pending_effective_charging_minutes),
         }
 
     def _active_session_state(self) -> ActiveSessionState | None:
@@ -423,9 +413,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             plug_time=self.last_session_plug_time,
             unplug_time=self.last_session_unplug_time,
             duration_minutes=self.last_session_duration_minutes,
-            effective_charging_minutes=(
-                self.last_session_effective_charging_minutes
-            ),
+            effective_charging_minutes=(self.last_session_effective_charging_minutes),
             session_id=self.last_session_id,
             session_source=self.last_session_source,
             transaction_id=self.last_session_transaction_id,
@@ -443,9 +431,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_session_plug_time = state.plug_time
         self.last_session_unplug_time = state.unplug_time
         self.last_session_duration_minutes = state.duration_minutes
-        self.last_session_effective_charging_minutes = (
-            state.effective_charging_minutes
-        )
+        self.last_session_effective_charging_minutes = state.effective_charging_minutes
         self.last_session_id = state.session_id
         self.last_session_source = state.session_source
         self.last_session_transaction_id = state.transaction_id
@@ -475,15 +461,27 @@ class GrowattCoordinator(DataUpdateCoordinator):
     ) -> ChargerCommandHandle:
         """Delegate charger intent to this entry's queue owner."""
         return await self.write_queue.enqueue(
-            write_func, *args, dedupe_key=dedupe_key, priority=priority,
-            rate_limited=rate_limited, command_name=command_name,
-            requires_connection=requires_connection, configuration_key=configuration_key,
-            configuration_generation=configuration_generation, policy=policy,
-            revalidate=revalidate, on_unsent=on_unsent, **kwargs,
+            write_func,
+            *args,
+            dedupe_key=dedupe_key,
+            priority=priority,
+            rate_limited=rate_limited,
+            command_name=command_name,
+            requires_connection=requires_connection,
+            configuration_key=configuration_key,
+            configuration_generation=configuration_generation,
+            policy=policy,
+            revalidate=revalidate,
+            on_unsent=on_unsent,
+            **kwargs,
         )
 
-    def cancel_queued_writes(self, *, dedupe_key: str, command_name: str | None = None, reason: str) -> int:
-        return self.write_queue.cancel(dedupe_key=dedupe_key, command_name=command_name, reason=reason)
+    def cancel_queued_writes(
+        self, *, dedupe_key: str, command_name: str | None = None, reason: str
+    ) -> int:
+        return self.write_queue.cancel(
+            dedupe_key=dedupe_key, command_name=command_name, reason=reason
+        )
 
     @property
     def has_pending_charger_writes(self) -> bool:
@@ -514,7 +512,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def now(self) -> str:
         """Return current UTC timestamp in ISO format."""
-        return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
     @property
     def transaction_is_active(self) -> bool:
@@ -595,8 +593,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         outcome_is_current = self.configuration_write_is_current(key, generation)
         if not outcome_is_current:
             _LOGGER.info(
-                "Ignoring superseded ChangeConfiguration result for %s "
-                "(generation %d)",
+                "Ignoring superseded ChangeConfiguration result for %s (generation %d)",
                 key,
                 generation,
             )
@@ -687,9 +684,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 # The original HA entity action has already returned by the
                 # time the debounce expires.  Preserve a visible traceback
                 # instead of leaving an unobserved background-task exception.
-                _LOGGER.exception(
-                    "Failed to queue debounced Auto Charge schedule"
-                )
+                _LOGGER.exception("Failed to queue debounced Auto Charge schedule")
             finally:
                 if self._auto_charge_schedule_task is asyncio.current_task():
                     self._auto_charge_schedule_task = None
@@ -710,9 +705,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 charge_point = self.runtime_data.get("charge_point")
                 if charge_point is None or not self.connected:
                     self._connection_changed.clear()
-                    charge_point = self.runtime_data.get(
-                        "charge_point"
-                    )
+                    charge_point = self.runtime_data.get("charge_point")
                     if charge_point is None or not self.connected:
                         await self._connection_changed.wait()
                     continue
@@ -769,14 +762,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
             draft is not None
             and draft_matches_reported(
                 draft,
-                reported_mode=(
-                    reported_mode if isinstance(reported_mode, str) else None
-                ),
-                reported_period=(
-                    period_value.raw_value
-                    if period_value is not None
-                    else None
-                ),
+                reported_mode=(reported_mode if isinstance(reported_mode, str) else None),
+                reported_period=(period_value.raw_value if period_value is not None else None),
             )
         )
         self.async_set_updated_data(True)
@@ -800,9 +787,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         newer unsent changes.
         """
         if self.pv_linkage_draft() != expected_draft:
-            _LOGGER.info(
-                "Keeping newer PV Linkage draft dirty after an older Apply"
-            )
+            _LOGGER.info("Keeping newer PV Linkage draft dirty after an older Apply")
             return False
         self.pv_linkage_draft_dirty = False
         self.async_set_updated_data(True)
@@ -828,9 +813,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 updated = True
 
         period_value = self.configuration_values.get("G_PeriodTime")
-        period = parse_manual_period(
-            period_value.raw_value if period_value is not None else None
-        )
+        period = parse_manual_period(period_value.raw_value if period_value is not None else None)
         if period is not None:
             start, end = period
             if self.pv_manual_start_draft != start:
@@ -870,11 +853,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         mains voltage.
         """
         zero_phases = {"L1": 0, "L2": 0, "L3": 0}
-        if (
-            self.power == 0
-            and self.phase_power == zero_phases
-            and self.currents == zero_phases
-        ):
+        if self.power == 0 and self.phase_power == zero_phases and self.currents == zero_phases:
             return False
 
         self.power = 0
@@ -963,10 +942,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
         target = self.active_transaction or self.last_completed_transaction
         target_connector = (
             target.get("start", {}).get("request", {}).get("connector_id")
-            if isinstance(target, dict) else None
+            if isinstance(target, dict)
+            else None
         )
         session_connector = (
-            connector_id is not None and str(connector_id) != "0"
+            connector_id is not None
+            and str(connector_id) != "0"
             and (target_connector is None or str(target_connector) == str(connector_id))
         )
         if normalized_status in {"charging", "suspended_ev", "suspended_evse"}:
@@ -982,23 +963,15 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 "plugged_in", received_at, "ocpp", "derived"
             )
         elif normalized_status == "available" and session_connector:
-            unplugged = session_event(
-                "unplugged", received_at, "ocpp", "derived"
-            )
+            unplugged = session_event("unplugged", received_at, "ocpp", "derived")
             target = self.active_transaction or self.last_completed_transaction
             if isinstance(target, dict):
                 events = target.setdefault("events", [])
-                event_added = append_session_event(
-                    events, unplugged, unique_type=True
-                )
+                event_added = append_session_event(events, unplugged, unique_type=True)
                 session_id = target.get("session_id")
-                update_fn = self.runtime_data.get(
-                    "update_session_events_in_csv"
-                )
+                update_fn = self.runtime_data.get("update_session_events_in_csv")
                 if event_added and session_id and update_fn:
-                    self.hass.async_create_task(
-                        update_fn(session_id, list(events))
-                    )
+                    self.hass.async_create_task(update_fn(session_id, list(events)))
             self._pending_plugged_event = None
         # Connector 0 describes the whole station, not the active EV session.
         # Use receipt time: this is when we observed the pause, not an inferred
@@ -1006,9 +979,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         transaction = self.active_transaction
         tracker = self._session_event_tracker
         if transaction and tracker is not None and session_connector:
-            if tracker.observe_suspension(
-                received_at, normalized_status
-            ):
+            if tracker.observe_suspension(received_at, normalized_status):
                 self._schedule_storage_save()
         if normalize_ocpp_status(status) == "faulted":
             self.last_charger_fault = fault_from_status_notification(
@@ -1071,7 +1042,13 @@ class GrowattCoordinator(DataUpdateCoordinator):
         **payload,
     ):
         """Delegate this transition to the session lifecycle."""
-        return self.sessions.start_transaction(transaction_id, id_tag, connector_id=connector_id, meter_start=meter_start, **payload)
+        return self.sessions.start_transaction(
+            transaction_id,
+            id_tag,
+            connector_id=connector_id,
+            meter_start=meter_start,
+            **payload,
+        )
 
     def stop_transaction(
         self,
@@ -1082,7 +1059,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
         **payload,
     ):
         """Delegate this transition to the session lifecycle."""
-        return self.sessions.stop_transaction(reason, transaction_id=transaction_id, meter_stop=meter_stop, **payload)
+        return self.sessions.stop_transaction(
+            reason, transaction_id=transaction_id, meter_stop=meter_stop, **payload
+        )
 
     # ─────────────────────────────
     # MeterValues
@@ -1101,7 +1080,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
             if active_id is None:
                 # Reconnect recovery requires a charging observation; late
                 # telemetry alone cannot resurrect an ended transaction.
-                if normalize_ocpp_status(self.status) not in {"charging", "suspended_ev", "suspended_evse"}:
+                if normalize_ocpp_status(self.status) not in {
+                    "charging",
+                    "suspended_ev",
+                    "suspended_evse",
+                }:
                     return
                 self.transaction_id = transaction_id
                 self._schedule_storage_save()
@@ -1123,7 +1106,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
         }
         received_at = parse_at(self.last_meter_values["received_at"])
         updated = False
-        if self.site_accounting is not None and str(transaction_id or self.transaction_id) == self.site_accounting.transaction_id:
+        if (
+            self.site_accounting is not None
+            and str(transaction_id or self.transaction_id) == self.site_accounting.transaction_id
+        ):
             accounting_updated = False
             for entry in parsed_values:
                 at = parse_at(entry.timestamp)
@@ -1131,9 +1117,16 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     continue
                 power_point = charging_power_curve_point(entry)
                 if power_point is not None:
-                    accounting_updated = self.site_accounting.observe_power_fallback(power_point[1], at) or accounting_updated
+                    accounting_updated = (
+                        self.site_accounting.observe_power_fallback(power_point[1], at)
+                        or accounting_updated
+                    )
                 for sample in entry.samples:
-                    if sample.measurand != "Energy.Active.Import.Register" or sample.numeric_value is None or sample.phase is not None:
+                    if (
+                        sample.measurand != "Energy.Active.Import.Register"
+                        or sample.numeric_value is None
+                        or sample.phase is not None
+                    ):
                         continue
                     # A long telemetry gap cannot be priced/classified from
                     # just the current site snapshot (including after upgrade).
@@ -1144,28 +1137,29 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         and 0 <= (at - previous_at).total_seconds() <= max_gap
                         and 0 <= (received_at - at).total_seconds() <= max_gap
                     )
-                    accounting_updated = self.site_accounting.observe(
-                        meter_wh=sample.numeric_value,
-                        at=at,
-                        site_id=self.source_instance_id or "site",
-                        charger_id=self.charge_point_id or "charger",
-                        inputs=site_inputs(self, at, received_at=received_at) if current_interval else None,
-                        context=sample.context,
-                        unit=sample.unit,
-                    ) or accounting_updated
+                    accounting_updated = (
+                        self.site_accounting.observe(
+                            meter_wh=sample.numeric_value,
+                            at=at,
+                            site_id=self.source_instance_id or "site",
+                            charger_id=self.charge_point_id or "charger",
+                            inputs=site_inputs(self, at, received_at=received_at)
+                            if current_interval
+                            else None,
+                            context=sample.context,
+                            unit=sample.unit,
+                        )
+                        or accounting_updated
+                    )
             if accounting_updated:
                 self.hass.async_create_task(self.async_save_storage())
         effective_transaction_id = (
-            transaction_id
-            if transaction_id is not None
-            else self.transaction_id
+            transaction_id if transaction_id is not None else self.transaction_id
         )
         if effective_transaction_id is not None:
             previous_transaction_id = self.effective_charging.transaction_id
             self.effective_charging.start(effective_transaction_id)
-            effective_updated = (
-                previous_transaction_id != self.effective_charging.transaction_id
-            )
+            effective_updated = previous_transaction_id != self.effective_charging.transaction_id
             max_gap_seconds = self._effective_meter_gap_seconds()
             for entry in parsed_values:
                 effective_updated = (
@@ -1198,10 +1192,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     )
                     continue
 
-                if (
-                    sample.measurand in ("Power.Active.Import", "Current.Import")
-                    and not live_power
-                ):
+                if sample.measurand in ("Power.Active.Import", "Current.Import") and not live_power:
                     # Retained above in last_meter_values for diagnostics,
                     # but not shown as live: the charger reports that it is
                     # not delivering energy.
@@ -1244,8 +1235,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             if effective_transaction_id is not None:
                 point = charging_power_curve_point(entry)
                 if point is not None and (
-                    not self._active_power_curve
-                    or self._active_power_curve[-1][0] != point[0]
+                    not self._active_power_curve or self._active_power_curve[-1][0] != point[0]
                 ):
                     self._active_power_curve.append(point)
                     if len(self._active_power_curve) > SESSION_CURVE_POINT_LIMIT * 2:
@@ -1262,9 +1252,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                             ),
                         )
                     if self._session_event_tracker is not None:
-                        self._session_event_tracker.observe_power(
-                            point[0], point[1]
-                        )
+                        self._session_event_tracker.observe_power(point[0], point[1])
                     self._schedule_storage_save()
 
         if self.phase_power:
@@ -1275,8 +1263,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         if ignored_live_samples:
             _LOGGER.debug(
-                "Ignoring live power and current from MeterValues while "
-                "status is %s",
+                "Ignoring live power and current from MeterValues while status is %s",
                 self.status,
             )
         _LOGGER.debug(
@@ -1336,9 +1323,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.sessions.observe_context()
 
         reported_values = {
-            str(item["key"]): (
-                None if item.get("value") is None else str(item.get("value"))
-            )
+            str(item["key"]): (None if item.get("value") is None else str(item.get("value")))
             for item in configuration
             if isinstance(item, dict) and item.get("key")
         }
@@ -1362,9 +1347,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
             try:
                 if key == "G_MaxCurrent":
-                    value = configuration_numeric_value(
-                        self.configuration_values.get(key)
-                    )
+                    value = configuration_numeric_value(self.configuration_values.get(key))
                     if value is None:
                         continue
                     if self.max_current != value:
@@ -1373,9 +1356,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         updated = True
 
                 elif key == "G_ExternalLimitPower":
-                    value = configuration_numeric_value(
-                        self.configuration_values.get(key)
-                    )
+                    value = configuration_numeric_value(self.configuration_values.get(key))
                     if value is None:
                         continue
                     if self.external_limit_power != value:
@@ -1439,13 +1420,20 @@ class GrowattCoordinator(DataUpdateCoordinator):
                             _LOGGER.debug("Config: G_TimeSharingPrice = %.2f per kWh", value)
                             updated = True
                     else:
-                        _LOGGER.warning("Could not parse G_TimeSharingPrice from raw value: %s", raw)
+                        _LOGGER.warning(
+                            "Could not parse G_TimeSharingPrice from raw value: %s", raw
+                        )
 
             except (ValueError, TypeError) as exc:
                 _LOGGER.warning("Failed to parse config key=%s value=%s: %s", key, raw, exc)
                 continue
             except Exception as exc:
-                _LOGGER.error("Unexpected error processing config key=%s: %s", key, exc, exc_info=True)
+                _LOGGER.error(
+                    "Unexpected error processing config key=%s: %s",
+                    key,
+                    exc,
+                    exc_info=True,
+                )
                 continue
 
         if updated:

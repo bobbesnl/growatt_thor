@@ -3,25 +3,26 @@
 The coordinator retains the public observations used by existing entities and
 storage. This boundary owns start, stop, recovery and final record processing.
 """
+
 from __future__ import annotations
 
-import logging
-
 import json
+import logging
 from collections.abc import Mapping
-from .telemetry import SessionTelemetry, context_curves
-from .outbox import SessionOutbox
-from .completion import completion_transaction
-from ..runtime.time import utc_instant, utc_timestamp
-from .time import session_time_zone
-from .active_state import ActiveSessionState
-from .duration import EffectiveChargingTracker
-from .correlation import CORRELATION_MATCHED, build_unified_session
+
 from ..const import DOMAIN
 from ..energy.accounting_runtime import SessionAccumulator, parse_at
 from ..ocpp.diagnostics import create_ocpp_snapshot
-from .records import GrowattSessionRecord
+from ..runtime.time import utc_instant, utc_timestamp
+from .active_state import ActiveSessionState
+from .completion import completion_transaction
+from .correlation import CORRELATION_MATCHED, build_unified_session
+from .duration import EffectiveChargingTracker
 from .events import SessionEventTracker, merge_growatt_record_events
+from .outbox import SessionOutbox
+from .records import GrowattSessionRecord
+from .telemetry import SessionTelemetry, context_curves
+from .time import session_time_zone
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,17 +38,26 @@ class SessionLifecycle:
 
     def observe_context(self, *, notify=True):
         coordinator = self.coordinator
-        if (coordinator.transaction_id is None
-            or getattr(coordinator, "_restored_active_session", False)):
+        if coordinator.transaction_id is None or getattr(
+            coordinator, "_restored_active_session", False
+        ):
             return False
         changed = self.telemetry.observe_context(coordinator, coordinator.now())
         at = parse_at(coordinator.now())
         snapshot = getattr(coordinator, "last_meter_values", None) or {}
         entries = snapshot.get("meter_values", [])
         sampled = parse_at(entries[-1].get("timestamp")) if entries else None
-        if (not coordinator.connected or coordinator.status not in ("Charging", "charging")
-            or sampled is None or at is None or (at - sampled).total_seconds() > coordinator._effective_meter_gap_seconds()):
-            changed = self.telemetry.observe("measured_current_sum_curve_a", coordinator.now(), None) or changed
+        if (
+            not coordinator.connected
+            or coordinator.status not in ("Charging", "charging")
+            or sampled is None
+            or at is None
+            or (at - sampled).total_seconds() > coordinator._effective_meter_gap_seconds()
+        ):
+            changed = (
+                self.telemetry.observe("measured_current_sum_curve_a", coordinator.now(), None)
+                or changed
+            )
         if changed and notify:
             coordinator._schedule_storage_save()
             coordinator.async_set_updated_data(True)
@@ -62,7 +72,9 @@ class SessionLifecycle:
         sampled = parse_at(entry.timestamp)
         if lower is not None and sampled is not None and sampled < lower:
             return False
-        return self.telemetry.observe_meter(entry, received_at, coordinator._effective_meter_gap_seconds())
+        return self.telemetry.observe_meter(
+            entry, received_at, coordinator._effective_meter_gap_seconds()
+        )
 
     def restore_completions(self, value):
         self.pending_completions = []
@@ -73,14 +85,18 @@ class SessionLifecycle:
             if transaction is None:
                 continue
             accounting = SessionAccumulator.from_dict(entry.get("accounting"))
-            self.pending_completions.append({
-                "transaction": transaction,
-                "accounting": accounting.as_dict() if accounting else None,
-            })
+            self.pending_completions.append(
+                {
+                    "transaction": transaction,
+                    "accounting": accounting.as_dict() if accounting else None,
+                }
+            )
         if self.pending_completions:
             latest = self.pending_completions[-1]
             self.coordinator.last_completed_transaction = latest["transaction"]
-            self.coordinator.last_site_accounting = SessionAccumulator.from_dict(latest["accounting"])
+            self.coordinator.last_site_accounting = SessionAccumulator.from_dict(
+                latest["accounting"]
+            )
 
     async def async_flush_pending(self):
         coordinator = self.coordinator
@@ -92,7 +108,6 @@ class SessionLifecycle:
         except Exception:
             _LOGGER.exception("Session delivery deferred; checkpoint retained for retry")
 
-
     def _active_session_state(self) -> ActiveSessionState | None:
         """Build the bounded persistent representation of the live session."""
         coordinator = self.coordinator
@@ -101,21 +116,9 @@ class SessionLifecycle:
             if isinstance(coordinator.active_transaction, Mapping)
             else {}
         )
-        start = (
-            transaction.get("start")
-            if isinstance(transaction.get("start"), Mapping)
-            else {}
-        )
-        request = (
-            start.get("request")
-            if isinstance(start.get("request"), Mapping)
-            else {}
-        )
-        response = (
-            start.get("response")
-            if isinstance(start.get("response"), Mapping)
-            else {}
-        )
+        start = transaction.get("start") if isinstance(transaction.get("start"), Mapping) else {}
+        request = start.get("request") if isinstance(start.get("request"), Mapping) else {}
+        response = start.get("response") if isinstance(start.get("response"), Mapping) else {}
         transaction_id = coordinator.transaction_id or response.get("transaction_id")
         if transaction_id is None:
             return None
@@ -171,7 +174,12 @@ class SessionLifecycle:
         coordinator.id_tag = state.id_tag
         coordinator.energy = state.energy_wh
         coordinator._active_power_curve = list(state.power_curve)
-        self.telemetry = SessionTelemetry({**state.context_curves, "site_house_load_source": state.site_house_load_source})
+        self.telemetry = SessionTelemetry(
+            {
+                **state.context_curves,
+                "site_house_load_source": state.site_house_load_source,
+            }
+        )
         for key in tuple(self.telemetry.curves):
             self.telemetry.observe(key, coordinator.now(), None)
         coordinator._session_event_tracker = SessionEventTracker(
@@ -271,7 +279,8 @@ class SessionLifecycle:
                 last_meter_wh=baseline,
                 last_meter_at=parse_at(start_snapshot["received_at"]),
             )
-            if coordinator.site_accounting_options.get("site_accounting_profile", "disabled") != "disabled"
+            if coordinator.site_accounting_options.get("site_accounting_profile", "disabled")
+            != "disabled"
             else None
         )
         coordinator._active_power_curve = []
@@ -307,7 +316,10 @@ class SessionLifecycle:
         # replace its retained completion details. The protocol still ACKs it.
         active_id = coordinator.transaction_id
         if active_id is None or str(stopped_transaction_id) != str(active_id):
-            _LOGGER.info("Ignoring StopTransaction for inactive transaction %s", stopped_transaction_id)
+            _LOGGER.info(
+                "Ignoring StopTransaction for inactive transaction %s",
+                stopped_transaction_id,
+            )
             return
         _LOGGER.info(
             "Transaction stopped: %s (reason=%s)",
@@ -325,15 +337,11 @@ class SessionLifecycle:
         completed = dict(coordinator.active_transaction or {})
         completed["stop"] = create_ocpp_snapshot(coordinator.now(), request)
         if coordinator._session_event_tracker is not None:
-            coordinator._session_event_tracker.stop(
-                completed["stop"]["received_at"], reason=reason
-            )
+            coordinator._session_event_tracker.stop(completed["stop"]["received_at"], reason=reason)
             completed["events"] = list(coordinator._session_event_tracker.events)
         effective_minutes = None
         normalized_transaction_id = (
-            str(stopped_transaction_id)
-            if stopped_transaction_id is not None
-            else None
+            str(stopped_transaction_id) if stopped_transaction_id is not None else None
         )
         if coordinator.effective_charging.transaction_id == normalized_transaction_id:
             effective_minutes = coordinator.effective_charging.effective_minutes
@@ -365,10 +373,14 @@ class SessionLifecycle:
         coordinator.last_completed_transaction = completed
         retained = completion_transaction(completed)
         if retained is not None:
-            self.pending_completions.append({
-                "transaction": retained,
-                "accounting": coordinator.last_site_accounting.as_dict() if coordinator.last_site_accounting else None,
-            })
+            self.pending_completions.append(
+                {
+                    "transaction": retained,
+                    "accounting": coordinator.last_site_accounting.as_dict()
+                    if coordinator.last_site_accounting
+                    else None,
+                }
+            )
             self.pending_completions = self.pending_completions[-10:]
         coordinator.active_transaction = None
         coordinator._restored_active_session = False
@@ -394,7 +406,9 @@ class SessionLifecycle:
         coordinator = self.coordinator
         if coordinator._session_event_tracker is None:
             return
-        if coordinator._session_event_tracker.record_stop_requested(coordinator.now(), reason=reason):
+        if coordinator._session_event_tracker.record_stop_requested(
+            coordinator.now(), reason=reason
+        ):
             coordinator._schedule_storage_save()
             coordinator.async_set_updated_data(True)
 
@@ -410,7 +424,11 @@ class SessionLifecycle:
         completed_transaction = coordinator.last_completed_transaction
         pending_completion = None
         for candidate in reversed(self.pending_completions):
-            session = build_unified_session(candidate["transaction"], session_records=(snapshot,), time_zone=session_time_zone(coordinator))
+            session = build_unified_session(
+                candidate["transaction"],
+                session_records=(snapshot,),
+                time_zone=session_time_zone(coordinator),
+            )
             if session and session["correlation"]["status"] == CORRELATION_MATCHED:
                 pending_completion = candidate
                 completed_transaction = candidate["transaction"]
@@ -426,7 +444,10 @@ class SessionLifecycle:
 
             # The charger can send the same completed session as both message types.
             dedup_key = record.dedup_key
-            if dedup_key is not None and (dedup_key in coordinator._applied_session_record_keys or coordinator._last_session_record_key == dedup_key):
+            if dedup_key is not None and (
+                dedup_key in coordinator._applied_session_record_keys
+                or coordinator._last_session_record_key == dedup_key
+            ):
                 duplicate_session = build_unified_session(
                     completed_transaction,
                     session_records=(snapshot,),
@@ -437,19 +458,14 @@ class SessionLifecycle:
                 effective_minutes = None
                 if (
                     duplicate_session is not None
-                    and duplicate_session["correlation"]["status"]
-                    == CORRELATION_MATCHED
+                    and duplicate_session["correlation"]["status"] == CORRELATION_MATCHED
                 ):
-                    effective_minutes = (
-                        coordinator._pending_effective_charging_minutes.pop(
-                            str(record.transaction_id),
-                            None,
-                        )
+                    effective_minutes = coordinator._pending_effective_charging_minutes.pop(
+                        str(record.transaction_id),
+                        None,
                     )
                 if effective_minutes is not None:
-                    coordinator.last_session_effective_charging_minutes = (
-                        effective_minutes
-                    )
+                    coordinator.last_session_effective_charging_minutes = effective_minutes
                     coordinator.hass.async_create_task(coordinator.async_save_storage())
                 _LOGGER.debug(
                     "Duplicate Growatt session record skipped (transaction=%s)",
@@ -491,8 +507,7 @@ class SessionLifecycle:
                 time_zone=session_time_zone(coordinator),
             )
             matched = (
-                session is not None
-                and session["correlation"]["status"] == CORRELATION_MATCHED
+                session is not None and session["correlation"]["status"] == CORRELATION_MATCHED
             )
             effective_minutes = (
                 coordinator._pending_effective_charging_minutes.pop(
@@ -514,16 +529,10 @@ class SessionLifecycle:
                     time_zone=session_time_zone(coordinator),
                 )
             identity = session["identity"]
-            start_request = (
-                ((completed_transaction or {}).get("start") or {})
-                .get("request") or {}
-            )
-            authorized_identifier = (
-                start_request.get("id_tag") if matched else None
-            )
+            start_request = ((completed_transaction or {}).get("start") or {}).get("request") or {}
+            authorized_identifier = start_request.get("id_tag") if matched else None
             events = merge_growatt_record_events(
-                (completed_transaction or {}).get("events", [])
-                if matched else [],
+                (completed_transaction or {}).get("events", []) if matched else [],
                 plug_time=record.plug_time,
                 start_time=record.start_time,
                 end_time=record.end_time,
@@ -531,9 +540,7 @@ class SessionLifecycle:
                 time_zone=zone,
             )
             if matched and isinstance(completed_transaction, dict):
-                completed_transaction["session_id"] = identity[
-                    "session_id"
-                ]
+                completed_transaction["session_id"] = identity["session_id"]
                 completed_transaction["events"] = list(events)
 
             coordinator.last_session_energy = energy_kwh
@@ -554,15 +561,26 @@ class SessionLifecycle:
             accounting = (
                 SessionAccumulator.from_dict(pending_completion.get("accounting"))
                 if matched and pending_completion is not None
-                else coordinator.last_site_accounting if matched and coordinator.last_site_accounting and str(record.transaction_id) == coordinator.last_site_accounting.transaction_id else None
+                else coordinator.last_site_accounting
+                if matched
+                and coordinator.last_site_accounting
+                and str(record.transaction_id) == coordinator.last_site_accounting.transaction_id
+                else None
             )
             if accounting is not None:
                 accounting.reconcile(energy_kwh)
                 coordinator.site_accounting_totals["energy_kwh"] += energy_kwh
-                for key in ("direct_solar", "direct_grid", "battery_unknown", "unknown"):
+                for key in (
+                    "direct_solar",
+                    "direct_grid",
+                    "battery_unknown",
+                    "unknown",
+                ):
                     coordinator.site_accounting_totals[f"{key}_kwh"] += accounting.buckets[key]
                 if accounting.cost_covered:
-                    coordinator.site_accounting_totals["effective_grid_cost"] += accounting.effective_grid_cost
+                    coordinator.site_accounting_totals["effective_grid_cost"] += (
+                        accounting.effective_grid_cost
+                    )
 
             _LOGGER.info(
                 "%s: energy=%.3f kWh, cost=%.2f, duration=%s min, total=%.3f kWh",
@@ -596,23 +614,34 @@ class SessionLifecycle:
                     "session_id": coordinator.last_session_id,
                     "session_source": coordinator.last_session_source,
                     "authorized_identifier": authorized_identifier or "",
-                    "authorized_alias": (
-                        (completed_transaction or {}).get("id_tag_alias") or ""
-                    ) if matched else "",
+                    "authorized_alias": ((completed_transaction or {}).get("id_tag_alias") or "")
+                    if matched
+                    else "",
                     **(accounting.as_session_dict() if accounting else {"green_energy_kwh": ""}),
                     "power_curve": json.dumps(
-                        (completed_transaction or {}).get("power_curve", [])
-                        if matched else [],
+                        (completed_transaction or {}).get("power_curve", []) if matched else [],
                         separators=(",", ":"),
                     ),
-                    "site_house_load_source": (completed_transaction or {}).get("site_house_load_source", "") if matched else "",
-                    **{key: json.dumps(curve, separators=(",", ":"))
-                       for key, curve in context_curves(completed_transaction if matched else {}).items()},
+                    "site_house_load_source": (completed_transaction or {}).get(
+                        "site_house_load_source", ""
+                    )
+                    if matched
+                    else "",
+                    **{
+                        key: json.dumps(curve, separators=(",", ":"))
+                        for key, curve in context_curves(
+                            completed_transaction if matched else {}
+                        ).items()
+                    },
                     "events": json.dumps(events, separators=(",", ":")),
                 }
                 self.outbox.enqueue(session_row)
                 coordinator.hass.async_create_task(self.async_flush_pending())
-                if accounting is not None and coordinator.last_site_accounting is not None and coordinator.last_site_accounting.transaction_id == accounting.transaction_id:
+                if (
+                    accounting is not None
+                    and coordinator.last_site_accounting is not None
+                    and coordinator.last_site_accounting.transaction_id == accounting.transaction_id
+                ):
                     coordinator.last_site_accounting = None
 
             if pending_completion is not None:
@@ -626,4 +655,3 @@ class SessionLifecycle:
                 record.message_id,
                 exc,
             )
-

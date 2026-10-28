@@ -1,19 +1,16 @@
 """Tests for retained and redacted OCPP diagnostics."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
 import importlib.util
-from pathlib import Path
 import sys
 import unittest
-
+from datetime import UTC, datetime, timezone
+from enum import Enum
+from pathlib import Path
 
 MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "ocpp/diagnostics.py"
+    Path(__file__).parents[1] / "custom_components" / "growatt_thor" / "ocpp/diagnostics.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "growatt_thor_ocpp_diagnostics_test_target",
@@ -39,7 +36,7 @@ class OcppDiagnosticsTest(unittest.TestCase):
             "2026-08-23T20:00:00Z",
             {
                 "status": Status.AVAILABLE,
-                "timestamp": datetime(2026, 8, 23, tzinfo=timezone.utc),
+                "timestamp": datetime(2026, 8, 23, tzinfo=UTC),
                 "transaction_data": [{"sampled_value": ("1", "2")}],
                 "vendor_extension": {"code": 42},
             },
@@ -74,16 +71,17 @@ class OcppDiagnosticsTest(unittest.TestCase):
                     "id_tag": "secret-tag",
                     "meter_stop": 1234,
                     "reason": "EVDisconnected",
-                    "transaction_data": [
-                        {"idTag": "nested-tag", "vendorErrorCode": "E42"}
-                    ],
-                }
+                    "transaction_data": [{"idTag": "nested-tag", "vendorErrorCode": "E42"}],
+                },
             },
         }
 
         redacted = ocpp_diagnostics.redact_ocpp_data(diagnostics)
-        self.assertEqual(redacted['transaction']['id_tag_alias'], ocpp_diagnostics.REDACTED)
-        self.assertEqual(redacted["sessions"]["active"]["identity"]["charge_point_id"], ocpp_diagnostics.REDACTED)
+        self.assertEqual(redacted["transaction"]["id_tag_alias"], ocpp_diagnostics.REDACTED)
+        self.assertEqual(
+            redacted["sessions"]["active"]["identity"]["charge_point_id"],
+            ocpp_diagnostics.REDACTED,
+        )
 
         self.assertEqual(
             redacted["boot"]["request"]["charge_point_serial_number"],
@@ -104,9 +102,7 @@ class OcppDiagnosticsTest(unittest.TestCase):
         self.assertEqual(redacted["boot"]["request"]["firmware_version"], "2.2.16")
         self.assertEqual(redacted["transaction"]["request"]["meter_stop"], 1234)
         self.assertEqual(
-            redacted["transaction"]["request"]["transaction_data"][0][
-                "vendorErrorCode"
-            ],
+            redacted["transaction"]["request"]["transaction_data"][0]["vendorErrorCode"],
             "E42",
         )
 
@@ -140,9 +136,7 @@ class OcppDiagnosticsTest(unittest.TestCase):
                 "charge_point_serial_number",
             )
         )
-        self.assertIsNone(
-            ocpp_diagnostics.boot_notification_field(None, "firmware_version")
-        )
+        self.assertIsNone(ocpp_diagnostics.boot_notification_field(None, "firmware_version"))
 
 
 if __name__ == "__main__":

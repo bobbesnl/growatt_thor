@@ -12,4 +12,4 @@ OCPP_SUBPROTOCOL = "ocpp1.6"
 # Poll interval configuration
 CONF_POLL_INTERVAL = "poll_interval"
 DEFAULT_POLL_INTERVAL = 30  # sec
-MIN_POLL_INTERVAL = 5       # min 5 sec
+MIN_POLL_INTERVAL = 5  # min 5 sec

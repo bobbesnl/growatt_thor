@@ -6,11 +6,12 @@ meter reset, so the next sample of the running session would be counted twice
 by long-term statistics and utility meters.  These tests load ``sensor.py``
 with small Home Assistant stand-ins; no Home Assistant install is needed.
 """
+
 import importlib.util
-from pathlib import Path
 import sys
-from types import ModuleType, SimpleNamespace
 import unittest
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
 
 PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 PACKAGE_NAME = "thor_energy_sensor_target"

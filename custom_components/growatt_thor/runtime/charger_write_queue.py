@@ -1,19 +1,26 @@
 """Own charger write execution, expiry and completion independently of observations."""
+
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections import deque
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-import logging
 from typing import Any, Protocol
 
 from ..configuration.writes import ConfigurationWriteStatus
 from .write_queue import (
-    ChargerCommandHandle, ChargerCommandResult, ChargerConnectionUnavailable,
-    ChargerRequestOutcomeUncertain, ChargerWriteQueuePolicy,
-    ChargerWriteReconnectPolicy, ChargerWriteResult, ChargerWriteStatus,
-    DEFAULT_WRITE_POLICY, create_command_handle,
+    DEFAULT_WRITE_POLICY,
+    ChargerCommandHandle,
+    ChargerCommandResult,
+    ChargerConnectionUnavailable,
+    ChargerRequestOutcomeUncertain,
+    ChargerWriteQueuePolicy,
+    ChargerWriteReconnectPolicy,
+    ChargerWriteResult,
+    ChargerWriteStatus,
+    create_command_handle,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -21,14 +28,21 @@ _LOGGER = logging.getLogger(__name__)
 
 class WriteQueueOwner(Protocol):
     """Observation and publication boundary; never a second queue owner."""
+
     hass: Any
     runtime_data: Mapping[str, Any]
     connected: bool
 
     def now(self) -> str: ...
     def pause_polling_until(self, until: float) -> None: ...
-    def mark_configuration_write(self, key: str, status: ConfigurationWriteStatus,
-                                 *, generation: int, result: str | None = None) -> bool: ...
+    def mark_configuration_write(
+        self,
+        key: str,
+        status: ConfigurationWriteStatus,
+        *,
+        generation: int,
+        result: str | None = None,
+    ) -> bool: ...
     def schedule_configuration_refresh(self, *, delay: float = 20.0) -> Any: ...
     def publish_write_result(self, result: ChargerCommandResult) -> None: ...
 
@@ -89,7 +103,10 @@ class ChargerWriteQueue:
             except asyncio.CancelledError:
                 pass
         while self._pending:
-            self._finish_unsent_write(self._pending.popleft(), ChargerWriteResult.skipped("integration_unloaded"))
+            self._finish_unsent_write(
+                self._pending.popleft(),
+                ChargerWriteResult.skipped("integration_unloaded"),
+            )
         self.idle.set()
 
     async def enqueue(
@@ -126,9 +143,7 @@ class ChargerWriteQueue:
         if requires_connection and not args:
             raise ValueError("A connection-bound write requires a charge point argument")
         if (configuration_key is None) != (configuration_generation is None):
-            raise ValueError(
-                "Configuration key and generation must be queued together"
-            )
+            raise ValueError("Configuration key and generation must be queued together")
 
         # Queue lifetimes use the monotonic loop clock: correcting the wall clock
         # must not extend an old intent. UTC timestamps below are for diagnostics.
@@ -174,9 +189,7 @@ class ChargerWriteQueue:
                     # allowing its cleanup callback to touch the newer intent.
                     self._finish_unsent_write(
                         item,
-                        ChargerWriteResult.skipped(
-                            "replaced_by_newer_intent"
-                        ),
+                        ChargerWriteResult.skipped("replaced_by_newer_intent"),
                     )
                 else:
                     retained_items.append(item)
@@ -184,11 +197,7 @@ class ChargerWriteQueue:
 
         if priority:
             insert_at = next(
-                (
-                    index
-                    for index, item in enumerate(self._pending)
-                    if not item.priority
-                ),
+                (index for index, item in enumerate(self._pending) if not item.priority),
                 len(self._pending),
             )
             self._pending.insert(insert_at, write_item)
@@ -233,9 +242,7 @@ class ChargerWriteQueue:
                         continue
 
                     if write_item.requires_connection:
-                        charge_point = self.owner.runtime_data.get(
-                            "charge_point"
-                        )
+                        charge_point = self.owner.runtime_data.get("charge_point")
                         if charge_point is None or not self.owner.connected:
                             if (
                                 write_item.policy.reconnect
@@ -244,9 +251,7 @@ class ChargerWriteQueue:
                                 self._pending.popleft()
                                 self._finish_unsent_write(
                                     write_item,
-                                    ChargerWriteResult.expired(
-                                        "discarded_on_disconnect"
-                                    ),
+                                    ChargerWriteResult.expired("discarded_on_disconnect"),
                                 )
                                 continue
                             # Do not pop an unsent command while disconnected.
@@ -257,30 +262,21 @@ class ChargerWriteQueue:
                                 write_item.command_name,
                             )
                             self.connection_changed.clear()
-                            charge_point = self.owner.runtime_data.get(
-                                "charge_point"
-                            )
+                            charge_point = self.owner.runtime_data.get("charge_point")
                             if charge_point is None or not self.owner.connected:
                                 try:
                                     await asyncio.wait_for(
                                         self.connection_changed.wait(),
-                                        timeout=self._write_expiry_remaining(
-                                            write_item
-                                        ),
+                                        timeout=self._write_expiry_remaining(write_item),
                                     )
-                                except asyncio.TimeoutError:
+                                except TimeoutError:
                                     # The next loop iteration records the
                                     # terminal expired result without sending.
                                     pass
                             continue
 
-                    if (
-                        write_item.rate_limited
-                        and self._last_write_monotonic is not None
-                    ):
-                        time_since_last = (
-                            self.owner.hass.loop.time() - self._last_write_monotonic
-                        )
+                    if write_item.rate_limited and self._last_write_monotonic is not None:
+                        time_since_last = self.owner.hass.loop.time() - self._last_write_monotonic
                         wait_time = max(
                             0.0,
                             self.min_write_interval - time_since_last,
@@ -302,7 +298,7 @@ class ChargerWriteQueue:
                                         self._write_expiry_remaining(write_item),
                                     ),
                                 )
-                            except asyncio.TimeoutError:
+                            except TimeoutError:
                                 # Re-run the connection and queue checks before
                                 # removing the item.  The THOR may have
                                 # disconnected during this long rate-limit wait.
@@ -324,12 +320,9 @@ class ChargerWriteQueue:
                     self._active = write_item
 
                     try:
-                        queue_age = (
-                            self.owner.hass.loop.time() - write_item.enqueued_at
-                        )
+                        queue_age = self.owner.hass.loop.time() - write_item.enqueued_at
                         _LOGGER.info(
-                            "✍️ Executing %s [%s] after %.1fs. "
-                            "Remaining in queue: %d",
+                            "✍️ Executing %s [%s] after %.1fs. Remaining in queue: %d",
                             write_item.command_name,
                             write_item.command_id,
                             queue_age,
@@ -338,20 +331,22 @@ class ChargerWriteQueue:
 
                         if write_item.rate_limited:
                             self.owner.pause_polling_until(
-                                self.owner.hass.loop.time()
-                                + self.poll_pause_after_write
+                                self.owner.hass.loop.time() + self.poll_pause_after_write
                             )
-                            _LOGGER.info(
-                                "🛡️ Polling paused BEFORE write "
-                                "(Thor FW protection)"
-                            )
+                            _LOGGER.info("🛡️ Polling paused BEFORE write (Thor FW protection)")
 
                         result = await write_item.func(
                             *call_args,
                             **write_item.kwargs,
                         )
 
-                        if (
+                        if isinstance(result, ChargerWriteResult) and result.status in {
+                            ChargerWriteStatus.SKIPPED,
+                            ChargerWriteStatus.EXPIRED,
+                        }:
+                            self._run_unsent_cleanup(write_item, result)
+
+                        if write_item.rate_limited and not (
                             isinstance(result, ChargerWriteResult)
                             and result.status
                             in {
@@ -359,28 +354,13 @@ class ChargerWriteQueue:
                                 ChargerWriteStatus.EXPIRED,
                             }
                         ):
-                            self._run_unsent_cleanup(write_item, result)
-
-                        if (
-                            write_item.rate_limited
-                            and not (
-                                isinstance(result, ChargerWriteResult)
-                                and result.status
-                                in {
-                                    ChargerWriteStatus.SKIPPED,
-                                    ChargerWriteStatus.EXPIRED,
-                                }
-                            )
-                        ):
                             self._last_write_monotonic = self.owner.hass.loop.time()
 
                         self._log_write_result(write_item, result)
                         completion_result = (
                             result
                             if isinstance(result, ChargerWriteResult)
-                            else ChargerWriteResult.uncertain(
-                                "missing_structured_outcome"
-                            )
+                            else ChargerWriteResult.uncertain("missing_structured_outcome")
                         )
                         self._resolve_write_result(
                             write_item,
@@ -398,9 +378,7 @@ class ChargerWriteQueue:
                         ):
                             self._finish_unsent_write(
                                 write_item,
-                                ChargerWriteResult.expired(
-                                    "discarded_on_disconnect"
-                                ),
+                                ChargerWriteResult.expired("discarded_on_disconnect"),
                             )
                         elif self._write_item_is_expired(write_item):
                             self._finish_unsent_write(
@@ -410,8 +388,7 @@ class ChargerWriteQueue:
                         else:
                             self._pending.appendleft(write_item)
                             _LOGGER.info(
-                                "↻ Deferring %s until the current connection "
-                                "is ready: %s",
+                                "↻ Deferring %s until the current connection is ready: %s",
                                 write_item.command_name,
                                 err,
                             )
@@ -422,10 +399,7 @@ class ChargerWriteQueue:
                             self._last_write_monotonic = self.owner.hass.loop.time()
                         configuration_key = write_item.configuration_key
                         configuration_generation = write_item.configuration_generation
-                        if (
-                            configuration_key
-                            and configuration_generation is not None
-                        ):
+                        if configuration_key and configuration_generation is not None:
                             self.owner.mark_configuration_write(
                                 configuration_key,
                                 ConfigurationWriteStatus.UNCERTAIN,
@@ -468,9 +442,7 @@ class ChargerWriteQueue:
                 while self._pending:
                     self._finish_unsent_write(
                         self._pending.popleft(),
-                        ChargerWriteResult.skipped(
-                            "queue_processor_failed"
-                        ),
+                        ChargerWriteResult.skipped("queue_processor_failed"),
                     )
             finally:
                 self.task = None
@@ -495,8 +467,7 @@ class ChargerWriteQueue:
         cancelled_items = []
         for item in self._pending:
             matches = item.dedupe_key == dedupe_key and (
-                command_name is None
-                or item.command_name == command_name
+                command_name is None or item.command_name == command_name
             )
             if matches:
                 cancelled_items.append(item)
@@ -634,9 +605,7 @@ class ChargerWriteQueue:
             if reason is None:
                 return None
             if not isinstance(reason, str) or not reason:
-                raise ValueError(
-                    "Write revalidation must return a non-empty reason or None"
-                )
+                raise ValueError("Write revalidation must return a non-empty reason or None")
             return reason
         except Exception:
             _LOGGER.exception(
@@ -684,4 +653,3 @@ class ChargerWriteQueue:
                     "Unsent write cleanup failed for %s",
                     write_item.command_name,
                 )
-

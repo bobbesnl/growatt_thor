@@ -1,12 +1,12 @@
 """Tests for MeterValues-based effective charging time."""
+
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import types
 import unittest
-
+from pathlib import Path
 
 COMPONENT_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 PACKAGE_NAME = "growatt_thor_charging_duration_test_target"
@@ -26,16 +26,14 @@ def _load(name: str):
     return module
 
 
-meter_samples = _load('ocpp.meter_samples')
-duration = _load('sessions.duration')
+meter_samples = _load("ocpp.meter_samples")
+duration = _load("sessions.duration")
 
 
 def _entry(timestamp: str, *, power_w=None, energy_wh=None):
     samples = []
     if power_w is not None:
-        samples.append(
-            {"value": str(power_w), "measurand": "Power.Active.Import", "unit": "W"}
-        )
+        samples.append({"value": str(power_w), "measurand": "Power.Active.Import", "unit": "W"})
     if energy_wh is not None:
         samples.append(
             {
@@ -44,9 +42,7 @@ def _entry(timestamp: str, *, power_w=None, energy_wh=None):
                 "unit": "Wh",
             }
         )
-    return meter_samples.parse_meter_values(
-        {"timestamp": timestamp, "sampledValue": samples}
-    )[0]
+    return meter_samples.parse_meter_values({"timestamp": timestamp, "sampledValue": samples})[0]
 
 
 class EffectiveChargingTrackerTest(unittest.TestCase):

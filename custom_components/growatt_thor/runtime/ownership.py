@@ -11,11 +11,12 @@ first one, and an entity can only ever reach the charger whose state it
 displays (backlog F09).  Within one runtime the rules below still bind the
 entry to a single charge-point identity across reconnects.
 """
+
 from __future__ import annotations
 
+from collections.abc import Mapping, MutableMapping
 from enum import Enum
-from typing import Final, Mapping, MutableMapping
-
+from typing import Final
 
 RUNTIME_CONFIG_ENTRY_ID: Final = "config_entry_id"
 ACTIVE_CHARGE_POINT: Final = "charge_point"
@@ -45,9 +46,7 @@ def entry_runtime_data(
 ) -> MutableMapping[str, object] | None:
     """Return the loaded runtime of ``entry_id``, if any."""
     runtime_data = domain_data.get(entry_id)
-    if isinstance(runtime_data, MutableMapping) and runtime_entry_is_owner(
-        runtime_data, entry_id
-    ):
+    if isinstance(runtime_data, MutableMapping) and runtime_entry_is_owner(runtime_data, entry_id):
         return runtime_data
     return None
 
