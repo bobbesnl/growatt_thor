@@ -6,9 +6,10 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
 from tests.support import build_coordinator as _build_coordinator
-from tests.support import load_sensor_module
+from tests.support import load_package_module, load_sensor_module
 
 sensor = load_sensor_module()
+entity_map = load_package_module("presentation.entity_map", package_name=sensor.__package__)
 
 
 class StatusCardContractTest(unittest.TestCase):
@@ -40,7 +41,7 @@ class StatusCardContractTest(unittest.TestCase):
         registry.async_get = lambda hass: None
         registry.async_entries_for_config_entry = lambda *args: []
         with (
-            patch.object(sensor, "er", registry),
+            patch.object(entity_map, "er", registry),
             patch.dict(sys.modules, {registry.__name__: registry}),
             patch.object(
                 sys.modules["homeassistant.helpers"],

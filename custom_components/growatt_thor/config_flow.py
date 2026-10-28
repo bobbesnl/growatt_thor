@@ -63,8 +63,6 @@ from .energy.sources import (
     BATTERY_POWER_SIGNS,
     duplicate_source_fields,
     is_power_sensor,
-    power_sensor_options,
-    tariff_sensor_options,
 )
 from .energy.stop_guard_policy import (
     AUTO_STOP_MODES,
@@ -82,6 +80,7 @@ from .runtime.write_results import (
     VOLATILE_CONTROL_WRITE_POLICY,
     ChargerWriteResult,
 )
+from .source_discovery import power_sensor_options, tariff_sensor_options
 
 _LOGGER = logging.getLogger(__name__)
 

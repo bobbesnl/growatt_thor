@@ -30,6 +30,9 @@ class ModuleCompatibilityTest(unittest.TestCase):
                 "start_revalidation_failure",
             ),
             ("runtime.write_queue", "runtime.write_results", "_stringify"),
+            ("energy.sources", "source_discovery", "power_sensor_options"),
+            ("energy.sources", "source_discovery", "tariff_sensor_options"),
+            ("energy.sources", "presentation.battery", "battery_power_attributes"),
         )
         for old, current, name in cases:
             with self.subTest(old=old, name=name):

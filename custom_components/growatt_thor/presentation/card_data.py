@@ -11,16 +11,14 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping
-from datetime import UTC, datetime, timedelta
 from math import isfinite
 
 from ..charging.control_capabilities import selected_working_mode
 from ..charging.limits import charging_power_identity, maximum_charging_current
 from ..configuration.values import configuration_entity_state
-from ..energy.allocation import EVEnergyDelta, allocate
+from ..energy.live_allocation import WATT_SECONDS_PER_KWH as WATT_SECONDS_PER_KWH
+from ..energy.live_allocation import live_charging_sources
 from ..energy.meter_observations import charging_meter_values as dashboard_meter_values
-from ..energy.site_inputs import site_inputs
-from ..energy.sources import battery_power_attributes
 from ..ocpp.diagnostics import boot_notification_field
 from ..ocpp.meter_samples import meter_time_zone, normalize_meter_timestamp
 from ..ocpp.status import normalize_ocpp_status
@@ -30,9 +28,7 @@ from ..sessions.identity import SOURCE_HOME_ASSISTANT, build_session_id
 from ..sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 from ..sessions.telemetry import CONTEXT_CURVES, context_curves
 from ..timestamps import installation_time_zone, utc_timestamp
-from ..timestamps import parse_utc as parse_at
-
-WATT_SECONDS_PER_KWH = 3_600_000
+from .battery import battery_power_attributes
 
 _LOGGER = logging.getLogger(__name__)
 DASHBOARD_SESSION_LIMIT = 20
@@ -327,47 +323,7 @@ def dashboard_attributes(coordinator) -> dict:
     )
     working_mode = selected_working_mode(coordinator.configuration_values)
     meter_display = live_dashboard_meter_values(coordinator)
-    charging_sources = None
-    sample_at = parse_at(meter_display.get("sample_at"))
-    received_at = parse_at(snapshot.get("received_at"))
-    now_method = getattr(coordinator, "now", None)
-    now = parse_at(now_method()) if callable(now_method) else datetime.now(UTC)
-    power_w = meter_display.get("power_w")
-    if (
-        sample_at is not None
-        and received_at is not None
-        and now is not None
-        and power_w is not None
-        and power_w >= 0
-        and 0 <= (now - sample_at).total_seconds() <= coordinator._effective_meter_gap_seconds()
-        and 0 <= (now - received_at).total_seconds() <= coordinator._effective_meter_gap_seconds()
-        and bool(getattr(coordinator, "transaction_is_active", False))
-    ):
-        # Live sources have independent update schedules; evaluate them now,
-        # after checking the charger's sample and receipt are both still fresh.
-        inputs = site_inputs(coordinator, now)
-        if inputs is not None:
-            live = allocate(
-                EVEnergyDelta(
-                    coordinator.source_instance_id or "site",
-                    coordinator.charge_point_id or "charger",
-                    str(coordinator.transaction_id),
-                    now - timedelta(seconds=1),
-                    now,
-                    power_w / WATT_SECONDS_PER_KWH,
-                ),
-                *inputs,
-            )
-            charging_sources = {
-                "solar_w": live.direct_solar * WATT_SECONDS_PER_KWH,
-                "grid_w": live.direct_grid * WATT_SECONDS_PER_KWH,
-                "battery_w": live.battery_unknown * WATT_SECONDS_PER_KWH,
-                "unknown_w": 0.0,
-            }
-            charging_sources["unknown_w"] = max(
-                0.0,
-                power_w - sum(charging_sources[key] for key in ("solar_w", "grid_w", "battery_w")),
-            )
+    charging_sources = live_charging_sources(coordinator, meter_display, snapshot)
     attributes = {
         "schema": 1,
         "charging_target_pilot": getattr(coordinator, "charging_target_pilot_enabled", False),
@@ -406,7 +362,7 @@ def dashboard_attributes(coordinator) -> dict:
             _number(coordinator.energy) / 1000 if _number(coordinator.energy) is not None else None
         ),
         "meter_received_at": snapshot.get("received_at"),
-        "meter_stale_after": coordinator._effective_meter_gap_seconds(),
+        "meter_stale_after": coordinator.effective_meter_gap_seconds(),
         **meter_display,
         "max_current_a": maximum_charging_current(model, firmware),
         **charging_power_identity(model, firmware),

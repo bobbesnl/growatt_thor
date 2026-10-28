@@ -1321,6 +1321,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
         return normalized is None or normalized in LIVE_POWER_STATUSES
 
     def _effective_meter_gap_seconds(self) -> float:
+        """Compatibility for existing domain consumers of the sample-gap policy."""
+        return self.effective_meter_gap_seconds()
+
+    def effective_meter_gap_seconds(self) -> float:
         """Bound counted intervals using the charger-reported sample period."""
         for key in ("G_MeterValueInterval", "MeterValueSampleInterval"):
             value = self.configuration_values.get(key)

@@ -43,6 +43,8 @@ Simple sensor behavior is declared in `sensor_descriptions.py` through `ThorSens
 
 Site-option validation lives in the pure `energy/site_options.py`; `config_flow.py::build_site_accounting_schema` builds the corresponding HA form. Saved sections update the running coordinator through `async_apply_options`, preserving the existing config-entry data contract and entry-scoped polling/guard ownership.
 
+Live energy-source allocation lives in `energy/live_allocation.py`, using the public meter-gap policy on the coordinator. Presentation owns the battery payload and dashboard entity-map builder in `presentation/battery.py` and `presentation/entity_map.py`. Sensor discovery for options forms lives beside the flow in `source_discovery.py`; legacy `energy/sources.py` imports remain lazy compatibility exports so normalization does not depend on presentation.
+
 ## State and typing
 
 `ChargingTargetRuntime` owns one entry's target storage, lock, busy state and

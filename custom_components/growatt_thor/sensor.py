@@ -10,7 +10,6 @@ from homeassistant.components.sensor import (
 from homeassistant.const import (
     UnitOfEnergy,
 )
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 
 from .charging.faults import CHARGER_FAULT_OPTIONS
@@ -26,6 +25,7 @@ from .entity import ThorEntity
 from .ocpp.diagnostics import boot_notification_field
 from .ocpp.status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
 from .presentation.card_data import dashboard_attributes
+from .presentation.entity_map import dashboard_entity_map
 from .runtime.write_results import COMMAND_COMPLETION_STATUSES
 from .sensor_descriptions import (
     CONFIGURATION_SENSOR_DESCRIPTIONS,
@@ -365,30 +365,8 @@ class StatusSensor(BaseSensor):
         }
 
     def _dashboard_attributes(self):
-
         data = dashboard_attributes(self.coordinator)
-        prefix = f"{self.coordinator.source_instance_id}_"
-        wanted = {
-            "start_charging",
-            "stop_charging",
-            "max_current",
-            "working_mode_control",
-            "authorization_mode_control",
-            "last_charger_fault",
-            "last_session_energy",
-            "last_session_duration",
-            "last_session_cost",
-        }
-        data["entities"] = {
-            item.unique_id[len(prefix) :]: item.entity_id
-            for item in er.async_entries_for_config_entry(
-                er.async_get(self.hass), self.coordinator.source_instance_id
-            )
-            if item.platform == DOMAIN
-            and item.unique_id.startswith(prefix)
-            and item.unique_id[len(prefix) :] in wanted
-            and not item.disabled_by
-        }
+        data["entities"] = dashboard_entity_map(self.hass, self.coordinator.source_instance_id)
         return data
 
 
