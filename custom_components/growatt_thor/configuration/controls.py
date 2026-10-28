@@ -41,10 +41,8 @@ class ConfigurationWriteResponse:
     current: bool
 
 
-class GrowattConfigurationControlMixin:
-    """Write one verified Growatt configuration value through the safe queue."""
-
-    _control: ChargingControl
+class GrowattConfigurationWriteMixin:
+    """Share queue-callback primitives without adding entity state attributes."""
 
     def _validate_write_value(self, value):
         """Retain boundary-specific validation in the entity that owns it."""
@@ -76,6 +74,12 @@ class GrowattConfigurationControlMixin:
         """For callbacks whose existing error boundary includes acknowledgement."""
         result = await self._send_configuration(charge_point, key, raw_value)
         return self._acknowledge_configuration_response(key, generation, result)
+
+
+class GrowattConfigurationControlMixin(GrowattConfigurationWriteMixin):
+    """Write one mode-aware control with pending-state projection."""
+
+    _control: ChargingControl
 
     @property
     def _configuration_key(self) -> str:

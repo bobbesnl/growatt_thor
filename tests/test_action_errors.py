@@ -319,6 +319,28 @@ class PublicActionWiringTest(unittest.TestCase):
                 for node in ast.walk(method)
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
             }
+            for call in ast.walk(method):
+                if (
+                    isinstance(call, ast.Call)
+                    and isinstance(call.func, ast.Attribute)
+                    and call.func.attr == "_validate_write_value"
+                ):
+                    hook = next(
+                        (
+                            item
+                            for item in class_node.body
+                            if isinstance(item, ast.FunctionDef)
+                            and item.name == "_validate_write_value"
+                        ),
+                        None,
+                    )
+                    if hook is None:
+                        continue
+                    calls.update(
+                        item.func.id
+                        for item in ast.walk(hook)
+                        if isinstance(item, ast.Call) and isinstance(item.func, ast.Name)
+                    )
             with self.subTest(class_name=class_name, method_name=method_name):
                 self.assertTrue(
                     self.EXPECTED_HELPERS[(file_name, class_name, method_name)].issubset(calls)
@@ -355,8 +377,13 @@ class PublicActionWiringTest(unittest.TestCase):
                 node
                 for node in ast.walk(setter)
                 if isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Name)
-                and node.func.id == "_validated_entity_number"
+                and (
+                    (isinstance(node.func, ast.Name) and node.func.id == "_validated_entity_number")
+                    or (
+                        isinstance(node.func, ast.Attribute)
+                        and node.func.attr == "_validate_write_value"
+                    )
+                )
             )
             mutations = [
                 node

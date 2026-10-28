@@ -129,7 +129,7 @@ during unload. Result models, policies and transport exceptions live in
 
 ## Configuration write compatibility
 
-`GrowattConfigurationControlMixin` owns transport and acknowledgement primitives. Its validation, encoding, accepted-state and optimistic-restore hooks let platform entities retain their existing policies. The only outgoing write owner remains `ChargerWriteQueue`; the mixin is called inside that queue's callbacks.
+`GrowattConfigurationWriteMixin` owns transport and acknowledgement primitives without adding entity attributes. `GrowattConfigurationControlMixin` adds the mode-aware pending-state projection used by newer controls. Its validation, encoding, accepted-state and optimistic-restore hooks let platform entities retain their existing policies. The only outgoing write owner remains `ChargerWriteQueue`; the mixin is called inside that queue's callbacks.
 
 The existing differences are intentional during consolidation:
 

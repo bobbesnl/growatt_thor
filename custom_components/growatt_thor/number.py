@@ -26,7 +26,7 @@ from .charging.limits import (
     maximum_charging_current,
 )
 from .charging.pv_linkage import PvBoostMode
-from .configuration.controls import GrowattConfigurationControlMixin
+from .configuration.controls import GrowattConfigurationControlMixin, GrowattConfigurationWriteMixin
 from .configuration.validation import (
     NumericValidationError,
     NumericValidationReason,
@@ -187,7 +187,7 @@ class BaseConfigNumber(ThorEntity, NumberEntity):
 # Max Current
 
 
-class MaxCurrentNumber(BaseConfigNumber):
+class MaxCurrentNumber(GrowattConfigurationWriteMixin, BaseConfigNumber):
     _attr_translation_key = "max_current"
     _attr_icon = "mdi:current-ac"
     _attr_native_min_value = MIN_CHARGING_CURRENT_A
@@ -212,14 +212,24 @@ class MaxCurrentNumber(BaseConfigNumber):
             boot_notification_field(boot_notification, "firmware_version"),
         )
 
+    def _validate_write_value(self, value):
+        return _validated_entity_number(self, value, integer=True)
+
+    def _encode(self, value) -> str:
+        return str(value)
+
+    def _on_accepted(self, raw_value, *, key=None, value=None) -> None:
+        self.coordinator.max_current = value
+        super()._on_accepted(raw_value, key=key, value=value)
+        self.coordinator.async_set_updated_data(True)
+
     def _value_is_valid(self, value: int) -> bool:
         return self.native_min_value <= value <= self.native_max_value
 
-    def _restore_previous_value(
-        self,
-        previous: int | None,
-        generation: int,
-    ) -> None:
+    def _restore_previous_value(self, previous: int | None, generation: int) -> None:
+        self._restore_optimistic(generation, previous=previous)
+
+    def _restore_optimistic(self, generation: int, *, previous=None) -> None:
         # A failed older request must not roll the UI back over a newer value
         # that another automation has already selected.
         if previous is not None and self.coordinator.configuration_write_is_current(
@@ -230,7 +240,7 @@ class MaxCurrentNumber(BaseConfigNumber):
             self.coordinator.async_set_updated_data(True)
 
     async def async_set_native_value(self, value: float) -> None:
-        value = _validated_entity_number(self, value, integer=True)
+        value = self._validate_write_value(value)
         if (block_reason := self._charger_write_block_reason) is not None:
             _LOGGER.warning("Cannot change Max Current: %s", block_reason)
             raise_write_blocked(block_reason)
@@ -265,7 +275,7 @@ class MaxCurrentNumber(BaseConfigNumber):
         # back to 20 would otherwise invent a charger state that never existed.
         generation = self.coordinator.begin_configuration_write(
             self._config_key,
-            str(value),
+            self._encode(value),
         )
         handle = await self.coordinator.queue_write(
             self._write_to_thor,
@@ -316,36 +326,18 @@ class MaxCurrentNumber(BaseConfigNumber):
             )
             return ChargerWriteResult.skipped("model_limit_changed")
         try:
-            result = await charge_point.change_configuration(self._config_key, str(value))
-
-            accepted = result in {
-                ConfigurationStatus.accepted,
-                ConfigurationStatus.reboot_required,
-            }
-            outcome_is_current = self.coordinator.acknowledge_configuration_write(
-                self._config_key,
-                generation=generation,
-                accepted=accepted,
-                result=result,
+            response = await self._configuration_exchange(
+                charge_point, self._config_key, self._encode(value), generation
             )
+            result, outcome_is_current = response.result, response.current
 
             if result == ConfigurationStatus.accepted:
                 if outcome_is_current:
-                    self.coordinator.max_current = value
-                    self.coordinator.update_configuration_value(
-                        self._config_key,
-                        str(value),
-                    )
-                    self.coordinator.async_set_updated_data(True)
+                    self._on_accepted(self._encode(value), key=self._config_key, value=value)
                 _LOGGER.info("Max Current written to Thor: %d A", value)
             elif result == ConfigurationStatus.reboot_required:
                 if outcome_is_current:
-                    self.coordinator.max_current = value
-                    self.coordinator.update_configuration_value(
-                        self._config_key,
-                        str(value),
-                    )
-                    self.coordinator.async_set_updated_data(True)
+                    self._on_accepted(self._encode(value), key=self._config_key, value=value)
                 _LOGGER.warning("Max Current write accepted (reboot required): %d A", value)
             else:
                 _LOGGER.error(
