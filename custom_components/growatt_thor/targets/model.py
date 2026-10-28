@@ -28,7 +28,7 @@ PILOT_MINIMUM = {
 NATIVE_STOP_VERIFIED = {"duration": True, "energy": True, "budget": False}
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ChargingTarget:
     kind: str
     value: Decimal

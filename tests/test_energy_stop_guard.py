@@ -9,6 +9,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
+from support import install_ha_stubs
+
+install_ha_stubs()
+
 ROOT = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 NAME = "thor_energy_stop_guard_test_package"
 package = types.ModuleType(NAME)

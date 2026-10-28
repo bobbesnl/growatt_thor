@@ -34,7 +34,7 @@ def _digest(id_tag: str) -> str:
     return sha256(id_tag.encode("utf-8")).hexdigest()
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class AuthorizationPolicy:
     """Missing configuration preserves open access; invalid card data denies cards."""
 

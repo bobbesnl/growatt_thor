@@ -38,6 +38,7 @@ class StatusCardContractTest(unittest.TestCase):
         registry.async_get = lambda hass: None
         registry.async_entries_for_config_entry = lambda *args: []
         with (
+            patch.object(sensor, "er", registry),
             patch.dict(sys.modules, {registry.__name__: registry}),
             patch.object(
                 sys.modules["homeassistant.helpers"],

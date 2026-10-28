@@ -33,10 +33,10 @@ class ActionError(Exception):
 exceptions = types.ModuleType("homeassistant.exceptions")
 exceptions.HomeAssistantError = ActionError
 exceptions.ServiceValidationError = ActionError
-commands = load("charging.commands")
-queue = sys.modules[f"{NAME}.runtime.write_results"]
+queue = load("runtime.write_results")
 with patch.dict(sys.modules, {"homeassistant.exceptions": exceptions}):
     errors = load("runtime.action_errors")
+    commands = load("charging.commands")
 sys.modules[f"{NAME}.runtime.action_errors"] = errors
 
 

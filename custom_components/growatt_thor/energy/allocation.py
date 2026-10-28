@@ -17,7 +17,7 @@ TOLERANCE_KWH = 1e-6
 POLICY_VERSION = 1
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class EVEnergyDelta:
     site_id: str
     charger_id: str
@@ -32,7 +32,7 @@ class EVEnergyDelta:
         return max(0.0, (self.end_at - self.start_at).total_seconds() / 3600)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Tariff:
     price_per_kwh: float | None
     currency: str = "EUR"
@@ -62,21 +62,21 @@ class Tariff:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class AccountingPolicy:
     policy_id: Literal["grid_first", "load_first"] = "grid_first"
     policy_version: int = POLICY_VERSION
     topology: Literal["grid_only", "pv", "pv_battery"] = "grid_only"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DataQuality:
     quality: BucketQuality
     coverage: float
     missing: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Allocation:
     direct_solar: float
     direct_grid: float
@@ -233,40 +233,3 @@ def allocate(
         policy.policy_id,
         policy.policy_version,
     )
-
-
-def split_parallel(total: Allocation, deltas: tuple[EVEnergyDelta, ...]) -> tuple[Allocation, ...]:
-    """Share a site allocation proportionally, without counting a site meter twice."""
-    total_kwh = sum(delta.kwh for delta in deltas)
-    if total_kwh <= 0:
-        return ()
-    if (
-        abs(
-            total_kwh
-            - sum(
-                (
-                    total.direct_solar,
-                    total.direct_grid,
-                    total.battery_unknown,
-                    total.unknown,
-                )
-            )
-        )
-        > TOLERANCE_KWH
-    ):
-        raise ValueError("Site allocation does not match charger deltas")
-
-    def share(delta: EVEnergyDelta) -> Allocation:
-        ratio = delta.kwh / total_kwh
-        return Allocation(
-            total.direct_solar * ratio,
-            total.direct_grid * ratio,
-            total.battery_unknown * ratio,
-            total.unknown * ratio,
-            total.effective_grid_cost * ratio if total.effective_grid_cost is not None else None,
-            total.data_quality,
-            total.policy_id,
-            total.policy_version,
-        )
-
-    return tuple(share(delta) for delta in deltas)

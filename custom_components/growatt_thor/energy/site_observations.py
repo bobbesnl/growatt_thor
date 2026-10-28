@@ -13,7 +13,7 @@ from .sources import power_w
 BucketQuality = Literal["measured", "derived", "declared", "unknown"]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class PowerObservation:
     watts: float | None
     observed_at: datetime | None
@@ -34,7 +34,7 @@ class PowerObservation:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SiteObservations:
     grid: PowerObservation | None = None  # positive import
     solar: PowerObservation | None = None  # positive generation

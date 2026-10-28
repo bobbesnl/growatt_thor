@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, StrEnum
 from types import MappingProxyType
 from typing import Final
 
@@ -18,23 +18,35 @@ WORKING_MODE_OPTIONS = ("fast", "pv_linkage", "pv_linkage_plus", "off_peak")
 PV_LINKAGE_WORKING_MODES = frozenset({"pv_linkage", "pv_linkage_plus"})
 
 
-class ControlCapability(str, Enum):
+class ControlCapability(StrEnum):
     """Describe how safely one setting can be exposed in Home Assistant."""
+
+    # Keep established diagnostic strings while using StrEnum values.
+    __str__ = Enum.__str__
+    __format__ = Enum.__format__
 
     WRITABLE = "writable"
     COMPOUND = "compound"
     READ_ONLY = "read_only"
 
 
-class ControlWritePolicy(str, Enum):
+class ControlWritePolicy(StrEnum):
     """Describe when a configuration control may change charger state."""
+
+    # Keep established diagnostic strings while using StrEnum values.
+    __str__ = Enum.__str__
+    __format__ = Enum.__format__
 
     ANYTIME = "anytime"
     IDLE_ONLY = "idle_only"
 
 
-class ChargingControl(str, Enum):
+class ChargingControl(StrEnum):
     """Configuration controls whose applicability depends on charger state."""
+
+    # Keep established diagnostic strings while using StrEnum values.
+    __str__ = Enum.__str__
+    __format__ = Enum.__format__
 
     LOAD_BALANCING = "load_balancing"
     LOAD_BALANCING_LIMIT = "load_balancing_limit"

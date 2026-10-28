@@ -438,23 +438,6 @@ class SiteAccountingTest(unittest.TestCase):
         self.assertFalse(restored.observe_power_fallback(3600, AT + timedelta(minutes=11)))
         self.assertAlmostEqual(restored.power_fallback_kwh, 0.3)
 
-    def test_parallel_evse_split_conserves_site_energy(self):
-        d1, d2 = (
-            delta(1),
-            core.EVEnergyDelta("site", "charger2", "tx2", AT - timedelta(hours=1), AT, 2),
-        )
-        total = core.allocate(
-            delta(3),
-            core.SiteObservations(grid=observation(1000), solar=observation(2000)),
-            core.Tariff(0.3),
-            core.AccountingPolicy(topology="pv"),
-        )
-        first, second = core.split_parallel(total, (d1, d2))
-        self.assertAlmostEqual(first.direct_grid + second.direct_grid, total.direct_grid)
-        self.assertAlmostEqual(first.direct_solar + second.direct_solar, total.direct_solar)
-        self.assertAlmostEqual(first.direct_solar + first.direct_grid + first.unknown, 1)
-        self.assertAlmostEqual(second.direct_solar + second.direct_grid + second.unknown, 2)
-
 
 if __name__ == "__main__":
     unittest.main()

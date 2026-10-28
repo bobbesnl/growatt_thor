@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, time, timedelta
-from enum import Enum
+from enum import Enum, StrEnum
 
 from ..coerce import enum_value
 from ..configuration.validation import (
@@ -16,16 +16,24 @@ from ..configuration.validation import (
 from .control_capabilities import ChargingControl, encode_control_value, encode_working_mode
 
 
-class PvBoostMode(str, Enum):
+class PvBoostMode(StrEnum):
     """PV Linkage boost modes confirmed in Growatt captures."""
+
+    # Keep established diagnostic strings while using StrEnum values.
+    __str__ = Enum.__str__
+    __format__ = Enum.__format__
 
     DISABLED = "disabled"
     MANUAL = "manual"
     SMART = "smart"
 
 
-class PvLinkageApplyStatus(str, Enum):
+class PvLinkageApplyStatus(StrEnum):
     """Overall result of one logical PV Linkage Apply operation."""
+
+    # Keep established diagnostic strings while using StrEnum values.
+    __str__ = Enum.__str__
+    __format__ = Enum.__format__
 
     SUCCESS = "success"
     FAILED = "failed"

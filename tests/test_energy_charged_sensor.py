@@ -53,6 +53,7 @@ def _named(name):
 
 
 def _install_home_assistant_stand_ins():
+    _module("homeassistant.helpers.entity_registry")
     sensor = _module("homeassistant.components.sensor")
     _default(sensor, "SensorEntity", type("SensorEntity", (), {}))
     _default(sensor, "SensorDeviceClass", _named("SensorDeviceClass"))

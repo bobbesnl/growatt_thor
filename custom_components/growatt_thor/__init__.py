@@ -16,6 +16,12 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 
+from .charging.authorization import CONF_AUTHORIZATION, LocalAuthorization
+from .charging.pv_service import (
+    async_register_pv_linkage_service,
+    async_setup_pv_linkage_service,
+    async_unload_pv_linkage_service,
+)
 from .configuration.validation import (
     DateRangeValidationError,
     DateRangeValidationReason,
@@ -37,7 +43,9 @@ from .const import (
 from .coordinator import GrowattCoordinator
 from .energy.options import CONF_BATTERY_POWER_ENTITY, CONF_BATTERY_POWER_SIGN
 from .energy.sources import BATTERY_POSITIVE_DISCHARGE
+from .energy.stop_guard import EnergyStopGuard
 from .ocpp.server import start_ocpp_server
+from .presentation.frontend import async_register_frontend
 from .runtime.action_errors import (
     raise_action_validation,
     raise_charger_disconnected,
@@ -70,6 +78,12 @@ from .sessions.csv import (
 )
 from .sessions.exports import ensure_export_cleanup, new_export_path
 from .sessions.telemetry import async_setup_session_history
+from .sessions.websocket import async_register_session_websocket
+from .targets.services import (
+    async_register_target_services,
+    async_setup_target_services,
+    async_unload_target_services,
+)
 from .timestamps import installation_time_zone
 
 _LOGGER = logging.getLogger(__name__)
@@ -438,10 +452,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register integration-level services independently from config entries."""
     _register_services(hass)
     ensure_export_cleanup(hass)
-    from .charging.pv_service import async_register_pv_linkage_service
-    from .presentation.frontend import async_register_frontend
-    from .sessions.websocket import async_register_session_websocket
-    from .targets.services import async_register_target_services
 
     await async_register_frontend(hass)
     async_register_pv_linkage_service(hass)
@@ -466,8 +476,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         await _recover_pending_entity_migrations(hass, entry)
-
-        from .charging.authorization import CONF_AUTHORIZATION, LocalAuthorization
 
         coordinator = GrowattCoordinator(
             hass,
@@ -639,10 +647,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         name=f"growatt_thor_external_meter_poll_{entry.entry_id}",
     )
 
-    from .charging.pv_service import async_setup_pv_linkage_service
-    from .energy.stop_guard import EnergyStopGuard
-    from .targets.services import async_setup_target_services
-
     await async_setup_pv_linkage_service(hass, entry, coordinator)
     await async_setup_target_services(hass, entry, coordinator)
     runtime_data["energy_stop_guard"] = EnergyStopGuard(hass, coordinator)
@@ -709,9 +713,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if server:
         server.close()
         await server.wait_closed()
-
-    from .charging.pv_service import async_unload_pv_linkage_service
-    from .targets.services import async_unload_target_services
 
     async_unload_pv_linkage_service(hass, entry)
     async_unload_target_services(hass, entry)

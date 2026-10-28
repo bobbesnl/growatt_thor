@@ -35,7 +35,7 @@ def restore_stop_report(value: object) -> dict | None:
     return {"reason": value["reason"], "at": at.isoformat(), **fields}
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class StopObservation:
     transaction_id: int | None
     eligible: bool

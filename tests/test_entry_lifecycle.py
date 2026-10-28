@@ -82,6 +82,25 @@ def _install_home_assistant_stand_ins():
         "config_entry_only_config_schema",
         lambda domain: {},
     )
+    _default(
+        _module("homeassistant.core"),
+        "SupportsResponse",
+        SimpleNamespace(ONLY="only", OPTIONAL="optional"),
+    )
+    _default(_module("homeassistant.util.dt"), "now", lambda: None)
+    _default(_module("homeassistant.components.frontend"), "add_extra_js_url", lambda *args: None)
+    _default(
+        _module("homeassistant.components.http"),
+        "StaticPathConfig",
+        type("StaticPathConfig", (), {}),
+    )
+    _default(_module("homeassistant.loader"), "async_get_integration", AsyncMock())
+    _default(
+        _module("homeassistant.components.websocket_api"),
+        "websocket_command",
+        lambda *args: lambda fn: fn,
+    )
+    _default(_module("homeassistant.components.websocket_api"), "async_response", lambda fn: fn)
     _module("homeassistant.helpers.device_registry")
     _module("homeassistant.helpers.entity_registry")
     _default(_module("homeassistant.helpers.storage"), "Store", object)
@@ -250,6 +269,11 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
                 )
             },
         }.items():
+            for attribute, value in attrs.items():
+                if hasattr(integration, attribute):
+                    binding = patch.object(integration, attribute, value)
+                    binding.start()
+                    self.extra_patches.append(binding)
             module = ModuleType(PACKAGE_NAME + "." + name)
             module.__dict__.update(attrs)
             p = patch.dict(sys.modules, {module.__name__: module})

@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from homeassistant.helpers import entity_registry as er
+
+from .presentation.card_data import dashboard_attributes
+
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
@@ -52,6 +56,7 @@ from .configuration.keys import (
 )
 from .configuration.values import (
     CONFIGURATION_ENTITY_OPTIONS,
+    ConfigurationValue,
     configuration_entity_state,
 )
 from .const import DOMAIN
@@ -512,7 +517,7 @@ class SiteAccountingSensor(BaseSensor):
         )
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         if self.key == "coverage":
             return coverage_percent(self.coordinator.site_accounting_totals)
         return round(self.coordinator.site_accounting_totals[self.key], 6)
@@ -531,16 +536,16 @@ class LastChargerFaultSensor(BaseSensor):
         super().__init__(coordinator, entry, "last_charger_fault")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         fault = self.coordinator.last_charger_fault
         return fault.category if fault is not None else None
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self.coordinator.last_charger_fault is not None
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict:
         fault = self.coordinator.last_charger_fault
         if fault is None:
             return self.information_attributes
@@ -563,16 +568,16 @@ class LastCommandResultSensor(BaseSensor):
         super().__init__(coordinator, entry, "last_command_result")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         result = self.coordinator.last_command_result
         return result.status.value if result is not None else None
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self.coordinator.last_command_result is not None
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict:
         result = self.coordinator.last_command_result
         if result is None:
             return self.information_attributes
@@ -597,7 +602,7 @@ class BaseExternalMeterSensor(ThorEntity, SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_load_balancing_{key}"
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict:
         return {
             "vendor_used": self.coordinator.external_meter_used,
             "vendor_wring": self.coordinator.external_meter_wring,
@@ -627,22 +632,22 @@ class GrowattConfigurationSensor(ThorEntity, SensorEntity):
             self._attr_unique_id = f"{entry.entry_id}_{self.entity_description.key}"
 
     @property
-    def _configuration_value(self):
+    def _configuration_value(self) -> ConfigurationValue | None:
         return self.coordinator.configuration_values.get(self._configuration_key)
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return configuration_entity_state(
             self._configuration_key,
             self._configuration_value,
         )
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self.native_value is not None
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict:
         value = self._configuration_value
         if value is None:
             return None
@@ -668,14 +673,14 @@ class OcppBootSensor(BaseSensor):
         self._payload_key = definition.payload_key
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return boot_notification_field(
             self.coordinator.boot_notification,
             self._payload_key,
         )
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self.native_value is not None
 
 
@@ -691,7 +696,7 @@ class ServerUrlSensor(BaseSensor):
         super().__init__(coordinator, entry, "server_url")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return self.coordinator.server_url
 
 
@@ -719,20 +724,20 @@ class StatusSensor(BaseSensor):
         super().__init__(coordinator, entry, "status")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         if not self.coordinator.connected:
             return "offline"
         return normalize_ocpp_status(self.coordinator.status)
 
     @property
-    def available(self):
+    def available(self) -> bool:
         # This entity also carries retained history and the card contract.
         # HA omits extra_state_attributes on unavailable entities, so transport
         # loss must be represented as an explicit state instead.
         return True
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict:
         return {
             "connected": self.coordinator.connected,
             "connection_started_at": self.coordinator.connection_started_at,
@@ -743,9 +748,6 @@ class StatusSensor(BaseSensor):
         }
 
     def _dashboard_attributes(self):
-        from homeassistant.helpers import entity_registry as er
-
-        from .presentation.card_data import dashboard_attributes
 
         data = dashboard_attributes(self.coordinator)
         prefix = f"{self.coordinator.source_instance_id}_"
@@ -765,7 +767,7 @@ class StatusSensor(BaseSensor):
             for item in er.async_entries_for_config_entry(
                 er.async_get(self.hass), self.coordinator.source_instance_id
             )
-            if item.platform == "growatt_thor"
+            if item.platform == DOMAIN
             and item.unique_id.startswith(prefix)
             and item.unique_id[len(prefix) :] in wanted
             and not item.disabled_by
@@ -785,11 +787,11 @@ class ChargePointIdSensor(BaseSensor):
         super().__init__(coordinator, entry, "charge_point_id")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return self.coordinator.charge_point_id
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return self.coordinator.charge_point_id is not None
 
 
@@ -804,12 +806,10 @@ class ChargingPowerSensor(BaseSensor):
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "charging_power")
 
-    @property
-    def native_unit_of_measurement(self):
-        return UnitOfPower.WATT
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return self.coordinator.power if self.coordinator.power is not None else 0
 
 
@@ -824,12 +824,10 @@ class EnergyChargedSensor(BaseSensor):
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "energy_charged")
 
-    @property
-    def native_unit_of_measurement(self):
-        return UnitOfEnergy.KILO_WATT_HOUR
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         # Unknown until the charger reports a value after start-up or a
         # reload. Reporting 0 here would look like a meter reset to this
         # total_increasing sensor, so the next sample of a running session
@@ -851,12 +849,10 @@ class TotalEnergyChargedSensor(BaseSensor):
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "total_energy_charged")
 
-    @property
-    def native_unit_of_measurement(self):
-        return UnitOfEnergy.KILO_WATT_HOUR
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return round(self.coordinator.total_energy_charged, 3)
 
 
@@ -875,7 +871,7 @@ class ElectricityPriceSensor(BaseSensor):
         self._attr_native_unit_of_measurement = electricity_price_unit(coordinator.hass)
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         value = self.coordinator.electricity_price
         return round(value, 2) if value is not None else None
 
@@ -891,12 +887,10 @@ class LastSessionEnergySensor(BaseSensor):
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "last_session_energy")
 
-    @property
-    def native_unit_of_measurement(self):
-        return UnitOfEnergy.KILO_WATT_HOUR
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return (
             round(self.coordinator.last_session_energy, 3)
             if self.coordinator.last_session_energy is not None
@@ -917,7 +911,7 @@ class LastSessionCostSensor(BaseSensor):
         self._attr_native_unit_of_measurement = configured_currency(coordinator.hass)
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return (
             round(self.coordinator.last_session_cost, 2)
             if self.coordinator.last_session_cost is not None
@@ -940,7 +934,7 @@ class LastSessionDurationSensor(BaseSensor):
         super().__init__(coordinator, entry, "last_session_duration")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         minutes = self.coordinator.last_session_duration_minutes
         return round(minutes / 60, 2) if minutes is not None else None
 
@@ -963,12 +957,12 @@ class LastSessionEffectiveChargingDurationSensor(BaseSensor):
         )
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         minutes = self.coordinator.last_session_effective_charging_minutes
         return round(minutes / 60, 2) if minutes is not None else None
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict:
         return {
             **self.information_attributes,
             "calculation_method": "ocpp_meter_values",
@@ -987,7 +981,7 @@ class LastSessionStartSensor(BaseSensor):
         super().__init__(coordinator, entry, "last_session_start")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return utc_timestamp(
             self.coordinator.last_session_start, session_time_zone(self.coordinator)
         )
@@ -1004,7 +998,7 @@ class LastSessionEndSensor(BaseSensor):
         super().__init__(coordinator, entry, "last_session_end")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return utc_timestamp(self.coordinator.last_session_end, session_time_zone(self.coordinator))
 
 
@@ -1019,7 +1013,7 @@ class LastSessionPlugTimeSensor(BaseSensor):
         super().__init__(coordinator, entry, "last_session_plug_time")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return utc_timestamp(
             self.coordinator.last_session_plug_time, session_time_zone(self.coordinator)
         )
@@ -1036,7 +1030,7 @@ class LastSessionUnplugTimeSensor(BaseSensor):
         super().__init__(coordinator, entry, "last_session_unplug_time")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return utc_timestamp(
             self.coordinator.last_session_unplug_time,
             session_time_zone(self.coordinator),
@@ -1055,7 +1049,7 @@ class LastSessionTransactionIdSensor(BaseSensor):
         super().__init__(coordinator, entry, "last_session_transaction_id")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return self.coordinator.last_session_transaction_id
 
 
@@ -1073,15 +1067,15 @@ class LastSessionChargeModeSensor(BaseSensor):
         super().__init__(coordinator, entry, "last_session_charge_mode")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return normalize_session_charge_mode(self.coordinator.last_session_charge_mode)
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self.native_value is not None
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict:
         return {"raw_value": self.coordinator.last_session_charge_mode}
 
 
@@ -1099,15 +1093,15 @@ class LastSessionWorkModeSensor(BaseSensor):
         super().__init__(coordinator, entry, "last_session_work_mode")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return normalize_session_work_mode(self.coordinator.last_session_work_mode)
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self.native_value is not None
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict:
         return {"raw_value": self.coordinator.last_session_work_mode}
 
 
@@ -1125,12 +1119,10 @@ class CurrentSensor(BaseSensor):
         self._attr_translation_placeholders = {"phase": phase}
         super().__init__(coordinator, entry, f"current_{phase.lower()}")
 
-    @property
-    def native_unit_of_measurement(self):
-        return UnitOfElectricCurrent.AMPERE
+    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         value = self.coordinator.currents.get(self.phase)
         return value if value is not None else 0
 
@@ -1149,12 +1141,10 @@ class VoltageSensor(BaseSensor):
         self._attr_translation_placeholders = {"phase": phase}
         super().__init__(coordinator, entry, f"voltage_{phase.lower()}")
 
-    @property
-    def native_unit_of_measurement(self):
-        return UnitOfElectricPotential.VOLT
+    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         value = self.coordinator.voltages.get(self.phase)
         return value if value is not None else 0
 
@@ -1173,12 +1163,10 @@ class PhasePowerSensor(BaseSensor):
         self._attr_translation_placeholders = {"phase": phase}
         super().__init__(coordinator, entry, f"power_{phase.lower()}")
 
-    @property
-    def native_unit_of_measurement(self):
-        return UnitOfPower.WATT
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         value = self.coordinator.phase_power.get(self.phase)
         return value if value is not None else 0
 
@@ -1195,16 +1183,14 @@ class TemperatureSensor(BaseSensor):
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "temperature")
 
-    @property
-    def native_unit_of_measurement(self):
-        return UnitOfTemperature.CELSIUS
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return self.coordinator.temperature
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self.coordinator.temperature is not None
 
 
@@ -1224,15 +1210,15 @@ class ExternalMeterHealthSensor(BaseExternalMeterSensor):
         super().__init__(coordinator, entry, "health")
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return self.coordinator.external_meter_health
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self.coordinator.connected
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict:
         return {
             **super().extra_state_attributes,
             **self.information_attributes,
@@ -1252,16 +1238,14 @@ class GridPowerSensor(BaseExternalMeterSensor):
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "power")
 
-    @property
-    def native_unit_of_measurement(self):
-        return UnitOfPower.WATT
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return self.coordinator.grid_power
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return (
             super().available
             and self.coordinator.connected
@@ -1280,16 +1264,14 @@ class GridVoltageSensor(BaseExternalMeterSensor):
         self._attr_translation_placeholders = {"phase": phase}
         super().__init__(coordinator, entry, f"voltage_{phase.lower()}")
 
-    @property
-    def native_unit_of_measurement(self):
-        return UnitOfElectricPotential.VOLT
+    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return self.coordinator.grid_voltages.get(self.phase)
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self.coordinator.connected and self.native_value is not None
 
 
@@ -1304,14 +1286,12 @@ class GridCurrentSensor(BaseExternalMeterSensor):
         self._attr_translation_placeholders = {"phase": phase}
         super().__init__(coordinator, entry, f"current_{phase.lower()}")
 
-    @property
-    def native_unit_of_measurement(self):
-        return UnitOfElectricCurrent.AMPERE
+    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | float | int | None:
         return self.coordinator.grid_currents.get(self.phase)
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self.coordinator.connected and self.native_value is not None

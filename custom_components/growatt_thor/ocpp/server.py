@@ -55,6 +55,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def _preload_ocpp_schemas():
     try:
+        # Schema preload runs in an executor; keep optional preload imports here.
         import importlib.metadata
 
         version = importlib.metadata.version("ocpp")
@@ -63,6 +64,7 @@ def _preload_ocpp_schemas():
         _LOGGER.warning("Could not determine ocpp library version: %s", exc)
 
     try:
+        # Validator discovery belongs to the executor preload, not event-loop imports.
         from ocpp.messages import MessageType, get_validator
         from ocpp.v16.enums import Action
 

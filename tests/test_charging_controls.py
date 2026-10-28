@@ -41,6 +41,18 @@ def _values(**raw_values):
 class ChargingControlDependencyTest(unittest.TestCase):
     """Verify mode and authorization dependencies."""
 
+    def test_string_enum_diagnostics_remain_stable(self):
+        for enum in (
+            controls.ControlCapability,
+            controls.ControlWritePolicy,
+            controls.ChargingControl,
+        ):
+            for member in enum:
+                expected = f"{enum.__name__}.{member.name}"
+                self.assertEqual(str(member), expected)
+                self.assertEqual(f"{member}", expected)
+                self.assertEqual(member, member.value)
+
     def test_authorization_mode_encoding_and_idle_guards(self):
         control = controls.ChargingControl.AUTHORIZATION_MODE
         for option, wire in {

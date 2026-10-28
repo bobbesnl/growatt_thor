@@ -279,6 +279,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     "once from the shared legacy storage file"
                 )
         if data:
+            # Import restoration policy only when executor-loaded storage needs it.
             from .energy.stop_guard_policy import restore_stop_report
 
             self.last_energy_stop = restore_stop_report(data.get("last_energy_stop"))

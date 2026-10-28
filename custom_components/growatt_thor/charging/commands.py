@@ -6,6 +6,11 @@ import asyncio
 import logging
 
 from ..const import DOMAIN as DOMAIN
+from ..runtime.action_errors import (
+    async_require_command_completion,
+    raise_action_validation,
+    raise_charger_disconnected,
+)
 from ..runtime.write_results import (
     TRANSACTION_CONTROL_WRITE_POLICY,
     ChargerConnectionUnavailable,
@@ -54,11 +59,6 @@ class StopChargingCommand:
 
     async def async_request(self, *, auto_guard=None, stop_reason=None, on_result=None) -> None:
         """Stop a charging session via queue."""
-        from ..runtime.action_errors import (
-            async_require_command_completion,
-            raise_action_validation,
-            raise_charger_disconnected,
-        )
 
         # A Stop pressed before a queued Start reaches OCPP means "do not
         # start".  Cancelling that local intent is useful even if the charger
