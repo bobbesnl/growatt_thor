@@ -20,6 +20,30 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .charging.faults import CHARGER_FAULT_OPTIONS
+from .configuration.keys import (
+    KEY_CHARGER_MODE,
+    KEY_CHARGER_NET_DNS,
+    KEY_CHARGER_NET_GATEWAY,
+    KEY_CHARGER_NET_IP,
+    KEY_CHARGER_NET_MAC,
+    KEY_CHARGER_NET_MASK,
+    KEY_EXTERNAL_SAMPLING_CUR_WRING,
+    KEY_FULL_CONTINUE_CHARGE_ENABLE,
+    KEY_NETWORK_MODE,
+    KEY_OFF_PEAK_CURR,
+    KEY_OFF_PEAK_ENABLE,
+    KEY_OFF_PEAK_TIME,
+    KEY_PEAK_VALLEY_ENABLE,
+    KEY_POWER_METER_ADDR,
+    KEY_POWER_METER_TYPE,
+    KEY_RAND_DELAY_CHARGE_TIME,
+    KEY_SOLAR_BOOST,
+    KEY_SOLAR_LIMIT_POWER,
+    KEY_SOLAR_MODE,
+    KEY_SOLAR_THRESHOLD_CURR,
+    KEY_WIFI_SSID,
+    KEY_WORKING_MODE,
+)
 from .configuration.values import (
     CONFIGURATION_ENTITY_OPTIONS,
     configuration_entity_state,
@@ -32,6 +56,7 @@ from .ocpp.external_meter import EXTERNAL_METER_HEALTH_OPTIONS
 from .ocpp.status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
 from .runtime.time import utc_timestamp
 from .runtime.write_queue import COMMAND_COMPLETION_STATUSES
+from .sessions.constants import ACTIVE_POWER_THRESHOLD_W
 from .sessions.records import (
     SESSION_CHARGE_MODE_OPTIONS,
     SESSION_WORK_MODE_OPTIONS,
@@ -105,11 +130,11 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             key="working_mode",
             translation_key="working_mode",
             device_class=SensorDeviceClass.ENUM,
-            options=list(CONFIGURATION_ENTITY_OPTIONS["G_WorkingMode"]),
+            options=list(CONFIGURATION_ENTITY_OPTIONS[KEY_WORKING_MODE]),
             icon="mdi:ev-station",
             entity_registry_enabled_default=False,
         ),
-        configuration_key="G_WorkingMode",
+        configuration_key=KEY_WORKING_MODE,
         has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
@@ -117,10 +142,10 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             key="charger_mode",
             translation_key="charger_mode",
             device_class=SensorDeviceClass.ENUM,
-            options=list(CONFIGURATION_ENTITY_OPTIONS["G_ChargerMode"]),
+            options=list(CONFIGURATION_ENTITY_OPTIONS[KEY_CHARGER_MODE]),
             icon="mdi:shield-key-outline",
         ),
-        configuration_key="G_ChargerMode",
+        configuration_key=KEY_CHARGER_MODE,
         has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
@@ -129,11 +154,11 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             translation_key="solar_mode",
             entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
-            options=list(CONFIGURATION_ENTITY_OPTIONS["G_SolarMode"]),
+            options=list(CONFIGURATION_ENTITY_OPTIONS[KEY_SOLAR_MODE]),
             icon="mdi:solar-power",
             entity_registry_enabled_default=False,
         ),
-        configuration_key="G_SolarMode",
+        configuration_key=KEY_SOLAR_MODE,
         has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
@@ -146,7 +171,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             icon="mdi:transmission-tower-import",
             entity_registry_enabled_default=False,
         ),
-        configuration_key="G_SolarLimitPower",
+        configuration_key=KEY_SOLAR_LIMIT_POWER,
         has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
@@ -155,11 +180,11 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             translation_key="solar_boost",
             entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
-            options=list(CONFIGURATION_ENTITY_OPTIONS["G_SolarBoost"]),
+            options=list(CONFIGURATION_ENTITY_OPTIONS[KEY_SOLAR_BOOST]),
             icon="mdi:flash",
             entity_registry_enabled_default=False,
         ),
-        configuration_key="G_SolarBoost",
+        configuration_key=KEY_SOLAR_BOOST,
         has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
@@ -171,7 +196,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
             icon="mdi:current-ac",
         ),
-        configuration_key="G_SolarThresholdCurr",
+        configuration_key=KEY_SOLAR_THRESHOLD_CURR,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -179,10 +204,10 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             translation_key="grid_off_peak_charging",
             entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
-            options=list(CONFIGURATION_ENTITY_OPTIONS["G_PeakValleyEnable"]),
+            options=list(CONFIGURATION_ENTITY_OPTIONS[KEY_PEAK_VALLEY_ENABLE]),
             icon="mdi:transmission-tower",
         ),
-        configuration_key="G_PeakValleyEnable",
+        configuration_key=KEY_PEAK_VALLEY_ENABLE,
         has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
@@ -191,11 +216,11 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             translation_key="off_peak_enable_setting",
             entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
-            options=list(CONFIGURATION_ENTITY_OPTIONS["G_OffPeakEnable"]),
+            options=list(CONFIGURATION_ENTITY_OPTIONS[KEY_OFF_PEAK_ENABLE]),
             icon="mdi:clock-check-outline",
             entity_registry_enabled_default=False,
         ),
-        configuration_key="G_OffPeakEnable",
+        configuration_key=KEY_OFF_PEAK_ENABLE,
         has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
@@ -205,7 +230,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             entity_category=EntityCategory.DIAGNOSTIC,
             icon="mdi:calendar-clock",
         ),
-        configuration_key="G_OffPeakTime",
+        configuration_key=KEY_OFF_PEAK_TIME,
         has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
@@ -217,7 +242,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
             icon="mdi:current-ac",
         ),
-        configuration_key="G_OffPeakCurr",
+        configuration_key=KEY_OFF_PEAK_CURR,
         has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
@@ -226,11 +251,11 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             translation_key="power_meter_type",
             entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
-            options=list(CONFIGURATION_ENTITY_OPTIONS["G_PowerMeterType"]),
+            options=list(CONFIGURATION_ENTITY_OPTIONS[KEY_POWER_METER_TYPE]),
             icon="mdi:counter",
             entity_registry_enabled_default=False,
         ),
-        configuration_key="G_PowerMeterType",
+        configuration_key=KEY_POWER_METER_TYPE,
         external_meter=True,
         has_information=True,
     ),
@@ -242,7 +267,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             icon="mdi:numeric",
             entity_registry_enabled_default=False,
         ),
-        configuration_key="G_PowerMeterAddr",
+        configuration_key=KEY_POWER_METER_ADDR,
         external_meter=True,
         has_information=True,
     ),
@@ -252,11 +277,11 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             translation_key="reported_external_sampling_method",
             entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
-            options=list(CONFIGURATION_ENTITY_OPTIONS["G_ExternalSamplingCurWring"]),
+            options=list(CONFIGURATION_ENTITY_OPTIONS[KEY_EXTERNAL_SAMPLING_CUR_WRING]),
             icon="mdi:connection",
             entity_registry_enabled_default=False,
         ),
-        configuration_key="G_ExternalSamplingCurWring",
+        configuration_key=KEY_EXTERNAL_SAMPLING_CUR_WRING,
         external_meter=True,
         has_information=True,
     ),
@@ -266,11 +291,11 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             translation_key="warm_up_after_full_charge",
             entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
-            options=list(CONFIGURATION_ENTITY_OPTIONS["G_FullContinueChargeEnable"]),
+            options=list(CONFIGURATION_ENTITY_OPTIONS[KEY_FULL_CONTINUE_CHARGE_ENABLE]),
             icon="mdi:car-defrost-front",
             entity_registry_enabled_default=False,
         ),
-        configuration_key="G_FullContinueChargeEnable",
+        configuration_key=KEY_FULL_CONTINUE_CHARGE_ENABLE,
         has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
@@ -282,7 +307,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             native_unit_of_measurement=UnitOfTime.SECONDS,
             icon="mdi:timer-sand",
         ),
-        configuration_key="G_RandDelayChargeTime",
+        configuration_key=KEY_RAND_DELAY_CHARGE_TIME,
         has_information=True,
     ),
     GrowattConfigurationSensorDefinition(
@@ -291,10 +316,10 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             translation_key="network_mode",
             entity_category=EntityCategory.DIAGNOSTIC,
             device_class=SensorDeviceClass.ENUM,
-            options=list(CONFIGURATION_ENTITY_OPTIONS["G_NetworkMode"]),
+            options=list(CONFIGURATION_ENTITY_OPTIONS[KEY_NETWORK_MODE]),
             icon="mdi:network",
         ),
-        configuration_key="G_NetworkMode",
+        configuration_key=KEY_NETWORK_MODE,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -303,7 +328,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             entity_category=EntityCategory.DIAGNOSTIC,
             icon="mdi:ip-network",
         ),
-        configuration_key="G_ChargerNetIP",
+        configuration_key=KEY_CHARGER_NET_IP,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -312,7 +337,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             entity_category=EntityCategory.DIAGNOSTIC,
             icon="mdi:ip-network-outline",
         ),
-        configuration_key="G_ChargerNetMask",
+        configuration_key=KEY_CHARGER_NET_MASK,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -321,7 +346,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             entity_category=EntityCategory.DIAGNOSTIC,
             icon="mdi:router-network",
         ),
-        configuration_key="G_ChargerNetGateway",
+        configuration_key=KEY_CHARGER_NET_GATEWAY,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -330,7 +355,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             entity_category=EntityCategory.DIAGNOSTIC,
             icon="mdi:dns",
         ),
-        configuration_key="G_ChargerNetDNS",
+        configuration_key=KEY_CHARGER_NET_DNS,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -339,7 +364,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             entity_category=EntityCategory.DIAGNOSTIC,
             icon="mdi:network-outline",
         ),
-        configuration_key="G_ChargerNetMac",
+        configuration_key=KEY_CHARGER_NET_MAC,
     ),
     GrowattConfigurationSensorDefinition(
         entity_description=SensorEntityDescription(
@@ -348,7 +373,7 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
             entity_category=EntityCategory.DIAGNOSTIC,
             icon="mdi:wifi",
         ),
-        configuration_key="G_WifiSSID",
+        configuration_key=KEY_WIFI_SSID,
     ),
 )
 
@@ -959,7 +984,7 @@ class LastSessionEffectiveChargingDurationSensor(BaseSensor):
         return {
             "information": "details",
             "calculation_method": "ocpp_meter_values",
-            "active_power_threshold_w": 100,
+            "active_power_threshold_w": ACTIVE_POWER_THRESHOLD_W,
         }
 
 

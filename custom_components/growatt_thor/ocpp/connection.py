@@ -28,3 +28,13 @@ class OcppConnectionActivity:
     def is_stale(self, now_monotonic: float) -> bool:
         """Return whether the connection exceeded the activity timeout."""
         return self.idle_seconds(now_monotonic) >= self.timeout_seconds
+
+
+WEBSOCKET_CLOSE_TIMEOUT_SECONDS = 5.0
+CONFIGURATION_REQUEST_TIMEOUT_SECONDS = 30.0
+CONFIGURATION_REFRESH_WAIT_SECONDS = 15.0
+CONFIGURATION_GROUP_PAUSE_SECONDS = 0.5
+CONFIGURATION_BACKOFF_STEP_SECONDS = 60
+CONFIGURATION_MAX_BACKOFF_SECONDS = 300
+WEBSOCKET_GOING_AWAY = 1001
+WEBSOCKET_POLICY_VIOLATION = 1008

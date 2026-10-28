@@ -11,6 +11,8 @@ from typing import Final
 from ..configuration.validation import format_decimal, validate_number
 from ..configuration.values import ConfigurationValue, configuration_entity_state
 
+CHARGER_MODE_PLUG_AND_CHARGE = "3"
+
 WORKING_MODE_OPTIONS = ("fast", "pv_linkage", "pv_linkage_plus", "off_peak")
 PV_LINKAGE_WORKING_MODES = frozenset({"pv_linkage", "pv_linkage_plus"})
 

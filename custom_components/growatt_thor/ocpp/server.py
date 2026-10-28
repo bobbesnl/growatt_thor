@@ -15,6 +15,7 @@ from ocpp.v16.enums import (
 )
 from websockets.server import serve
 
+from ..charging.controls import CHARGER_MODE_PLUG_AND_CHARGE
 from ..configuration.values import (
     INFORMATIONAL_CONFIGURATION_KEYS,
     OPERATIONAL_CONFIGURATION_KEYS,
@@ -33,8 +34,16 @@ from ..runtime.write_queue import (
 )
 from ..sessions.records import parse_growatt_session_record
 from .connection import (
+    CONFIGURATION_BACKOFF_STEP_SECONDS,
+    CONFIGURATION_GROUP_PAUSE_SECONDS,
+    CONFIGURATION_MAX_BACKOFF_SECONDS,
+    CONFIGURATION_REFRESH_WAIT_SECONDS,
+    CONFIGURATION_REQUEST_TIMEOUT_SECONDS,
     CONNECTION_WATCHDOG_INTERVAL_SECONDS,
     OCPP_HEARTBEAT_INTERVAL_SECONDS,
+    WEBSOCKET_CLOSE_TIMEOUT_SECONDS,
+    WEBSOCKET_GOING_AWAY,
+    WEBSOCKET_POLICY_VIOLATION,
     OcppConnectionActivity,
 )
 from .logging import OcppMetadataLogger
@@ -207,10 +216,10 @@ class GrowattChargePoint(OcppChargePoint):
             try:
                 await asyncio.wait_for(
                     self._websocket.close(
-                        code=1001,
+                        code=WEBSOCKET_GOING_AWAY,
                         reason="OCPP activity timeout",
                     ),
-                    timeout=5.0,
+                    timeout=WEBSOCKET_CLOSE_TIMEOUT_SECONDS,
                 )
             except TimeoutError:
                 _LOGGER.warning("Timed out closing stale OCPP connection: %s", self._cp_id)
@@ -337,7 +346,8 @@ class GrowattChargePoint(OcppChargePoint):
                 "StartTransaction",
                 self.coordinator.now(),
                 # Plug & Charge is an explicit charger mode, not an RFID identity.
-                card_policy_applies=str(getattr(self.coordinator, "charger_mode", "")) != "3",
+                card_policy_applies=str(getattr(self.coordinator, "charger_mode", ""))
+                != CHARGER_MODE_PLUG_AND_CHARGE,
             )
             self.coordinator.start_transaction(
                 transaction_id,
@@ -522,7 +532,9 @@ class GrowattChargePoint(OcppChargePoint):
                     )
                 )
                 try:
-                    return await asyncio.wait_for(asyncio.shield(task), timeout=15.0)
+                    return await asyncio.wait_for(
+                        asyncio.shield(task), timeout=CONFIGURATION_REFRESH_WAIT_SECONDS
+                    )
                 except BaseException:
                     task.cancel()
                     try:
@@ -557,7 +569,10 @@ class GrowattChargePoint(OcppChargePoint):
             count = self.coordinator.meterval_consecutive_timeouts
 
             if count >= 2:
-                pause = min(60 * (count - 1), 300)
+                pause = min(
+                    CONFIGURATION_BACKOFF_STEP_SECONDS * (count - 1),
+                    CONFIGURATION_MAX_BACKOFF_SECONDS,
+                )
                 self.coordinator.pause_polling_until(self.hass.loop.time() + pause)
                 _LOGGER.debug(
                     "External meterval timeout #%d - pausing poll %ds (THOR likely rebooting)",
@@ -607,7 +622,7 @@ class GrowattChargePoint(OcppChargePoint):
                 self.call(
                     call.GetConfiguration(key=operational_keys),
                 ),
-                timeout=30.0,
+                timeout=CONFIGURATION_REQUEST_TIMEOUT_SECONDS,
             )
             if not self._connection_may_update_coordinator("GetConfiguration CALL 1 response"):
                 return False
@@ -640,7 +655,7 @@ class GrowattChargePoint(OcppChargePoint):
             # Capped at 30 keys (firmware hard limit per request)
             # G_WifiPassword intentionally excluded (security)
 
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(CONFIGURATION_GROUP_PAUSE_SECONDS)
 
             informational_keys = list(INFORMATIONAL_CONFIGURATION_KEYS)
 
@@ -652,7 +667,7 @@ class GrowattChargePoint(OcppChargePoint):
                 self.call(
                     call.GetConfiguration(key=informational_keys),
                 ),
-                timeout=30.0,
+                timeout=CONFIGURATION_REQUEST_TIMEOUT_SECONDS,
             )
             if not self._connection_may_update_coordinator("GetConfiguration CALL 2 response"):
                 return False
@@ -876,7 +891,7 @@ async def _close_superseded_connection(charge_point):
                 code=1000,
                 reason="Superseded by a newer connection",
             ),
-            timeout=5.0,
+            timeout=WEBSOCKET_CLOSE_TIMEOUT_SECONDS,
         )
     except TimeoutError:
         _LOGGER.warning(
@@ -924,7 +939,7 @@ async def _on_connect(websocket, path, coordinator, hass):
                 coordinator.charge_point_id or active_charge_point_id,
             )
             await websocket.close(
-                code=1008,
+                code=WEBSOCKET_POLICY_VIOLATION,
                 reason="A different charger already owns this integration",
             )
             return
@@ -967,7 +982,7 @@ async def _on_connect(websocket, path, coordinator, hass):
                     cp_id,
                 )
             try:
-                await asyncio.wait_for(websocket.close(), timeout=5.0)
+                await asyncio.wait_for(websocket.close(), timeout=WEBSOCKET_CLOSE_TIMEOUT_SECONDS)
             except (TimeoutError, Exception):
                 pass
 

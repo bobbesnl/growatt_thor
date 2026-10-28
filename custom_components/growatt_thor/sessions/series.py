@@ -7,8 +7,9 @@ from datetime import datetime
 from math import isfinite
 from typing import Any
 
+from .constants import ACTIVE_POWER_THRESHOLD_W
+
 SESSION_CURVE_POINT_LIMIT = 96
-ACTIVE_POWER_THRESHOLD_W = 100.0
 
 
 def _timestamp(value: object) -> float | None:

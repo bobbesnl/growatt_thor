@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from ..configuration.writes import ConfigurationWriteStatus
+from ..const import CONFIGURATION_WRITE_SPACING_SECONDS
 from .write_queue import (
     DEFAULT_WRITE_POLICY,
     ChargerCommandHandle,
@@ -43,7 +44,9 @@ class WriteQueueOwner(Protocol):
         generation: int,
         result: str | None = None,
     ) -> bool: ...
-    def schedule_configuration_refresh(self, *, delay: float = 20.0) -> Any: ...
+    def schedule_configuration_refresh(
+        self, *, delay: float = CONFIGURATION_WRITE_SPACING_SECONDS
+    ) -> Any: ...
     def publish_write_result(self, result: ChargerCommandResult) -> None: ...
 
 
@@ -85,8 +88,8 @@ class ChargerWriteQueue:
         self._active: ChargerWriteItem | None = None
         self._closing = False
         self._last_write_monotonic: float | None = None
-        self.min_write_interval = 20.0
-        self.poll_pause_after_write = 20.0
+        self.min_write_interval = CONFIGURATION_WRITE_SPACING_SECONDS
+        self.poll_pause_after_write = CONFIGURATION_WRITE_SPACING_SECONDS
         self.last_result: ChargerCommandResult | None = None
 
     def begin_shutdown(self) -> None:

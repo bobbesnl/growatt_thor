@@ -31,6 +31,8 @@ The TypeScript source mirrors feature boundaries in `frontend/src/`: `charger/`,
 template, styles and model together; pure calculations remain separate from
 Lit lifecycle and HA calls. See [frontend development](../frontend/README.md#frontend-structure) for the source map.
 
+Session flow thresholds live in `sessions/constants.py`; platform configuration keys live in `configuration/keys.py`. Connection timing and close codes remain in `ocpp/connection.py`, while shared configuration-write spacing is defined in `const.py`. These constants preserve the existing values and wire spelling.
+
 ## State and typing
 
 `ChargingTargetRuntime` owns one entry's target storage, lock, busy state and

@@ -31,6 +31,8 @@ from ..sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 from ..sessions.telemetry import CONTEXT_CURVES, context_curves
 from ..sessions.time import session_times
 
+WATT_SECONDS_PER_KWH = 3_600_000
+
 _LOGGER = logging.getLogger(__name__)
 DASHBOARD_SESSION_LIMIT = 20
 # HA state updates carry this projection repeatedly. Full history belongs in
@@ -351,14 +353,14 @@ def dashboard_attributes(coordinator) -> dict:
                     str(coordinator.transaction_id),
                     now - timedelta(seconds=1),
                     now,
-                    power_w / 3_600_000,
+                    power_w / WATT_SECONDS_PER_KWH,
                 ),
                 *inputs,
             )
             charging_sources = {
-                "solar_w": live.direct_solar * 3_600_000,
-                "grid_w": live.direct_grid * 3_600_000,
-                "battery_w": live.battery_unknown * 3_600_000,
+                "solar_w": live.direct_solar * WATT_SECONDS_PER_KWH,
+                "grid_w": live.direct_grid * WATT_SECONDS_PER_KWH,
+                "battery_w": live.battery_unknown * WATT_SECONDS_PER_KWH,
                 "unknown_w": 0.0,
             }
             charging_sources["unknown_w"] = max(

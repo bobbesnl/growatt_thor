@@ -7,8 +7,8 @@ from datetime import datetime
 from typing import Any
 
 from ..ocpp.meter_samples import MeterValue
+from .constants import ACTIVE_POWER_THRESHOLD_W
 
-ACTIVE_POWER_THRESHOLD_W = 100.0
 DEFAULT_MAX_SAMPLE_GAP_SECONDS = 180.0
 
 

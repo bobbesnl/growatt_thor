@@ -31,10 +31,13 @@ from .configuration.validation import (
     validate_tcp_port,
 )
 from .const import (
+    CONF_BIND_ADDRESS,
     CONF_LOCATION,
     CONF_POLL_INTERVAL,
     CONF_PORT,
+    CONF_SITE_GRID_SOURCE,
     CONFIG_ENTRY_VERSION,
+    DEFAULT_BIND_ADDRESS,
     DEFAULT_POLL_INTERVAL,
     DEFAULT_PORT,
     DOMAIN,
@@ -103,11 +106,11 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             normalized_input = dict(user_input)
             try:
-                normalized_input["bind_address"] = validate_bind_address(
-                    user_input.get("bind_address", "0.0.0.0")
+                normalized_input[CONF_BIND_ADDRESS] = validate_bind_address(
+                    user_input.get(CONF_BIND_ADDRESS, DEFAULT_BIND_ADDRESS)
                 )
             except ValueError:
-                errors["bind_address"] = "invalid_bind_address"
+                errors[CONF_BIND_ADDRESS] = "invalid_bind_address"
             try:
                 normalized_input[CONF_PORT] = validate_tcp_port(
                     user_input.get(CONF_PORT, DEFAULT_PORT)
@@ -154,7 +157,7 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             mode=NumberSelectorMode.BOX,
                         )
                     ),
-                    vol.Optional("bind_address", default="0.0.0.0"): str,
+                    vol.Optional(CONF_BIND_ADDRESS, default=DEFAULT_BIND_ADDRESS): str,
                     vol.Required(CONF_LOCATION, default=""): str,
                     vol.Required(
                         CONF_POLL_INTERVAL,
@@ -226,11 +229,11 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         errors = {}
 
         if user_input is not None:
-            old_bind = self.config_entry.data.get("bind_address", "0.0.0.0")
+            old_bind = self.config_entry.data.get(CONF_BIND_ADDRESS, DEFAULT_BIND_ADDRESS)
             try:
-                bind_address = validate_bind_address(user_input.get("bind_address", old_bind))
+                bind_address = validate_bind_address(user_input.get(CONF_BIND_ADDRESS, old_bind))
             except ValueError:
-                errors["bind_address"] = "invalid_bind_address"
+                errors[CONF_BIND_ADDRESS] = "invalid_bind_address"
             try:
                 poll_interval = validate_poll_interval(
                     user_input.get(CONF_POLL_INTERVAL),
@@ -245,7 +248,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     **self.config_entry.data,
                     CONF_POLL_INTERVAL: poll_interval,
                     CONF_LOCATION: new_location,
-                    "bind_address": bind_address,
+                    CONF_BIND_ADDRESS: bind_address,
                 }
                 self.hass.config_entries.async_update_entry(
                     self.config_entry,
@@ -279,8 +282,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema(
                 {
                     vol.Optional(
-                        "bind_address",
-                        default=self.config_entry.data.get("bind_address", "0.0.0.0"),
+                        CONF_BIND_ADDRESS,
+                        default=self.config_entry.data.get(CONF_BIND_ADDRESS, DEFAULT_BIND_ADDRESS),
                     ): str,
                     vol.Required(
                         CONF_POLL_INTERVAL,
@@ -334,7 +337,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     CONF_SOLAR_ENTITY: self.config_entry.data.get(CONF_SOLAR_ENTITY),
                     CONF_HOUSE_ENTITY: self.config_entry.data.get(CONF_HOUSE_ENTITY),
                     CONF_GRID_ENTITY: self.config_entry.data.get(CONF_GRID_ENTITY)
-                    if self.config_entry.data.get("site_grid_source") == "ha_sensor"
+                    if self.config_entry.data.get(CONF_SITE_GRID_SOURCE) == "ha_sensor"
                     else None,
                 }
                 if self.config_entry.data.get(
@@ -388,7 +391,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         excluded = set()
         if self.config_entry.data.get(CONF_SITE_PROFILE, "disabled") != "disabled":
             source_keys = [CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY]
-            if self.config_entry.data.get("site_grid_source") == "ha_sensor":
+            if self.config_entry.data.get(CONF_SITE_GRID_SOURCE) == "ha_sensor":
                 source_keys.append(CONF_GRID_ENTITY)
             excluded = {self.config_entry.data.get(key) for key in source_keys} - {
                 None,
@@ -462,11 +465,11 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     "battery_or_grid",
                 ) and not current.get(CONF_BATTERY_POWER_ENTITY):
                     errors[CONF_AUTO_STOP_MODE] = "auto_stop_requires_battery"
-            grid_source = user_input.get("site_grid_source", "none")
+            grid_source = user_input.get(CONF_SITE_GRID_SOURCE, "none")
             if auto_stop_mode in ("grid", "battery_or_grid") and grid_source == "none":
-                errors["site_grid_source"] = "grid_source_required"
+                errors[CONF_SITE_GRID_SOURCE] = "grid_source_required"
             if profile in ("pv", "pv_battery", "grohome_load_first") and grid_source == "none":
-                errors["site_grid_source"] = "grid_source_required"
+                errors[CONF_SITE_GRID_SOURCE] = "grid_source_required"
             if grid_source == "ha_sensor" and not user_input.get(CONF_GRID_ENTITY):
                 errors[CONF_GRID_ENTITY] = "grid_source_required"
             for key in (CONF_GRID_ENTITY, CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY):
@@ -493,7 +496,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 ):
                     errors[CONF_TARIFF_ENTITY] = "invalid_tariff_sensor"
             if grid_source not in ("none", "thor_external", "ha_sensor"):
-                errors["site_grid_source"] = "invalid_grid_source"
+                errors[CONF_SITE_GRID_SOURCE] = "invalid_grid_source"
             if profile in ("pv_battery", "grohome_load_first") and not current.get(
                 CONF_BATTERY_POWER_ENTITY
             ):
@@ -526,7 +529,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                     CONF_HOUSE_ENTITY,
                     CONF_TARIFF_ENTITY,
                     CONF_FIXED_PRICE,
-                    "site_grid_source",
+                    CONF_SITE_GRID_SOURCE,
                     CONF_AUTO_STOP_MODE,
                     CONF_STOP_THRESHOLD,
                     CONF_STOP_HOLD,
@@ -570,7 +573,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 CONF_SOLAR_ENTITY,
                 CONF_HOUSE_ENTITY,
             }
-            if current.get("site_grid_source") == "ha_sensor":
+            if current.get(CONF_SITE_GRID_SOURCE) == "ha_sensor":
                 other_keys.add(CONF_GRID_ENTITY)
             excluded = {current.get(other) for other in other_keys - {key}} - {None, ""}
             options = power_sensor_options(states, current.get(key), role=role, exclude=excluded)
@@ -628,12 +631,12 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                         default=current.get(CONF_STOP_HOLD, STOP_HOLD_SECONDS),
                     ): vol.All(vol.Coerce(float), vol.Range(min=30, max=1800)),
                     vol.Required(
-                        "site_grid_source",
-                        default=current.get("site_grid_source", "none"),
+                        CONF_SITE_GRID_SOURCE,
+                        default=current.get(CONF_SITE_GRID_SOURCE, "none"),
                     ): SelectSelector(
                         SelectSelectorConfig(
                             options=["none", "thor_external", "ha_sensor"],
-                            translation_key="site_grid_source",
+                            translation_key=CONF_SITE_GRID_SOURCE,
                             mode="dropdown",
                         )
                     ),

@@ -39,7 +39,7 @@ from .configuration.writes import (
     confirm_configuration_writes,
     mark_configuration_write,
 )
-from .const import DEFAULT_POLL_INTERVAL
+from .const import CONFIGURATION_WRITE_SPACING_SECONDS, DEFAULT_POLL_INTERVAL
 from .energy.accounting_runtime import SessionAccumulator, parse_at, site_inputs
 from .energy.sources import BATTERY_POSITIVE_DISCHARGE
 from .ocpp.diagnostics import create_ocpp_snapshot
@@ -50,6 +50,7 @@ from .ocpp.external_meter import (
     status_reports_external_meter_fault,
 )
 from .ocpp.meter_samples import (
+    DEFAULT_MEASURAND,
     charging_power_curve_point,
     meter_time_zone,
     parse_meter_values,
@@ -84,6 +85,10 @@ STORAGE_VERSION = 1
 
 # OCPP statuses in which the charger delivers energy. In every other status
 # the last MeterValues sample is stale, so live power and current go to 0.
+MIN_METER_GAP_SECONDS = 30.0
+METER_GAP_INTERVAL_MULTIPLIER = 3
+DEFAULT_METER_GAP_SECONDS = 180.0
+
 LIVE_POWER_STATUSES = frozenset({"charging"})
 
 
@@ -623,7 +628,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.async_set_updated_data(True)
         return outcome_is_current
 
-    def schedule_configuration_refresh(self, *, delay: float = 20.0):
+    def schedule_configuration_refresh(self, *, delay: float = CONFIGURATION_WRITE_SPACING_SECONDS):
         """Coalesce post-write readbacks into one reconnect-safe task.
 
         Historically each accepted write slept for exactly the same 20 seconds
@@ -1109,7 +1114,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     )
                 for sample in entry.samples:
                     if (
-                        sample.measurand != "Energy.Active.Import.Register"
+                        sample.measurand != DEFAULT_MEASURAND
                         or sample.numeric_value is None
                         or sample.phase is not None
                     ):
@@ -1185,7 +1190,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     ignored_live_samples = True
                     continue
 
-                if sample.measurand == "Energy.Active.Import.Register":
+                if sample.measurand == DEFAULT_MEASURAND:
                     if sample.context == "Transaction.Begin":
                         _LOGGER.debug(
                             "Skipping transaction-begin energy sample: %.3f Wh",
@@ -1283,8 +1288,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
             except (TypeError, ValueError):
                 continue
             if interval > 0:
-                return max(30.0, interval * 3)
-        return 180.0
+                return max(MIN_METER_GAP_SECONDS, interval * METER_GAP_INTERVAL_MULTIPLIER)
+        return DEFAULT_METER_GAP_SECONDS
 
     def record_stop_requested(self, *, reason="remote_stop") -> None:
         """Delegate this transition to the session lifecycle."""

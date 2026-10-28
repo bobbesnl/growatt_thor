@@ -8,8 +8,8 @@ from math import isfinite
 from typing import Any
 
 from ..runtime.time import utc_timestamp
+from .constants import ACTIVE_POWER_THRESHOLD_W
 
-ACTIVE_POWER_THRESHOLD_W = 100.0
 # A normal session needs only a handful of semantic anchors.  Keep enough room
 # for repeated pause/resume transitions on a changeable PV day without allowing
 # one unusually noisy session to dominate the Home Assistant state payload.

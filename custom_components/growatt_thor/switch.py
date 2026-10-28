@@ -17,6 +17,7 @@ from .charging.controls import (
     encode_control_value,
 )
 from .configuration.controls import GrowattConfigurationControlMixin
+from .configuration.keys import KEY_EXTERNAL_LIMIT_POWER_ENABLE, KEY_LCDCLOSE_ENABLE
 from .configuration.values import configuration_entity_state
 from .configuration.writes import (
     ConfigurationWriteStatus,
@@ -75,7 +76,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
         """Return true if load balancing is enabled."""
         desired_value = pending_configuration_value(
             self.coordinator.configuration_writes,
-            "G_ExternalLimitPowerEnable",
+            KEY_EXTERNAL_LIMIT_POWER_ENABLE,
         )
         if desired_value is not None:
             return desired_value == "1"
@@ -106,7 +107,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
     def extra_state_attributes(self):
         return {
             "information": "details",
-            "ocpp_key": "G_ExternalLimitPowerEnable",
+            "ocpp_key": KEY_EXTERNAL_LIMIT_POWER_ENABLE,
         }
 
     async def async_turn_on(self, **kwargs):
@@ -130,7 +131,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
                 block_reason,
             )
             self.coordinator.mark_configuration_write(
-                "G_ExternalLimitPowerEnable",
+                KEY_EXTERNAL_LIMIT_POWER_ENABLE,
                 ConfigurationWriteStatus.SKIPPED,
                 generation=generation,
                 result=block_reason,
@@ -138,7 +139,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             return ChargerWriteResult.skipped(block_reason)
         _LOGGER.info("Setting G_ExternalLimitPowerEnable to %s", value)
 
-        key = "G_ExternalLimitPowerEnable"
+        key = KEY_EXTERNAL_LIMIT_POWER_ENABLE
         try:
             result = await charge_point.change_configuration(key, value)
         except ChargerConnectionUnavailable:
@@ -208,7 +209,7 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             return
 
         generation = self.coordinator.begin_configuration_write(
-            "G_ExternalLimitPowerEnable",
+            KEY_EXTERNAL_LIMIT_POWER_ENABLE,
             value,
         )
         handle = await self.coordinator.queue_write(
@@ -216,10 +217,10 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             charge_point,
             value,
             generation,
-            dedupe_key="G_ExternalLimitPowerEnable",
+            dedupe_key=KEY_EXTERNAL_LIMIT_POWER_ENABLE,
             command_name="ChangeConfiguration(G_ExternalLimitPowerEnable)",
             requires_connection=True,
-            configuration_key="G_ExternalLimitPowerEnable",
+            configuration_key=KEY_EXTERNAL_LIMIT_POWER_ENABLE,
             configuration_generation=generation,
             policy=CONFIGURATION_WRITE_POLICY,
         )
@@ -257,7 +258,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
         """
         desired_value = pending_configuration_value(
             self.coordinator.configuration_writes,
-            "G_LCDCloseEnable",
+            KEY_LCDCLOSE_ENABLE,
         )
         if desired_value is not None:
             return desired_value == "Disable"
@@ -268,9 +269,9 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
     @property
     def extra_state_attributes(self):
         """Expose pending versus reported state for support diagnostics."""
-        write = self.coordinator.configuration_writes.get("G_LCDCloseEnable")
+        write = self.coordinator.configuration_writes.get(KEY_LCDCLOSE_ENABLE)
         return {
-            "ocpp_key": "G_LCDCloseEnable",
+            "ocpp_key": KEY_LCDCLOSE_ENABLE,
             "write_status": write.status.value if write is not None else None,
             "reported_state": self.coordinator.lcd_close_enable,
         }
@@ -306,7 +307,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Skipping queued LCD display change: %s", block_reason)
             self.coordinator.mark_configuration_write(
-                "G_LCDCloseEnable",
+                KEY_LCDCLOSE_ENABLE,
                 ConfigurationWriteStatus.SKIPPED,
                 generation=generation,
                 result=block_reason,
@@ -314,7 +315,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
             return ChargerWriteResult.skipped(block_reason)
         _LOGGER.info("Setting G_LCDCloseEnable to %s", value)
 
-        key = "G_LCDCloseEnable"
+        key = KEY_LCDCLOSE_ENABLE
         try:
             result = await charge_point.change_configuration(key, value)
         except ChargerConnectionUnavailable:
@@ -376,7 +377,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
 
         desired_value = pending_configuration_value(
             self.coordinator.configuration_writes,
-            "G_LCDCloseEnable",
+            KEY_LCDCLOSE_ENABLE,
         )
         effective_value = (
             desired_value if desired_value is not None else self.coordinator.lcd_close_enable
@@ -391,7 +392,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
         # Begin tracking before enqueueing so ``is_on`` can expose the user's
         # desired value during the rate-limit wait.
         generation = self.coordinator.begin_configuration_write(
-            "G_LCDCloseEnable",
+            KEY_LCDCLOSE_ENABLE,
             value,
         )
         handle = await self.coordinator.queue_write(
@@ -399,10 +400,10 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
             charge_point,
             value,
             generation,
-            dedupe_key="G_LCDCloseEnable",
+            dedupe_key=KEY_LCDCLOSE_ENABLE,
             command_name="ChangeConfiguration(G_LCDCloseEnable)",
             requires_connection=True,
-            configuration_key="G_LCDCloseEnable",
+            configuration_key=KEY_LCDCLOSE_ENABLE,
             configuration_generation=generation,
             policy=CONFIGURATION_WRITE_POLICY,
         )
