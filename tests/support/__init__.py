@@ -2,6 +2,7 @@
 
 import asyncio
 import sys
+from dataclasses import dataclass
 from importlib import import_module, util
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -201,13 +202,31 @@ class _NamedMembers(type):
         return name
 
 
+@dataclass(frozen=True, kw_only=True)
 class _Description:
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
+    key: str
+    translation_key: str | None = None
+    device_class: object = None
+    state_class: object = None
+    native_unit_of_measurement: str | None = None
+    entity_category: object = None
+    icon: str | None = None
+    options: object = None
+    suggested_display_precision: int | None = None
+    entity_registry_enabled_default: bool = True
 
 
 def _named(name):
     return _NamedMembers(name, (), {})
+
+
+class CoordinatorEntity:
+    def __init__(self, coordinator):
+        self.coordinator = coordinator
+
+    @property
+    def available(self):
+        return getattr(self.coordinator, "last_update_success", True)
 
 
 def install_sensor_stubs():
@@ -220,7 +239,7 @@ def install_sensor_stubs():
     default(
         module("homeassistant.helpers.update_coordinator"),
         "CoordinatorEntity",
-        type("CoordinatorEntity", (), {}),
+        CoordinatorEntity,
     )
     default(
         module("homeassistant.helpers.entity"),

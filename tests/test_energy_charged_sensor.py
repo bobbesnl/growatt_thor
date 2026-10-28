@@ -38,7 +38,7 @@ class EnergyChargedSensorTest(unittest.TestCase):
 
     def test_sensor_is_total_increasing(self):
         self.assertEqual(
-            sensor.EnergyChargedSensor._attr_state_class,
+            sensor.EnergyChargedSensor.entity_description.state_class,
             sensor.SensorStateClass.TOTAL_INCREASING,
         )
 

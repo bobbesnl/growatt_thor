@@ -1,0 +1,4182 @@
+{
+  "unknown": {
+    "ServerUrlSensor": {
+      "unique_id": "entry-test_server_url",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": true,
+      "attributes": null,
+      "translation_key": "server_url",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:server",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ChargePointIdSensor": {
+      "unique_id": "entry-test_charge_point_id",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": false,
+      "attributes": null,
+      "translation_key": "charge_point_id",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:identifier",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ChargingPowerSensor": {
+      "unique_id": "entry-test_charging_power",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "charging_power",
+      "translation_placeholders": null,
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": null,
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "EnergyChargedSensor": {
+      "unique_id": "entry-test_energy_charged",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": true,
+      "attributes": null,
+      "translation_key": "energy_charged",
+      "translation_placeholders": null,
+      "device_class": "ENERGY",
+      "state_class": "TOTAL_INCREASING",
+      "native_unit_of_measurement": "KILO_WATT_HOUR",
+      "entity_category": null,
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "TotalEnergyChargedSensor": {
+      "unique_id": "entry-test_total_energy_charged",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0.0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "total_energy_charged",
+      "translation_placeholders": null,
+      "device_class": "ENERGY",
+      "state_class": "TOTAL_INCREASING",
+      "native_unit_of_measurement": "KILO_WATT_HOUR",
+      "entity_category": null,
+      "icon": "mdi:counter",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ElectricityPriceSensor": {
+      "unique_id": "entry-test_electricity_price",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": true,
+      "attributes": null,
+      "translation_key": "electricity_price",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "EUR/kWh",
+      "entity_category": null,
+      "icon": "mdi:cash",
+      "options": null,
+      "suggested_display_precision": 2,
+      "enabled_default": false
+    },
+    "LastSessionEnergySensor": {
+      "unique_id": "entry-test_last_session_energy",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_energy",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "KILO_WATT_HOUR",
+      "entity_category": null,
+      "icon": "mdi:lightning-bolt",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionCostSensor": {
+      "unique_id": "entry-test_last_session_cost",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_cost",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "EUR",
+      "entity_category": null,
+      "icon": "mdi:cash",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionDurationSensor": {
+      "unique_id": "entry-test_last_session_duration",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_duration",
+      "translation_placeholders": null,
+      "device_class": "DURATION",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "HOURS",
+      "entity_category": null,
+      "icon": "mdi:timer-outline",
+      "options": null,
+      "suggested_display_precision": 2,
+      "enabled_default": true
+    },
+    "LastSessionEffectiveChargingDurationSensor": {
+      "unique_id": "entry-test_last_session_effective_charging_duration",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": true,
+      "attributes": {
+        "information": "details",
+        "calculation_method": "ocpp_meter_values",
+        "active_power_threshold_w": 100.0
+      },
+      "translation_key": "last_session_effective_charging_duration",
+      "translation_placeholders": null,
+      "device_class": "DURATION",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "HOURS",
+      "entity_category": null,
+      "icon": "mdi:ev-plug-type2",
+      "options": null,
+      "suggested_display_precision": 2,
+      "enabled_default": true
+    },
+    "LastSessionStartSensor": {
+      "unique_id": "entry-test_last_session_start",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_start",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:clock-start",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionEndSensor": {
+      "unique_id": "entry-test_last_session_end",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_end",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:clock-end",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionPlugTimeSensor": {
+      "unique_id": "entry-test_last_session_plug_time",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_plug_time",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:power-plug",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionUnplugTimeSensor": {
+      "unique_id": "entry-test_last_session_unplug_time",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_unplug_time",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:power-plug-off",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionTransactionIdSensor": {
+      "unique_id": "entry-test_last_session_transaction_id",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_transaction_id",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:identifier",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionChargeModeSensor": {
+      "unique_id": "entry-test_last_session_charge_mode",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "raw_value": null
+      },
+      "translation_key": "last_session_charge_mode",
+      "translation_placeholders": null,
+      "device_class": "ENUM",
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:shield-key-outline",
+      "options": [
+        "home_assistant_rfid",
+        "rfid_only",
+        "plug_and_charge",
+        "unknown_mode"
+      ],
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionWorkModeSensor": {
+      "unique_id": "entry-test_last_session_work_mode",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "raw_value": null
+      },
+      "translation_key": "last_session_work_mode",
+      "translation_placeholders": null,
+      "device_class": "ENUM",
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:ev-station",
+      "options": [
+        "fast",
+        "pv_linkage",
+        "off_peak",
+        "unknown_mode"
+      ],
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "TemperatureSensor": {
+      "unique_id": "entry-test_temperature",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": null,
+      "available": false,
+      "attributes": null,
+      "translation_key": "temperature",
+      "translation_placeholders": null,
+      "device_class": "TEMPERATURE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "CELSIUS",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ExternalMeterHealthSensor": {
+      "unique_id": "entry-test_load_balancing_health",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": "not_reported",
+      "available": true,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null,
+        "information": "details",
+        "connector_id": null,
+        "error_code": null,
+        "info": null,
+        "consecutive_timeouts": 0
+      },
+      "translation_key": "external_meter_health",
+      "translation_placeholders": null,
+      "device_class": "ENUM",
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:meter-electric-outline",
+      "options": [
+        "healthy",
+        "faulted",
+        "stale",
+        "not_reported"
+      ],
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridPowerSensor": {
+      "unique_id": "entry-test_load_balancing_power",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_power",
+      "translation_placeholders": null,
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": null,
+      "icon": "mdi:transmission-tower",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "CurrentSensor:L1": {
+      "unique_id": "entry-test_current_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "current",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "CurrentSensor:L2": {
+      "unique_id": "entry-test_current_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "current",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "CurrentSensor:L3": {
+      "unique_id": "entry-test_current_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "current",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "VoltageSensor:L1": {
+      "unique_id": "entry-test_voltage_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "voltage",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "VoltageSensor:L2": {
+      "unique_id": "entry-test_voltage_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "voltage",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "VoltageSensor:L3": {
+      "unique_id": "entry-test_voltage_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "voltage",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "PhasePowerSensor:L1": {
+      "unique_id": "entry-test_power_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "phase_power",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "PhasePowerSensor:L2": {
+      "unique_id": "entry-test_power_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "phase_power",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "PhasePowerSensor:L3": {
+      "unique_id": "entry-test_power_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "phase_power",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridVoltageSensor:L1": {
+      "unique_id": "entry-test_load_balancing_voltage_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_voltage",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": null,
+      "icon": "mdi:current-ac",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridVoltageSensor:L2": {
+      "unique_id": "entry-test_load_balancing_voltage_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_voltage",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": null,
+      "icon": "mdi:current-ac",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridVoltageSensor:L3": {
+      "unique_id": "entry-test_load_balancing_voltage_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_voltage",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": null,
+      "icon": "mdi:current-ac",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridCurrentSensor:L1": {
+      "unique_id": "entry-test_load_balancing_current_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_current",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": null,
+      "icon": "mdi:current-dc",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridCurrentSensor:L2": {
+      "unique_id": "entry-test_load_balancing_current_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_current",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": null,
+      "icon": "mdi:current-dc",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridCurrentSensor:L3": {
+      "unique_id": "entry-test_load_balancing_current_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_current",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": null,
+      "icon": "mdi:current-dc",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    }
+  },
+  "reported": {
+    "ServerUrlSensor": {
+      "unique_id": "entry-test_server_url",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "ws://example.invalid/ocpp",
+      "available": true,
+      "attributes": null,
+      "translation_key": "server_url",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:server",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ChargePointIdSensor": {
+      "unique_id": "entry-test_charge_point_id",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "THOR-TEST",
+      "available": true,
+      "attributes": null,
+      "translation_key": "charge_point_id",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:identifier",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ChargingPowerSensor": {
+      "unique_id": "entry-test_charging_power",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 7210,
+      "available": true,
+      "attributes": null,
+      "translation_key": "charging_power",
+      "translation_placeholders": null,
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": null,
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "EnergyChargedSensor": {
+      "unique_id": "entry-test_energy_charged",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 12.345,
+      "available": true,
+      "attributes": null,
+      "translation_key": "energy_charged",
+      "translation_placeholders": null,
+      "device_class": "ENERGY",
+      "state_class": "TOTAL_INCREASING",
+      "native_unit_of_measurement": "KILO_WATT_HOUR",
+      "entity_category": null,
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "TotalEnergyChargedSensor": {
+      "unique_id": "entry-test_total_energy_charged",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 512.346,
+      "available": true,
+      "attributes": null,
+      "translation_key": "total_energy_charged",
+      "translation_placeholders": null,
+      "device_class": "ENERGY",
+      "state_class": "TOTAL_INCREASING",
+      "native_unit_of_measurement": "KILO_WATT_HOUR",
+      "entity_category": null,
+      "icon": "mdi:counter",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ElectricityPriceSensor": {
+      "unique_id": "entry-test_electricity_price",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0.23,
+      "available": true,
+      "attributes": null,
+      "translation_key": "electricity_price",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "EUR/kWh",
+      "entity_category": null,
+      "icon": "mdi:cash",
+      "options": null,
+      "suggested_display_precision": 2,
+      "enabled_default": false
+    },
+    "LastSessionEnergySensor": {
+      "unique_id": "entry-test_last_session_energy",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 12.346,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_energy",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "KILO_WATT_HOUR",
+      "entity_category": null,
+      "icon": "mdi:lightning-bolt",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionCostSensor": {
+      "unique_id": "entry-test_last_session_cost",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 2.35,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_cost",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "EUR",
+      "entity_category": null,
+      "icon": "mdi:cash",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionDurationSensor": {
+      "unique_id": "entry-test_last_session_duration",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 2.06,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_duration",
+      "translation_placeholders": null,
+      "device_class": "DURATION",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "HOURS",
+      "entity_category": null,
+      "icon": "mdi:timer-outline",
+      "options": null,
+      "suggested_display_precision": 2,
+      "enabled_default": true
+    },
+    "LastSessionEffectiveChargingDurationSensor": {
+      "unique_id": "entry-test_last_session_effective_charging_duration",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 1.99,
+      "available": true,
+      "attributes": {
+        "information": "details",
+        "calculation_method": "ocpp_meter_values",
+        "active_power_threshold_w": 100.0
+      },
+      "translation_key": "last_session_effective_charging_duration",
+      "translation_placeholders": null,
+      "device_class": "DURATION",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "HOURS",
+      "entity_category": null,
+      "icon": "mdi:ev-plug-type2",
+      "options": null,
+      "suggested_display_precision": 2,
+      "enabled_default": true
+    },
+    "LastSessionStartSensor": {
+      "unique_id": "entry-test_last_session_start",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "2026-10-27T10:00:00Z",
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_start",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:clock-start",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionEndSensor": {
+      "unique_id": "entry-test_last_session_end",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "2026-10-27T11:00:00Z",
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_end",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:clock-end",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionPlugTimeSensor": {
+      "unique_id": "entry-test_last_session_plug_time",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "2026-10-27T09:59:00Z",
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_plug_time",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:power-plug",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionUnplugTimeSensor": {
+      "unique_id": "entry-test_last_session_unplug_time",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "2026-10-27T11:01:00Z",
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_unplug_time",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:power-plug-off",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionTransactionIdSensor": {
+      "unique_id": "entry-test_last_session_transaction_id",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "51",
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_transaction_id",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:identifier",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionChargeModeSensor": {
+      "unique_id": "entry-test_last_session_charge_mode",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "plug_and_charge",
+      "available": true,
+      "attributes": {
+        "raw_value": "3"
+      },
+      "translation_key": "last_session_charge_mode",
+      "translation_placeholders": null,
+      "device_class": "ENUM",
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:shield-key-outline",
+      "options": [
+        "home_assistant_rfid",
+        "rfid_only",
+        "plug_and_charge",
+        "unknown_mode"
+      ],
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionWorkModeSensor": {
+      "unique_id": "entry-test_last_session_work_mode",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "pv_linkage",
+      "available": true,
+      "attributes": {
+        "raw_value": "PVlink"
+      },
+      "translation_key": "last_session_work_mode",
+      "translation_placeholders": null,
+      "device_class": "ENUM",
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:ev-station",
+      "options": [
+        "fast",
+        "pv_linkage",
+        "off_peak",
+        "unknown_mode"
+      ],
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "TemperatureSensor": {
+      "unique_id": "entry-test_temperature",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 27.5,
+      "available": true,
+      "attributes": null,
+      "translation_key": "temperature",
+      "translation_placeholders": null,
+      "device_class": "TEMPERATURE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "CELSIUS",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ExternalMeterHealthSensor": {
+      "unique_id": "entry-test_load_balancing_health",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": "not_reported",
+      "available": true,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null,
+        "information": "details",
+        "connector_id": null,
+        "error_code": null,
+        "info": null,
+        "consecutive_timeouts": 0
+      },
+      "translation_key": "external_meter_health",
+      "translation_placeholders": null,
+      "device_class": "ENUM",
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:meter-electric-outline",
+      "options": [
+        "healthy",
+        "faulted",
+        "stale",
+        "not_reported"
+      ],
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridPowerSensor": {
+      "unique_id": "entry-test_load_balancing_power",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": -1200,
+      "available": true,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_power",
+      "translation_placeholders": null,
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": null,
+      "icon": "mdi:transmission-tower",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "CurrentSensor:L1": {
+      "unique_id": "entry-test_current_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 16,
+      "available": true,
+      "attributes": null,
+      "translation_key": "current",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "CurrentSensor:L2": {
+      "unique_id": "entry-test_current_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 15.5,
+      "available": true,
+      "attributes": null,
+      "translation_key": "current",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "CurrentSensor:L3": {
+      "unique_id": "entry-test_current_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "current",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "VoltageSensor:L1": {
+      "unique_id": "entry-test_voltage_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 230,
+      "available": true,
+      "attributes": null,
+      "translation_key": "voltage",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "VoltageSensor:L2": {
+      "unique_id": "entry-test_voltage_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 231,
+      "available": true,
+      "attributes": null,
+      "translation_key": "voltage",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "VoltageSensor:L3": {
+      "unique_id": "entry-test_voltage_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "voltage",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "PhasePowerSensor:L1": {
+      "unique_id": "entry-test_power_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 3680,
+      "available": true,
+      "attributes": null,
+      "translation_key": "phase_power",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "PhasePowerSensor:L2": {
+      "unique_id": "entry-test_power_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 3580,
+      "available": true,
+      "attributes": null,
+      "translation_key": "phase_power",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "PhasePowerSensor:L3": {
+      "unique_id": "entry-test_power_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "phase_power",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridVoltageSensor:L1": {
+      "unique_id": "entry-test_load_balancing_voltage_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": 229,
+      "available": true,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_voltage",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": null,
+      "icon": "mdi:current-ac",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridVoltageSensor:L2": {
+      "unique_id": "entry-test_load_balancing_voltage_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": 232,
+      "available": true,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_voltage",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": null,
+      "icon": "mdi:current-ac",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridVoltageSensor:L3": {
+      "unique_id": "entry-test_load_balancing_voltage_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_voltage",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": null,
+      "icon": "mdi:current-ac",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridCurrentSensor:L1": {
+      "unique_id": "entry-test_load_balancing_current_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": -2,
+      "available": true,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_current",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": null,
+      "icon": "mdi:current-dc",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridCurrentSensor:L2": {
+      "unique_id": "entry-test_load_balancing_current_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": 1,
+      "available": true,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_current",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": null,
+      "icon": "mdi:current-dc",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridCurrentSensor:L3": {
+      "unique_id": "entry-test_load_balancing_current_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_current",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": null,
+      "icon": "mdi:current-dc",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    }
+  },
+  "disconnected": {
+    "ServerUrlSensor": {
+      "unique_id": "entry-test_server_url",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "ws://example.invalid/ocpp",
+      "available": true,
+      "attributes": null,
+      "translation_key": "server_url",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:server",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ChargePointIdSensor": {
+      "unique_id": "entry-test_charge_point_id",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "THOR-TEST",
+      "available": true,
+      "attributes": null,
+      "translation_key": "charge_point_id",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:identifier",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ChargingPowerSensor": {
+      "unique_id": "entry-test_charging_power",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 7210,
+      "available": true,
+      "attributes": null,
+      "translation_key": "charging_power",
+      "translation_placeholders": null,
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": null,
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "EnergyChargedSensor": {
+      "unique_id": "entry-test_energy_charged",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 12.345,
+      "available": true,
+      "attributes": null,
+      "translation_key": "energy_charged",
+      "translation_placeholders": null,
+      "device_class": "ENERGY",
+      "state_class": "TOTAL_INCREASING",
+      "native_unit_of_measurement": "KILO_WATT_HOUR",
+      "entity_category": null,
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "TotalEnergyChargedSensor": {
+      "unique_id": "entry-test_total_energy_charged",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 512.346,
+      "available": true,
+      "attributes": null,
+      "translation_key": "total_energy_charged",
+      "translation_placeholders": null,
+      "device_class": "ENERGY",
+      "state_class": "TOTAL_INCREASING",
+      "native_unit_of_measurement": "KILO_WATT_HOUR",
+      "entity_category": null,
+      "icon": "mdi:counter",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ElectricityPriceSensor": {
+      "unique_id": "entry-test_electricity_price",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0.23,
+      "available": true,
+      "attributes": null,
+      "translation_key": "electricity_price",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "EUR/kWh",
+      "entity_category": null,
+      "icon": "mdi:cash",
+      "options": null,
+      "suggested_display_precision": 2,
+      "enabled_default": false
+    },
+    "LastSessionEnergySensor": {
+      "unique_id": "entry-test_last_session_energy",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 12.346,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_energy",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "KILO_WATT_HOUR",
+      "entity_category": null,
+      "icon": "mdi:lightning-bolt",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionCostSensor": {
+      "unique_id": "entry-test_last_session_cost",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 2.35,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_cost",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "EUR",
+      "entity_category": null,
+      "icon": "mdi:cash",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionDurationSensor": {
+      "unique_id": "entry-test_last_session_duration",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 2.06,
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_duration",
+      "translation_placeholders": null,
+      "device_class": "DURATION",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "HOURS",
+      "entity_category": null,
+      "icon": "mdi:timer-outline",
+      "options": null,
+      "suggested_display_precision": 2,
+      "enabled_default": true
+    },
+    "LastSessionEffectiveChargingDurationSensor": {
+      "unique_id": "entry-test_last_session_effective_charging_duration",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 1.99,
+      "available": true,
+      "attributes": {
+        "information": "details",
+        "calculation_method": "ocpp_meter_values",
+        "active_power_threshold_w": 100.0
+      },
+      "translation_key": "last_session_effective_charging_duration",
+      "translation_placeholders": null,
+      "device_class": "DURATION",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "HOURS",
+      "entity_category": null,
+      "icon": "mdi:ev-plug-type2",
+      "options": null,
+      "suggested_display_precision": 2,
+      "enabled_default": true
+    },
+    "LastSessionStartSensor": {
+      "unique_id": "entry-test_last_session_start",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "2026-10-27T10:00:00Z",
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_start",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:clock-start",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionEndSensor": {
+      "unique_id": "entry-test_last_session_end",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "2026-10-27T11:00:00Z",
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_end",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:clock-end",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionPlugTimeSensor": {
+      "unique_id": "entry-test_last_session_plug_time",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "2026-10-27T09:59:00Z",
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_plug_time",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:power-plug",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionUnplugTimeSensor": {
+      "unique_id": "entry-test_last_session_unplug_time",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "2026-10-27T11:01:00Z",
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_unplug_time",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:power-plug-off",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionTransactionIdSensor": {
+      "unique_id": "entry-test_last_session_transaction_id",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "51",
+      "available": true,
+      "attributes": null,
+      "translation_key": "last_session_transaction_id",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:identifier",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionChargeModeSensor": {
+      "unique_id": "entry-test_last_session_charge_mode",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "plug_and_charge",
+      "available": true,
+      "attributes": {
+        "raw_value": "3"
+      },
+      "translation_key": "last_session_charge_mode",
+      "translation_placeholders": null,
+      "device_class": "ENUM",
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:shield-key-outline",
+      "options": [
+        "home_assistant_rfid",
+        "rfid_only",
+        "plug_and_charge",
+        "unknown_mode"
+      ],
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionWorkModeSensor": {
+      "unique_id": "entry-test_last_session_work_mode",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "pv_linkage",
+      "available": true,
+      "attributes": {
+        "raw_value": "PVlink"
+      },
+      "translation_key": "last_session_work_mode",
+      "translation_placeholders": null,
+      "device_class": "ENUM",
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:ev-station",
+      "options": [
+        "fast",
+        "pv_linkage",
+        "off_peak",
+        "unknown_mode"
+      ],
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "TemperatureSensor": {
+      "unique_id": "entry-test_temperature",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 27.5,
+      "available": true,
+      "attributes": null,
+      "translation_key": "temperature",
+      "translation_placeholders": null,
+      "device_class": "TEMPERATURE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "CELSIUS",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ExternalMeterHealthSensor": {
+      "unique_id": "entry-test_load_balancing_health",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": "not_reported",
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null,
+        "information": "details",
+        "connector_id": null,
+        "error_code": null,
+        "info": null,
+        "consecutive_timeouts": 0
+      },
+      "translation_key": "external_meter_health",
+      "translation_placeholders": null,
+      "device_class": "ENUM",
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:meter-electric-outline",
+      "options": [
+        "healthy",
+        "faulted",
+        "stale",
+        "not_reported"
+      ],
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridPowerSensor": {
+      "unique_id": "entry-test_load_balancing_power",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": -1200,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_power",
+      "translation_placeholders": null,
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": null,
+      "icon": "mdi:transmission-tower",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "CurrentSensor:L1": {
+      "unique_id": "entry-test_current_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 16,
+      "available": true,
+      "attributes": null,
+      "translation_key": "current",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "CurrentSensor:L2": {
+      "unique_id": "entry-test_current_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 15.5,
+      "available": true,
+      "attributes": null,
+      "translation_key": "current",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "CurrentSensor:L3": {
+      "unique_id": "entry-test_current_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "current",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "VoltageSensor:L1": {
+      "unique_id": "entry-test_voltage_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 230,
+      "available": true,
+      "attributes": null,
+      "translation_key": "voltage",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "VoltageSensor:L2": {
+      "unique_id": "entry-test_voltage_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 231,
+      "available": true,
+      "attributes": null,
+      "translation_key": "voltage",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "VoltageSensor:L3": {
+      "unique_id": "entry-test_voltage_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "voltage",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "PhasePowerSensor:L1": {
+      "unique_id": "entry-test_power_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 3680,
+      "available": true,
+      "attributes": null,
+      "translation_key": "phase_power",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "PhasePowerSensor:L2": {
+      "unique_id": "entry-test_power_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 3580,
+      "available": true,
+      "attributes": null,
+      "translation_key": "phase_power",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "PhasePowerSensor:L3": {
+      "unique_id": "entry-test_power_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": true,
+      "attributes": null,
+      "translation_key": "phase_power",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridVoltageSensor:L1": {
+      "unique_id": "entry-test_load_balancing_voltage_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": 229,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_voltage",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": null,
+      "icon": "mdi:current-ac",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridVoltageSensor:L2": {
+      "unique_id": "entry-test_load_balancing_voltage_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": 232,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_voltage",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": null,
+      "icon": "mdi:current-ac",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridVoltageSensor:L3": {
+      "unique_id": "entry-test_load_balancing_voltage_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_voltage",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": null,
+      "icon": "mdi:current-ac",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridCurrentSensor:L1": {
+      "unique_id": "entry-test_load_balancing_current_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": -2,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_current",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": null,
+      "icon": "mdi:current-dc",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridCurrentSensor:L2": {
+      "unique_id": "entry-test_load_balancing_current_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": 1,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_current",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": null,
+      "icon": "mdi:current-dc",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridCurrentSensor:L3": {
+      "unique_id": "entry-test_load_balancing_current_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_current",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": null,
+      "icon": "mdi:current-dc",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    }
+  },
+  "coordinator_failed": {
+    "ServerUrlSensor": {
+      "unique_id": "entry-test_server_url",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "ws://example.invalid/ocpp",
+      "available": false,
+      "attributes": null,
+      "translation_key": "server_url",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:server",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ChargePointIdSensor": {
+      "unique_id": "entry-test_charge_point_id",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "THOR-TEST",
+      "available": true,
+      "attributes": null,
+      "translation_key": "charge_point_id",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:identifier",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ChargingPowerSensor": {
+      "unique_id": "entry-test_charging_power",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 7210,
+      "available": false,
+      "attributes": null,
+      "translation_key": "charging_power",
+      "translation_placeholders": null,
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": null,
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "EnergyChargedSensor": {
+      "unique_id": "entry-test_energy_charged",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 12.345,
+      "available": false,
+      "attributes": null,
+      "translation_key": "energy_charged",
+      "translation_placeholders": null,
+      "device_class": "ENERGY",
+      "state_class": "TOTAL_INCREASING",
+      "native_unit_of_measurement": "KILO_WATT_HOUR",
+      "entity_category": null,
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "TotalEnergyChargedSensor": {
+      "unique_id": "entry-test_total_energy_charged",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 512.346,
+      "available": false,
+      "attributes": null,
+      "translation_key": "total_energy_charged",
+      "translation_placeholders": null,
+      "device_class": "ENERGY",
+      "state_class": "TOTAL_INCREASING",
+      "native_unit_of_measurement": "KILO_WATT_HOUR",
+      "entity_category": null,
+      "icon": "mdi:counter",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ElectricityPriceSensor": {
+      "unique_id": "entry-test_electricity_price",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0.23,
+      "available": false,
+      "attributes": null,
+      "translation_key": "electricity_price",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "EUR/kWh",
+      "entity_category": null,
+      "icon": "mdi:cash",
+      "options": null,
+      "suggested_display_precision": 2,
+      "enabled_default": false
+    },
+    "LastSessionEnergySensor": {
+      "unique_id": "entry-test_last_session_energy",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 12.346,
+      "available": false,
+      "attributes": null,
+      "translation_key": "last_session_energy",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "KILO_WATT_HOUR",
+      "entity_category": null,
+      "icon": "mdi:lightning-bolt",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionCostSensor": {
+      "unique_id": "entry-test_last_session_cost",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 2.35,
+      "available": false,
+      "attributes": null,
+      "translation_key": "last_session_cost",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "EUR",
+      "entity_category": null,
+      "icon": "mdi:cash",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionDurationSensor": {
+      "unique_id": "entry-test_last_session_duration",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 2.06,
+      "available": false,
+      "attributes": null,
+      "translation_key": "last_session_duration",
+      "translation_placeholders": null,
+      "device_class": "DURATION",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "HOURS",
+      "entity_category": null,
+      "icon": "mdi:timer-outline",
+      "options": null,
+      "suggested_display_precision": 2,
+      "enabled_default": true
+    },
+    "LastSessionEffectiveChargingDurationSensor": {
+      "unique_id": "entry-test_last_session_effective_charging_duration",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 1.99,
+      "available": false,
+      "attributes": {
+        "information": "details",
+        "calculation_method": "ocpp_meter_values",
+        "active_power_threshold_w": 100.0
+      },
+      "translation_key": "last_session_effective_charging_duration",
+      "translation_placeholders": null,
+      "device_class": "DURATION",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "HOURS",
+      "entity_category": null,
+      "icon": "mdi:ev-plug-type2",
+      "options": null,
+      "suggested_display_precision": 2,
+      "enabled_default": true
+    },
+    "LastSessionStartSensor": {
+      "unique_id": "entry-test_last_session_start",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "2026-10-27T10:00:00Z",
+      "available": false,
+      "attributes": null,
+      "translation_key": "last_session_start",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:clock-start",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionEndSensor": {
+      "unique_id": "entry-test_last_session_end",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "2026-10-27T11:00:00Z",
+      "available": false,
+      "attributes": null,
+      "translation_key": "last_session_end",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:clock-end",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionPlugTimeSensor": {
+      "unique_id": "entry-test_last_session_plug_time",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "2026-10-27T09:59:00Z",
+      "available": false,
+      "attributes": null,
+      "translation_key": "last_session_plug_time",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:power-plug",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionUnplugTimeSensor": {
+      "unique_id": "entry-test_last_session_unplug_time",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "2026-10-27T11:01:00Z",
+      "available": false,
+      "attributes": null,
+      "translation_key": "last_session_unplug_time",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": null,
+      "icon": "mdi:power-plug-off",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionTransactionIdSensor": {
+      "unique_id": "entry-test_last_session_transaction_id",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "51",
+      "available": false,
+      "attributes": null,
+      "translation_key": "last_session_transaction_id",
+      "translation_placeholders": null,
+      "device_class": null,
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:identifier",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionChargeModeSensor": {
+      "unique_id": "entry-test_last_session_charge_mode",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "plug_and_charge",
+      "available": false,
+      "attributes": {
+        "raw_value": "3"
+      },
+      "translation_key": "last_session_charge_mode",
+      "translation_placeholders": null,
+      "device_class": "ENUM",
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:shield-key-outline",
+      "options": [
+        "home_assistant_rfid",
+        "rfid_only",
+        "plug_and_charge",
+        "unknown_mode"
+      ],
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "LastSessionWorkModeSensor": {
+      "unique_id": "entry-test_last_session_work_mode",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": "pv_linkage",
+      "available": false,
+      "attributes": {
+        "raw_value": "PVlink"
+      },
+      "translation_key": "last_session_work_mode",
+      "translation_placeholders": null,
+      "device_class": "ENUM",
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:ev-station",
+      "options": [
+        "fast",
+        "pv_linkage",
+        "off_peak",
+        "unknown_mode"
+      ],
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "TemperatureSensor": {
+      "unique_id": "entry-test_temperature",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 27.5,
+      "available": false,
+      "attributes": null,
+      "translation_key": "temperature",
+      "translation_placeholders": null,
+      "device_class": "TEMPERATURE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "CELSIUS",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "ExternalMeterHealthSensor": {
+      "unique_id": "entry-test_load_balancing_health",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": "not_reported",
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null,
+        "information": "details",
+        "connector_id": null,
+        "error_code": null,
+        "info": null,
+        "consecutive_timeouts": 0
+      },
+      "translation_key": "external_meter_health",
+      "translation_placeholders": null,
+      "device_class": "ENUM",
+      "state_class": null,
+      "native_unit_of_measurement": null,
+      "entity_category": "DIAGNOSTIC",
+      "icon": "mdi:meter-electric-outline",
+      "options": [
+        "healthy",
+        "faulted",
+        "stale",
+        "not_reported"
+      ],
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridPowerSensor": {
+      "unique_id": "entry-test_load_balancing_power",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": -1200,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_power",
+      "translation_placeholders": null,
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": null,
+      "icon": "mdi:transmission-tower",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "CurrentSensor:L1": {
+      "unique_id": "entry-test_current_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 16,
+      "available": false,
+      "attributes": null,
+      "translation_key": "current",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "CurrentSensor:L2": {
+      "unique_id": "entry-test_current_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 15.5,
+      "available": false,
+      "attributes": null,
+      "translation_key": "current",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "CurrentSensor:L3": {
+      "unique_id": "entry-test_current_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": false,
+      "attributes": null,
+      "translation_key": "current",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "VoltageSensor:L1": {
+      "unique_id": "entry-test_voltage_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 230,
+      "available": false,
+      "attributes": null,
+      "translation_key": "voltage",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "VoltageSensor:L2": {
+      "unique_id": "entry-test_voltage_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 231,
+      "available": false,
+      "attributes": null,
+      "translation_key": "voltage",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "VoltageSensor:L3": {
+      "unique_id": "entry-test_voltage_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": false,
+      "attributes": null,
+      "translation_key": "voltage",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "PhasePowerSensor:L1": {
+      "unique_id": "entry-test_power_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 3680,
+      "available": false,
+      "attributes": null,
+      "translation_key": "phase_power",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "PhasePowerSensor:L2": {
+      "unique_id": "entry-test_power_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 3580,
+      "available": false,
+      "attributes": null,
+      "translation_key": "phase_power",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "PhasePowerSensor:L3": {
+      "unique_id": "entry-test_power_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test"
+          ]
+        ],
+        "name": "Growatt THOR EV Charger",
+        "manufacturer": "Growatt",
+        "model": "THOR"
+      },
+      "state": 0,
+      "available": false,
+      "attributes": null,
+      "translation_key": "phase_power",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "POWER",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "WATT",
+      "entity_category": "DIAGNOSTIC",
+      "icon": null,
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridVoltageSensor:L1": {
+      "unique_id": "entry-test_load_balancing_voltage_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": 229,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_voltage",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": null,
+      "icon": "mdi:current-ac",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridVoltageSensor:L2": {
+      "unique_id": "entry-test_load_balancing_voltage_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": 232,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_voltage",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": null,
+      "icon": "mdi:current-ac",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridVoltageSensor:L3": {
+      "unique_id": "entry-test_load_balancing_voltage_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_voltage",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "VOLTAGE",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "VOLT",
+      "entity_category": null,
+      "icon": "mdi:current-ac",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridCurrentSensor:L1": {
+      "unique_id": "entry-test_load_balancing_current_l1",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": -2,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_current",
+      "translation_placeholders": {
+        "phase": "L1"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": null,
+      "icon": "mdi:current-dc",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridCurrentSensor:L2": {
+      "unique_id": "entry-test_load_balancing_current_l2",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": 1,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_current",
+      "translation_placeholders": {
+        "phase": "L2"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": null,
+      "icon": "mdi:current-dc",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    },
+    "GridCurrentSensor:L3": {
+      "unique_id": "entry-test_load_balancing_current_l3",
+      "device": {
+        "identifiers": [
+          [
+            "growatt_thor",
+            "entry-test",
+            "grid_connection"
+          ]
+        ],
+        "name": "Growatt THOR External Meter",
+        "manufacturer": "Growatt",
+        "model": "THOR External Meter"
+      },
+      "state": null,
+      "available": false,
+      "attributes": {
+        "vendor_used": null,
+        "vendor_wring": null,
+        "last_updated_at": null
+      },
+      "translation_key": "grid_current",
+      "translation_placeholders": {
+        "phase": "L3"
+      },
+      "device_class": "CURRENT",
+      "state_class": "MEASUREMENT",
+      "native_unit_of_measurement": "AMPERE",
+      "entity_category": null,
+      "icon": "mdi:current-dc",
+      "options": null,
+      "suggested_display_precision": null,
+      "enabled_default": true
+    }
+  }
+}

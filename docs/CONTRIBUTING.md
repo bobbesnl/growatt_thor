@@ -87,6 +87,8 @@ See [frontend development](../frontend/README.md) for generated files to commit 
 the local preview. Simulator and unit-test results do not establish real-device
 compatibility; describe HA/firmware testing separately when reporting validation.
 
+Sensor metadata and simple value functions live in `custom_components/growatt_thor/sensor_descriptions.py`; the platform in `sensor.py` applies those descriptions. Extend the description table for ordinary fields and keep lifecycle-specific behavior in a dedicated class.
+
 ## Keep changes understandable
 
 - Keep HA-discovered platform modules at the integration root and feature code

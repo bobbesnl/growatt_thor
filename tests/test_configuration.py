@@ -649,31 +649,21 @@ class EntityTranslationTest(unittest.TestCase):
         )
 
     def test_existing_sensor_names_use_translation_keys(self):
-        tree = ast.parse(SENSOR_PATH.read_text(encoding="utf-8"))
-        hardcoded_names = []
-        translation_keys = set()
+        from tests.support import load_sensor_module
 
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Assign):
-                continue
-            for target in node.targets:
-                attribute = (
-                    target.id
-                    if isinstance(target, ast.Name)
-                    else target.attr
-                    if isinstance(target, ast.Attribute)
-                    else None
-                )
-                if attribute == "_attr_name":
-                    hardcoded_names.append(node.lineno)
-                elif (
-                    attribute == "_attr_translation_key"
-                    and isinstance(node.value, ast.Constant)
-                    and isinstance(node.value.value, str)
-                ):
-                    translation_keys.add(node.value.value)
-
-        self.assertEqual(hardcoded_names, [])
+        platform = load_sensor_module()
+        descriptions = list(platform.SENSOR_DESCRIPTIONS.values())
+        descriptions += [
+            item.entity_description for item in platform.CONFIGURATION_SENSOR_DESCRIPTIONS
+        ]
+        descriptions += [item.entity_description for item in platform.OCPP_BOOT_SENSOR_DESCRIPTIONS]
+        translation_keys = {item.translation_key for item in descriptions}
+        translation_keys.update(
+            {
+                platform.StatusSensor._attr_translation_key,
+                platform.LastCommandResultSensor._attr_translation_key,
+            }
+        )
         self.assertTrue(
             {
                 "status",
@@ -689,6 +679,16 @@ class EntityTranslationTest(unittest.TestCase):
                 "grid_current",
             }.issubset(translation_keys)
         )
+        for filename in ("sensor.py", "sensor_descriptions.py"):
+            tree = ast.parse((SENSOR_PATH.parent / filename).read_text())
+            for item in ast.walk(tree):
+                if isinstance(item, ast.Assign):
+                    self.assertFalse(
+                        any(
+                            isinstance(target, ast.Name) and target.id == "_attr_name"
+                            for target in item.targets
+                        )
+                    )
 
     def test_last_command_result_sensor_is_registered_and_correlatable(self):
         source = SENSOR_PATH.read_text(encoding="utf-8")
@@ -723,39 +723,24 @@ class EntityTranslationTest(unittest.TestCase):
             )
 
     def test_last_session_duration_declares_ha_duration_semantics(self):
-        tree = ast.parse(SENSOR_PATH.read_text(encoding="utf-8"))
-        duration_class = next(
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef) and node.name == "LastSessionDurationSensor"
-        )
-        assignments = {
-            target.id: node.value
-            for node in duration_class.body
-            if isinstance(node, ast.Assign)
-            for target in node.targets
-            if isinstance(target, ast.Name)
-        }
-        self.assertEqual(
-            ast.unparse(assignments["_attr_device_class"]),
-            "SensorDeviceClass.DURATION",
-        )
-        self.assertEqual(
-            ast.unparse(assignments["_attr_native_unit_of_measurement"]),
-            "UnitOfTime.HOURS",
-        )
-        self.assertEqual(
-            ast.literal_eval(assignments["_attr_suggested_display_precision"]),
-            2,
-        )
+        from types import SimpleNamespace
 
-        native_value = next(
-            node
-            for node in duration_class.body
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and node.name == "native_value"
+        from tests.support import load_package_module, load_sensor_module
+
+        platform = load_sensor_module()
+        description = platform.LastSessionDurationSensor.entity_description
+        self.assertEqual(description.device_class, platform.SensorDeviceClass.DURATION)
+        self.assertEqual(
+            description.native_unit_of_measurement,
+            load_package_module(
+                "sensor_descriptions", package_name=platform.__package__
+            ).UnitOfTime.HOURS,
         )
-        self.assertIn("minutes / 60", ast.unparse(native_value))
+        self.assertEqual(description.suggested_display_precision, 2)
+        entity = platform.LastSessionDurationSensor(
+            SimpleNamespace(last_session_duration_minutes=90), SimpleNamespace(entry_id="entry")
+        )
+        self.assertEqual(entity.native_value, 1.5)
 
     def test_control_entities_are_translated(self):
         expected = {
@@ -904,7 +889,9 @@ class EntityTranslationTest(unittest.TestCase):
                     self.assertEqual(states["pv_linkage_plus"], labels[1])
 
     def test_direct_control_shadow_sensors_are_disabled_by_default(self):
-        tree = ast.parse(SENSOR_PATH.read_text(encoding="utf-8"))
+        tree = ast.parse(
+            (SENSOR_PATH.parent / "sensor_descriptions.py").read_text(encoding="utf-8")
+        )
         defaults = {}
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
@@ -939,10 +926,11 @@ class EntityTranslationTest(unittest.TestCase):
             {key: False for key in shadow_keys},
         )
 
-        sensor_source = SENSOR_PATH.read_text(encoding="utf-8")
-        self.assertIn(
-            "_attr_entity_registry_enabled_default = False",
-            sensor_source,
+        from tests.support import load_sensor_module
+
+        platform = load_sensor_module()
+        self.assertFalse(
+            platform.ElectricityPriceSensor.entity_description.entity_registry_enabled_default
         )
 
     def test_control_state_attributes_exclude_write_lifecycle_details(self):
