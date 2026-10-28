@@ -214,7 +214,7 @@ class LoadBalancingEnableSwitch(GrowattConfigurationWriteMixin, ThorEntity, Swit
         await async_require_command_completion(handle)
 
 
-class LcdDisplaySwitch(ThorEntity, SwitchEntity):
+class LcdDisplaySwitch(GrowattConfigurationWriteMixin, ThorEntity, SwitchEntity):
     """Switch to enable/disable LCD display (G_LCDCloseEnable)."""
 
     _attr_has_entity_name = True
@@ -225,8 +225,12 @@ class LcdDisplaySwitch(ThorEntity, SwitchEntity):
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_lcd_display"
-        # Zelfde identifiers als de hoofdcharger zodat deze entity
-        # verschijnt bij max stroom, charge aan/uit etc.
+        # Keep LCD controls on the same charger device as current and Start/Stop.
+
+    def _on_accepted(self, raw_value, *, key=None, value=None) -> None:
+        self.coordinator.lcd_close_enable = raw_value
+        super()._on_accepted(raw_value, key=key, value=value)
+        self.coordinator.async_set_updated_data(True)
 
     @property
     def is_on(self):
@@ -270,11 +274,11 @@ class LcdDisplaySwitch(ThorEntity, SwitchEntity):
         return super().available and self.coordinator.connected and self.is_on is not None
 
     async def async_turn_on(self, **kwargs):
-        """Zet LCD AAN (G_LCDCloseEnable = Disable)."""
+        """Turn the LCD on (G_LCDCloseEnable = Disable)."""
         await self._set_value("Disable")
 
     async def async_turn_off(self, **kwargs):
-        """Zet LCD UIT (G_LCDCloseEnable = Enable)."""
+        """Turn the LCD off (G_LCDCloseEnable = Enable)."""
         await self._set_value("Enable")
 
     async def _apply_lcd_close_enable(
@@ -297,7 +301,7 @@ class LcdDisplaySwitch(ThorEntity, SwitchEntity):
 
         key = KEY_LCDCLOSE_ENABLE
         try:
-            result = await charge_point.change_configuration(key, value)
+            result = await self._send_configuration(charge_point, key, self._encode(value))
         except ChargerConnectionUnavailable:
             raise
         except ChargerRequestOutcomeUncertain as exc:
@@ -310,28 +314,16 @@ class LcdDisplaySwitch(ThorEntity, SwitchEntity):
             self.coordinator.schedule_configuration_refresh(delay=0)
             return ChargerWriteResult.uncertain(str(exc))
 
-        accepted = result in {
-            ConfigurationStatus.accepted,
-            ConfigurationStatus.reboot_required,
-        }
-        outcome_is_current = self.coordinator.acknowledge_configuration_write(
-            key,
-            generation=generation,
-            accepted=accepted,
-            result=result,
-        )
+        response = self._acknowledge_configuration_response(key, generation, result)
+        outcome_is_current = response.current
 
         if result == ConfigurationStatus.accepted:
             if outcome_is_current:
-                self.coordinator.lcd_close_enable = value
-                self.coordinator.update_configuration_value(key, value)
-                self.coordinator.async_set_updated_data(True)
+                self._on_accepted(value, key=key)
             _LOGGER.info("LCD display → %s (accepted)", "ON" if value == "Disable" else "OFF")
         elif result == ConfigurationStatus.reboot_required:
             if outcome_is_current:
-                self.coordinator.lcd_close_enable = value
-                self.coordinator.update_configuration_value(key, value)
-                self.coordinator.async_set_updated_data(True)
+                self._on_accepted(value, key=key)
             _LOGGER.warning(
                 "LCD display → %s (reboot required)",
                 "ON" if value == "Disable" else "OFF",
