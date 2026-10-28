@@ -257,7 +257,7 @@ async def _append_session_to_csv(hass, coordinator, session: dict):
             )
         )
         coordinator.async_set_updated_data(True)
-    _LOGGER.debug("📝 Session appended to CSV: %s", path)
+    _LOGGER.debug("Session appended to CSV: %s", path)
 
 
 async def _update_session_events_in_csv(
@@ -615,7 +615,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         False,
                     ):
                         remaining = int(skip_until - current_time)
-                        _LOGGER.info("⏸️ Polling paused (%ds remaining)", remaining)
+                        _LOGGER.info("Polling paused (%ds remaining)", remaining)
                         periodic_external_meter_poll._skip_logged = True
                     await asyncio.sleep(min(1, skip_until - current_time))
                     current_time = loop.time()
@@ -635,7 +635,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     _LOGGER.debug("External meter poll skipped: charger not connected")
 
             except Exception as exc:
-                _LOGGER.error("💥 Smart poll crashed: %s", exc, exc_info=True)
+                _LOGGER.error("Smart poll crashed: %s", exc, exc_info=True)
 
     runtime_data["polling_task"] = hass.async_create_background_task(
         periodic_external_meter_poll(),

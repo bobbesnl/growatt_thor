@@ -73,7 +73,7 @@ def _preload_ocpp_schemas():
 
 class GrowattChargePoint(OcppChargePoint):
     """
-    Growatt THOR OCPP 1.6 Charge Point with TIER 2 error recovery
+    Growatt THOR OCPP 1.6 Charge Point with guarded handlers and connection recovery
     """
 
     def __init__(self, cp_id, websocket, coordinator, hass):
@@ -230,9 +230,7 @@ class GrowattChargePoint(OcppChargePoint):
                 )
             return
 
-    # ─────────────────────────────
     # Boot / keepalive
-    # ─────────────────────────────
 
     @on("BootNotification")
     async def on_boot_notification(self, **payload):
@@ -270,9 +268,7 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.error("Error in Heartbeat handler: %s", exc)
             return call_result.Heartbeat(current_time=self.coordinator.now())
 
-    # ─────────────────────────────
     # Helper: Post-connect init
-    # ─────────────────────────────
 
     def _schedule_post_connect_init(self):
         # Latch synchronously: BootNotification and Heartbeat may both arrive
@@ -285,7 +281,7 @@ class GrowattChargePoint(OcppChargePoint):
         try:
             await asyncio.sleep(1)
 
-            _LOGGER.info("🔄 Auto GetConfiguration after connect")
+            _LOGGER.info("Auto GetConfiguration after connect")
             await self.trigger_get_configuration()
 
             _LOGGER.info("Fetching external meter snapshot after connect")
@@ -298,9 +294,7 @@ class GrowattChargePoint(OcppChargePoint):
         except Exception as exc:
             _LOGGER.warning("Post-connect init failed: %s", exc)
 
-    # ─────────────────────────────
     # Transactions
-    # ─────────────────────────────
 
     @on("Authorize")
     async def on_authorize(self, id_tag, **kwargs):
@@ -385,9 +379,7 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.error("StopTransaction handling failed")
             return call_result.StopTransaction()
 
-    # ─────────────────────────────
     # Status & Metering
-    # ─────────────────────────────
 
     @on("StatusNotification")
     async def on_status_notification(self, connector_id, status, error_code=None, **kwargs):
@@ -426,9 +418,7 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.error("Error in MeterValues handler: %s", exc, exc_info=True)
             return call_result.MeterValues()
 
-    # ─────────────────────────────
     # Growatt vendor DataTransfer
-    # ─────────────────────────────
 
     @on("DataTransfer")
     async def on_data_transfer(self, vendor_id, message_id=None, data=None, **kwargs):
@@ -464,9 +454,7 @@ class GrowattChargePoint(OcppChargePoint):
             )
         return call_result.DataTransfer(status=DataTransferStatus.accepted)
 
-    # ─────────────────────────────
     # Active triggers
-    # ─────────────────────────────
 
     def _normalize_configuration_list(self, payload, field_name, call_name):
         if payload is None:
@@ -604,12 +592,10 @@ class GrowattChargePoint(OcppChargePoint):
     async def _request_configuration(self):
         """Perform the two firmware-sized GetConfiguration calls."""
         try:
-            # ═══════════════════════════════════════════════════════
             # CALL 1: Operational keys
             # Keys actively used by the coordinator + essential OCPP
             # protocol keys. Explicit list keeps response small and
             # compatible with all THOR firmware variants (incl. 07AS)
-            # ═══════════════════════════════════════════════════════
 
             operational_keys = list(OPERATIONAL_CONFIGURATION_KEYS)
 
@@ -649,13 +635,10 @@ class GrowattChargePoint(OcppChargePoint):
                 config_keys_1,
                 unknown_keys_1,
             )
-
-            # ═══════════════════════════════════════════════════════
             # CALL 2: Informational / diagnostic keys
             # Device info, network, solar, off-peak — display only
             # Capped at 30 keys (firmware hard limit per request)
             # G_WifiPassword intentionally excluded (security)
-            # ═══════════════════════════════════════════════════════
 
             await asyncio.sleep(0.5)
 
@@ -688,10 +671,7 @@ class GrowattChargePoint(OcppChargePoint):
                 len(config_keys_2),
                 len(unknown_keys_2),
             )
-
-            # ═══════════════════════════════════════════════════════
             # Process all keys (call 1 + call 2)
-            # ═══════════════════════════════════════════════════════
 
             all_config_keys = config_keys_1 + config_keys_2
             all_unknown_keys = normalize_unknown_configuration_keys(unknown_keys_1 + unknown_keys_2)
@@ -749,9 +729,7 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.warning("Failed to trigger GetConfiguration: %s", exc)
             return False
 
-    # ─────────────────────────────
     # ChangeConfiguration
-    # ─────────────────────────────
 
     async def change_configuration(self, key: str, value: str):
         try:
@@ -829,9 +807,7 @@ class GrowattChargePoint(OcppChargePoint):
             )
             return DataTransferStatus.rejected
 
-    # ─────────────────────────────
     # Remote Start/Stop Transaction
-    # ─────────────────────────────
 
     async def remote_start_transaction(self, connector_id: int, id_tag: str) -> dict:
         authorization = self.coordinator.authorization
@@ -871,7 +847,7 @@ class GrowattChargePoint(OcppChargePoint):
 
     async def remote_stop_transaction(self, transaction_id: int) -> dict:
         try:
-            _LOGGER.info("🔴 RemoteStopTransaction: transaction_id=%d", transaction_id)
+            _LOGGER.info("RemoteStopTransaction: transaction_id=%d", transaction_id)
             result = await self._run_serialized_request(
                 "RemoteStopTransaction",
                 lambda: self.call(
@@ -889,9 +865,7 @@ class GrowattChargePoint(OcppChargePoint):
             return {"status": "Rejected"}
 
 
-# ─────────────────────────────
 # WebSocket server
-# ─────────────────────────────
 
 
 async def _close_superseded_connection(charge_point):

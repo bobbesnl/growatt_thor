@@ -289,7 +289,7 @@ class SessionLifecycle:
         self.observe_context(notify=False)
         coordinator._schedule_storage_save()
 
-        _LOGGER.info("🔋 New transaction started → Resetting energy counter")
+        _LOGGER.info("New transaction started → Resetting energy counter")
         coordinator.energy = 0
 
         _LOGGER.info("Transaction started: %s", transaction_id)
@@ -384,7 +384,7 @@ class SessionLifecycle:
         coordinator.active_transaction = None
         coordinator._restored_active_session = False
 
-        _LOGGER.info("🛑 Transaction stopped → Resetting charge values")
+        _LOGGER.info("Transaction stopped → Resetting charge values")
         coordinator.power = 0
         coordinator.currents = {"L1": 0, "L2": 0, "L3": 0}
         coordinator.voltages = {"L1": 0, "L2": 0, "L3": 0}

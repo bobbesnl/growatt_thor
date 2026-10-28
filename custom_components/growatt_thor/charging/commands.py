@@ -75,7 +75,7 @@ class StopChargingCommand:
 
         if cancelled_starts and not transaction_active:
             _LOGGER.info(
-                "⏹️ Cancelled %d unsent start command(s); no active transaction needs an OCPP Stop",
+                "Cancelled %d unsent start command(s); no active transaction needs an OCPP Stop",
                 cancelled_starts,
             )
             return
@@ -87,13 +87,13 @@ class StopChargingCommand:
 
         if transaction_id is None or not transaction_active:
             _LOGGER.warning(
-                "⚠️ Cannot stop charging: no active session (status=%s)",
+                "Cannot stop charging: no active session (status=%s)",
                 self.coordinator.status,
             )
             raise_action_validation("no_active_transaction")
 
         _LOGGER.info(
-            "🔘 Queueing stop charging command (transaction_id=%s)",
+            "Queueing stop charging command (transaction_id=%s)",
             transaction_id,
         )
 
@@ -142,13 +142,13 @@ class StopChargingCommand:
 
             if result.get("status") == "Accepted":
                 _command_state(self.coordinator, "stop", "accepted")
-                _LOGGER.info("✅ Charging session stopped successfully")
+                _LOGGER.info("Charging session stopped successfully")
                 self.hass.async_create_task(self._post_status_update())
                 self.coordinator.async_set_updated_data(True)
                 return ChargerWriteResult.success(result.get("status"))
             else:
                 _command_state(self.coordinator, "stop", "rejected")
-                _LOGGER.error("❌ Stop charging rejected: %s", result.get("status"))
+                _LOGGER.error("Stop charging rejected: %s", result.get("status"))
                 return ChargerWriteResult.failed(
                     "charger_rejected",
                     result.get("status"),
@@ -162,7 +162,7 @@ class StopChargingCommand:
             return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
             _command_state(self.coordinator, "stop", "error")
-            _LOGGER.error("❌ Failed to stop charging: %s", exc, exc_info=True)
+            _LOGGER.error("Failed to stop charging: %s", exc, exc_info=True)
             return ChargerWriteResult.failed("unexpected_error")
 
     async def _post_status_update(self):
@@ -177,4 +177,4 @@ class StopChargingCommand:
             await charge_point.trigger_status()
             self.coordinator.async_set_updated_data(True)
         except Exception as exc:
-            _LOGGER.error("❌ Failed to trigger status after stop: %s", exc, exc_info=True)
+            _LOGGER.error("Failed to trigger status after stop: %s", exc, exc_info=True)

@@ -157,18 +157,18 @@ class GrowattCoordinator(DataUpdateCoordinator):
             "effective_grid_cost": 0.0,
         }
 
-        # ── Totaal ─────────────────────────
+        #  Totals
         self.power = None  # W
         self.energy = None  # Wh
 
-        # ── Fase-specifiek ─────────────────
+        #  Per-phase values
         self.currents = {}  # {"L1": A, "L2": A, "L3": A}
         self.voltages = {}  # {"L1": V, "L2": V, "L3": V}
         self.phase_power = {}  # {"L1": W, "L2": W, "L3": W}
 
         self.temperature = None  # °C
 
-        # ── Config (Growatt) ───────────────
+        #  Config (Growatt)
         self.max_current = None
         self._external_limit_power = 10.0
         self.external_limit_power_enable = None
@@ -187,7 +187,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.auto_charge_start_time_pending = None
         self.auto_charge_stop_time_pending = None
 
-        # ── Electricity price ──────────────
+        #  Electricity price
         self.electricity_price = None  # Currency per kWh, parsed from G_TimeSharingPrice
 
         # Last-known raw and normalized GetConfiguration values.
@@ -205,7 +205,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.pv_linkage_draft_dirty = False
         self.pv_linkage_apply_result: PvLinkageApplyResult | None = None
 
-        # ── Last session ─────────────────
+        #  Last session
         self.last_session_energy = None  # kWh
         self.last_session_cost = None  # float
         self.last_session_start = None  # str
@@ -229,10 +229,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
             "total_count": 0,
         }
 
-        # ── Cumulatief totaal (persistent) ─
+        #  Persistent cumulative total
         self.total_energy_charged = 0.0  # kWh
 
-        # ── External meter (grid connection) ───
+        #  External meter (grid connection)
         self.grid_power = None
         self.grid_voltages = {}
         self.grid_currents = {}
@@ -252,9 +252,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._configuration_refresh_task = None
         self._auto_charge_schedule_task = None
 
-    # ─────────────────────────────
     # PERSISTENT STORAGE
-    # ─────────────────────────────
 
     async def async_load_storage(self):
         """Load persistent statistics from HA storage."""
@@ -266,7 +264,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             seeded_from_legacy = bool(data)
             if seeded_from_legacy:
                 _LOGGER.info(
-                    "📦 No storage for this config entry yet; seeding it "
+                    "No storage for this config entry yet; seeding it "
                     "once from the shared legacy storage file"
                 )
         if data:
@@ -324,7 +322,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                         continue
             self.sessions.restore_completions(data.get("pending_completed_sessions"))
             _LOGGER.info(
-                "📦 Loaded from storage: total_energy_charged=%.3f kWh, "
+                "Loaded from storage: total_energy_charged=%.3f kWh, "
                 "next_transaction_id=%d, last_session_transaction_id=%s",
                 self.total_energy_charged,
                 self._transaction_id_allocator.next_transaction_id,
@@ -335,13 +333,13 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 # restarts no longer depend on the shared legacy file.
                 await self.async_save_storage()
         else:
-            _LOGGER.info("📦 No persistent storage found, starting fresh")
+            _LOGGER.info("No persistent storage found, starting fresh")
 
     async def async_save_storage(self):
         """Save persistent statistics to HA storage."""
         await self._store.async_save(self._storage_data())
         _LOGGER.debug(
-            "💾 Saved to storage: total_energy_charged=%.3f kWh, next_transaction_id=%d",
+            "Saved to storage: total_energy_charged=%.3f kWh, next_transaction_id=%d",
             self.total_energy_charged,
             self._transaction_id_allocator.next_transaction_id,
         )
@@ -435,9 +433,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_session_work_mode = state.work_mode
         self._last_session_record_key = state.record_key
 
-    # ─────────────────────────────
     # WRITE QUEUE METHODS
-    # ─────────────────────────────
 
     async def queue_write(
         self,
@@ -487,9 +483,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_command_result = result
         self.async_set_updated_data(True)
 
-    # ─────────────────────────────
-    # 🔑 LOAD BALANCING PROPERTY
-    # ─────────────────────────────
+    # LOAD BALANCING PROPERTY
 
     @property
     def external_limit_power(self):
@@ -502,9 +496,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._external_limit_power = float(value)
         _LOGGER.debug("Load balancing limit updated to: %.1f kW", self._external_limit_power)
 
-    # ─────────────────────────────
     # Utility methods
-    # ─────────────────────────────
 
     def now(self) -> str:
         """Return current UTC timestamp in ISO format."""
@@ -1059,9 +1051,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             reason, transaction_id=transaction_id, meter_stop=meter_stop, **payload
         )
 
-    # ─────────────────────────────
     # MeterValues
-    # ─────────────────────────────
 
     def process_meter_values(
         self,
@@ -1300,12 +1290,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """Delegate this transition to the session lifecycle."""
         return self.sessions.record_stop_requested(reason=reason)
 
-    # ─────────────────────────────
-    # GetConfiguration verwerking
-    # ─────────────────────────────
+    # GetConfiguration processing
 
     def process_configuration(self, configuration: list, unknown_keys=()):
-        """Process GetConfiguration response with TIER 1 error handling."""
+        """Validate configuration responses and safely reject malformed values."""
         self.configuration_values, updated = merge_configuration_values(
             self.configuration_values,
             (item for item in configuration if isinstance(item, dict)),
@@ -1435,17 +1423,13 @@ class GrowattCoordinator(DataUpdateCoordinator):
         if updated:
             self.async_set_updated_data(True)
 
-    # ─────────────────────────────
     # Growatt session records
-    # ─────────────────────────────
 
     def process_session_record(self, record: GrowattSessionRecord):
         """Delegate this transition to the session lifecycle."""
         return self.sessions.process_session_record(record)
 
-    # ─────────────────────────────
     # Growatt external meter values
-    # ─────────────────────────────
 
     @property
     def external_meter_health(self) -> str:

@@ -205,7 +205,7 @@ class ChargerWriteQueue:
             self._pending.append(write_item)
 
         _LOGGER.debug(
-            "📥 Queued %s [%s]. Queue size: %d",
+            "Queued %s [%s]. Queue size: %d",
             write_item.command_name,
             write_item.command_id,
             len(self._pending),
@@ -258,7 +258,7 @@ class ChargerWriteQueue:
                             # A later write with the same dedupe key can still
                             # replace it, preserving last-value-wins semantics.
                             _LOGGER.info(
-                                "⏸️ Waiting for reconnect before %s",
+                                "Waiting for reconnect before %s",
                                 write_item.command_name,
                             )
                             self.connection_changed.clear()
@@ -284,7 +284,7 @@ class ChargerWriteQueue:
 
                         if wait_time > 0:
                             _LOGGER.info(
-                                "⏳ Waiting %.1fs before %s. Queue: %d total",
+                                "Waiting %.1fs before %s. Queue: %d total",
                                 wait_time,
                                 write_item.command_name,
                                 len(self._pending),
@@ -322,7 +322,7 @@ class ChargerWriteQueue:
                     try:
                         queue_age = self.owner.hass.loop.time() - write_item.enqueued_at
                         _LOGGER.info(
-                            "✍️ Executing %s [%s] after %.1fs. Remaining in queue: %d",
+                            "Executing %s [%s] after %.1fs. Remaining in queue: %d",
                             write_item.command_name,
                             write_item.command_id,
                             queue_age,
@@ -333,7 +333,7 @@ class ChargerWriteQueue:
                             self.owner.pause_polling_until(
                                 self.owner.hass.loop.time() + self.poll_pause_after_write
                             )
-                            _LOGGER.info("🛡️ Polling paused BEFORE write (Thor FW protection)")
+                            _LOGGER.info("Polling paused BEFORE write (Thor FW protection)")
 
                         result = await write_item.func(
                             *call_args,
@@ -388,7 +388,7 @@ class ChargerWriteQueue:
                         else:
                             self._pending.appendleft(write_item)
                             _LOGGER.info(
-                                "↻ Deferring %s until the current connection is ready: %s",
+                                "Deferring %s until the current connection is ready: %s",
                                 write_item.command_name,
                                 err,
                             )
@@ -423,7 +423,7 @@ class ChargerWriteQueue:
                         raise
 
                     except Exception as err:
-                        _LOGGER.error("❌ Write command failed: %s", err, exc_info=True)
+                        _LOGGER.error("Write command failed: %s", err, exc_info=True)
                         self._resolve_write_result(
                             write_item,
                             ChargerWriteResult.failed("unexpected_error"),
@@ -513,35 +513,35 @@ class ChargerWriteQueue:
 
         details = result.reason or result.charger_result or "no details"
         if result.status == ChargerWriteStatus.SUCCESS:
-            _LOGGER.info("✅ Write succeeded: %s (%s)", command_label, details)
+            _LOGGER.info("Write succeeded: %s (%s)", command_label, details)
         elif result.status == ChargerWriteStatus.FAILED:
-            _LOGGER.error("❌ Write failed: %s (%s)", command_label, details)
+            _LOGGER.error("Write failed: %s (%s)", command_label, details)
         elif result.status == ChargerWriteStatus.PARTIAL:
             _LOGGER.error(
-                "◐ Compound write only partially applied: %s (%s)",
+                "Compound write only partially applied: %s (%s)",
                 command_label,
                 details,
             )
         elif result.status == ChargerWriteStatus.SKIPPED:
             if result.reason == "replaced_by_newer_intent":
                 _LOGGER.info(
-                    "↪️ Queued write replaced: %s (%s)",
+                    "Queued write replaced: %s (%s)",
                     command_label,
                     details,
                 )
             elif result.reason and result.reason.startswith("cancelled_by_"):
                 _LOGGER.info(
-                    "↩️ Queued write cancelled: %s (%s)",
+                    "Queued write cancelled: %s (%s)",
                     command_label,
                     details,
                 )
             else:
-                _LOGGER.warning("⏭️ Write skipped: %s (%s)", command_label, details)
+                _LOGGER.warning("Write skipped: %s (%s)", command_label, details)
         elif result.status == ChargerWriteStatus.EXPIRED:
-            _LOGGER.warning("⌛ Write expired: %s (%s)", command_label, details)
+            _LOGGER.warning("Write expired: %s (%s)", command_label, details)
         else:
             _LOGGER.warning(
-                "❔ Write outcome uncertain: %s (%s)",
+                "Write outcome uncertain: %s (%s)",
                 command_label,
                 details,
             )

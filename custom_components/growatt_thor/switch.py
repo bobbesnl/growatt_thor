@@ -174,17 +174,17 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
             if outcome_is_current:
                 self.coordinator.external_limit_power_enable = new_state
                 self.coordinator.async_set_updated_data(True)
-            _LOGGER.info("✅ Loadbalancing enabled → %s (accepted)", "ON" if new_state else "OFF")
+            _LOGGER.info("Loadbalancing enabled → %s (accepted)", "ON" if new_state else "OFF")
         elif result == ConfigurationStatus.reboot_required:
             if outcome_is_current:
                 self.coordinator.external_limit_power_enable = new_state
                 self.coordinator.async_set_updated_data(True)
             _LOGGER.warning(
-                "⚠️ Loadbalancing enabled → %s (reboot required)",
+                "Loadbalancing enabled → %s (reboot required)",
                 "ON" if new_state else "OFF",
             )
         else:
-            _LOGGER.error("❌ Enable loadbalancing change rejected: %s", result)
+            _LOGGER.error("Enable loadbalancing change rejected: %s", result)
             return ChargerWriteResult.failed("charger_rejected", result)
         return ChargerWriteResult.success(result)
 
@@ -345,18 +345,18 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
                 self.coordinator.lcd_close_enable = value
                 self.coordinator.update_configuration_value(key, value)
                 self.coordinator.async_set_updated_data(True)
-            _LOGGER.info("✅ LCD display → %s (accepted)", "ON" if value == "Disable" else "OFF")
+            _LOGGER.info("LCD display → %s (accepted)", "ON" if value == "Disable" else "OFF")
         elif result == ConfigurationStatus.reboot_required:
             if outcome_is_current:
                 self.coordinator.lcd_close_enable = value
                 self.coordinator.update_configuration_value(key, value)
                 self.coordinator.async_set_updated_data(True)
             _LOGGER.warning(
-                "⚠️ LCD display → %s (reboot required)",
+                "LCD display → %s (reboot required)",
                 "ON" if value == "Disable" else "OFF",
             )
         else:
-            _LOGGER.error("❌ LCD display change rejected: %s", result)
+            _LOGGER.error("LCD display change rejected: %s", result)
             self.coordinator.async_set_updated_data(True)
             return ChargerWriteResult.failed("charger_rejected", result)
 

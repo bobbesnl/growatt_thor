@@ -60,9 +60,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     )
 
 
-# ─────────────────────────────
 # Start Charging Button
-# ─────────────────────────────
 
 
 class StartChargingButton(CoordinatorEntity, ButtonEntity):
@@ -117,12 +115,12 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 
         if self.coordinator.transaction_is_active:
             _LOGGER.warning(
-                "⚠️ Cannot start charging: session already active (transaction_id=%s)",
+                "Cannot start charging: session already active (transaction_id=%s)",
                 self.coordinator.transaction_id,
             )
             raise_action_validation("charging_already_active")
 
-        _LOGGER.info("🔘 Queueing priority start charging command")
+        _LOGGER.info("Queueing priority start charging command")
         _command_state(self.coordinator, "start", "queued")
         handle = await self.coordinator.queue_write(
             self._start_charging,
@@ -155,7 +153,7 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
 
             if result.get("status") == "Accepted":
                 _command_state(self.coordinator, "start", "accepted")
-                _LOGGER.info("✅ Charging session started successfully")
+                _LOGGER.info("Charging session started successfully")
                 self.hass.async_create_task(self._post_status_update())
                 self.coordinator.async_set_updated_data(True)
                 return ChargerWriteResult.success(result.get("status"))
@@ -180,7 +178,7 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
             _command_state(self.coordinator, "start", "error")
-            _LOGGER.error("❌ Failed to start charging: %s", exc, exc_info=True)
+            _LOGGER.error("Failed to start charging: %s", exc, exc_info=True)
             return ChargerWriteResult.failed("unexpected_error")
 
     async def _post_status_update(self):
@@ -195,12 +193,10 @@ class StartChargingButton(CoordinatorEntity, ButtonEntity):
             await charge_point.trigger_status()
             self.coordinator.async_set_updated_data(True)
         except Exception as exc:
-            _LOGGER.error("❌ Failed to trigger status after start: %s", exc, exc_info=True)
+            _LOGGER.error("Failed to trigger status after start: %s", exc, exc_info=True)
 
 
-# ─────────────────────────────
 # Stop Charging Button
-# ─────────────────────────────
 
 
 class StopChargingButton(CoordinatorEntity, ButtonEntity):

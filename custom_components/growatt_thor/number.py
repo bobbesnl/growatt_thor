@@ -149,9 +149,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     )
 
 
-# ─────────────────────────────
 # Base class
-# ─────────────────────────────
 
 
 class BaseConfigNumber(CoordinatorEntity, NumberEntity):
@@ -179,9 +177,7 @@ class BaseConfigNumber(CoordinatorEntity, NumberEntity):
         return super().available and self.coordinator.connected and self.native_value is not None
 
 
-# ─────────────────────────────
 # Max Current
-# ─────────────────────────────
 
 
 class MaxCurrentNumber(BaseConfigNumber):
@@ -261,7 +257,7 @@ class MaxCurrentNumber(BaseConfigNumber):
         )
         self.coordinator.max_current = value
         self.coordinator.async_set_updated_data(True)
-        _LOGGER.info("📝 Max Current UI updated to %d A (queued for write)", value)
+        _LOGGER.info("Max Current UI updated to %d A (queued for write)", value)
 
         # ``previous`` comes from the last reported configuration, not from the
         # optimistic UI value.  During rapid 13 → 20 → 17 changes, rolling 17
@@ -340,7 +336,7 @@ class MaxCurrentNumber(BaseConfigNumber):
                         str(value),
                     )
                     self.coordinator.async_set_updated_data(True)
-                _LOGGER.info("✅ Max Current written to Thor: %d A", value)
+                _LOGGER.info("Max Current written to Thor: %d A", value)
             elif result == ConfigurationStatus.reboot_required:
                 if outcome_is_current:
                     self.coordinator.max_current = value
@@ -349,10 +345,10 @@ class MaxCurrentNumber(BaseConfigNumber):
                         str(value),
                     )
                     self.coordinator.async_set_updated_data(True)
-                _LOGGER.warning("⚠️ Max Current write accepted (reboot required): %d A", value)
+                _LOGGER.warning("Max Current write accepted (reboot required): %d A", value)
             else:
                 _LOGGER.error(
-                    "❌ Max Current rejected by Thor: %s — rolling back UI to %s A",
+                    "Max Current rejected by Thor: %s — rolling back UI to %s A",
                     result,
                     previous,
                 )
@@ -377,14 +373,12 @@ class MaxCurrentNumber(BaseConfigNumber):
             self.coordinator.schedule_configuration_refresh(delay=0)
             return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
-            _LOGGER.error("❌ Failed to set Max Current: %s", exc, exc_info=True)
+            _LOGGER.error("Failed to set Max Current: %s", exc, exc_info=True)
             self._restore_previous_value(previous, generation)
             return ChargerWriteResult.failed("unexpected_error")
 
 
-# ─────────────────────────────
 # Load Balancing Limit
-# ─────────────────────────────
 
 
 class LoadBalancingLimitNumber(BaseConfigNumber):
@@ -484,7 +478,7 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
         )
         self.coordinator.external_limit_power = value
         self.coordinator.async_set_updated_data(True)
-        _LOGGER.info("📝 Load Balancing Limit UI updated to %d kW (queued for write)", value)
+        _LOGGER.info("Load Balancing Limit UI updated to %d kW (queued for write)", value)
 
         generation = self.coordinator.begin_configuration_write(
             self._config_key,
@@ -557,18 +551,18 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
                 if outcome_is_current:
                     self.coordinator.external_limit_power = value
                     self.coordinator.async_set_updated_data(True)
-                _LOGGER.info("✅ Load Balancing Limit written to Thor: %d kW", value)
+                _LOGGER.info("Load Balancing Limit written to Thor: %d kW", value)
             elif result == ConfigurationStatus.reboot_required:
                 if outcome_is_current:
                     self.coordinator.external_limit_power = value
                     self.coordinator.async_set_updated_data(True)
                 _LOGGER.warning(
-                    "⚠️ Load Balancing Limit write accepted (reboot required): %d kW",
+                    "Load Balancing Limit write accepted (reboot required): %d kW",
                     value,
                 )
             else:
                 _LOGGER.error(
-                    "❌ Load Balancing Limit rejected by Thor: %s — rolling back UI to %s kW",
+                    "Load Balancing Limit rejected by Thor: %s — rolling back UI to %s kW",
                     result,
                     previous,
                 )
@@ -589,14 +583,12 @@ class LoadBalancingLimitNumber(BaseConfigNumber):
             self.coordinator.schedule_configuration_refresh(delay=0)
             return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
-            _LOGGER.error("❌ Failed to set Load Balancing Limit: %s", exc, exc_info=True)
+            _LOGGER.error("Failed to set Load Balancing Limit: %s", exc, exc_info=True)
             self._restore_previous_value(previous, generation)
             return ChargerWriteResult.failed("unexpected_error")
 
 
-# ─────────────────────────────
 # Electricity price
-# ─────────────────────────────
 
 
 class ElectricityPriceNumber(BaseConfigNumber):
@@ -651,7 +643,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
 
         charge_point = self.coordinator.runtime_data.get("charge_point")
         if not charge_point:
-            _LOGGER.warning("Cannot change Elektricteitstarief: charger not connected")
+            _LOGGER.warning("Cannot change Electricity tariff: charger not connected")
             raise_charger_disconnected()
 
         current = _validated_reported_entity_number(
@@ -669,7 +661,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
         previous = _validated_reported_entity_number(self, reported_value)
         self.coordinator.electricity_price = value
         self.coordinator.async_set_updated_data(True)
-        _LOGGER.info("📝 Electricity price updated to %.2f per kWh (queued for write)", value)
+        _LOGGER.info("Electricity price updated to %.2f per kWh (queued for write)", value)
 
         price_str = f"time1=00:00-23:59&price1={value:.2f}"
         generation = self.coordinator.begin_configuration_write(
@@ -715,7 +707,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
             )
             return ChargerWriteResult.skipped(block_reason)
         price_str = (
-            f"time1=00:00-23:59&price1={value:.2f}"  # ← gecorrigeerd: formaat conform THOR response
+            f"time1=00:00-23:59&price1={value:.2f}"  # Match the time-period format returned by THOR
         )
         try:
             result = await charge_point.change_configuration(
@@ -742,7 +734,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
                         price_str,
                     )
                     self.coordinator.async_set_updated_data(True)
-                _LOGGER.info("✅ Elektricteitstarief written to Thor: %s", price_str)
+                _LOGGER.info("Electricity tariff written to Thor: %s", price_str)
             elif result == ConfigurationStatus.reboot_required:
                 if outcome_is_current:
                     self.coordinator.electricity_price = value
@@ -752,12 +744,12 @@ class ElectricityPriceNumber(BaseConfigNumber):
                     )
                     self.coordinator.async_set_updated_data(True)
                 _LOGGER.warning(
-                    "⚠️ Elektricteitstarief write accepted (reboot required): %s",
+                    "Electricity tariff write accepted (reboot required): %s",
                     price_str,
                 )
             else:
                 _LOGGER.error(
-                    "❌ Elektricteitstarief rejected by Thor: %s — rolling back to %.2f",
+                    "Electricity tariff rejected by Thor: %s — rolling back to %.2f",
                     result,
                     previous,
                 )
@@ -779,7 +771,7 @@ class ElectricityPriceNumber(BaseConfigNumber):
             self.coordinator.schedule_configuration_refresh(delay=0)
             return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
-            _LOGGER.error("❌ Failed to set Elektricteitstarief: %s", exc, exc_info=True)
+            _LOGGER.error("Failed to set Electricity tariff: %s", exc, exc_info=True)
             self._restore_previous_value(previous, generation)
             return ChargerWriteResult.failed("unexpected_error")
 

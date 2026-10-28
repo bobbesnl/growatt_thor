@@ -382,7 +382,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     async_add_entities(
         [
-            # ── Status / live ─────────────────────────
+            #  Status / live
             StatusSensor(coordinator, entry),
             LastChargerFaultSensor(coordinator, entry),
             LastCommandResultSensor(coordinator, entry),
@@ -391,7 +391,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             ChargingPowerSensor(coordinator, entry),
             EnergyChargedSensor(coordinator, entry),
             ServerUrlSensor(coordinator, entry),
-            # ── Laatste sessie ────────────────────────
+            #  Last session
             LastSessionEnergySensor(coordinator, entry),
             LastSessionCostSensor(coordinator, entry),
             LastSessionStartSensor(coordinator, entry),
@@ -403,10 +403,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
             LastSessionTransactionIdSensor(coordinator, entry),
             LastSessionChargeModeSensor(coordinator, entry),
             LastSessionWorkModeSensor(coordinator, entry),
-            # ── Cumulatief totaal (Energy Dashboard) ──
+            #  Persistent cumulative total (Energy Dashboard)
             TotalEnergyChargedSensor(coordinator, entry),
             *site_sensors,
-            # ── Fase-specifiek (diagnostics tijdens laden) ──
+            #  Per-phase charging diagnostics
             CurrentSensor(coordinator, entry, "L1"),
             CurrentSensor(coordinator, entry, "L2"),
             CurrentSensor(coordinator, entry, "L3"),
@@ -417,7 +417,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             PhasePowerSensor(coordinator, entry, "L2"),
             PhasePowerSensor(coordinator, entry, "L3"),
             TemperatureSensor(coordinator, entry),
-            # ── Load Balancing Grid sensors ───────────
+            #  Load Balancing Grid sensors
             ExternalMeterHealthSensor(coordinator, entry),
             GridPowerSensor(coordinator, entry),
             GridVoltageSensor(coordinator, entry, "L1"),
@@ -426,17 +426,15 @@ async def async_setup_entry(hass, entry, async_add_entities):
             GridCurrentSensor(coordinator, entry, "L1"),
             GridCurrentSensor(coordinator, entry, "L2"),
             GridCurrentSensor(coordinator, entry, "L3"),
-            # ── Elektricteitstarief ───────────────────
+            #  Electricity tariff
             ElectricityPriceSensor(coordinator, entry),
-            # ── Read-only Growatt configuration ──────
+            #  Read-only Growatt configuration
             *configuration_sensors,
         ]
     )
 
 
-# ─────────────────────────────
 # Base voor charger sensors (EV Charger device)
-# ─────────────────────────────
 
 
 class BaseSensor(CoordinatorEntity, SensorEntity):
@@ -557,9 +555,7 @@ class LastCommandResultSensor(BaseSensor):
         }
 
 
-# ─────────────────────────────
 # Base for external meter sensors
-# ─────────────────────────────
 
 
 class BaseExternalMeterSensor(CoordinatorEntity, SensorEntity):
@@ -586,9 +582,7 @@ class BaseExternalMeterSensor(CoordinatorEntity, SensorEntity):
         }
 
 
-# ─────────────────────────────
 # Read-only retained configuration
-# ─────────────────────────────
 
 
 class GrowattConfigurationSensor(CoordinatorEntity, SensorEntity):
@@ -649,9 +643,7 @@ class GrowattConfigurationSensor(CoordinatorEntity, SensorEntity):
         return attributes
 
 
-# ─────────────────────────────
 # Retained OCPP BootNotification metadata
-# ─────────────────────────────
 
 
 class OcppBootSensor(BaseSensor):
@@ -674,9 +666,7 @@ class OcppBootSensor(BaseSensor):
         return super().available and self.native_value is not None
 
 
-# ─────────────────────────────
 # Server URL (DIAGNOSTIC - EV Charger)
-# ─────────────────────────────
 
 
 class ServerUrlSensor(BaseSensor):
@@ -692,9 +682,7 @@ class ServerUrlSensor(BaseSensor):
         return self.coordinator.server_url
 
 
-# ─────────────────────────────
-# Status (HOOFDSENSOR - EV Charger)
-# ─────────────────────────────
+# Status (MAIN SENSOR - EV Charger)
 
 
 class StatusSensor(BaseSensor):
@@ -772,9 +760,7 @@ class StatusSensor(BaseSensor):
         return data
 
 
-# ─────────────────────────────
-# Charge Point ID (HOOFDSENSOR - EV Charger)
-# ─────────────────────────────
+# Charge Point ID (MAIN SENSOR - EV Charger)
 
 
 class ChargePointIdSensor(BaseSensor):
@@ -794,9 +780,7 @@ class ChargePointIdSensor(BaseSensor):
         return self.coordinator.charge_point_id is not None
 
 
-# ─────────────────────────────
-# Charging power (HOOFDSENSOR - EV Charger)
-# ─────────────────────────────
+# Charging power (MAIN SENSOR - EV Charger)
 
 
 class ChargingPowerSensor(BaseSensor):
@@ -816,9 +800,7 @@ class ChargingPowerSensor(BaseSensor):
         return self.coordinator.power if self.coordinator.power is not None else 0
 
 
-# ─────────────────────────────
-# Energy charged live (HOOFDSENSOR - EV Charger)
-# ─────────────────────────────
+# Energy charged live (MAIN SENSOR - EV Charger)
 
 
 class EnergyChargedSensor(BaseSensor):
@@ -844,9 +826,7 @@ class EnergyChargedSensor(BaseSensor):
         return round(self.coordinator.energy / 1000, 3)
 
 
-# ─────────────────────────────
-# Total energy charged - cumulatief persistent (Energy Dashboard)
-# ─────────────────────────────
+# Total energy charged - persistent cumulative total (Energy Dashboard)
 
 
 class TotalEnergyChargedSensor(BaseSensor):
@@ -867,9 +847,7 @@ class TotalEnergyChargedSensor(BaseSensor):
         return round(self.coordinator.total_energy_charged, 3)
 
 
-# ─────────────────────────────
 # Electricity price (EV Charger)
-# ─────────────────────────────
 
 
 class ElectricityPriceSensor(BaseSensor):
@@ -889,9 +867,7 @@ class ElectricityPriceSensor(BaseSensor):
         return round(value, 2) if value is not None else None
 
 
-# ─────────────────────────────
 # Last session: energy (kWh)
-# ─────────────────────────────
 
 
 class LastSessionEnergySensor(BaseSensor):
@@ -915,9 +891,7 @@ class LastSessionEnergySensor(BaseSensor):
         )
 
 
-# ─────────────────────────────
 # Last session: cost
-# ─────────────────────────────
 
 
 class LastSessionCostSensor(BaseSensor):
@@ -938,9 +912,7 @@ class LastSessionCostSensor(BaseSensor):
         )
 
 
-# ─────────────────────────────
 # Last session: duration (minutes)
-# ─────────────────────────────
 
 
 class LastSessionDurationSensor(BaseSensor):
@@ -991,9 +963,7 @@ class LastSessionEffectiveChargingDurationSensor(BaseSensor):
         }
 
 
-# ─────────────────────────────
 # Last session: start time
-# ─────────────────────────────
 
 
 class LastSessionStartSensor(BaseSensor):
@@ -1010,9 +980,7 @@ class LastSessionStartSensor(BaseSensor):
         )
 
 
-# ─────────────────────────────
 # Last session: end time
-# ─────────────────────────────
 
 
 class LastSessionEndSensor(BaseSensor):
@@ -1027,9 +995,7 @@ class LastSessionEndSensor(BaseSensor):
         return utc_timestamp(self.coordinator.last_session_end, session_time_zone(self.coordinator))
 
 
-# ─────────────────────────────
 # Last session: plug time
-# ─────────────────────────────
 
 
 class LastSessionPlugTimeSensor(BaseSensor):
@@ -1046,9 +1012,7 @@ class LastSessionPlugTimeSensor(BaseSensor):
         )
 
 
-# ─────────────────────────────
 # Last session: unplug time
-# ─────────────────────────────
 
 
 class LastSessionUnplugTimeSensor(BaseSensor):
@@ -1066,9 +1030,7 @@ class LastSessionUnplugTimeSensor(BaseSensor):
         )
 
 
-# ─────────────────────────────
 # Last session: transaction ID (DIAGNOSTIC)
-# ─────────────────────────────
 
 
 class LastSessionTransactionIdSensor(BaseSensor):
@@ -1084,9 +1046,7 @@ class LastSessionTransactionIdSensor(BaseSensor):
         return self.coordinator.last_session_transaction_id
 
 
-# ─────────────────────────────
 # Last session: charge mode (DIAGNOSTIC)
-# ─────────────────────────────
 
 
 class LastSessionChargeModeSensor(BaseSensor):
@@ -1112,9 +1072,7 @@ class LastSessionChargeModeSensor(BaseSensor):
         return {"raw_value": self.coordinator.last_session_charge_mode}
 
 
-# ─────────────────────────────
 # Last session: work mode (DIAGNOSTIC)
-# ─────────────────────────────
 
 
 class LastSessionWorkModeSensor(BaseSensor):
@@ -1140,9 +1098,7 @@ class LastSessionWorkModeSensor(BaseSensor):
         return {"raw_value": self.coordinator.last_session_work_mode}
 
 
-# ─────────────────────────────
 # Phase currents (DIAGNOSTIC - EV Charger)
-# ─────────────────────────────
 
 
 class CurrentSensor(BaseSensor):
@@ -1166,9 +1122,7 @@ class CurrentSensor(BaseSensor):
         return value if value is not None else 0
 
 
-# ─────────────────────────────
 # Phase voltages (DIAGNOSTIC - EV Charger)
-# ─────────────────────────────
 
 
 class VoltageSensor(BaseSensor):
@@ -1192,9 +1146,7 @@ class VoltageSensor(BaseSensor):
         return value if value is not None else 0
 
 
-# ─────────────────────────────
 # Phase power (DIAGNOSTIC - EV Charger)
-# ─────────────────────────────
 
 
 class PhasePowerSensor(BaseSensor):
@@ -1218,9 +1170,7 @@ class PhasePowerSensor(BaseSensor):
         return value if value is not None else 0
 
 
-# ─────────────────────────────
 # Temperature (DIAGNOSTIC - EV Charger)
-# ─────────────────────────────
 
 
 class TemperatureSensor(BaseSensor):
@@ -1245,9 +1195,7 @@ class TemperatureSensor(BaseSensor):
         return super().available and self.coordinator.temperature is not None
 
 
-# ─────────────────────────────
 # Grid / external meter
-# ─────────────────────────────
 
 
 class ExternalMeterHealthSensor(BaseExternalMeterSensor):

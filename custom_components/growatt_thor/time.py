@@ -109,7 +109,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
             _LOGGER.warning("Cannot change %s: charger not connected", self.name)
             raise_charger_disconnected()
 
-        _LOGGER.info("📝 %s changed to %s (auto-queuing)", self.name, value.strftime("%H:%M"))
+        _LOGGER.info("%s changed to %s (auto-queuing)", self.name, value.strftime("%H:%M"))
 
         # Update pending value in coordinator
         if self._is_start:
@@ -126,7 +126,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
         stop_time = self.coordinator.auto_charge_stop_time_pending
 
         if start_time and stop_time:
-            _LOGGER.info("⏱️ Debouncing paired Auto Charge schedule update")
+            _LOGGER.info("Debouncing paired Auto Charge schedule update")
             self.coordinator.schedule_auto_charge_schedule_write(
                 lambda: self._queue_pending_schedule(charge_point)
             )
@@ -139,7 +139,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
             return
 
         formatted_value = f"{start_time.strftime('%H:%M')}-{stop_time.strftime('%H:%M')}"
-        _LOGGER.info("🔄 Auto-queueing schedule update: %s", formatted_value)
+        _LOGGER.info("Auto-queueing schedule update: %s", formatted_value)
 
         generation = self.coordinator.begin_configuration_write(
             self._CONFIG_KEY,
@@ -212,17 +212,15 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
                     self.coordinator.auto_charge_start_time = start_time
                     self.coordinator.auto_charge_stop_time = stop_time
                     self.coordinator.async_set_updated_data(True)
-                _LOGGER.info("✅ Auto-applied charging schedule: %s", formatted_value)
+                _LOGGER.info("Auto-applied charging schedule: %s", formatted_value)
             elif result == ConfigurationStatus.reboot_required:
                 if outcome_is_current:
                     self.coordinator.auto_charge_start_time = start_time
                     self.coordinator.auto_charge_stop_time = stop_time
                     self.coordinator.async_set_updated_data(True)
-                _LOGGER.warning(
-                    "⚠️ Charging schedule applied (reboot required): %s", formatted_value
-                )
+                _LOGGER.warning("Charging schedule applied (reboot required): %s", formatted_value)
             else:
-                _LOGGER.error("❌ Charging schedule rejected: %s", result)
+                _LOGGER.error("Charging schedule rejected: %s", result)
                 return ChargerWriteResult.failed("charger_rejected", result)
 
             return ChargerWriteResult.success(result)
@@ -239,7 +237,7 @@ class BaseAutoChargeTime(CoordinatorEntity, TimeEntity):
             self.coordinator.schedule_configuration_refresh(delay=0)
             return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
-            _LOGGER.error("❌ Failed to auto-apply schedule: %s", exc, exc_info=True)
+            _LOGGER.error("Failed to auto-apply schedule: %s", exc, exc_info=True)
             return ChargerWriteResult.failed("unexpected_error")
 
 
