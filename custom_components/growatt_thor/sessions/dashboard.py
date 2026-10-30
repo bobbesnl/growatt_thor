@@ -1,7 +1,8 @@
 """Refresh retained dashboard history after setup or a history write."""
 
 from ..runtime.keys import OWNS_LEGACY_HISTORY
-from .csv import dashboard_session_data, enforce_session_retention
+from .csv import enforce_session_retention
+from .history_views import dashboard_session_data
 
 
 async def async_refresh_dashboard(hass, coordinator, path, *, retain=False, time_zone=None) -> None:

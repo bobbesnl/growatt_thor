@@ -51,6 +51,8 @@ Live energy-source allocation lives in `energy/live_allocation.py`, using the pu
 
 `runtime/entry.py::EntryRuntime` declares the resources owned by one config entry. Setup publishes the same object on `entry.runtime_data`, the coordinator and the entry-scoped dispatch registry. Platforms read `entry.runtime_data.coordinator`; connection readers can use `coordinator.charge_point`. The mapping interface retains missing-key, callback and identity semantics for queue/dispatch ownership, with stable keys in `runtime/keys.py`. Release clears only the runtime still registered to that entry.
 
+`targets/requests.py` builds request records and bounded request history. `targets/charger_ops.py` contains the existing readiness checks and charger operations; these still run inside the target runtime's queue callbacks. `TargetState` and `AccountingProfile` enumerate the existing persisted strings without changing their spelling.
+
 `ChargingTargetRuntime` owns one entry's target storage, lock, busy state and
 schedule timer. Its bound methods implement the unchanged target service
 contract. The coordinator declares `transaction_hooks: TransactionHooks | None`; session start/stop observations call this contract, and unload cancels the timer and clears it. The pilot flag is declared on the coordinator and retains its existing lifetime.
@@ -157,6 +159,8 @@ The existing differences are intentional during consolidation:
 | Auto Charge times | Two fields share the existing debounce and one queued snapshot. Restore pending fields only for an unsent owning generation; rejection and unexpected execution failure do not add a new rollback. The original HA calls return before the deferred command completes. |
 
 Characterization tests exercise all seven actual entities through the production queue across accepted, reboot-required, rejected, uncertain, unexpected, superseded and cancelled outcomes. Their notification order, wire payloads, public errors and final observations are retained in fixtures.
+
+Session history writes and retention remain in `sessions/csv.py`. `history_store.py` owns the single reentrant lock, atomic replacements and recovery journal; reads, writes, pruning and exports all use that same lock. `history_rows.py` owns stable headers and row normalization, `archive_summary.py` retains cumulative/entry-scoped totals, `history_views.py` builds bounded dashboard/detail projections, and `exports.py` owns CSV export plus short-lived downloads. The import graph runs from I/O to row/summary/view helpers without compatibility re-export modules. `runtime/session_history.py` attaches HA events and the unchanged 30-second capture interval to session telemetry.
 
 ## Time boundaries
 

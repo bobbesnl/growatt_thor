@@ -74,13 +74,10 @@ from .runtime.ownership import (
 )
 from .runtime.polling import ExternalMeterPoller, PollIntervalSchedule
 from .runtime.service_setup import async_register_services
-from .sessions.csv import (
-    append_session_row,
-    update_session_events,
-)
+from .runtime.session_history import async_setup_session_history
+from .sessions.csv import append_session_row, update_session_events
 from .sessions.dashboard import async_refresh_dashboard
 from .sessions.exports import ensure_export_cleanup
-from .sessions.telemetry import async_setup_session_history
 from .sessions.websocket import async_register_session_websocket
 from .targets.services import (
     async_register_target_services,

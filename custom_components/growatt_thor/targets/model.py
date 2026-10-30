@@ -5,6 +5,40 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from enum import StrEnum
+
+
+class TargetState(StrEnum):
+    """Existing persisted target states; their wire/storage spelling is stable."""
+
+    QUEUED = "queued"
+    RESERVATION_QUEUED = "reservation_queued"
+    SCHEDULED = "scheduled"
+    SCHEDULED_MISSED = "scheduled_missed"
+    SCHEDULED_CANCELLED = "scheduled_cancelled"
+    BLOCKED_BEFORE_TARGET = "blocked_before_target"
+    COMPLETED = "completed"
+    TARGET_REJECTED = "target_rejected"
+    TARGET_ACCEPTED_WAITING_FOR_PLUG = "target_accepted_waiting_for_plug"
+    TARGET_ACCEPTED_WAITING_FOR_RFID = "target_accepted_waiting_for_rfid"
+    START_ACCEPTED = "start_accepted"
+    SENDING_TARGET = "sending_target"
+    TARGET_ACCEPTED = "target_accepted"
+    SENDING_RESERVATION = "sending_reservation"
+    SENDING_START = "sending_start"
+    ACTIVE = "active"
+    CHARGING = "charging"
+    MISSED_WHILE_UNAVAILABLE = "missed_while_unavailable"
+    OUTCOME_UNKNOWN = "outcome_unknown"
+    QUEUE_FAILED = "queue_failed"
+    CANCELLATION_QUEUED = "cancellation_queued"
+    SENDING_CANCELLATION = "sending_cancellation"
+    CANCELLATION_REJECTED_RESERVATION_MAY_REMAIN = "cancellation_rejected_reservation_may_remain"
+    RESERVATION_REJECTED_TARGET_MAY_REMAIN = "reservation_rejected_target_may_remain"
+    START_REJECTED_TARGET_MAY_REMAIN = "start_rejected_target_may_remain"
+    TARGET_ACCEPTED_RESERVATION_BLOCKED = "target_accepted_reservation_blocked"
+    TARGET_ACCEPTED_START_BLOCKED = "target_accepted_start_blocked"
+
 
 CAPTURE_FIRMWARE = "THOR_22AS-V2.2.16-20240902"
 MESSAGE_IDS = {

@@ -86,6 +86,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         with patch.dict(sys.modules, stubs):
             self.module = importlib.import_module(package.__name__ + ".targets.services")
             self.runtime = sys.modules[package.__name__ + ".targets.runtime"]
+        model = importlib.import_module(package.__name__ + ".targets.model")
         config = importlib.import_module(package.__name__ + ".configuration.values")
         self.cp = SimpleNamespace(
             id="TEST-CHARGER",
@@ -103,7 +104,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
             charger_is_faulted=False,
             status="Available",
             connection_started_at="connection-1",
-            boot_notification={"request": {"firmware_version": self.runtime.CAPTURE_FIRMWARE}},
+            boot_notification={"request": {"firmware_version": model.CAPTURE_FIRMWARE}},
             configuration_values={
                 key: config.configuration_value_from_item({"key": key, "value": value})
                 for key, value in {

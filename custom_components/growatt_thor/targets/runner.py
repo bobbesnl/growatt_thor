@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 
-from .model import ChargingTarget
+from .model import ChargingTarget, TargetState
 
 
 async def run_target_sequence(
@@ -16,7 +16,7 @@ async def run_target_sequence(
     send_target: Callable[[ChargingTarget], Awaitable[str]],
     start: Callable[[], Awaitable[str]] | None,
     pause_seconds: float,
-    waiting_state: str = "target_accepted_waiting_for_rfid",
+    waiting_state: str = TargetState.TARGET_ACCEPTED_WAITING_FOR_RFID,
     sleep=asyncio.sleep,
 ) -> None:
     """Never start after a failed/uncertain target write, and never retry.
@@ -27,30 +27,34 @@ async def run_target_sequence(
     """
     try:
         if check():
-            await save("blocked_before_target")
+            await save(TargetState.BLOCKED_BEFORE_TARGET)
             return
-        await save("sending_target")
+        await save(TargetState.SENDING_TARGET)
         status = await send_target(target)
         if status != "Accepted":
-            await save("target_rejected")
+            await save(TargetState.TARGET_REJECTED)
             return
-        await save("target_accepted")
+        await save(TargetState.TARGET_ACCEPTED)
         if start is None:
             await save(waiting_state)
             return
         await sleep(pause_seconds)
         if check():
-            await save("target_accepted_start_blocked")
+            await save(TargetState.TARGET_ACCEPTED_START_BLOCKED)
             return
-        await save("sending_start")
+        await save(TargetState.SENDING_START)
         status = await start()
-        await save("start_accepted" if status == "Accepted" else "start_rejected_target_may_remain")
+        await save(
+            TargetState.START_ACCEPTED
+            if status == "Accepted"
+            else TargetState.START_REJECTED_TARGET_MAY_REMAIN
+        )
     except asyncio.CancelledError:
         # Last persisted sending/accepted state already requires reconciliation.
         raise
     except Exception:  # noqa: BLE001 - retain uncertainty without logging wire payloads
         # OCPP exceptions can contain raw idTags; never log the exception payload.
-        await save("outcome_unknown")
+        await save(TargetState.OUTCOME_UNKNOWN)
 
 
 async def run_reservation_sequence(
@@ -70,23 +74,25 @@ async def run_reservation_sequence(
     """
     try:
         if check():
-            await save("blocked_before_target")
+            await save(TargetState.BLOCKED_BEFORE_TARGET)
             return
-        await save("sending_target")
+        await save(TargetState.SENDING_TARGET)
         if await send_target(target) != "Accepted":
-            await save("target_rejected")
+            await save(TargetState.TARGET_REJECTED)
             return
-        await save("target_accepted")
+        await save(TargetState.TARGET_ACCEPTED)
         await sleep(pause_seconds)
         if check():
-            await save("target_accepted_reservation_blocked")
+            await save(TargetState.TARGET_ACCEPTED_RESERVATION_BLOCKED)
             return
-        await save("sending_reservation")
+        await save(TargetState.SENDING_RESERVATION)
         status = await reserve()
         await save(
-            "scheduled" if status == "Accepted" else "reservation_rejected_target_may_remain"
+            TargetState.SCHEDULED
+            if status == "Accepted"
+            else TargetState.RESERVATION_REJECTED_TARGET_MAY_REMAIN
         )
     except asyncio.CancelledError:
         raise
     except Exception:  # noqa: BLE001 - OCPP errors may contain private payloads
-        await save("outcome_unknown")
+        await save(TargetState.OUTCOME_UNKNOWN)

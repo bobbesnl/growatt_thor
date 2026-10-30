@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import timedelta
 from math import isfinite
 
 from ..configuration.values import configuration_numeric_value
 from ..energy.meter_observations import charging_meter_values
 from ..energy.options import (
-    CONF_GRID_ENTITY,
     CONF_HOUSE_ENTITY,
-    CONF_SOLAR_ENTITY,
 )
 from ..energy.site_observations import read_site_observations
 from ..timestamps import parse_utc as parse_at
@@ -185,39 +182,3 @@ class SessionTelemetry:
         currents = charging_meter_values({"meter_values": [entry.as_dict()]})["currents_a"]
         amps = sum(currents) if all(value is not None for value in currents) else None
         return self.observe("measured_current_sum_curve_a", entry.timestamp, amps)
-
-
-def async_setup_session_history(hass, coordinator):
-    """Observe configured HA sources immediately and snapshot pauses every 30s."""
-    from homeassistant.helpers.event import async_track_time_interval
-
-    async def capture(_event):
-        coordinator.sessions.observe_context()
-
-    async def state_changed(event):
-        options = coordinator.site_accounting_options
-        sources = {
-            options.get(key)
-            for key in (
-                CONF_SOLAR_ENTITY,
-                CONF_HOUSE_ENTITY,
-                CONF_GRID_ENTITY,
-            )
-        }
-        sources.add(coordinator.battery_power_entity)
-        sources.discard(None)
-        if event.data.get("entity_id") in sources:
-            coordinator.sessions.observe_context()
-
-    unsubscribe = hass.bus.async_listen("state_changed", state_changed)
-    try:
-        cancel_timer = async_track_time_interval(hass, capture, timedelta(seconds=30))
-    except BaseException:
-        unsubscribe()
-        raise
-
-    def stop():
-        unsubscribe()
-        cancel_timer()
-
-    return stop

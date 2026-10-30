@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 from math import isfinite
 
 from ..timestamps import installation_time_zone
@@ -27,7 +28,15 @@ from .site_observations import (
 )
 from .tariffs import tariff_from_state
 
-PROFILES = ("disabled", "grid_only", "pv", "pv_battery", "grohome_load_first")
+
+class AccountingProfile(StrEnum):
+    DISABLED = "disabled"
+    GRID_ONLY = "grid_only"
+    PV = "pv"
+    PV_BATTERY = "pv_battery"
+    GROHOME_LOAD_FIRST = "grohome_load_first"
+
+
 GRID_SIGNS = ("positive_import", "positive_export")
 
 
@@ -54,7 +63,7 @@ def site_inputs(
     """Read configured power observations and the current valid tariff."""
     options = coordinator.site_accounting_options or {}
     profile = options.get(CONF_SITE_PROFILE, "disabled")
-    if profile not in PROFILES or profile == "disabled":
+    if profile not in AccountingProfile or profile == "disabled":
         return None
     hass = coordinator.hass
     states = getattr(hass, "states", None)

@@ -56,7 +56,7 @@ from .energy.options import (
     CONF_TARIFF_ENTITY,
     SITE_GRID_SOURCES,
 )
-from .energy.site_inputs import GRID_SIGNS, PROFILES
+from .energy.site_inputs import GRID_SIGNS, AccountingProfile
 from .energy.site_options import profile_requires_battery, validate_site_options
 from .energy.sources import (
     BATTERY_POSITIVE_DISCHARGE,
@@ -132,7 +132,7 @@ def build_site_accounting_schema(current, states, currency) -> vol.Schema:
                 default=current.get(CONF_SITE_PROFILE, "disabled"),
             ): SelectSelector(
                 SelectSelectorConfig(
-                    options=list(PROFILES),
+                    options=list(AccountingProfile),
                     translation_key=CONF_SITE_PROFILE,
                     mode="dropdown",
                 )

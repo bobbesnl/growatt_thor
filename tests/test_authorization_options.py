@@ -402,7 +402,7 @@ class AuthorizationOptionsTest(unittest.IsolatedAsyncioTestCase):
         """HA must localize choices per browser, even on a German server."""
         translation_dir = Path(__file__).parents[1] / "custom_components/growatt_thor/translations"
         expected = {
-            "site_accounting_profile": list(self.module.PROFILES),
+            "site_accounting_profile": list(self.module.AccountingProfile),
             "site_auto_stop_mode": list(self.module.AUTO_STOP_MODES),
             "site_grid_source": ["none", "thor_external", "ha_sensor"],
             "site_grid_power_sign": list(self.module.GRID_SIGNS),

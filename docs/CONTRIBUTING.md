@@ -52,6 +52,10 @@ the chart and request details. Returning from an older request must not overwrit
 a newer entry's data. See [frontend development](../frontend/README.md) for the
 simulator, rendering conventions and source map.
 
+Target request records are built in [`targets/requests.py`](../custom_components/growatt_thor/targets/requests.py); guarded charger operations live in [`targets/charger_ops.py`](../custom_components/growatt_thor/targets/charger_ops.py). The runtime retains its queue callbacks, execution lock, busy flag and schedule timer.
+
+For retained history, start with [`sessions/csv.py`](../custom_components/growatt_thor/sessions/csv.py) for writes and retention, [`history_store.py`](../custom_components/growatt_thor/sessions/history_store.py) for the shared lock and recovery journal, and [`history_views.py`](../custom_components/growatt_thor/sessions/history_views.py) for card/detail reads. Row normalization, archive totals and exports live in their respective sibling modules. Tests patch the implementation owner rather than a former import path.
+
 ## Local checks
 
 Run commands from the repository root. CI uses Python 3.12 and Node 22; the

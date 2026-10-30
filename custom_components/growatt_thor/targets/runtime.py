@@ -4,37 +4,36 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import secrets
 import time
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.storage import Store
-from ocpp.v16 import call as ocpp_call
 
-from ..charging.control_capabilities import selected_working_mode
-from ..configuration.values import configuration_entity_state
 from ..const import DOMAIN
-from ..ocpp.diagnostics import boot_notification_field
 from ..runtime.keys import ACTIVE_CHARGE_POINT, SKIP_POLLING_UNTIL, TARGET_HANDLERS, TARGET_RUNTIME
 from ..runtime.write_results import ChargerCommandStatus
 from ..timestamps import installation_time_zone
+from .charger_ops import TargetChargerOperations
 from .model import (
-    CAPTURE_FIRMWARE,
-    NATIVE_STOP_VERIFIED,
     ChargingTarget,
+    TargetState,
     target_plan,
+)
+from .requests import (
+    InvalidReservationExpiry,
+    TargetRecord,
+    new_scheduled_request,
+    new_target_request,
 )
 from .runner import run_reservation_sequence, run_target_sequence
 from .schedule import (
     iso_utc,
     next_daily_start,
     parse_start_at,
-    reservation_expiry,
     stored_start_at,
     utc_now,
 )
@@ -48,7 +47,6 @@ if TYPE_CHECKING:
     from ..ocpp.server import GrowattChargePoint
 
 # Persisted HA records remain dictionaries; ChargingTarget validates domain values.
-TargetRecord = dict[str, Any]
 
 _LOGGER = logging.getLogger(__name__)
 SERVICES = (
@@ -63,49 +61,24 @@ SERVICES = (
 )
 
 _SAFE_REPLACEMENT_STATES = {
-    "blocked_before_target",
-    "completed",
-    "scheduled_cancelled",
-    "scheduled_missed",
-    "target_rejected",
+    TargetState.BLOCKED_BEFORE_TARGET,
+    TargetState.COMPLETED,
+    TargetState.SCHEDULED_CANCELLED,
+    TargetState.SCHEDULED_MISSED,
+    TargetState.TARGET_REJECTED,
 }
 _WAITING_STATES = {
-    "target_accepted_waiting_for_plug",
-    "target_accepted_waiting_for_rfid",
+    TargetState.TARGET_ACCEPTED_WAITING_FOR_PLUG,
+    TargetState.TARGET_ACCEPTED_WAITING_FOR_RFID,
 }
 _DAILY_REPEATABLE_RESULTS = {
-    "blocked_before_target",
-    "start_accepted",
-    "target_rejected",
+    TargetState.BLOCKED_BEFORE_TARGET,
+    TargetState.START_ACCEPTED,
+    TargetState.TARGET_REJECTED,
 }
 _TARGET_START_PAUSE_SECONDS = 1
 _TARGET_RESERVATION_PAUSE_SECONDS = 1
 _REQUEST_EXPIRY_SECONDS = 90
-
-
-def _response_status(result: object) -> str | None:
-    status = getattr(result, "status", None)
-    status = getattr(status, "value", status)
-    return status if isinstance(status, str) else None
-
-
-def _request_history(previous: TargetRecord | None) -> list[TargetRecord]:
-    if not previous:
-        return []
-    fields = (
-        "request_id",
-        "kind",
-        "value",
-        "state",
-        "activation",
-        "recurrence",
-        "scheduled_for",
-        "updated_at",
-    )
-    return [
-        *previous.get("previous_requests", [])[-4:],
-        {key: previous.get(key) for key in fields},
-    ]
 
 
 class ChargingTargetRuntime:
@@ -122,6 +95,7 @@ class ChargingTargetRuntime:
         self.hass = hass
         self.entry = entry
         self.coordinator = coordinator
+        self.charger = TargetChargerOperations(coordinator)
         self._now_utc = now_utc
         self._store = Store(hass, 1, f"{DOMAIN}.charging_target.{entry.entry_id}")
         # The lock serializes request changes; busy also covers time spent waiting
@@ -161,36 +135,36 @@ class ChargingTargetRuntime:
         }
         self.coordinator.transaction_hooks = self
 
-        if isinstance(retained, dict) and retained.get("state") == "scheduled":
+        if isinstance(retained, dict) and retained.get("state") == TargetState.SCHEDULED:
             start_at = stored_start_at(retained.get("scheduled_for"))
             if start_at is not None and start_at > self._now_utc():
                 self.arm_schedule(retained)
             elif retained.get("recurrence") == "daily" and start_at is not None:
-                await self.advance_daily(retained, "missed_while_unavailable")
+                await self.advance_daily(retained, TargetState.MISSED_WHILE_UNAVAILABLE)
             else:
                 await self.persist(
                     {
                         **retained,
-                        "state": "scheduled_missed",
+                        "state": TargetState.SCHEDULED_MISSED,
                         "updated_at": self.coordinator.now(),
                     }
                 )
         elif isinstance(retained, dict) and retained.get("state") in {
-            "queued",
-            "reservation_queued",
-            "sending_reservation",
-            "sending_target",
-            "target_accepted",
-            "sending_start",
-            "cancellation_queued",
-            "sending_cancellation",
+            TargetState.QUEUED,
+            TargetState.RESERVATION_QUEUED,
+            TargetState.SENDING_RESERVATION,
+            TargetState.SENDING_TARGET,
+            TargetState.TARGET_ACCEPTED,
+            TargetState.SENDING_START,
+            TargetState.CANCELLATION_QUEUED,
+            TargetState.SENDING_CANCELLATION,
         }:
             # HA may have stopped after sending but before saving the reply.
             # Replaying a native target could change the charger twice; retain doubt.
             await self.persist(
                 {
                     **retained,
-                    "state": "outcome_unknown",
+                    "state": TargetState.OUTCOME_UNKNOWN,
                     "updated_at": self.coordinator.now(),
                 }
             )
@@ -212,12 +186,12 @@ class ChargingTargetRuntime:
                 self._busy = False
                 # An unsent cancellation leaves a native reservation in place.
                 # Preserve that doubt rather than claiming it was cancelled.
-                state = "outcome_unknown"
-                if request.get("state") != "cancellation_queued" and result.status in {
+                state = TargetState.OUTCOME_UNKNOWN
+                if request.get("state") != TargetState.CANCELLATION_QUEUED and result.status in {
                     ChargerCommandStatus.SKIPPED,
                     ChargerCommandStatus.EXPIRED,
                 }:
-                    state = "blocked_before_target"
+                    state = TargetState.BLOCKED_BEFORE_TARGET
                 await self.persist(
                     {**request, "state": state, "updated_at": self.coordinator.now()}
                 )
@@ -246,81 +220,6 @@ class ChargingTargetRuntime:
         except ValueError as exc:
             raise HomeAssistantError(str(exc)) from None
 
-    def charger_mode(self) -> str | None:
-        return configuration_entity_state(
-            "G_ChargerMode", self.coordinator.configuration_values.get("G_ChargerMode")
-        )
-
-    def remote_identifier_reason(self, cp: GrowattChargePoint) -> str | None:
-        if not isinstance(cp.id, str) or not 1 <= len(cp.id) <= 20:
-            return "remote_identifier_invalid"
-        if (
-            self.charger_mode() == "home_assistant_rfid"
-            and not self.coordinator.authorization.policy.allows_ha_remote_start()
-        ):
-            return "remote_identifier_not_authorized"
-        return None
-
-    def block_reason(self, cp: GrowattChargePoint | None, activation: str) -> str | None:
-        if (
-            not self.coordinator.connected
-            or cp is None
-            or self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT) is not cp
-        ):
-            return "charger_disconnected_or_replaced"
-        if self.coordinator.transaction_is_active:
-            return "transaction_already_active"
-        if self.coordinator.charger_is_faulted:
-            return "charger_not_ready"
-        if (
-            boot_notification_field(self.coordinator.boot_notification, "firmware_version")
-            != CAPTURE_FIRMWARE
-        ):
-            return "firmware_not_validated_for_pilot"
-        if selected_working_mode(self.coordinator.configuration_values) != "fast":
-            return "fast_mode_required"
-
-        mode = self.charger_mode()
-        status = self.coordinator.status
-        if activation == "plug":
-            if mode != "plug_and_charge":
-                return "plug_and_charge_mode_required"
-            return None if status == "Available" else "unplug_vehicle_before_setting_target"
-        if activation == "rfid":
-            if mode != "rfid_only":
-                return "rfid_authorization_mode_required"
-            return None if status in {"Available", "Preparing"} else "charger_not_ready"
-        if activation == "reserve":
-            if mode not in {"plug_and_charge", "home_assistant_rfid"}:
-                return "remote_start_authorization_mode_required"
-            # The target write precedes ReserveNow. Requiring an unplugged,
-            # Available connector prevents Plug & Charge from starting early.
-            if status != "Available":
-                return "unplug_vehicle_before_setting_reservation"
-            return self.remote_identifier_reason(cp)
-        if activation == "reserved_start":
-            if mode not in {"plug_and_charge", "home_assistant_rfid"}:
-                return "remote_start_authorization_mode_required"
-            # Growatt expires the captured reservation at the selected start
-            # boundary. Depending on notification timing the connector can
-            # already be Available or Preparing when this callback runs.
-            if status not in {"Reserved", "Available", "Preparing"}:
-                return "charger_reservation_not_active"
-            return self.remote_identifier_reason(cp)
-        if activation == "daily_start":
-            if mode not in {"plug_and_charge", "home_assistant_rfid"}:
-                return "remote_start_authorization_mode_required"
-            if mode == "plug_and_charge" and status != "Preparing":
-                return "vehicle_must_be_connected_at_daily_start"
-            if status not in {"Available", "Preparing"}:
-                return "charger_not_ready"
-            return self.remote_identifier_reason(cp)
-        if mode not in {"plug_and_charge", "home_assistant_rfid"}:
-            return "remote_start_authorization_mode_required"
-        if status not in {"Available", "Preparing"}:
-            return "charger_not_ready"
-        return self.remote_identifier_reason(cp)
-
     def replacing_request(
         self,
         previous: TargetRecord | None,
@@ -346,51 +245,6 @@ class ChargingTargetRuntime:
                 return True
         raise HomeAssistantError("target_refresh_conflict")
 
-    async def remote_start(self, cp: GrowattChargePoint) -> str:
-        authorization = self.coordinator.authorization
-        if not authorization.begin_ha_remote_start(cp.id):
-            return "Rejected"
-        try:
-            result = await cp.call(
-                ocpp_call.RemoteStartTransaction(connector_id=1, id_tag=cp.id),
-                suppress=False,
-            )
-        except Exception:
-            authorization.cancel_ha_remote_start()
-            raise
-        status = _response_status(result)
-        if status not in {"Accepted", "Rejected"}:
-            authorization.cancel_ha_remote_start()
-            raise ValueError("invalid_start_response")
-        if status != "Accepted":
-            authorization.cancel_ha_remote_start()
-        return status
-
-    async def reserve(self, cp: GrowattChargePoint, request: TargetRecord) -> str:
-        result = await cp.call(
-            ocpp_call.ReserveNow(
-                connector_id=1,
-                expiry_date=request["reservation_expiry"],
-                id_tag=cp.id,
-                reservation_id=request["reservation_id"],
-            ),
-            suppress=False,
-        )
-        status = _response_status(result)
-        valid = {"Accepted", "Faulted", "Occupied", "Rejected", "Unavailable"}
-        if status not in valid:
-            raise ValueError("invalid_reservation_response")
-        return status
-
-    async def cancel_reservation(self, cp: GrowattChargePoint, reservation_id: int) -> str:
-        result = await cp.call(
-            ocpp_call.CancelReservation(reservation_id=reservation_id), suppress=False
-        )
-        status = _response_status(result)
-        if status not in {"Accepted", "Rejected"}:
-            raise ValueError("invalid_cancel_response")
-        return status
-
     def operation_check(
         self,
         cp: GrowattChargePoint | None,
@@ -402,7 +256,7 @@ class ChargingTargetRuntime:
             return "request_expired"
         if self.coordinator.connection_started_at != connection_started_at:
             return "connection_changed"
-        return self.block_reason(cp, activation)
+        return self.charger.block_reason(cp, activation)
 
     def pause_polling(self, seconds: float = _REQUEST_EXPIRY_SECONDS) -> None:
         pause_until = (
@@ -427,23 +281,16 @@ class ChargingTargetRuntime:
             if self._busy:
                 raise HomeAssistantError("target_request_or_transaction_busy")
             cp = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
-            if reason := self.block_reason(cp, activation):
+            if reason := self.charger.block_reason(cp, activation):
                 raise HomeAssistantError(reason)
-            request = {
-                **target.diagnostic(),
-                "request_id": uuid4().hex,
-                "state": "queued",
-                "updated_at": self.coordinator.now(),
-                "enforcement_verified": NATIVE_STOP_VERIFIED[target.kind],
-                "activation": {
-                    "plug": "plug_and_charge",
-                    "rfid": "rfid",
-                    "remote": "remote_start",
-                }[activation],
-                "connection_started_at": self.coordinator.connection_started_at,
-            }
-            if replacing:
-                request["previous_requests"] = _request_history(previous)
+            request = new_target_request(
+                target,
+                activation=activation,
+                now=self.coordinator.now,
+                connection_started_at=self.coordinator.connection_started_at,
+                previous=previous,
+                replacing=replacing,
+            )
             await self.persist(request)
             self._busy = True
             issued = time.monotonic()
@@ -466,22 +313,24 @@ class ChargingTargetRuntime:
                     check=check,
                     save=save,
                     send_target=lambda value: send_target(cp, value),
-                    start=None if activation in {"plug", "rfid"} else lambda: self.remote_start(cp),
+                    start=None
+                    if activation in {"plug", "rfid"}
+                    else lambda: self.charger.remote_start(cp),
                     pause_seconds=_TARGET_START_PAUSE_SECONDS,
                     waiting_state=(
-                        "target_accepted_waiting_for_plug"
+                        TargetState.TARGET_ACCEPTED_WAITING_FOR_PLUG
                         if activation == "plug"
-                        else "target_accepted_waiting_for_rfid"
+                        else TargetState.TARGET_ACCEPTED_WAITING_FOR_RFID
                     ),
                 )
                 # A fast charger can emit StartTransaction before the
                 # RemoteStart call unwinds and its callback observes the new
                 # request state. Reconcile that race from coordinator truth.
                 if (
-                    request.get("state") == "start_accepted"
+                    request.get("state") == TargetState.START_ACCEPTED
                     and self.coordinator.transaction_is_active
                 ):
-                    await save("active")
+                    await save(TargetState.ACTIVE)
             finally:
                 self._busy = False
 
@@ -489,7 +338,7 @@ class ChargingTargetRuntime:
             await self.enqueue(execute, request["request_id"])
         except Exception:  # noqa: BLE001 - persist sanitized outcome only
             self._busy = False
-            await save("queue_failed")
+            await save(TargetState.QUEUE_FAILED)
             raise HomeAssistantError("target_queue_failed") from None
         return dict(request)
 
@@ -504,7 +353,7 @@ class ChargingTargetRuntime:
         current = self._now_utc()
         request_id = request.get("request_id")
         if (
-            request.get("state") != "scheduled"
+            request.get("state") != TargetState.SCHEDULED
             or start_at is None
             or start_at <= current
             or not isinstance(request_id, str)
@@ -521,7 +370,7 @@ class ChargingTargetRuntime:
     async def advance_daily(self, request: TargetRecord, result: str) -> None:
         start_at = stored_start_at(request.get("scheduled_for"))
         if start_at is None:
-            await self.persist({**request, "state": "scheduled_missed"})
+            await self.persist({**request, "state": TargetState.SCHEDULED_MISSED})
             return
         next_at = next_daily_start(
             start_at,
@@ -531,7 +380,7 @@ class ChargingTargetRuntime:
         )
         updated = {
             **request,
-            "state": "scheduled",
+            "state": TargetState.SCHEDULED,
             "scheduled_for": iso_utc(next_at),
             "last_run_at": iso_utc(self._now_utc()),
             "last_run_state": result,
@@ -548,7 +397,7 @@ class ChargingTargetRuntime:
                 self._busy
                 or not isinstance(request, dict)
                 or request.get("request_id") != request_id
-                or request.get("state") != "scheduled"
+                or request.get("state") != TargetState.SCHEDULED
             ):
                 return
             self._busy = True
@@ -582,22 +431,25 @@ class ChargingTargetRuntime:
                     check=check,
                     save=save,
                     send_target=lambda value: send_target(cp, value),
-                    start=lambda: self.remote_start(cp),
+                    start=lambda: self.charger.remote_start(cp),
                     # Growatt sends both calls at the reservation boundary. We
                     # wait only for target acceptance, then start immediately.
                     pause_seconds=0,
                 )
-                result = request.get("state", "outcome_unknown")
+                result = request.get("state", TargetState.OUTCOME_UNKNOWN)
                 if recurrence == "daily" and result in _DAILY_REPEATABLE_RESULTS:
-                    if result == "start_accepted" and self.coordinator.transaction_is_active:
-                        result = "charging"
+                    if (
+                        result == TargetState.START_ACCEPTED
+                        and self.coordinator.transaction_is_active
+                    ):
+                        result = TargetState.CHARGING
                     await self.advance_daily(request, result)
                 elif (
                     recurrence != "daily"
-                    and result == "start_accepted"
+                    and result == TargetState.START_ACCEPTED
                     and self.coordinator.transaction_is_active
                 ):
-                    await save("active")
+                    await save(TargetState.ACTIVE)
             finally:
                 self._busy = False
 
@@ -605,7 +457,7 @@ class ChargingTargetRuntime:
             await self.enqueue(execute, request["request_id"])
         except Exception:  # noqa: BLE001 - retained state explains uncertainty
             self._busy = False
-            await save("queue_failed")
+            await save(TargetState.QUEUE_FAILED)
 
     async def schedule(self, service: ServiceCall) -> None:
         if service.data["entry_id"] != self.entry.entry_id:
@@ -627,35 +479,20 @@ class ChargingTargetRuntime:
                 raise HomeAssistantError("target_request_or_transaction_busy")
             cp = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
             activation = "reserve" if recurrence == "once" else "remote"
-            if reason := self.block_reason(cp, activation):
+            if reason := self.charger.block_reason(cp, activation):
                 raise HomeAssistantError(reason)
-            request = {
-                **target.diagnostic(),
-                "request_id": uuid4().hex,
-                "state": "reservation_queued" if recurrence == "once" else "scheduled",
-                "scheduled_for": iso_utc(start_at),
-                "time_zone": time_zone,
-                "recurrence": recurrence,
-                "updated_at": self.coordinator.now(),
-                "enforcement_verified": NATIVE_STOP_VERIFIED[target.kind],
-                "activation": (
-                    "charger_reservation_remote_start"
-                    if recurrence == "once"
-                    else "daily_remote_start"
-                ),
-            }
-            if recurrence == "daily":
-                request["local_time"] = start_at.astimezone(ZoneInfo(time_zone)).strftime(
-                    "%H:%M:%S"
+            try:
+                request = new_scheduled_request(
+                    target,
+                    start_at=start_at,
+                    time_zone=time_zone,
+                    recurrence=recurrence,
+                    now=self.coordinator.now,
+                    previous=previous,
+                    replacing=replacing,
                 )
-            if recurrence == "once":
-                request["reservation_id"] = secrets.randbelow(2_000_000_000) + 1
-                try:
-                    request["reservation_expiry"] = reservation_expiry(start_at, time_zone)
-                except ValueError as exc:
-                    raise HomeAssistantError(str(exc)) from None
-            if replacing:
-                request["previous_requests"] = _request_history(previous)
+            except InvalidReservationExpiry as exc:
+                raise HomeAssistantError(str(exc)) from None
             self.cancel_timer()
             await self.persist(request)
             if recurrence == "daily":
@@ -682,11 +519,11 @@ class ChargingTargetRuntime:
                     check=check,
                     save=save,
                     send_target=lambda value: send_target(cp, value),
-                    reserve=lambda: self.reserve(cp, request),
+                    reserve=lambda: self.charger.reserve(cp, request),
                     pause_seconds=_TARGET_RESERVATION_PAUSE_SECONDS,
                 )
-                if request.get("state") == "scheduled" and not self.arm_schedule(request):
-                    await save("scheduled_missed")
+                if request.get("state") == TargetState.SCHEDULED and not self.arm_schedule(request):
+                    await save(TargetState.SCHEDULED_MISSED)
             finally:
                 self._busy = False
 
@@ -694,7 +531,7 @@ class ChargingTargetRuntime:
             await self.enqueue(execute, request["request_id"])
         except Exception:  # noqa: BLE001 - persist sanitized outcome only
             self._busy = False
-            await save("queue_failed")
+            await save(TargetState.QUEUE_FAILED)
             raise HomeAssistantError("target_queue_failed") from None
 
     async def cancel_scheduled(self, service: ServiceCall) -> None:
@@ -704,7 +541,7 @@ class ChargingTargetRuntime:
                 self._busy
                 or not isinstance(request, dict)
                 or request.get("request_id") != service.data["request_id"]
-                or request.get("state") != "scheduled"
+                or request.get("state") != TargetState.SCHEDULED
             ):
                 raise HomeAssistantError("scheduled_target_not_cancellable")
             self.cancel_timer()
@@ -712,7 +549,7 @@ class ChargingTargetRuntime:
                 await self.persist(
                     {
                         **request,
-                        "state": "scheduled_cancelled",
+                        "state": TargetState.SCHEDULED_CANCELLED,
                         "updated_at": self.coordinator.now(),
                     }
                 )
@@ -728,7 +565,7 @@ class ChargingTargetRuntime:
                 raise HomeAssistantError("reservation_cancel_unavailable")
             request = {
                 **request,
-                "state": "cancellation_queued",
+                "state": TargetState.CANCELLATION_QUEUED,
                 "updated_at": self.coordinator.now(),
             }
             await self.persist(request)
@@ -739,17 +576,17 @@ class ChargingTargetRuntime:
             try:
                 request = {
                     **request,
-                    "state": "sending_cancellation",
+                    "state": TargetState.SENDING_CANCELLATION,
                     "updated_at": self.coordinator.now(),
                 }
                 await self.persist(request)
-                status = await self.cancel_reservation(cp, reservation_id)
+                status = await self.charger.cancel_reservation(cp, reservation_id)
                 request = {
                     **request,
                     "state": (
-                        "scheduled_cancelled"
+                        TargetState.SCHEDULED_CANCELLED
                         if status == "Accepted"
-                        else "cancellation_rejected_reservation_may_remain"
+                        else TargetState.CANCELLATION_REJECTED_RESERVATION_MAY_REMAIN
                     ),
                     "updated_at": self.coordinator.now(),
                 }
@@ -757,7 +594,7 @@ class ChargingTargetRuntime:
             except Exception:  # noqa: BLE001 - never leak OCPP payloads
                 request = {
                     **request,
-                    "state": "outcome_unknown",
+                    "state": TargetState.OUTCOME_UNKNOWN,
                     "updated_at": self.coordinator.now(),
                 }
                 await self.persist(request)
@@ -768,7 +605,7 @@ class ChargingTargetRuntime:
             await self.enqueue(execute_cancel, request["request_id"])
         except Exception:  # noqa: BLE001
             self._busy = False
-            await self.persist({**request, "state": "queue_failed"})
+            await self.persist({**request, "state": TargetState.QUEUE_FAILED})
             raise HomeAssistantError("target_queue_failed") from None
 
     async def status(self, service: ServiceCall) -> dict[str, TargetRecord | None]:
@@ -780,10 +617,10 @@ class ChargingTargetRuntime:
                 raise HomeAssistantError("target_request_or_transaction_busy")
             request = self.coordinator.charging_target_request
             if isinstance(request, dict) and request.get("state") in {
-                "reservation_queued",
-                "scheduled",
-                "cancellation_queued",
-                "sending_cancellation",
+                TargetState.RESERVATION_QUEUED,
+                TargetState.SCHEDULED,
+                TargetState.CANCELLATION_QUEUED,
+                TargetState.SENDING_CANCELLATION,
             }:
                 raise HomeAssistantError("scheduled_target_requires_cancel")
             self.cancel_timer()
@@ -795,19 +632,19 @@ class ChargingTargetRuntime:
             if not isinstance(request, dict):
                 return
             if request.get("recurrence") == "daily":
-                if request.get("last_run_state") != "start_accepted":
+                if request.get("last_run_state") != TargetState.START_ACCEPTED:
                     return
                 await self.persist(
                     {
                         **request,
-                        "last_run_state": "charging",
+                        "last_run_state": TargetState.CHARGING,
                         "updated_at": self.coordinator.now(),
                     }
                 )
                 return
-            if request.get("state") in {"start_accepted", *_WAITING_STATES}:
+            if request.get("state") in {TargetState.START_ACCEPTED, *_WAITING_STATES}:
                 await self.persist(
-                    {**request, "state": "active", "updated_at": self.coordinator.now()}
+                    {**request, "state": TargetState.ACTIVE, "updated_at": self.coordinator.now()}
                 )
 
     async def transaction_stopped(self, *_args: object, **_kwargs: object) -> None:
@@ -816,21 +653,21 @@ class ChargingTargetRuntime:
             if not isinstance(request, dict):
                 return
             if request.get("recurrence") == "daily":
-                if request.get("last_run_state") != "charging":
+                if request.get("last_run_state") != TargetState.CHARGING:
                     return
                 await self.persist(
                     {
                         **request,
-                        "last_run_state": "completed",
+                        "last_run_state": TargetState.COMPLETED,
                         "updated_at": self.coordinator.now(),
                     }
                 )
                 return
-            if request.get("state") == "active":
+            if request.get("state") == TargetState.ACTIVE:
                 await self.persist(
                     {
                         **request,
-                        "state": "completed",
+                        "state": TargetState.COMPLETED,
                         "updated_at": self.coordinator.now(),
                     }
                 )

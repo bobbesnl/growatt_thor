@@ -17,15 +17,15 @@ from custom_components.growatt_thor.presentation.card_data import (
     dashboard_active_session,
     dashboard_attributes,
 )
-from custom_components.growatt_thor.sessions.csv import (
-    append_session_row,
+from custom_components.growatt_thor.runtime.session_history import async_setup_session_history
+from custom_components.growatt_thor.sessions.csv import append_session_row
+from custom_components.growatt_thor.sessions.history_views import (
     dashboard_session_data,
     session_detail_data,
 )
 from custom_components.growatt_thor.sessions.records import parse_growatt_session_record
 from custom_components.growatt_thor.sessions.telemetry import (
     CONTEXT_CURVES,
-    async_setup_session_history,
 )
 from tests.support import build_coordinator as _build_coordinator
 

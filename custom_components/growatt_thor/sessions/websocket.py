@@ -13,7 +13,7 @@ from ..const import DOMAIN
 from ..runtime.keys import COORDINATOR
 from ..runtime.ownership import entry_runtime_data
 from ..timestamps import installation_time_zone
-from .csv import session_detail_data
+from .history_views import session_detail_data
 
 
 @websocket_api.websocket_command(

@@ -3,6 +3,7 @@
 import csv
 import tempfile
 import unittest
+from importlib import import_module
 from pathlib import Path
 
 from tests.support import PACKAGE_PATH, load_package_module, register_package
@@ -18,6 +19,10 @@ def load(name, filename):
 
 load(f"{PACKAGE_NAME}.sessions.identity", "sessions/identity.py")
 session_csv = load(f"{PACKAGE_NAME}.sessions.csv", "sessions/csv.py")
+archive_summary = import_module(session_csv.__package__ + ".archive_summary")
+history_rows = import_module(session_csv.__package__ + ".history_rows")
+history_store = import_module(session_csv.__package__ + ".history_store")
+history_views = import_module(session_csv.__package__ + ".history_views")
 
 
 class SessionDashboardTest(unittest.TestCase):
@@ -25,7 +30,7 @@ class SessionDashboardTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sessions.csv"
             with path.open("w", newline="", encoding="utf-8") as stream:
-                writer = csv.DictWriter(stream, fieldnames=session_csv.SESSION_LOG_HEADERS)
+                writer = csv.DictWriter(stream, fieldnames=history_rows.SESSION_LOG_HEADERS)
                 writer.writeheader()
                 writer.writerow(
                     {
@@ -44,19 +49,19 @@ class SessionDashboardTest(unittest.TestCase):
                         "authorized_identifier": "OLD",
                     }
                 )
-            history = session_csv.dashboard_session_data(path)
+            history = history_views.dashboard_session_data(path)
             named, unnamed = history["items"]
             self.assertEqual(named["authorized_identifier"], "00AbC")
             self.assertEqual(named["authorized_alias"], "Family car")
             self.assertEqual(unnamed["authorized_identifier"], "OLD")
             self.assertIsNone(unnamed["authorized_alias"])
-            detail = session_csv.session_detail_data(path, "named")
+            detail = history_views.session_detail_data(path, "named")
             self.assertEqual(detail["authorized_alias"], "Family car")
             self.assertEqual(detail["authorized_identifier"], "00AbC")
 
     def test_missing_log_has_known_zero_totals_and_unknown_green_energy(self):
         with tempfile.TemporaryDirectory() as directory:
-            data = session_csv.dashboard_session_data(Path(directory) / "missing.csv")
+            data = history_views.dashboard_session_data(Path(directory) / "missing.csv")
         self.assertEqual(data["items"], [])
         self.assertEqual(data["total_energy_kwh"], 0.0)
         self.assertIsNone(data["total_green_energy_kwh"])
@@ -65,7 +70,7 @@ class SessionDashboardTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sessions.csv"
             with path.open("w", newline="", encoding="utf-8") as target:
-                writer = csv.DictWriter(target, fieldnames=session_csv.SESSION_LOG_HEADERS)
+                writer = csv.DictWriter(target, fieldnames=history_rows.SESSION_LOG_HEADERS)
                 writer.writeheader()
                 writer.writerow(
                     {
@@ -84,7 +89,7 @@ class SessionDashboardTest(unittest.TestCase):
                         "power_curve": '[["2026-09-11T10:00:00Z",7200],["bad",-1]]',
                     }
                 )
-            data = session_csv.dashboard_session_data(path, limit=1)
+            data = history_views.dashboard_session_data(path, limit=1)
         self.assertEqual(data["total_count"], 2)
         self.assertEqual(data["total_energy_kwh"], 6.0)
         self.assertEqual(data["items"][0]["authorized_identifier"], "freevenID")
@@ -109,19 +114,19 @@ class MultiChargerHistoryTest(unittest.TestCase):
                         "energy_kwh": energy,
                     },
                 )
-            left = session_csv.dashboard_session_data(path, source_instance_id="left", limit=1)
+            left = history_views.dashboard_session_data(path, source_instance_id="left", limit=1)
             self.assertEqual(left["total_energy_kwh"], 2)
             self.assertEqual([item["session_id"] for item in left["items"]], ["left"])
             self.assertIsNone(
-                session_csv.session_detail_data(path, "right", source_instance_id="left")
+                history_views.session_detail_data(path, "right", source_instance_id="left")
             )
             self.assertEqual(
-                session_csv.session_detail_data(path, "right", source_instance_id="right")[
+                history_views.session_detail_data(path, "right", source_instance_id="right")[
                     "energy_kwh"
                 ],
                 7,
             )
-            self.assertEqual(session_csv.dashboard_session_data(path)["total_energy_kwh"], 9)
+            self.assertEqual(history_views.dashboard_session_data(path)["total_energy_kwh"], 9)
 
     def test_legacy_rows_require_matching_charger_and_explicit_owner_wins(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -139,11 +144,13 @@ class MultiChargerHistoryTest(unittest.TestCase):
                     },
                 )
             self.assertEqual(
-                session_csv.dashboard_session_data(path, source_instance_id="left")["total_count"],
+                history_views.dashboard_session_data(path, source_instance_id="left")[
+                    "total_count"
+                ],
                 0,
             )
             self.assertEqual(
-                session_csv.dashboard_session_data(
+                history_views.dashboard_session_data(
                     path, source_instance_id="left", charge_point_id="THOR"
                 )["total_energy_kwh"],
                 2,
@@ -166,7 +173,7 @@ class MultiChargerHistoryTest(unittest.TestCase):
                 )
             session_csv.enforce_session_retention(path)
             for name, energy in [("left", 2), ("right", 7)]:
-                data = session_csv.dashboard_session_data(path, source_instance_id=name)
+                data = history_views.dashboard_session_data(path, source_instance_id=name)
                 self.assertEqual(data["items"], [])
                 self.assertEqual(data["total_energy_kwh"], energy)
                 self.assertEqual(data["total_count"], 1)
@@ -174,13 +181,13 @@ class MultiChargerHistoryTest(unittest.TestCase):
     def test_unlabelled_archive_is_inherited_only_by_the_original_single_entry(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sessions.csv"
-            archive = session_csv._empty_archive_summary()
+            archive = archive_summary.empty_archive_summary()
             archive.update(total_energy_kwh=12.5, total_count=3)
-            session_csv._write_archive_summary(path, archive)
-            inherited = session_csv.dashboard_session_data(
+            history_store.write_archive_summary(path, archive)
+            inherited = history_views.dashboard_session_data(
                 path, source_instance_id="original", include_unassigned_archive=True
             )
-            other = session_csv.dashboard_session_data(path, source_instance_id="new")
+            other = history_views.dashboard_session_data(path, source_instance_id="new")
             self.assertEqual(inherited["total_energy_kwh"], 12.5)
             self.assertEqual(inherited["total_count"], 3)
             self.assertEqual(other["total_count"], 0)
@@ -195,7 +202,7 @@ class PartialGreenSummaryTest(unittest.TestCase):
         import json
 
         with path.open("w", newline="", encoding="utf-8") as stream:
-            writer = csv.DictWriter(stream, fieldnames=session_csv.SESSION_LOG_HEADERS)
+            writer = csv.DictWriter(stream, fieldnames=history_rows.SESSION_LOG_HEADERS)
             writer.writeheader()
             for index, row in enumerate(rows):
                 value = {
@@ -231,7 +238,7 @@ class PartialGreenSummaryTest(unittest.TestCase):
                 ],
             )
             before = path.read_bytes()
-            data = session_csv.dashboard_session_data(path, limit=1)
+            data = history_views.dashboard_session_data(path, limit=1)
             self.assertEqual(data["total_green_energy_kwh"], 8)
             self.assertTrue(data["total_green_partial"])
             self.assertIsNone(data["items"][0]["green_energy_kwh"])
@@ -264,11 +271,11 @@ class PartialGreenSummaryTest(unittest.TestCase):
             for row, expected, partial in cases:
                 with self.subTest(row=row):
                     self.write_rows(path, [row])
-                    data = session_csv.dashboard_session_data(path)
+                    data = history_views.dashboard_session_data(path)
                     self.assertEqual(data["total_green_energy_kwh"], expected)
                     self.assertEqual(data["total_green_partial"], partial)
             self.write_rows(path, [{"green_energy_kwh": 2}, {}])
-            data = session_csv.dashboard_session_data(path)
+            data = history_views.dashboard_session_data(path)
             self.assertEqual(data["total_green_energy_kwh"], 2)
             self.assertTrue(data["total_green_partial"])
 
@@ -290,7 +297,7 @@ class PartialGreenSummaryTest(unittest.TestCase):
             )
             for owner, expected, partial in [("left", 6, True), ("right", 2, False)]:
                 with self.subTest(owner=owner):
-                    data = session_csv.dashboard_session_data(path, source_instance_id=owner)
+                    data = history_views.dashboard_session_data(path, source_instance_id=owner)
                     self.assertEqual(data["items"], [])
                     self.assertEqual(data["total_green_energy_kwh"], expected)
                     self.assertEqual(data["total_green_partial"], partial)
@@ -298,17 +305,19 @@ class PartialGreenSummaryTest(unittest.TestCase):
                 session_csv.enforce_session_retention(path, today=date(2026, 10, 25), max_rows=0),
                 0,
             )
-            data = session_csv.dashboard_session_data(path)
+            data = history_views.dashboard_session_data(path)
             self.assertEqual(data["total_green_energy_kwh"], 8)
             self.assertTrue(data["total_green_partial"])
             path.unlink()
-            self.assertEqual(session_csv.dashboard_session_data(path)["total_green_energy_kwh"], 8)
-            self.assertTrue(session_csv.dashboard_session_data(path)["total_green_partial"])
+            self.assertEqual(
+                history_views.dashboard_session_data(path)["total_green_energy_kwh"], 8
+            )
+            self.assertTrue(history_views.dashboard_session_data(path)["total_green_partial"])
 
     def test_old_archives_remain_qualified_without_inventing_pruned_solar(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sessions.csv"
-            summary = session_csv._empty_archive_summary()
+            summary = archive_summary.empty_archive_summary()
             summary.pop("green_partial_count")
             summary.update(
                 total_count=2,
@@ -319,10 +328,10 @@ class PartialGreenSummaryTest(unittest.TestCase):
             summary["owners"] = {
                 "entry:left": {key: value for key, value in summary.items() if key != "owners"}
             }
-            session_csv._write_archive_summary(path, summary)
-            data = session_csv.dashboard_session_data(path, source_instance_id="left")
+            history_store.write_archive_summary(path, summary)
+            data = history_views.dashboard_session_data(path, source_instance_id="left")
             self.assertEqual(data["total_green_energy_kwh"], 3)
             self.assertTrue(data["total_green_partial"])
-            other = session_csv.dashboard_session_data(path, source_instance_id="right")
+            other = history_views.dashboard_session_data(path, source_instance_id="right")
             self.assertIsNone(other["total_green_energy_kwh"])
             self.assertFalse(other["total_green_partial"])

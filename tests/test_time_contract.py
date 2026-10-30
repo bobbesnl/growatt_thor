@@ -7,6 +7,7 @@ import types
 import unittest
 from dataclasses import replace
 from datetime import datetime
+from importlib import import_module
 from pathlib import Path
 
 from tests.support import PACKAGE_PATH, register_package
@@ -15,6 +16,9 @@ ROOT = PACKAGE_PATH
 package = register_package("thor_time_contract_test")
 time = importlib.import_module(package.__name__ + ".timestamps")
 history = importlib.import_module(package.__name__ + ".sessions.csv")
+session_exports = import_module(history.__package__ + ".exports")
+history_rows = import_module(history.__package__ + ".history_rows")
+history_views = import_module(history.__package__ + ".history_views")
 
 
 class UtcTimeContractTest(unittest.TestCase):
@@ -79,7 +83,9 @@ class UtcTimeContractTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sessions.csv"
             history.append_session_row(path, row)
-            detail = history.session_detail_data(path, row["session_id"], time_zone="Europe/Berlin")
+            detail = history_views.session_detail_data(
+                path, row["session_id"], time_zone="Europe/Berlin"
+            )
             self.assertEqual(detail["power_curve"], json.loads(row["power_curve"]))
             self.assertEqual(detail["start_time"], active["start_time"])
             self.assertEqual(
@@ -89,7 +95,9 @@ class UtcTimeContractTest(unittest.TestCase):
             self.assertNotIn("unplugged", {e["type"] for e in detail["events"]})
             # A later configuration change cannot reinterpret newly stored instants.
             self.assertEqual(
-                history.session_detail_data(path, row["session_id"], time_zone="America/New_York"),
+                history_views.session_detail_data(
+                    path, row["session_id"], time_zone="America/New_York"
+                ),
                 detail,
             )
 
@@ -141,7 +149,7 @@ class UtcTimeContractTest(unittest.TestCase):
             path = Path(directory) / "sessions.csv"
             export = Path(directory) / "export.csv"
             with path.open("w", newline="", encoding="utf8") as stream:
-                writer = csv.DictWriter(stream, fieldnames=history.SESSION_LOG_HEADERS)
+                writer = csv.DictWriter(stream, fieldnames=history_rows.SESSION_LOG_HEADERS)
                 writer.writeheader()
                 writer.writerow(
                     {
@@ -163,17 +171,19 @@ class UtcTimeContractTest(unittest.TestCase):
                     }
                 )
             original = path.read_bytes()
-            row = history.dashboard_session_data(path, time_zone="Europe/Berlin")["items"][0]
+            row = history_views.dashboard_session_data(path, time_zone="Europe/Berlin")["items"][0]
             self.assertEqual(row["start_time"], "2026-07-01T08:00:00Z")
             self.assertEqual(row["events"][0]["at"], "2026-07-01T07:59:00Z")
             self.assertEqual(row["power_curve"][0][0], row["start_time"])
-            detail = history.session_detail_data(path, row["session_id"], time_zone="Europe/Berlin")
+            detail = history_views.session_detail_data(
+                path, row["session_id"], time_zone="Europe/Berlin"
+            )
             self.assertEqual(row, detail)
-            other_zone = history.dashboard_session_data(path, time_zone="America/New_York")[
+            other_zone = history_views.dashboard_session_data(path, time_zone="America/New_York")[
                 "items"
             ][0]
             self.assertEqual(row["session_id"], other_zone["session_id"])
-            history.export_session_rows(
+            session_exports.export_session_rows(
                 path,
                 export,
                 date_from=datetime(2026, 7, 1),
@@ -188,11 +198,11 @@ class UtcTimeContractTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sessions.csv"
             with path.open("w", newline="", encoding="utf8") as stream:
-                writer = csv.DictWriter(stream, fieldnames=history.SESSION_LOG_HEADERS)
+                writer = csv.DictWriter(stream, fieldnames=history_rows.SESSION_LOG_HEADERS)
                 writer.writeheader()
                 writer.writerow({"start_time": "2026-10-25 02:30:00", "energy_kwh": 2})
             original = path.read_bytes()
-            row = history.dashboard_session_data(path, time_zone="Europe/Berlin")["items"][0]
+            row = history_views.dashboard_session_data(path, time_zone="Europe/Berlin")["items"][0]
             self.assertIsNone(row["start_time"])
             self.assertEqual(row["energy_kwh"], 2)
             self.assertTrue(row["session_id"].startswith("legacy-"))

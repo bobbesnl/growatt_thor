@@ -17,7 +17,7 @@ from .options import (
     CONF_TARIFF_ENTITY,
     SITE_GRID_SOURCES,
 )
-from .site_inputs import GRID_SIGNS, PROFILES
+from .site_inputs import GRID_SIGNS, AccountingProfile
 from .sources import duplicate_source_fields, is_power_sensor
 from .stop_guard_policy import (
     AUTO_STOP_MODES,
@@ -44,7 +44,7 @@ def validate_site_options(
 ) -> dict[str, str]:
     errors = {}
     profile = user_input.get(CONF_SITE_PROFILE, "disabled")
-    if profile not in PROFILES:
+    if profile not in AccountingProfile:
         errors[CONF_SITE_PROFILE] = "invalid_site_profile"
     auto_stop_mode = user_input.get(CONF_AUTO_STOP_MODE, "off")
     for key, default, low, high in (
