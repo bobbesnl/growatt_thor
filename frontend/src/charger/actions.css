@@ -1,0 +1,117 @@
+button {
+  font: inherit;
+  cursor: pointer;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--blue, #32719c);
+  outline-offset: 3px;
+}
+button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.action {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 13px 7px;
+  background: var(--panel);
+  font-size: 12px;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 46px;
+  transition:
+    background 0.2s,
+    transform 0.2s;
+}
+.action:not(:disabled):hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+.action.start:not(:disabled) {
+  background: var(--lime);
+  border-color: var(--lime);
+  color: #19320d;
+}
+.action.stop:not(:disabled) {
+  background: color-mix(in srgb, var(--red) 8%, var(--surface));
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 25%, var(--line));
+}
+.action:disabled {
+  opacity: 1;
+  color: var(--muted);
+  background: var(--panel);
+  border-color: var(--line);
+}
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 15px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.goal-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 58px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  text-align: left;
+}
+.goal-entry > span:first-of-type {
+  flex: 1;
+}
+.goal-entry strong {
+  display: block;
+  font-size: 13px;
+}
+.goal-entry small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.preview-badge {
+  border-radius: 99px;
+  padding: 5px 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 10px;
+}
+.text-button {
+  background: none;
+  border: 0;
+  padding: 8px 0;
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+}
+.text-button strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+.text-button:hover:not(:disabled) {
+  color: var(--green);
+}

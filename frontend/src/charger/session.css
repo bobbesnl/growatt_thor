@@ -1,0 +1,175 @@
+.vehicle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0 0 7px;
+}
+.vehicle ha-icon {
+  --mdc-icon-size: 16px;
+}
+.hint {
+  margin: 0 0 16px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.activation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px;
+  min-height: 46px;
+  border: 1px dashed var(--line);
+  border-radius: 13px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.activation-hint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 10px 0 0;
+}
+.notice {
+  display: flex;
+  gap: 9px;
+  padding: 12px;
+  margin: 12px 0;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tone) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--tone) 22%, transparent);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.notice.warning {
+  color: var(--amber);
+  --tone: var(--amber);
+}
+.notice.error {
+  color: var(--red);
+  --tone: var(--red);
+}
+.notice p {
+  margin: 0;
+}
+.notice strong {
+  display: block;
+  margin-bottom: 4px;
+}
+.target-notice {
+  display: grid;
+  gap: 7px;
+  padding: 13px 14px;
+  overflow-wrap: normal;
+}
+.target-notice-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: var(--ink);
+}
+.target-notice-heading > ha-icon {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: var(--tone);
+}
+.target-notice-heading strong {
+  margin: 0;
+}
+.target-notice-value {
+  margin-left: auto;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.target-notice p {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.target-notice-meta,
+.target-notice-meta span,
+.target-notice-meta time {
+  display: flex;
+  align-items: center;
+}
+.target-notice-meta {
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.target-notice-meta span,
+.target-notice-meta time {
+  gap: 5px;
+}
+.target-notice-meta ha-icon {
+  width: 15px;
+  height: 15px;
+}
+.session {
+  background: var(--panel);
+  padding: 13px 15px;
+  border-radius: 14px;
+  margin: 16px 0;
+}
+.session-title {
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.metrics.with-cost {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.metric {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: nowrap;
+}
+.metric-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.metric .unit {
+  display: block;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.2;
+}
+.metric + .metric {
+  border-left: 1px solid var(--line);
+  padding-left: 10px;
+}
+.metric strong {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+.metric small {
+  display: block;
+  color: var(--muted);
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.2;
+}
+.metric {
+  min-width: 0;
+  white-space: nowrap;
+}
