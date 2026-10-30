@@ -297,9 +297,11 @@ class SessionLifecycle:
 
         _LOGGER.info("Transaction started: %s", transaction_id)
         coordinator.async_set_updated_data(True)
-        callback = getattr(coordinator, "_charging_target_transaction_started", None)
-        if callback is not None:
-            coordinator.hass.async_create_task(callback(transaction_id=transaction_id))
+        hooks = coordinator.transaction_hooks
+        if hooks is not None:
+            coordinator.hass.async_create_task(
+                hooks.transaction_started(transaction_id=transaction_id)
+            )
 
     def stop_transaction(
         self,
@@ -397,10 +399,10 @@ class SessionLifecycle:
         coordinator.status = "Idle"
         coordinator.hass.async_create_task(coordinator.async_save_storage())
         coordinator.async_set_updated_data(True)
-        callback = getattr(coordinator, "_charging_target_transaction_stopped", None)
-        if callback is not None:
+        hooks = coordinator.transaction_hooks
+        if hooks is not None:
             coordinator.hass.async_create_task(
-                callback(transaction_id=stopped_transaction_id, reason=reason)
+                hooks.transaction_stopped(transaction_id=stopped_transaction_id, reason=reason)
             )
 
     def record_stop_requested(self, *, reason="remote_stop") -> None:

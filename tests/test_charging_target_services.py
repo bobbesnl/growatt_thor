@@ -207,9 +207,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         self.module.async_unload_target_services(self.hass, SimpleNamespace(entry_id="TEST"))
         self.module.async_unload_target_services(self.hass, SimpleNamespace(entry_id="TEST"))
         self.assertTrue(timer.cancelled)
-        self.assertIsNone(self.coordinator._charging_target_transaction_started)
-        self.assertIsNone(self.coordinator._charging_target_transaction_stopped)
-        self.assertIsNone(self.coordinator._cancel_charging_target_schedule)
+        self.assertIsNone(self.coordinator.transaction_hooks)
         self.assertEqual(Store.retained, retained)
         await self.module.async_setup_target_services(
             self.hass,
@@ -769,10 +767,10 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         task = self.hass.loop.timers[0].callback()
         await task
         await self.queue[0]()
-        await self.coordinator._charging_target_transaction_started()
+        await self.coordinator.transaction_hooks.transaction_started()
         self.assertEqual(Store.retained["state"], "scheduled")
         self.assertEqual(Store.retained["last_run_state"], "charging")
-        await self.coordinator._charging_target_transaction_stopped()
+        await self.coordinator.transaction_hooks.transaction_stopped()
         self.assertEqual(Store.retained["state"], "scheduled")
         self.assertEqual(Store.retained["last_run_state"], "completed")
 

@@ -325,7 +325,7 @@ def dashboard_attributes(coordinator) -> dict:
     charging_sources = live_charging_sources(coordinator, meter_display, snapshot)
     attributes = {
         "schema": 1,
-        "charging_target_pilot": getattr(coordinator, "charging_target_pilot_enabled", False),
+        "charging_target_pilot": coordinator.charging_target_pilot_enabled,
         "connection_started_at": getattr(coordinator, "connection_started_at", None),
         "charging_target": {
             key: value

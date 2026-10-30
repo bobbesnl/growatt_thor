@@ -51,7 +51,7 @@ Live energy-source allocation lives in `energy/live_allocation.py`, using the pu
 
 `ChargingTargetRuntime` owns one entry's target storage, lock, busy state and
 schedule timer. Its bound methods implement the unchanged target service
-contract; unload cancels the timer and releases transaction callbacks.
+contract. The coordinator declares `transaction_hooks: TransactionHooks | None`; session start/stop observations call this contract, and unload cancels the timer and clears it. The pilot flag is declared on the coordinator and retains its existing lifetime.
 `SessionOutbox` owns delivery state with typed persistence callbacks and validates
 session identities before accepting rows. `ChargingMeterObservation` declares
 the normalized telemetry shape while malformed or missing packets stay unknown.

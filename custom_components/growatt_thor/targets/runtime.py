@@ -159,9 +159,7 @@ class ChargingTargetRuntime:
             SERVICES[6]: self.schedule,
             SERVICES[7]: self.cancel_scheduled,
         }
-        self.coordinator._cancel_charging_target_schedule = self.cancel_timer
-        self.coordinator._charging_target_transaction_started = self.transaction_started
-        self.coordinator._charging_target_transaction_stopped = self.transaction_stopped
+        self.coordinator.transaction_hooks = self
 
         if isinstance(retained, dict) and retained.get("state") == "scheduled":
             start_at = stored_start_at(retained.get("scheduled_for"))
@@ -840,9 +838,7 @@ class ChargingTargetRuntime:
     def close(self) -> None:
         """Release this entry's timer and transaction callbacks on unload."""
         self.cancel_timer()
-        self.coordinator._cancel_charging_target_schedule = None
-        self.coordinator._charging_target_transaction_started = None
-        self.coordinator._charging_target_transaction_stopped = None
+        self.coordinator.transaction_hooks = None
 
 
 async def async_setup_target_runtime(

@@ -94,6 +94,7 @@ from .sessions.events import (
     append_session_event,
     session_event,
 )
+from .sessions.hooks import TransactionHooks
 from .sessions.records import GrowattSessionRecord
 from .sessions.runtime import SessionLifecycle
 from .sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
@@ -159,6 +160,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_heartbeat_at = None
         self.transaction_id = None
         self.charging_target_request = None
+        self.transaction_hooks: TransactionHooks | None = None
+        self.charging_target_pilot_enabled = False
         self.id_tag = None
         self.authorization = LocalAuthorization()
 

@@ -58,6 +58,7 @@ class CardDataTest(unittest.TestCase):
     def test_live_sources_balance_fresh_charger_power_and_disappear_when_stale(self):
         at = "2026-09-22T12:00:00Z"
         coordinator = types.SimpleNamespace(
+            charging_target_pilot_enabled=False,
             last_meter_values={
                 "received_at": at,
                 "meter_values": [
@@ -123,6 +124,7 @@ class CardDataTest(unittest.TestCase):
             "total_count": 50,
         }
         coordinator = types.SimpleNamespace(
+            charging_target_pilot_enabled=False,
             transaction_is_active=True,
             active_transaction={
                 "id_tag_alias": "Family car",
@@ -207,6 +209,7 @@ class CardDataTest(unittest.TestCase):
         self,
     ):
         coordinator = types.SimpleNamespace(
+            charging_target_pilot_enabled=False,
             transaction_is_active=True,
             active_transaction=None,
             transaction_id=24,
@@ -226,6 +229,7 @@ class CardDataTest(unittest.TestCase):
 
     def test_no_active_session_leaves_completed_history_unchanged(self):
         coordinator = types.SimpleNamespace(
+            charging_target_pilot_enabled=False,
             transaction_is_active=False,
             dashboard_sessions={"items": [{"session_id": "past"}], "total_count": 1},
         )
@@ -254,6 +258,7 @@ class CardDataTest(unittest.TestCase):
 
     def test_authorization_mode_is_safe_reported_configuration_not_policy(self):
         coordinator = types.SimpleNamespace(
+            charging_target_pilot_enabled=False,
             last_meter_values=None,
             last_status_notification=None,
             active_transaction=None,
@@ -284,6 +289,7 @@ class CardDataTest(unittest.TestCase):
 
     def test_power_flow_preserves_signed_grid_balance_and_pv_allowance(self):
         coordinator = types.SimpleNamespace(
+            charging_target_pilot_enabled=False,
             last_meter_values=None,
             last_status_notification=None,
             active_transaction=None,
@@ -318,6 +324,7 @@ class CardDataTest(unittest.TestCase):
 
     def test_power_flow_includes_configured_normalized_battery_observation(self):
         coordinator = types.SimpleNamespace(
+            charging_target_pilot_enabled=False,
             last_meter_values=None,
             last_status_notification=None,
             active_transaction=None,
@@ -414,7 +421,10 @@ class LivePowerStatusTest(unittest.TestCase):
     def test_card_keeps_raw_values_but_zeroes_non_charging_display(self):
         raw = packet([sample(971), sample(4.2, phase="L1", unit="A", measurand="Current.Import")])
         coordinator = types.SimpleNamespace(
-            last_meter_values=raw, connected=True, status="SuspendedEV"
+            charging_target_pilot_enabled=False,
+            last_meter_values=raw,
+            connected=True,
+            status="SuspendedEV",
         )
         self.assertEqual(module.live_dashboard_meter_values(coordinator)["power_w"], 0)
         self.assertEqual(module.live_dashboard_meter_values(coordinator)["currents_a"], [0, 0, 0])
