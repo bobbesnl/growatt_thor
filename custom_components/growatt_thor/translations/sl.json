@@ -1,78 +1,78 @@
 {
   "services": {
     "prepare_plug_charging_target": {
-      "name": "Prepare native target for Plug & Charge",
-      "description": "Unplugged only. Sends duration, energy or budget without remote start. Wait for acceptance before plugging in."
+      "name": "Pripravi izvorni cilj za Plug & Charge",
+      "description": "Samo pri odklopljenem kablu. Pošlje trajanje, energijo ali proračun brez oddaljenega zagona. Pred priklopom počakajte na potrditev."
     },
     "schedule_charging_target": {
-      "name": "Reserve or repeat a native charging target",
-      "description": "One-time uses target + ReserveNow now and target + remote start at the selected time. Daily is managed and rearmed by Home Assistant."
+      "name": "Rezerviraj ali ponavljaj izvorni cilj polnjenja",
+      "description": "Enkratna rezervacija takoj pošlje cilj in ReserveNow, ob izbranem času pa cilj in oddaljeni zagon. Dnevno ponavljanje upravlja in znova pripravi Home Assistant."
     },
     "cancel_scheduled_charging_target": {
-      "name": "Cancel scheduled charging target",
-      "description": "Cancels a daily HA timer locally or sends CancelReservation for a one-time reservation. A native target already written to the charger is not cleared."
+      "name": "Prekliči načrtovani cilj polnjenja",
+      "description": "Lokalno prekliče dnevni časovnik HA ali pošlje CancelReservation za enkratno rezervacijo. Cilja, ki je že zapisan v polnilnici, ne izbriše."
     },
     "preview_charging_target": {
-      "name": "Preview native charging target",
-      "description": "Read-only capture coverage and wire plan. Sends no commands.",
+      "name": "Predogled izvornega cilja polnjenja",
+      "description": "Prikaz pokritosti zajemov in načrta sporočil samo za branje. Ne pošilja ukazov.",
       "fields": {
         "kind": {
-          "name": "Target type",
-          "description": "Duration, energy or budget."
+          "name": "Vrsta cilja",
+          "description": "Trajanje, energija ali proračun."
         },
         "value": {
-          "name": "Target value",
-          "description": "Whole minutes, kWh or numeric charger-tariff units."
+          "name": "Ciljna vrednost",
+          "description": "Cele minute, kWh ali številske enote tarife polnilnice."
         },
         "start": {
-          "name": "Start type",
-          "description": "Now, one-time reservation or recurrence. Unverified combinations remain blocked."
+          "name": "Vrsta zagona",
+          "description": "Takoj, enkratna rezervacija ali ponavljanje. Nepreverjene kombinacije ostanejo blokirane."
         }
       }
     },
     "start_charging_target": {
-      "name": "Start native charging target (experimental)",
-      "description": "Sends duration, energy or budget followed by remote start on captured firmware in Fast mode. Duration and energy stopping are verified; budget remains experimental. No automatic retries.",
+      "name": "Zaženi izvorni cilj polnjenja (poskusno)",
+      "description": "Pošlje trajanje, energijo ali proračun, nato oddaljeni zagon na zajetih različicah programske opreme v hitrem načinu. Ustavitev po času in energiji je preverjena; proračun ostaja poskusen. Brez samodejnih ponovitev.",
       "fields": {
         "kind": {
-          "name": "Target type",
-          "description": "Duration, energy or budget."
+          "name": "Vrsta cilja",
+          "description": "Trajanje, energija ali proračun."
         },
         "value": {
-          "name": "Target value",
-          "description": "Guardrails: 1–1440 whole minutes, 0.01–100 kWh or 1–1000 tariff units."
+          "name": "Ciljna vrednost",
+          "description": "Omejitve: 1–1440 celih minut, 0.01–100 kWh ali 1–1000 tarifnih enot."
         },
         "confirm_experimental": {
-          "name": "Confirm supervised pilot",
-          "description": "Accepted does not prove charging or target enforcement. Stay available to stop charging."
+          "name": "Potrdi nadzorovani preizkus",
+          "description": "Potrditev ne dokazuje polnjenja ali upoštevanja cilja. Ostanite dosegljivi za ustavitev polnjenja."
         }
       }
     },
     "acknowledge_target_reset": {
-      "name": "Acknowledge independent native target reset",
-      "description": "Clears only the retained HA request, NOT the charger target. Does not send Cancel or Stop.",
+      "name": "Potrdi neodvisno ponastavitev izvornega cilja",
+      "description": "Izbriše samo shranjeno zahtevo HA, NE cilja polnilnice. Ne pošlje preklica ali ustavitve.",
       "fields": {
         "confirm_native_target_reset": {
-          "name": "Native target independently cleared",
-          "description": "Confirm the charger target is cleared and the next start is safe. A completed session alone does not prove a reset."
+          "name": "Izvorni cilj je neodvisno izbrisan",
+          "description": "Potrdite, da je cilj polnilnice izbrisan in je naslednji zagon varen. Zaključena seja sama po sebi ne dokazuje ponastavitve."
         }
       }
     },
     "prepare_rfid_charging_target": {
-      "name": "Prepare native target for RFID",
-      "description": "Sets duration, energy or budget, never a remote start. Wait for target_accepted_waiting_for_rfid before presenting the card.",
+      "name": "Pripravi izvorni cilj za RFID",
+      "description": "Nastavi trajanje, energijo ali proračun brez oddaljenega zagona. Pred približanjem kartice počakajte na target_accepted_waiting_for_rfid.",
       "fields": {
         "value": {
-          "name": "Energy (kWh)"
+          "name": "Energija (kWh)"
         },
         "confirm_experimental": {
-          "name": "Confirm supervised experiment"
+          "name": "Potrdi nadzorovani poskus"
         }
       }
     },
     "charging_target_status": {
-      "name": "Read charging target pilot status",
-      "description": "Read-only. Acceptance does not prove enforcement of the target."
+      "name": "Preberi stanje preizkusa ciljev polnjenja",
+      "description": "Samo za branje. Potrditev ne dokazuje upoštevanja cilja."
     }
   },
   "config": {
@@ -81,7 +81,7 @@
         "title": "Nastavitve Growatt THOR",
         "description": "Nastavite svojo povezavo Growatt THOR EV Charger OCPP",
         "data": {
-          "bind_address": "OCPP bind address (local IP)",
+          "bind_address": "Naslov za poslušanje OCPP (lokalni IP)",
           "port": "Vrata",
           "location": "Lokacija namestitve",
           "poll_interval": "Interval preverjanja omrežja (sekunde, najmanj {min_interval})"
@@ -90,9 +90,9 @@
     },
     "error": {
       "poll_interval_too_low": "Interval preverjanja mora biti vsaj {min_interval} sekund",
-      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
-      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
-      "invalid_port": "Port must be a whole number from 1 to 65535",
+      "invalid_poll_interval": "Interval poizvedovanja mora biti končno celo število sekund",
+      "invalid_bind_address": "Vnesite veljaven lokalni naslov IPv4 ali IPv6",
+      "invalid_port": "Vrata morajo biti celo število od 1 do 65535",
       "port_already_configured": "Ta vrata že uporablja drug polnilnik Growatt THOR. Izberite druga vrata."
     },
     "abort": {
@@ -108,7 +108,7 @@
         "menu_options": {
           "general": "Splošne nastavitve",
           "energy_sources": "Izbirni viri energije",
-          "site_accounting": "Site EV accounting",
+          "site_accounting": "Obračun energije vozila na lokaciji",
           "authorization": "Lokalni nadzor dostopa",
           "confirm_ap_mode": "Vzdrževanje: način AP",
           "learn_rfid": "Nauči kartico RFID"
@@ -116,7 +116,7 @@
         "menu_option_descriptions": {
           "general": "Nastavite interval preverjanja in lokacijo.",
           "energy_sources": "Nastavite izbirni pretok baterije za kartice in grafikone.",
-          "site_accounting": "Account for EV energy and costs; optionally configure automatic charging stop.",
+          "site_accounting": "Obračun energije in stroškov vozila ter izbirna samodejna ustavitev polnjenja.",
           "authorization": "Ločeno upravljajte dostop RFID in zagone iz Home Assistanta.",
           "confirm_ap_mode": "Vklopite nastavitveni Wi-Fi polnilnice; povezava s Home Assistantom bo prekinjena.",
           "learn_rfid": "Prislonite kartico, da njen identifikator in neobvezno ime dodate na seznam dovoljenih kartic te polnilnice."
@@ -126,13 +126,13 @@
         "title": "Splošne nastavitve",
         "description": "Te nastavitve vplivajo na povezavo med Home Assistantom in polnilnico.",
         "data": {
-          "bind_address": "OCPP bind address (local IP)",
+          "bind_address": "Naslov za poslušanje OCPP (lokalni IP)",
           "poll_interval": "Interval preverjanja omrežja (sekunde, trenutno: {current_interval})",
           "location": "Lokacija namestitve"
         },
         "data_description": {
-          "poll_interval": "How often Home Assistant refreshes external power values.",
-          "location": "Label shown for this installation."
+          "poll_interval": "Kako pogosto Home Assistant osveži zunanje meritve moči.",
+          "location": "Prikazano ime te namestitve."
         }
       },
       "energy_sources": {
@@ -148,39 +148,39 @@
         }
       },
       "site_accounting": {
-        "title": "Site EV accounting",
+        "title": "Obračun energije vozila na lokaciji",
         "description": "Samodejna zaščita deluje samo v načinu PV Linkage+ (samo presežek sončne energije). Beleženje energije in stroškov vozila. Izbirna zaščita ustavi polnjenje po trajnem odjemu iz baterije ali omrežja. Prag in čakanje sta nastavljiva. Manjkajoče ali zastarele meritve ne sprožijo ustavitve. Brez samodejnega ponovnega zagona.",
         "data": {
-          "site_accounting_profile": "Site profile",
+          "site_accounting_profile": "Profil lokacije",
           "site_stop_threshold_w": "Prag ustavitve (W)",
           "site_stop_hold_seconds": "Čas nad pragom (sekunde)",
-          "site_auto_stop_mode": "Automatic charging stop",
-          "site_grid_source": "Grid source",
-          "site_grid_power_entity": "Grid power sensor (optional)",
-          "site_grid_power_sign": "Grid sensor sign",
-          "site_solar_power_entity": "Solar power sensor (optional)",
-          "site_house_power_entity": "Non-EV household power sensor (optional)",
-          "site_tariff_entity": "Current price per kWh sensor (optional)",
-          "site_fixed_price": "Fixed price per kWh (used without price sensor)"
+          "site_auto_stop_mode": "Samodejna ustavitev polnjenja",
+          "site_grid_source": "Vir podatkov omrežja",
+          "site_grid_power_entity": "Senzor moči omrežja (neobvezno)",
+          "site_grid_power_sign": "Predznak senzorja omrežja",
+          "site_solar_power_entity": "Senzor sončne moči (neobvezno)",
+          "site_house_power_entity": "Senzor moči gospodinjstva brez vozila (neobvezno)",
+          "site_tariff_entity": "Senzor trenutne cene na kWh (neobvezno)",
+          "site_fixed_price": "Fiksna cena na kWh (brez senzorja cene)"
         },
         "data_description": {
           "site_stop_threshold_w": "Moč iz baterije ali omrežja. Privzeto: 500 W.",
           "site_stop_hold_seconds": "Privzeto: 180 sekund. Če trenutna sončna proizvodnja pokriva polnjenje, imajo začasni gospodinjski porabniki dodatni dve minuti. Brez samodejnega ponovnega zagona.",
-          "site_auto_stop_mode": "Samodejna zaščita deluje samo v načinu PV Linkage+ (samo presežek sončne energije). Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
+          "site_auto_stop_mode": "Samodejna zaščita deluje samo v načinu PV Linkage+ (samo presežek sončne energije). Izklopljeno, ob praznjenju baterije, ob odjemu iz omrežja ali pri obojem. Zahteva sveže meritve in aktivno polnjenje; vir baterije nastavite med neobveznimi viri energije."
         }
       },
       "authorization": {
-        "title": "Local charging authorisation",
-        "description": "Stored RFID identifiers: {count}. Physical card access and starts initiated by Home Assistant are managed independently. This does not change the charger's authorization mode, cards, or cloud bindings.",
+        "title": "Lokalno dovoljevanje polnjenja",
+        "description": "Shranjeni identifikatorji RFID: {count}. Dostop s fizično kartico in zagoni iz Home Assistanta se upravljajo ločeno. Ne spremeni načina dovoljevanja polnilnice, kartic ali povezav z oblakom.",
         "data": {
-          "restrict_authorization": "Restrict RFID access to the allowlist",
-          "allow_ha_remote_start": "Allow starts from Home Assistant",
-          "authorized_id_tags": "RFID allowlist (one identifier per line)"
+          "restrict_authorization": "Omeji dostop RFID na seznam dovoljenih",
+          "allow_ha_remote_start": "Dovoli zagone iz Home Assistanta",
+          "authorized_id_tags": "Seznam dovoljenih RFID (en identifikator na vrstico)"
         },
         "data_description": {
-          "restrict_authorization": "Enables local checking of physical RFID identifiers. An enabled empty list rejects every card.",
-          "allow_ha_remote_start": "Allows starts through HA controls, services, and automations. No technical identifier needs to be added to the RFID list.",
-          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics. En identifikator na vrstico, po želji še presledek, |, presledek in ime: 00Ab12 | Družinski avto. Ohranite velike in male črke ter začetne ničle. Imena imajo lahko največ 80 znakov. Za izbris imena pustite samo identifikator; za odstranitev kartice izbrišite vrstico."
+          "restrict_authorization": "Omogoči lokalno preverjanje identifikatorjev fizičnih kartic RFID. Vklopljen prazen seznam zavrne vse kartice.",
+          "allow_ha_remote_start": "Omogoča zagone prek kontrolnikov, storitev in avtomatizacij HA. Na seznam RFID ni treba dodajati tehničnega identifikatorja.",
+          "authorized_id_tags": "Največ 100 natančnih identifikatorjev OCPP iz 1–20 znakov. Seznam je shranjen lokalno in se znova prikaže ob odprtju tega okna. Za odstranitev kartice izbrišite vrstico; identifikatorji so izključeni iz običajnih dnevnikov in diagnostike. En identifikator na vrstico, po želji še presledek, |, presledek in ime: 00Ab12 | Družinski avto. Ohranite velike in male črke ter začetne ničle. Imena imajo lahko največ 80 znakov. Za izbris imena pustite samo identifikator; za odstranitev kartice izbrišite vrstico."
         }
       },
       "confirm_charger_mode": {
@@ -213,25 +213,25 @@
       }
     },
     "error": {
-      "invalid_bind_address": "Enter a valid local IPv4 or IPv6 address",
-      "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "invalid_bind_address": "Vnesite veljaven lokalni naslov IPv4 ali IPv6",
+      "invalid_authorization": "Vnesite največ 100 identifikatorjev iz 1–20 natisljivih znakov ASCII brez presledkov.",
       "duplicate_power_source": "Za moč omrežja, sončne elektrarne, gospodinjstva in baterije izberite različne senzorje.",
       "profile_requires_battery": "Pred izbiro tega profila izberite senzor moči baterije med izbirnimi viri energije.",
       "invalid_grid_source": "Izberite podprt omrežni vir.",
       "invalid_fixed_price": "Vnesite končno ceno na kWh; dovoljene so tudi negativne cene.",
-      "invalid_power_sensor": "Select a sensor with unit W, kW or MW.",
-      "invalid_site_profile": "Choose a supported site profile.",
+      "invalid_power_sensor": "Izberite senzor z enoto W, kW ali MW.",
+      "invalid_site_profile": "Izberite podprt profil lokacije.",
       "invalid_stop_settings": "Uporabite 100–10000 W in 30–1800 sekund.",
-      "invalid_auto_stop_mode": "Choose a supported automatic stop mode.",
-      "auto_stop_requires_profile": "Enable a site profile before automatic charging stop.",
-      "auto_stop_requires_battery": "Select a battery power sensor under Optional energy sources first.",
-      "grid_source_required": "Select a grid source for PV accounting.",
-      "tariff_required": "Choose a fixed price or a current price-per-kWh sensor.",
-      "invalid_grid_sign": "Confirm whether positive means import or export.",
-      "invalid_tariff_sensor": "Select a price sensor with a currency per kWh unit.",
+      "invalid_auto_stop_mode": "Izberite podprt način samodejne ustavitve.",
+      "auto_stop_requires_profile": "Pred samodejno ustavitvijo polnjenja omogočite profil lokacije.",
+      "auto_stop_requires_battery": "Najprej izberite senzor moči baterije med neobveznimi viri energije.",
+      "grid_source_required": "Izberite vir podatkov omrežja za sončni obračun.",
+      "tariff_required": "Izberite fiksno ceno ali senzor trenutne cene na kWh.",
+      "invalid_grid_sign": "Potrdite, ali pozitiven predznak pomeni odjem ali oddajo.",
+      "invalid_tariff_sensor": "Izberite senzor cene z enoto valuta na kWh.",
       "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "Interval preverjanja mora biti vsaj {min_interval} sekund",
-      "invalid_poll_interval": "Poll interval must be a finite whole number of seconds",
+      "invalid_poll_interval": "Interval poizvedovanja mora biti končno celo število sekund",
       "rfid_not_seen": "Kartica še ni prejeta. Prislonite jo k tej polnilnici in znova izberite Pošlji.",
       "invalid_rfid_alias": "Uporabite ime z največ 80 natisljivimi znaki brez prelomov vrstic."
     },
@@ -249,73 +249,73 @@
       "message": "Začetek polnjenja je blokiran zaradi lokalnega nadzora dostopa. V nastavitvah THOR preverite možnost »Dovoli zagone iz Home Assistant«."
     },
     "action_not_allowed": {
-      "message": "The requested action is not allowed ({reason})."
+      "message": "Zahtevano dejanje ni dovoljeno ({reason})."
     },
     "charger_disconnected": {
-      "message": "The charger is not connected, so the requested action cannot be performed."
+      "message": "Polnilnica ni povezana, zato zahtevanega dejanja ni mogoče izvesti."
     },
     "charger_faulted": {
-      "message": "The requested action is blocked while the charger reports a fault."
+      "message": "Dejanje je blokirano, dokler polnilnica javlja napako."
     },
     "active_transaction": {
-      "message": "This setting cannot be changed while a charging transaction is active."
+      "message": "Te nastavitve med aktivno transakcijo polnjenja ni mogoče spremeniti."
     },
     "control_not_applicable": {
-      "message": "This control does not apply to the charger's current operating mode."
+      "message": "Ta kontrolnik ne velja za trenutni način delovanja polnilnice."
     },
     "configuration_read_only": {
-      "message": "The charger reports this configuration value as read-only."
+      "message": "Polnilnica to nastavitev javlja kot samo za branje."
     },
     "external_meter_not_ready": {
-      "message": "Cannot select {option} because external meter communication is not ready."
+      "message": "Možnosti {option} ni mogoče izbrati, ker komunikacija z zunanjim števcem ni pripravljena."
     },
     "invalid_working_mode": {
-      "message": "{option} is not a supported charging strategy."
+      "message": "{option} ni podprta strategija polnjenja."
     },
     "charging_already_active": {
-      "message": "Charging cannot be started because a transaction is already active."
+      "message": "Polnjenja ni mogoče zagnati, ker je transakcija že aktivna."
     },
     "no_active_transaction": {
-      "message": "Charging cannot be stopped because no active transaction is known."
+      "message": "Polnjenja ni mogoče ustaviti, ker ni znane aktivne transakcije."
     },
     "invalid_pv_linkage_draft": {
-      "message": "The PV Linkage settings are incomplete or invalid ({errors})."
+      "message": "Nastavitve PV Linkage so nepopolne ali neveljavne ({errors})."
     },
     "value_out_of_range": {
-      "message": "The requested value {value} is outside the supported range from {minimum} to {maximum}."
+      "message": "Zahtevana vrednost {value} je zunaj podprtega območja od {minimum} do {maximum}."
     },
     "invalid_numeric_value": {
-      "message": "The requested value {value} is not a valid number."
+      "message": "Zahtevana vrednost {value} ni veljavno število."
     },
     "value_not_finite": {
-      "message": "The requested value {value} must be a finite number."
+      "message": "Zahtevana vrednost {value} mora biti končno število."
     },
     "value_step_mismatch": {
-      "message": "The requested value {value} does not match the supported step size {step}."
+      "message": "Zahtevana vrednost {value} ne ustreza podprtemu koraku {step}."
     },
     "invalid_export_date": {
-      "message": "The session export dates must use the YYYY-MM-DD format."
+      "message": "Datumi izvoza sej morajo biti v obliki YYYY-MM-DD."
     },
     "invalid_export_date_range": {
-      "message": "The session export start date must not be after its end date."
+      "message": "Začetni datum izvoza sej ne sme biti za končnim datumom."
     },
     "refresh_failed": {
-      "message": "The charger refresh could not complete the {step} step."
+      "message": "Osvežitev polnilnice ni mogla dokončati koraka {step}."
     },
     "session_export_failed": {
-      "message": "The charging-session export failed. Check the Home Assistant log for details."
+      "message": "Izvoz sej polnjenja ni uspel. Podrobnosti so v dnevniku Home Assistanta."
     },
     "command_still_pending": {
-      "message": "Command {command_id} is still pending; its final result will appear in the Last command result sensor."
+      "message": "Ukaz {command_id} še čaka; končni rezultat bo prikazan v senzorju zadnjega rezultata ukaza."
     },
     "command_not_executed": {
-      "message": "Command {command_name} ({command_id}) was not executed: {status} ({details})."
+      "message": "Ukaz {command_name} ({command_id}) ni bil izveden: {status} ({details})."
     },
     "command_outcome_uncertain": {
-      "message": "The outcome of command {command_name} ({command_id}) is uncertain: {status} ({details})."
+      "message": "Izid ukaza {command_name} ({command_id}) je negotov: {status} ({details})."
     },
     "command_failed": {
-      "message": "Command {command_name} ({command_id}) failed: {status} ({details})."
+      "message": "Ukaz {command_name} ({command_id}) ni uspel: {status} ({details})."
     }
   },
   "selector": {
@@ -358,8 +358,8 @@
     },
     "battery_power_sign": {
       "options": {
-        "positive_discharge": "Positive = battery discharging",
-        "positive_charge": "Positive = battery charging"
+        "positive_discharge": "Pozitivno = praznjenje baterije",
+        "positive_charge": "Pozitivno = polnjenje baterije"
       }
     }
   },
@@ -395,70 +395,70 @@
           "information": {
             "name": "O tem dogodku",
             "state": {
-              "details": "Retains the most recent actual Faulted event after the charger recovers. OCPP StatusNotification and Growatt faultmessage details belonging to the same event are combined."
+              "details": "Ohrani zadnji dejanski dogodek Faulted tudi po odpravi napake polnilnice. Združi podrobnosti OCPP StatusNotification in Growatt faultmessage istega dogodka."
             }
           }
         }
       },
       "last_command_result": {
-        "name": "Last command result",
+        "name": "Zadnji rezultat ukaza",
         "state": {
-          "confirmed": "Confirmed",
-          "failed": "Failed",
-          "skipped": "Skipped",
-          "expired": "Expired",
-          "uncertain": "Uncertain"
+          "confirmed": "Potrjeno",
+          "failed": "Neuspešno",
+          "skipped": "Preskočeno",
+          "expired": "Poteklo",
+          "uncertain": "Negotovo"
         },
         "state_attributes": {
           "information": {
-            "name": "About this result",
+            "name": "O tem rezultatu",
             "state": {
-              "details": "The latest terminal queue result; use Command ID to correlate repeated automation actions."
+              "details": "Zadnji končni rezultat čakalne vrste; z ID-jem ukaza povežite ponovljena dejanja avtomatizacij."
             }
           },
           "command_id": {
-            "name": "Command ID"
+            "name": "ID ukaza"
           },
           "command_name": {
-            "name": "Command"
+            "name": "Ukaz"
           },
           "write_status": {
-            "name": "Detailed result"
+            "name": "Podroben rezultat"
           },
           "queued_at": {
-            "name": "Queued at"
+            "name": "Dodano v vrsto ob"
           },
           "completed_at": {
-            "name": "Completed at"
+            "name": "Dokončano ob"
           },
           "reason": {
-            "name": "Reason"
+            "name": "Razlog"
           },
           "charger_result": {
-            "name": "Charger result"
+            "name": "Rezultat polnilnice"
           }
         }
       },
       "site_energy_kwh": {
-        "name": "Site EV energy accounted"
+        "name": "Obračunana energija vozila na lokaciji"
       },
       "site_direct_solar_kwh": {
-        "name": "Site EV direct solar energy"
+        "name": "Neposredna sončna energija vozila"
       },
       "site_direct_grid_kwh": {
-        "name": "Site EV direct grid energy"
+        "name": "Neposredna energija vozila iz omrežja"
       },
       "site_battery_unknown_kwh": {
-        "name": "Site EV battery energy of unknown origin"
+        "name": "Energija vozila iz baterije neznanega izvora"
       },
       "site_unknown_kwh": {
-        "name": "Site EV unallocated energy"
+        "name": "Nerazporejena energija vozila"
       },
       "site_effective_grid_cost": {
-        "name": "Site EV known effective grid cost"
+        "name": "Znani dejanski strošek omrežne energije vozila"
       },
       "site_coverage": {
-        "name": "Site EV accounting coverage"
+        "name": "Pokritost obračuna energije vozila"
       },
       "charge_point_id": {
         "name": "ID polnilne točke"
@@ -498,7 +498,7 @@
         "name": "MAC naslov"
       },
       "network_wifi_ssid": {
-        "name": "Wi-Fi SSID"
+        "name": "SSID Wi-Fi"
       },
       "charging_power": {
         "name": "Polnilna moč"
@@ -527,7 +527,7 @@
           "information": {
             "name": "O tej vrednosti",
             "state": {
-              "details": "Approximate time with actual energy transfer, accumulated from transaction MeterValues above 100 W. Energy-counter increases are used when power is unavailable; long reporting gaps are excluded. Historical sessions recorded before this feature remain unavailable."
+              "details": "Približen čas dejanskega prenosa energije, seštet iz transakcijskih meritev MeterValues nad 100 W. Če moč ni na voljo, uporabi povečanje števca energije; dolge vrzeli meritev izključi. Za zgodovinske seje pred uvedbo te funkcije ni na voljo."
             }
           }
         }
@@ -589,7 +589,7 @@
           "information": {
             "name": "O tem stanju",
             "state": {
-              "details": "PV Linkage cannot be selected while the charger reports PowerMeterFailure/485 Fault or after three consecutive external-meter requests receive no usable response. One or two temporary timeouts do not block the mode."
+              "details": "PV Linkage ni mogoče izbrati, ko polnilnica javlja PowerMeterFailure/485 Fault ali po treh zaporednih zahtevah zunanjemu števcu brez uporabnega odgovora. Ena ali dve začasni prekoračitvi časa načina ne blokirata."
             }
           }
         }
@@ -614,7 +614,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "The operating mode controls which settings apply. Load balancing is available in Fast and Off-Peak mode, but not in PV Linkage mode. Polnilnik hitro polnjenje z vključenim uravnoteženjem obremenitve sporoča kot Power Distribution. Home Assistant prikaže Hitro polnjenje; izvirna vrednost ostane na voljo v diagnostiki."
+              "details": "Način delovanja določa veljavne nastavitve. Izravnavanje obremenitve je na voljo pri hitrem polnjenju in nizki tarifi, v načinu PV Linkage pa ne. Polnilnik hitro polnjenje z vključenim uravnoteženjem obremenitve sporoča kot Power Distribution. Home Assistant prikaže Hitro polnjenje; izvirna vrednost ostane na voljo v diagnostiki."
             }
           }
         }
@@ -630,7 +630,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Shows how charging sessions are authorized: Home Assistant/RFID, RFID only, or Plug & charge."
+              "details": "Prikaže način dovoljevanja sej: Home Assistant/RFID, samo RFID ali Plug & charge."
             }
           }
         }
@@ -646,7 +646,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "PV Linkage may supplement solar power with the configured grid allowance. PV Linkage+ uses only solar surplus. Manual and Smart Boost may still draw grid power."
+              "details": "PV Linkage lahko sončno energijo dopolni z nastavljenim dovoljenim odjemom omrežja. PV Linkage+ uporablja samo sončni višek. Ročni in pametni Boost lahko še vedno uporabljata omrežje."
             }
           }
         }
@@ -657,7 +657,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Maximum grid power the charger may add in PV Linkage mode. The retained value is not an active regular grid allowance in PV Linkage+. The charger requires about 1.4 kW single-phase or 4.1 kW three-phase to start."
+              "details": "Največja moč omrežja, ki jo polnilnica lahko doda v načinu PV Linkage. Shranjena vrednost v PV Linkage+ ni aktivno dovoljenje rednega odjema. Za zagon je potrebnih približno 1.4 kW enofazno ali 4.1 kW trifazno."
             }
           }
         }
@@ -673,7 +673,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Manual boost uses configured time windows; Smart boost uses target energy and finish time. The charger returns to PV Linkage after the boost."
+              "details": "Ročni Boost uporablja nastavljena časovna okna; pametni Boost ciljno energijo in čas zaključka. Po Boostu se polnilnica vrne v PV Linkage."
             }
           }
         }
@@ -691,7 +691,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Allows grid charging in the configured off-peak windows when Plug & charge authorization is active."
+              "details": "Dovoljuje polnjenje iz omrežja v nastavljenih oknih nizke tarife, ko je aktivno dovoljevanje Plug & charge."
             }
           }
         }
@@ -706,7 +706,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Enables charging during the configured off-peak windows in Off-Peak mode."
+              "details": "Omogoči polnjenje v nastavljenih oknih nizke tarife v načinu nizke tarife."
             }
           }
         }
@@ -717,7 +717,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Lists the shared charger-side time windows. Depending on the working mode, Growatt uses them for Off-Peak charging or PV Linkage Manual Boost."
+              "details": "Prikaže skupna časovna okna polnilnice. Growatt jih glede na način uporablja za polnjenje v nizki tarifi ali ročni Boost PV Linkage."
             }
           }
         }
@@ -728,7 +728,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Charging current used during the configured off-peak windows."
+              "details": "Polnilni tok v nastavljenih oknih nizke tarife."
             }
           }
         }
@@ -751,7 +751,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "External Modbus meter model used for grid measurements."
+              "details": "Model zunanjega števca Modbus za meritve omrežja."
             }
           }
         }
@@ -762,7 +762,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Modbus address of the external meter used for grid measurements."
+              "details": "Naslov Modbus zunanjega števca za meritve omrežja."
             }
           }
         }
@@ -778,7 +778,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Power meter uses direct Modbus measurements; CT modes use current transformers. Growatt calls the OCPP field 'wring', likely a vendor typo."
+              "details": "Števec uporablja neposredne meritve Modbus; načini CT uporabljajo tokovne transformatorje. Growatt polje OCPP imenuje 'wring', verjetno zaradi tipkarske napake proizvajalca."
             }
           }
         }
@@ -793,7 +793,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "After full charge, the charger may continue supplying a compatible EV for cabin or battery preheating and defrosting. Behavior depends on vehicle support."
+              "details": "Po popolnem polnjenju lahko polnilnica še napaja združljivo vozilo za predgretje kabine ali baterije in odmrzovanje. Delovanje je odvisno od podpore vozila."
             }
           }
         }
@@ -804,7 +804,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Vendor charging delay in seconds. 0 means no delay. Random Delay behavior may vary by charger firmware."
+              "details": "Zakasnitev polnjenja proizvajalca v sekundah. 0 pomeni brez zakasnitve. Naključna zakasnitev je lahko odvisna od programske opreme polnilnice."
             }
           }
         }
@@ -823,7 +823,7 @@
           "information": {
             "name": "O tem dejanju",
             "state": {
-              "details": "Applies the complete changed PV Boost draft to the charger. Manual Boost sends its time window; Smart Boost sends finish time and target energy. The action is available only when the draft is complete, differs from the reported settings, and the charger is idle in PV Linkage mode."
+              "details": "V polnilnici uporabi celoten spremenjeni osnutek PV Boost. Ročni Boost pošlje časovno okno; pametni čas zaključka in ciljno energijo. Na voljo je samo pri popolnem osnutku, ki se razlikuje od javljenih nastavitev, in mirovanju polnilnice v PV Linkage."
             }
           }
         }
@@ -839,7 +839,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Sets the grid-load limit used by load balancing. Available only with the Fast and Off-Peak charging strategies; unavailable in PV Linkage modes."
+              "details": "Nastavi omejitev obremenitve omrežja za izravnavanje. Na voljo samo pri hitrem polnjenju in nizki tarifi; v načinih PV Linkage ni na voljo."
             }
           }
         }
@@ -853,7 +853,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Modbus address of the external meter. Available only when Power meter is selected as the external sampling method and no charging transaction is active."
+              "details": "Naslov Modbus zunanjega števca. Na voljo samo, ko je kot način zunanjega merjenja izbran števec in ni aktivne transakcije polnjenja."
             }
           }
         }
@@ -864,7 +864,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Available only in PV Linkage mode, where regular grid import is allowed. It is unavailable in PV Linkage+, which uses solar surplus only. Decimal values are sent using dot notation."
+              "details": "Na voljo samo v PV Linkage, ki dovoljuje redni odjem omrežja. V PV Linkage+, ki uporablja samo sončni višek, ni na voljo. Decimalne vrednosti se pošljejo s piko."
             }
           }
         }
@@ -875,7 +875,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Target energy for Smart Boost. This edits the local draft and is sent together with the finish time only after Apply is pressed."
+              "details": "Ciljna energija pametnega Boosta. Uredi lokalni osnutek in ga skupaj s časom zaključka pošlje šele ob pritisku Uporabi."
             }
           }
         }
@@ -883,7 +883,7 @@
     },
     "select": {
       "authorization_mode": {
-        "name": "Authorization mode",
+        "name": "Način dovoljevanja",
         "state": {
           "home_assistant_rfid": "Home Assistant / RFID",
           "rfid_only": "Samo RFID",
@@ -902,7 +902,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "PV Linkage allows the configured regular grid import; PV Linkage+ uses solar surplus only. Manual and Smart Boost may still draw grid power. Existing Boost targets and time windows are not changed. Polnilnik hitro polnjenje z vključenim uravnoteženjem obremenitve sporoča kot Power Distribution. Home Assistant prikaže Hitro polnjenje; izvirna vrednost ostane na voljo v diagnostiki."
+              "details": "PV Linkage dovoljuje nastavljeni redni odjem omrežja; PV Linkage+ uporablja samo sončni višek. Ročni in pametni Boost lahko še vedno uporabljata omrežje. Obstoječi cilji in časovna okna Boost ostanejo nespremenjeni. Polnilnik hitro polnjenje z vključenim uravnoteženjem obremenitve sporoča kot Power Distribution. Home Assistant prikaže Hitro polnjenje; izvirna vrednost ostane na voljo v diagnostiki."
             }
           }
         }
@@ -918,7 +918,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Selects direct Modbus meter measurements or a CT 2000:1/3000:1 current transformer. Available only while no charging transaction is active. Growatt calls the OCPP key 'G_ExternalSamplingCurWring', likely a vendor typo."
+              "details": "Izbere neposredne meritve Modbus ali tokovni transformator CT 2000:1/3000:1. Na voljo samo brez aktivne transakcije polnjenja. Growatt ključ OCPP imenuje 'G_ExternalSamplingCurWring', verjetno zaradi tipkarske napake proizvajalca."
             }
           }
         }
@@ -941,7 +941,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Selects the external Modbus meter model. Available only when Power meter is selected as the external sampling method and no charging transaction is active."
+              "details": "Izbere model zunanjega števca Modbus. Na voljo samo pri izbranem zunanjem merjenju s števcem in brez aktivne transakcije polnjenja."
             }
           }
         }
@@ -957,7 +957,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Selects which Boost workflow to stage locally. Manual exposes a time window; Smart exposes finish time and target energy. No charger write occurs until Apply is pressed."
+              "details": "Izbere potek Boosta za lokalno pripravo. Ročni prikaže časovno okno, pametni čas zaključka in ciljno energijo. V polnilnico se ne zapisuje do pritiska Uporabi."
             }
           }
         }
@@ -970,7 +970,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Prevents the configured grid-load limit from being exceeded. Available only with the Fast and Off-Peak charging strategies; unavailable in PV Linkage modes."
+              "details": "Preprečuje preseganje nastavljene omejitve obremenitve omrežja. Na voljo samo pri hitrem polnjenju in nizki tarifi; v načinih PV Linkage ni na voljo."
             }
           }
         }
@@ -984,7 +984,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Allows a compatible vehicle to continue drawing power for preheating or defrosting after reaching full charge. Vehicle support is required."
+              "details": "Združljivemu vozilu omogoča odjem energije za predgretje ali odmrzovanje po popolni napolnitvi. Potrebna je podpora vozila."
             }
           }
         }
@@ -1003,7 +1003,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Start of the staged Manual Boost window. Press Apply to send the complete window."
+              "details": "Začetek pripravljenega okna ročnega Boosta. Pritisnite Uporabi za pošiljanje celotnega okna."
             }
           }
         }
@@ -1014,7 +1014,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "End of the staged Manual Boost window. Press Apply to send the complete window."
+              "details": "Konec pripravljenega okna ročnega Boosta. Pritisnite Uporabi za pošiljanje celotnega okna."
             }
           }
         }
@@ -1025,7 +1025,7 @@
           "information": {
             "name": "O tej nastavitvi",
             "state": {
-              "details": "Requested Smart Boost finish time. A time already passed today is scheduled for tomorrow when Apply is pressed."
+              "details": "Želeni čas zaključka pametnega Boosta. Če je danes že minil, se ob pritisku Uporabi načrtuje za jutri."
             }
           }
         }
