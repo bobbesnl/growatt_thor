@@ -166,7 +166,7 @@
         "data_description": {
           "site_stop_threshold_w": "Vermogen uit batterij of net. Standaard: 500 W.",
           "site_stop_hold_seconds": "Standaard: 180 seconden. Als actuele PV-opwek het laadvermogen dekt, krijgen tijdelijke huishoudelijke verbruikers twee extra minuten. Geen automatische herstart.",
-          "site_auto_stop_mode": "De automatische beveiliging werkt alleen in PV Linkage+ (uitsluitend zonne-overschot). Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
+          "site_auto_stop_mode": "De automatische beveiliging werkt alleen in PV Linkage+ (uitsluitend zonne-overschot). Uit, bij batterijontlading, bij netafname of bij beide. Vereist actuele metingen en een actieve laadsessie; stel de batterijbron in onder Optionele energiebronnen."
         }
       },
       "authorization": {
@@ -180,7 +180,7 @@
         "data_description": {
           "restrict_authorization": "Schakelt lokale controle van fysieke RFID-identificaties in. Een ingeschakelde lege lijst weigert elke kaart.",
           "allow_ha_remote_start": "Staat starten via HA-bediening, services en automatiseringen toe. Er hoeft geen technische identificatie aan de RFID-lijst te worden toegevoegd.",
-          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics. Eén code per regel, eventueel gevolgd door een spatie, |, een spatie en een naam: 00Ab12 | Gezinsauto. Behoud hoofdletters en voorloopnullen. Namen mogen maximaal 80 tekens bevatten. Laat alleen de code staan om de naam te verwijderen; verwijder de regel om de kaart te verwijderen."
+          "authorized_id_tags": "Maximaal 100 exacte OCPP-identificaties van 1–20 tekens. De lijst wordt lokaal opgeslagen en opnieuw getoond wanneer dit venster wordt geopend. Verwijder een regel om een kaart te verwijderen; identificaties worden weggelaten uit gewone logboeken en diagnostiek. Eén code per regel, eventueel gevolgd door een spatie, |, een spatie en een naam: 00Ab12 | Gezinsauto. Behoud hoofdletters en voorloopnullen. Namen mogen maximaal 80 tekens bevatten. Laat alleen de code staan om de naam te verwijderen; verwijder de regel om de kaart te verwijderen."
         }
       },
       "confirm_charger_mode": {
