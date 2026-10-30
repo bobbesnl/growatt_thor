@@ -95,7 +95,21 @@ class SessionTelemetry:
             return False
 
         def value(observation):
-            return observation.value_at(instant) if observation is not None else None
+            if observation is None:
+                return None
+            observed = observation.observed_at
+            # coordinator.now() truncates to whole seconds. A HA report in that
+            # same second is current, not a future measurement. Keep this
+            # precision adjustment local to chart telemetry; control guards and
+            # accounting retain their independent timestamp policies.
+            if (
+                instant.microsecond == 0
+                and observed is not None
+                and observed.tzinfo is not None
+                and observed.replace(microsecond=0) == instant
+            ):
+                return observation.value_at(observed)
+            return observation.value_at(instant)
 
         solar, house, battery = (
             value(site.solar),

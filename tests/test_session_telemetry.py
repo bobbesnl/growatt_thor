@@ -334,3 +334,45 @@ class HistorySubscriptionsTest(unittest.IsolatedAsyncioTestCase):
         await callbacks["timer"](c.at)
         stop()
         self.assertEqual(cancelled, ["state", "timer"])
+
+
+class TelemetryTimestampPrecisionTest(unittest.TestCase):
+    def test_reports_within_capture_second_are_not_artificial_gaps(self):
+        from custom_components.growatt_thor.sessions.telemetry import SessionTelemetry
+
+        c = coordinator()
+        for state in c.hass.states.values():
+            state.last_reported = AT + timedelta(microseconds=324435)
+        telemetry = SessionTelemetry()
+        telemetry.observe_context(c, c.now())
+        self.assertEqual(telemetry.curves["site_battery_curve_w"], [[c.now(), -300]])
+        self.assertEqual(telemetry.curves["site_house_load_curve_w"], [[c.now(), 1200]])
+        self.assertEqual(telemetry.curves["site_pv_surplus_curve_w"], [[c.now(), 3800]])
+        self.assertEqual(
+            c.hass.states["sensor.pv"].last_reported, AT + timedelta(microseconds=324435)
+        )
+
+    def test_reports_in_a_later_second_still_remain_unknown(self):
+        from custom_components.growatt_thor.sessions.telemetry import SessionTelemetry
+
+        c = coordinator()
+        for state in c.hass.states.values():
+            state.last_reported = AT + timedelta(seconds=1, microseconds=100)
+        telemetry = SessionTelemetry()
+        telemetry.observe_context(c, c.now())
+        self.assertFalse(telemetry.curves.get("site_battery_curve_w"))
+        self.assertFalse(telemetry.curves.get("site_house_load_curve_w"))
+        self.assertFalse(telemetry.curves.get("site_pv_surplus_curve_w"))
+
+    def test_precise_capture_does_not_accept_a_later_report_in_the_same_second(self):
+        from custom_components.growatt_thor.sessions.telemetry import SessionTelemetry
+
+        c = coordinator()
+        c.at = AT + timedelta(microseconds=100000)
+        for state in c.hass.states.values():
+            state.last_reported = AT + timedelta(microseconds=324435)
+        telemetry = SessionTelemetry()
+        telemetry.observe_context(c, c.now())
+        self.assertFalse(telemetry.curves.get("site_battery_curve_w"))
+        self.assertFalse(telemetry.curves.get("site_house_load_curve_w"))
+        self.assertFalse(telemetry.curves.get("site_pv_surplus_curve_w"))
