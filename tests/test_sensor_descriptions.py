@@ -108,6 +108,10 @@ def projection(entity):
                 "suggested_display_precision",
             )
         },
+        "unrecorded_attributes": sorted(getattr(entity, "_unrecorded_attributes", ())),
+        "resolved_unit": getattr(
+            entity, "native_unit_of_measurement", metadata("native_unit_of_measurement")
+        ),
         "enabled_default": metadata("entity_registry_enabled_default", True),
     }
 
@@ -131,4 +135,12 @@ def snapshot(platform=sensor):
 class SensorDescriptionContractTest(unittest.TestCase):
     def test_sensor_contracts_preserve_existing_metadata_and_state(self):
         actual = snapshot()
+        self.assertIs(
+            type(
+                actual["reported"]["LastSessionEffectiveChargingDurationSensor"]["attributes"][
+                    "active_power_threshold_w"
+                ]
+            ),
+            int,
+        )
         self.assertEqual(actual, json.loads(CONTRACT.read_text()))

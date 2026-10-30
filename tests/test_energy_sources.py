@@ -102,7 +102,9 @@ class EnergySourcesTest(unittest.TestCase):
             },
         )
         coordinator.battery_power_sign = energy_sources.BATTERY_POSITIVE_CHARGE
-        self.assertEqual(battery_presentation.battery_power_attributes(coordinator)["battery_w"], -1500)
+        self.assertEqual(
+            battery_presentation.battery_power_attributes(coordinator)["battery_w"], -1500
+        )
         # A repeated unchanged report is still current; a restored value is not live.
         battery.last_reported = datetime(2026, 9, 12, 10, 5, tzinfo=UTC)
         self.assertEqual(

@@ -433,7 +433,7 @@ def _last_session_effective_charging_duration_attributes(
     return {
         **INFORMATION_ATTRIBUTES,
         "calculation_method": "ocpp_meter_values",
-        "active_power_threshold_w": ACTIVE_POWER_THRESHOLD_W,
+        "active_power_threshold_w": int(ACTIVE_POWER_THRESHOLD_W),
     }
 
 

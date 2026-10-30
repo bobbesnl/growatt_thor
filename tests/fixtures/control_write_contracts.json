@@ -128,7 +128,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "max_current:reboot": {
@@ -260,7 +262,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "max_current:rejected": {
@@ -369,7 +373,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "max_current:uncertain": {
@@ -468,7 +474,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "max_current:unexpected": {
@@ -563,7 +571,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "max_current:superseded": {
@@ -676,7 +686,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "max_current:cancelled": {
@@ -780,7 +792,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_limit:accepted": {
@@ -915,7 +929,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_limit:reboot": {
@@ -1050,7 +1066,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_limit:rejected": {
@@ -1162,7 +1180,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_limit:uncertain": {
@@ -1264,7 +1284,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_limit:unexpected": {
@@ -1362,7 +1384,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_limit:superseded": {
@@ -1478,7 +1502,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_limit:cancelled": {
@@ -1585,7 +1611,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "price:accepted": {
@@ -1720,7 +1748,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.30",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "price:reboot": {
@@ -1855,7 +1885,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.30",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "price:rejected": {
@@ -1967,7 +1999,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "price:uncertain": {
@@ -2069,7 +2103,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "price:unexpected": {
@@ -2167,7 +2203,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "price:superseded": {
@@ -2283,7 +2321,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "price:cancelled": {
@@ -2390,7 +2430,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_enable:accepted": {
@@ -2511,7 +2553,9 @@
       "G_ExternalLimitPowerEnable": "1",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_enable:reboot": {
@@ -2632,7 +2676,9 @@
       "G_ExternalLimitPowerEnable": "1",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_enable:rejected": {
@@ -2716,7 +2762,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_enable:uncertain": {
@@ -2804,7 +2852,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_enable:unexpected": {
@@ -2874,7 +2924,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_enable:superseded": {
@@ -2976,7 +3028,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "load_enable:cancelled": {
@@ -3055,7 +3109,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "lcd:accepted": {
@@ -3177,7 +3233,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Disable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "lcd:reboot": {
@@ -3299,7 +3357,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Disable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "lcd:rejected": {
@@ -3398,7 +3458,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "lcd:uncertain": {
@@ -3487,7 +3549,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "lcd:unexpected": {
@@ -3558,7 +3622,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "lcd:superseded": {
@@ -3661,7 +3727,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "lcd:cancelled": {
@@ -3741,7 +3809,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "mode:accepted": {
@@ -3894,6 +3964,8 @@
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
       "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0",
       "G_OffPeakEnable": "1&Enable"
     }
   },
@@ -4047,6 +4119,8 @@
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
       "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0",
       "G_OffPeakEnable": "1&Enable"
     }
   },
@@ -4138,7 +4212,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "mode:uncertain": {
@@ -4233,7 +4309,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "mode:unexpected": {
@@ -4310,7 +4388,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "mode:superseded": {
@@ -4415,7 +4495,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "mode:cancelled": {
@@ -4501,7 +4583,3341 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "warm_up:accepted": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_FullContinueChargeEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "reported",
+        "G_FullContinueChargeEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "awaiting_readback",
+        "generation": 1,
+        "raw": "Enable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "Enable"
+    }
+  },
+  "warm_up:reboot": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_FullContinueChargeEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "reported",
+        "G_FullContinueChargeEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "awaiting_readback",
+        "generation": 1,
+        "raw": "Enable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "Enable"
+    }
+  },
+  "warm_up:rejected": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_FullContinueChargeEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_failed",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "rejected",
+        "generation": 1,
+        "raw": "Enable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "warm_up:uncertain": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_FullContinueChargeEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_outcome_uncertain",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "uncertain",
+        "generation": 1,
+        "raw": "Enable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "warm_up:unexpected": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_FullContinueChargeEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_failed",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "pending",
+        "generation": 1,
+        "raw": "Enable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "warm_up:superseded": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_FullContinueChargeEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "pending",
+        "generation": 2,
+        "raw": "0"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "warm_up:cancelled": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_not_executed",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "skipped",
+        "generation": 1,
+        "raw": "Enable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "warm_up_off:accepted": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_FullContinueChargeEnable",
+        "Disable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "reported",
+        "G_FullContinueChargeEnable",
+        "Disable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "awaiting_readback",
+        "generation": 1,
+        "raw": "Disable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "Disable"
+    }
+  },
+  "warm_up_off:reboot": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_FullContinueChargeEnable",
+        "Disable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "reported",
+        "G_FullContinueChargeEnable",
+        "Disable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "awaiting_readback",
+        "generation": 1,
+        "raw": "Disable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "Disable"
+    }
+  },
+  "warm_up_off:rejected": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_FullContinueChargeEnable",
+        "Disable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_failed",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "rejected",
+        "generation": 1,
+        "raw": "Disable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "1"
+    }
+  },
+  "warm_up_off:uncertain": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_FullContinueChargeEnable",
+        "Disable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_outcome_uncertain",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "uncertain",
+        "generation": 1,
+        "raw": "Disable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "1"
+    }
+  },
+  "warm_up_off:unexpected": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_FullContinueChargeEnable",
+        "Disable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_failed",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "pending",
+        "generation": 1,
+        "raw": "Disable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "1"
+    }
+  },
+  "warm_up_off:superseded": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_FullContinueChargeEnable",
+        "Disable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "pending",
+        "generation": 2,
+        "raw": "1"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "1"
+    }
+  },
+  "warm_up_off:cancelled": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_not_executed",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_FullContinueChargeEnable"
+    },
+    "writes": {
+      "G_FullContinueChargeEnable": {
+        "status": "skipped",
+        "generation": 1,
+        "raw": "Disable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "1"
+    }
+  },
+  "authorization:accepted": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_ChargerMode",
+        "2"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "reported",
+        "G_ChargerMode",
+        "2"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ChargerMode"
+    },
+    "writes": {
+      "G_ChargerMode": {
+        "status": "awaiting_readback",
+        "generation": 1,
+        "raw": "2"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "2",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "authorization:reboot": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_ChargerMode",
+        "2"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "reported",
+        "G_ChargerMode",
+        "2"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ChargerMode"
+    },
+    "writes": {
+      "G_ChargerMode": {
+        "status": "awaiting_readback",
+        "generation": 1,
+        "raw": "2"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "2",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "authorization:rejected": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_ChargerMode",
+        "2"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_failed",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ChargerMode"
+    },
+    "writes": {
+      "G_ChargerMode": {
+        "status": "rejected",
+        "generation": 1,
+        "raw": "2"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "authorization:uncertain": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_ChargerMode",
+        "2"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_outcome_uncertain",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ChargerMode"
+    },
+    "writes": {
+      "G_ChargerMode": {
+        "status": "uncertain",
+        "generation": 1,
+        "raw": "2"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "authorization:unexpected": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_ChargerMode",
+        "2"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_failed",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ChargerMode"
+    },
+    "writes": {
+      "G_ChargerMode": {
+        "status": "pending",
+        "generation": 1,
+        "raw": "2"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "authorization:superseded": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_ChargerMode",
+        "2"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ChargerMode"
+    },
+    "writes": {
+      "G_ChargerMode": {
+        "status": "pending",
+        "generation": 2,
+        "raw": "0"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "authorization:cancelled": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_not_executed",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ChargerMode"
+    },
+    "writes": {
+      "G_ChargerMode": {
+        "status": "skipped",
+        "generation": 1,
+        "raw": "2"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "load_enable_off:accepted": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_ExternalLimitPowerEnable",
+        "0"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "reported",
+        "G_ExternalLimitPowerEnable",
+        "0"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ExternalLimitPowerEnable"
+    },
+    "writes": {
+      "G_ExternalLimitPowerEnable": {
+        "status": "awaiting_readback",
+        "generation": 1,
+        "raw": "0"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "load_enable_off:reboot": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_ExternalLimitPowerEnable",
+        "0"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "reported",
+        "G_ExternalLimitPowerEnable",
+        "0"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ExternalLimitPowerEnable"
+    },
+    "writes": {
+      "G_ExternalLimitPowerEnable": {
+        "status": "awaiting_readback",
+        "generation": 1,
+        "raw": "0"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "load_enable_off:rejected": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_ExternalLimitPowerEnable",
+        "0"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      true,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_failed",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ExternalLimitPowerEnable"
+    },
+    "writes": {
+      "G_ExternalLimitPowerEnable": {
+        "status": "rejected",
+        "generation": 1,
+        "raw": "0"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "1",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "load_enable_off:uncertain": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_ExternalLimitPowerEnable",
+        "0"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      true,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_outcome_uncertain",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ExternalLimitPowerEnable"
+    },
+    "writes": {
+      "G_ExternalLimitPowerEnable": {
+        "status": "uncertain",
+        "generation": 1,
+        "raw": "0"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "1",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "load_enable_off:unexpected": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_ExternalLimitPowerEnable",
+        "0"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      true,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_failed",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ExternalLimitPowerEnable"
+    },
+    "writes": {
+      "G_ExternalLimitPowerEnable": {
+        "status": "pending",
+        "generation": 1,
+        "raw": "0"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "1",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "load_enable_off:superseded": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_ExternalLimitPowerEnable",
+        "0"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      true,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ExternalLimitPowerEnable"
+    },
+    "writes": {
+      "G_ExternalLimitPowerEnable": {
+        "status": "pending",
+        "generation": 2,
+        "raw": "1"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "1",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "load_enable_off:cancelled": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          true,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      true,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_not_executed",
+    "attributes": {
+      "information": "details",
+      "ocpp_key": "G_ExternalLimitPowerEnable"
+    },
+    "writes": {
+      "G_ExternalLimitPowerEnable": {
+        "status": "skipped",
+        "generation": 1,
+        "raw": "0"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "1",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "lcd_off:accepted": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_LCDCloseEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "reported",
+        "G_LCDCloseEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "ocpp_key": "G_LCDCloseEnable",
+      "write_status": "awaiting_readback",
+      "reported_state": "Enable"
+    },
+    "writes": {
+      "G_LCDCloseEnable": {
+        "status": "awaiting_readback",
+        "generation": 1,
+        "raw": "Enable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "lcd_off:reboot": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_LCDCloseEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "reported",
+        "G_LCDCloseEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Enable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Enable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "ocpp_key": "G_LCDCloseEnable",
+      "write_status": "awaiting_readback",
+      "reported_state": "Enable"
+    },
+    "writes": {
+      "G_LCDCloseEnable": {
+        "status": "awaiting_readback",
+        "generation": 1,
+        "raw": "Enable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Enable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "lcd_off:rejected": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_LCDCloseEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Disable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_failed",
+    "attributes": {
+      "ocpp_key": "G_LCDCloseEnable",
+      "write_status": "rejected",
+      "reported_state": "Disable"
+    },
+    "writes": {
+      "G_LCDCloseEnable": {
+        "status": "rejected",
+        "generation": 1,
+        "raw": "Enable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Disable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "lcd_off:uncertain": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_LCDCloseEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Disable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_outcome_uncertain",
+    "attributes": {
+      "ocpp_key": "G_LCDCloseEnable",
+      "write_status": "uncertain",
+      "reported_state": "Disable"
+    },
+    "writes": {
+      "G_LCDCloseEnable": {
+        "status": "uncertain",
+        "generation": 1,
+        "raw": "Enable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Disable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "lcd_off:unexpected": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_LCDCloseEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Disable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_failed",
+    "attributes": {
+      "ocpp_key": "G_LCDCloseEnable",
+      "write_status": "pending",
+      "reported_state": "Disable"
+    },
+    "writes": {
+      "G_LCDCloseEnable": {
+        "status": "pending",
+        "generation": 1,
+        "raw": "Enable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Disable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "lcd_off:superseded": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "wire",
+        "G_LCDCloseEnable",
+        "Enable"
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "refresh",
+        20.0
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Disable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": null,
+    "attributes": {
+      "ocpp_key": "G_LCDCloseEnable",
+      "write_status": "pending",
+      "reported_state": "Disable"
+    },
+    "writes": {
+      "G_LCDCloseEnable": {
+        "status": "pending",
+        "generation": 2,
+        "raw": "1"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Disable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
+    }
+  },
+  "lcd_off:cancelled": {
+    "trace": [
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ],
+      [
+        "notify",
+        [
+          16,
+          10.0,
+          0.25,
+          false,
+          "Disable",
+          "01:00:00",
+          "06:00:00",
+          "01:00:00",
+          "06:00:00"
+        ]
+      ]
+    ],
+    "state": [
+      16,
+      10.0,
+      0.25,
+      false,
+      "Disable",
+      "01:00:00",
+      "06:00:00",
+      "01:00:00",
+      "06:00:00"
+    ],
+    "error": "command_not_executed",
+    "attributes": {
+      "ocpp_key": "G_LCDCloseEnable",
+      "write_status": "skipped",
+      "reported_state": "Disable"
+    },
+    "writes": {
+      "G_LCDCloseEnable": {
+        "status": "skipped",
+        "generation": 1,
+        "raw": "Enable"
+      }
+    },
+    "reported": {
+      "G_WorkingMode": "Fast",
+      "G_SolarMode": "0",
+      "G_MaxCurrent": "16",
+      "G_ExternalLimitPower": "10",
+      "G_ExternalLimitPowerEnable": "0",
+      "G_LCDCloseEnable": "Disable",
+      "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "schedule:accepted": {
@@ -4636,7 +8052,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "02:00-06:00"
+      "G_AutoChargeTime": "02:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "schedule:reboot": {
@@ -4771,7 +8189,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "02:00-06:00"
+      "G_AutoChargeTime": "02:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "schedule:rejected": {
@@ -4869,7 +8289,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "schedule:uncertain": {
@@ -4971,7 +8393,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "schedule:unexpected": {
@@ -5055,7 +8479,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "schedule:superseded": {
@@ -5171,7 +8597,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   },
   "schedule:cancelled": {
@@ -5278,7 +8706,9 @@
       "G_ExternalLimitPowerEnable": "0",
       "G_LCDCloseEnable": "Enable",
       "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
-      "G_AutoChargeTime": "01:00-06:00"
+      "G_AutoChargeTime": "01:00-06:00",
+      "G_ChargerMode": "1",
+      "G_FullContinueChargeEnable": "0"
     }
   }
 }

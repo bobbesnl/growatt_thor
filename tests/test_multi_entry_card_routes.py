@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from tests.support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import PACKAGE_PATH, default, load_package_module, module, register_package
 
 ROOT = PACKAGE_PATH
 NAME = "thor_card_routes_test"
@@ -16,6 +16,9 @@ package = register_package(NAME)
 
 
 def load_routes():
+    default(module("homeassistant.core"), "HomeAssistant", object)
+    module("homeassistant.components")
+    module("homeassistant.helpers")
     exceptions = ModuleType("homeassistant.exceptions")
     exceptions.HomeAssistantError = RuntimeError
     exceptions.ServiceValidationError = RuntimeError

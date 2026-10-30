@@ -25,6 +25,8 @@
       "icon": "mdi:server",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "ChargePointIdSensor": {
@@ -52,6 +54,8 @@
       "icon": "mdi:identifier",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "ChargingPowerSensor": {
@@ -79,6 +83,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "EnergyChargedSensor": {
@@ -106,6 +112,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "KILO_WATT_HOUR",
       "enabled_default": true
     },
     "TotalEnergyChargedSensor": {
@@ -133,6 +141,8 @@
       "icon": "mdi:counter",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "KILO_WATT_HOUR",
       "enabled_default": true
     },
     "ElectricityPriceSensor": {
@@ -160,6 +170,8 @@
       "icon": "mdi:cash",
       "options": null,
       "suggested_display_precision": 2,
+      "unrecorded_attributes": [],
+      "resolved_unit": "EUR/kWh",
       "enabled_default": false
     },
     "LastSessionEnergySensor": {
@@ -187,6 +199,8 @@
       "icon": "mdi:lightning-bolt",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "KILO_WATT_HOUR",
       "enabled_default": true
     },
     "LastSessionCostSensor": {
@@ -214,6 +228,8 @@
       "icon": "mdi:cash",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "EUR",
       "enabled_default": true
     },
     "LastSessionDurationSensor": {
@@ -241,6 +257,8 @@
       "icon": "mdi:timer-outline",
       "options": null,
       "suggested_display_precision": 2,
+      "unrecorded_attributes": [],
+      "resolved_unit": "HOURS",
       "enabled_default": true
     },
     "LastSessionEffectiveChargingDurationSensor": {
@@ -272,6 +290,8 @@
       "icon": "mdi:ev-plug-type2",
       "options": null,
       "suggested_display_precision": 2,
+      "unrecorded_attributes": [],
+      "resolved_unit": "HOURS",
       "enabled_default": true
     },
     "LastSessionStartSensor": {
@@ -299,6 +319,8 @@
       "icon": "mdi:clock-start",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionEndSensor": {
@@ -326,6 +348,8 @@
       "icon": "mdi:clock-end",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionPlugTimeSensor": {
@@ -353,6 +377,8 @@
       "icon": "mdi:power-plug",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionUnplugTimeSensor": {
@@ -380,6 +406,8 @@
       "icon": "mdi:power-plug-off",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionTransactionIdSensor": {
@@ -407,6 +435,8 @@
       "icon": "mdi:identifier",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionChargeModeSensor": {
@@ -441,6 +471,8 @@
         "unknown_mode"
       ],
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionWorkModeSensor": {
@@ -475,6 +507,8 @@
         "unknown_mode"
       ],
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "TemperatureSensor": {
@@ -502,6 +536,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "CELSIUS",
       "enabled_default": true
     },
     "ExternalMeterHealthSensor": {
@@ -544,6 +580,10 @@
         "not_reported"
       ],
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "GridPowerSensor": {
@@ -576,6 +616,10 @@
       "icon": "mdi:transmission-tower",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "CurrentSensor:L1": {
@@ -605,6 +649,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "CurrentSensor:L2": {
@@ -634,6 +680,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "CurrentSensor:L3": {
@@ -663,6 +711,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "VoltageSensor:L1": {
@@ -692,6 +742,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "VoltageSensor:L2": {
@@ -721,6 +773,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "VoltageSensor:L3": {
@@ -750,6 +804,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "PhasePowerSensor:L1": {
@@ -779,6 +835,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "PhasePowerSensor:L2": {
@@ -808,6 +866,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "PhasePowerSensor:L3": {
@@ -837,6 +897,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "GridVoltageSensor:L1": {
@@ -871,6 +933,10 @@
       "icon": "mdi:current-ac",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "GridVoltageSensor:L2": {
@@ -905,6 +971,10 @@
       "icon": "mdi:current-ac",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "GridVoltageSensor:L3": {
@@ -939,6 +1009,10 @@
       "icon": "mdi:current-ac",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "GridCurrentSensor:L1": {
@@ -973,6 +1047,10 @@
       "icon": "mdi:current-dc",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "GridCurrentSensor:L2": {
@@ -1007,6 +1085,10 @@
       "icon": "mdi:current-dc",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "GridCurrentSensor:L3": {
@@ -1041,6 +1123,10 @@
       "icon": "mdi:current-dc",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     }
   },
@@ -1070,6 +1156,8 @@
       "icon": "mdi:server",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "ChargePointIdSensor": {
@@ -1097,6 +1185,8 @@
       "icon": "mdi:identifier",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "ChargingPowerSensor": {
@@ -1124,6 +1214,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "EnergyChargedSensor": {
@@ -1151,6 +1243,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "KILO_WATT_HOUR",
       "enabled_default": true
     },
     "TotalEnergyChargedSensor": {
@@ -1178,6 +1272,8 @@
       "icon": "mdi:counter",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "KILO_WATT_HOUR",
       "enabled_default": true
     },
     "ElectricityPriceSensor": {
@@ -1205,6 +1301,8 @@
       "icon": "mdi:cash",
       "options": null,
       "suggested_display_precision": 2,
+      "unrecorded_attributes": [],
+      "resolved_unit": "EUR/kWh",
       "enabled_default": false
     },
     "LastSessionEnergySensor": {
@@ -1232,6 +1330,8 @@
       "icon": "mdi:lightning-bolt",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "KILO_WATT_HOUR",
       "enabled_default": true
     },
     "LastSessionCostSensor": {
@@ -1259,6 +1359,8 @@
       "icon": "mdi:cash",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "EUR",
       "enabled_default": true
     },
     "LastSessionDurationSensor": {
@@ -1286,6 +1388,8 @@
       "icon": "mdi:timer-outline",
       "options": null,
       "suggested_display_precision": 2,
+      "unrecorded_attributes": [],
+      "resolved_unit": "HOURS",
       "enabled_default": true
     },
     "LastSessionEffectiveChargingDurationSensor": {
@@ -1317,6 +1421,8 @@
       "icon": "mdi:ev-plug-type2",
       "options": null,
       "suggested_display_precision": 2,
+      "unrecorded_attributes": [],
+      "resolved_unit": "HOURS",
       "enabled_default": true
     },
     "LastSessionStartSensor": {
@@ -1344,6 +1450,8 @@
       "icon": "mdi:clock-start",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionEndSensor": {
@@ -1371,6 +1479,8 @@
       "icon": "mdi:clock-end",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionPlugTimeSensor": {
@@ -1398,6 +1508,8 @@
       "icon": "mdi:power-plug",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionUnplugTimeSensor": {
@@ -1425,6 +1537,8 @@
       "icon": "mdi:power-plug-off",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionTransactionIdSensor": {
@@ -1452,6 +1566,8 @@
       "icon": "mdi:identifier",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionChargeModeSensor": {
@@ -1486,6 +1602,8 @@
         "unknown_mode"
       ],
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionWorkModeSensor": {
@@ -1520,6 +1638,8 @@
         "unknown_mode"
       ],
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "TemperatureSensor": {
@@ -1547,6 +1667,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "CELSIUS",
       "enabled_default": true
     },
     "ExternalMeterHealthSensor": {
@@ -1589,6 +1711,10 @@
         "not_reported"
       ],
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "GridPowerSensor": {
@@ -1621,6 +1747,10 @@
       "icon": "mdi:transmission-tower",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "CurrentSensor:L1": {
@@ -1650,6 +1780,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "CurrentSensor:L2": {
@@ -1679,6 +1811,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "CurrentSensor:L3": {
@@ -1708,6 +1842,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "VoltageSensor:L1": {
@@ -1737,6 +1873,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "VoltageSensor:L2": {
@@ -1766,6 +1904,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "VoltageSensor:L3": {
@@ -1795,6 +1935,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "PhasePowerSensor:L1": {
@@ -1824,6 +1966,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "PhasePowerSensor:L2": {
@@ -1853,6 +1997,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "PhasePowerSensor:L3": {
@@ -1882,6 +2028,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "GridVoltageSensor:L1": {
@@ -1916,6 +2064,10 @@
       "icon": "mdi:current-ac",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "GridVoltageSensor:L2": {
@@ -1950,6 +2102,10 @@
       "icon": "mdi:current-ac",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "GridVoltageSensor:L3": {
@@ -1984,6 +2140,10 @@
       "icon": "mdi:current-ac",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "GridCurrentSensor:L1": {
@@ -2018,6 +2178,10 @@
       "icon": "mdi:current-dc",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "GridCurrentSensor:L2": {
@@ -2052,6 +2216,10 @@
       "icon": "mdi:current-dc",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "GridCurrentSensor:L3": {
@@ -2086,6 +2254,10 @@
       "icon": "mdi:current-dc",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     }
   },
@@ -2115,6 +2287,8 @@
       "icon": "mdi:server",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "ChargePointIdSensor": {
@@ -2142,6 +2316,8 @@
       "icon": "mdi:identifier",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "ChargingPowerSensor": {
@@ -2169,6 +2345,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "EnergyChargedSensor": {
@@ -2196,6 +2374,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "KILO_WATT_HOUR",
       "enabled_default": true
     },
     "TotalEnergyChargedSensor": {
@@ -2223,6 +2403,8 @@
       "icon": "mdi:counter",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "KILO_WATT_HOUR",
       "enabled_default": true
     },
     "ElectricityPriceSensor": {
@@ -2250,6 +2432,8 @@
       "icon": "mdi:cash",
       "options": null,
       "suggested_display_precision": 2,
+      "unrecorded_attributes": [],
+      "resolved_unit": "EUR/kWh",
       "enabled_default": false
     },
     "LastSessionEnergySensor": {
@@ -2277,6 +2461,8 @@
       "icon": "mdi:lightning-bolt",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "KILO_WATT_HOUR",
       "enabled_default": true
     },
     "LastSessionCostSensor": {
@@ -2304,6 +2490,8 @@
       "icon": "mdi:cash",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "EUR",
       "enabled_default": true
     },
     "LastSessionDurationSensor": {
@@ -2331,6 +2519,8 @@
       "icon": "mdi:timer-outline",
       "options": null,
       "suggested_display_precision": 2,
+      "unrecorded_attributes": [],
+      "resolved_unit": "HOURS",
       "enabled_default": true
     },
     "LastSessionEffectiveChargingDurationSensor": {
@@ -2362,6 +2552,8 @@
       "icon": "mdi:ev-plug-type2",
       "options": null,
       "suggested_display_precision": 2,
+      "unrecorded_attributes": [],
+      "resolved_unit": "HOURS",
       "enabled_default": true
     },
     "LastSessionStartSensor": {
@@ -2389,6 +2581,8 @@
       "icon": "mdi:clock-start",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionEndSensor": {
@@ -2416,6 +2610,8 @@
       "icon": "mdi:clock-end",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionPlugTimeSensor": {
@@ -2443,6 +2639,8 @@
       "icon": "mdi:power-plug",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionUnplugTimeSensor": {
@@ -2470,6 +2668,8 @@
       "icon": "mdi:power-plug-off",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionTransactionIdSensor": {
@@ -2497,6 +2697,8 @@
       "icon": "mdi:identifier",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionChargeModeSensor": {
@@ -2531,6 +2733,8 @@
         "unknown_mode"
       ],
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionWorkModeSensor": {
@@ -2565,6 +2769,8 @@
         "unknown_mode"
       ],
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "TemperatureSensor": {
@@ -2592,6 +2798,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "CELSIUS",
       "enabled_default": true
     },
     "ExternalMeterHealthSensor": {
@@ -2634,6 +2842,10 @@
         "not_reported"
       ],
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "GridPowerSensor": {
@@ -2666,6 +2878,10 @@
       "icon": "mdi:transmission-tower",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "CurrentSensor:L1": {
@@ -2695,6 +2911,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "CurrentSensor:L2": {
@@ -2724,6 +2942,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "CurrentSensor:L3": {
@@ -2753,6 +2973,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "VoltageSensor:L1": {
@@ -2782,6 +3004,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "VoltageSensor:L2": {
@@ -2811,6 +3035,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "VoltageSensor:L3": {
@@ -2840,6 +3066,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "PhasePowerSensor:L1": {
@@ -2869,6 +3097,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "PhasePowerSensor:L2": {
@@ -2898,6 +3128,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "PhasePowerSensor:L3": {
@@ -2927,6 +3159,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "GridVoltageSensor:L1": {
@@ -2961,6 +3195,10 @@
       "icon": "mdi:current-ac",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "GridVoltageSensor:L2": {
@@ -2995,6 +3233,10 @@
       "icon": "mdi:current-ac",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "GridVoltageSensor:L3": {
@@ -3029,6 +3271,10 @@
       "icon": "mdi:current-ac",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "GridCurrentSensor:L1": {
@@ -3063,6 +3309,10 @@
       "icon": "mdi:current-dc",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "GridCurrentSensor:L2": {
@@ -3097,6 +3347,10 @@
       "icon": "mdi:current-dc",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "GridCurrentSensor:L3": {
@@ -3131,6 +3385,10 @@
       "icon": "mdi:current-dc",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     }
   },
@@ -3160,6 +3418,8 @@
       "icon": "mdi:server",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "ChargePointIdSensor": {
@@ -3187,6 +3447,8 @@
       "icon": "mdi:identifier",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "ChargingPowerSensor": {
@@ -3214,6 +3476,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "EnergyChargedSensor": {
@@ -3241,6 +3505,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "KILO_WATT_HOUR",
       "enabled_default": true
     },
     "TotalEnergyChargedSensor": {
@@ -3268,6 +3534,8 @@
       "icon": "mdi:counter",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "KILO_WATT_HOUR",
       "enabled_default": true
     },
     "ElectricityPriceSensor": {
@@ -3295,6 +3563,8 @@
       "icon": "mdi:cash",
       "options": null,
       "suggested_display_precision": 2,
+      "unrecorded_attributes": [],
+      "resolved_unit": "EUR/kWh",
       "enabled_default": false
     },
     "LastSessionEnergySensor": {
@@ -3322,6 +3592,8 @@
       "icon": "mdi:lightning-bolt",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "KILO_WATT_HOUR",
       "enabled_default": true
     },
     "LastSessionCostSensor": {
@@ -3349,6 +3621,8 @@
       "icon": "mdi:cash",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "EUR",
       "enabled_default": true
     },
     "LastSessionDurationSensor": {
@@ -3376,6 +3650,8 @@
       "icon": "mdi:timer-outline",
       "options": null,
       "suggested_display_precision": 2,
+      "unrecorded_attributes": [],
+      "resolved_unit": "HOURS",
       "enabled_default": true
     },
     "LastSessionEffectiveChargingDurationSensor": {
@@ -3407,6 +3683,8 @@
       "icon": "mdi:ev-plug-type2",
       "options": null,
       "suggested_display_precision": 2,
+      "unrecorded_attributes": [],
+      "resolved_unit": "HOURS",
       "enabled_default": true
     },
     "LastSessionStartSensor": {
@@ -3434,6 +3712,8 @@
       "icon": "mdi:clock-start",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionEndSensor": {
@@ -3461,6 +3741,8 @@
       "icon": "mdi:clock-end",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionPlugTimeSensor": {
@@ -3488,6 +3770,8 @@
       "icon": "mdi:power-plug",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionUnplugTimeSensor": {
@@ -3515,6 +3799,8 @@
       "icon": "mdi:power-plug-off",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionTransactionIdSensor": {
@@ -3542,6 +3828,8 @@
       "icon": "mdi:identifier",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionChargeModeSensor": {
@@ -3576,6 +3864,8 @@
         "unknown_mode"
       ],
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "LastSessionWorkModeSensor": {
@@ -3610,6 +3900,8 @@
         "unknown_mode"
       ],
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "TemperatureSensor": {
@@ -3637,6 +3929,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "CELSIUS",
       "enabled_default": true
     },
     "ExternalMeterHealthSensor": {
@@ -3679,6 +3973,10 @@
         "not_reported"
       ],
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": null,
       "enabled_default": true
     },
     "GridPowerSensor": {
@@ -3711,6 +4009,10 @@
       "icon": "mdi:transmission-tower",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "CurrentSensor:L1": {
@@ -3740,6 +4042,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "CurrentSensor:L2": {
@@ -3769,6 +4073,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "CurrentSensor:L3": {
@@ -3798,6 +4104,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "VoltageSensor:L1": {
@@ -3827,6 +4135,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "VoltageSensor:L2": {
@@ -3856,6 +4166,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "VoltageSensor:L3": {
@@ -3885,6 +4197,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "PhasePowerSensor:L1": {
@@ -3914,6 +4228,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "PhasePowerSensor:L2": {
@@ -3943,6 +4259,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "PhasePowerSensor:L3": {
@@ -3972,6 +4290,8 @@
       "icon": null,
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [],
+      "resolved_unit": "WATT",
       "enabled_default": true
     },
     "GridVoltageSensor:L1": {
@@ -4006,6 +4326,10 @@
       "icon": "mdi:current-ac",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "GridVoltageSensor:L2": {
@@ -4040,6 +4364,10 @@
       "icon": "mdi:current-ac",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "GridVoltageSensor:L3": {
@@ -4074,6 +4402,10 @@
       "icon": "mdi:current-ac",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "VOLT",
       "enabled_default": true
     },
     "GridCurrentSensor:L1": {
@@ -4108,6 +4440,10 @@
       "icon": "mdi:current-dc",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "GridCurrentSensor:L2": {
@@ -4142,6 +4478,10 @@
       "icon": "mdi:current-dc",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     },
     "GridCurrentSensor:L3": {
@@ -4176,6 +4516,10 @@
       "icon": "mdi:current-dc",
       "options": null,
       "suggested_display_precision": null,
+      "unrecorded_attributes": [
+        "last_updated_at"
+      ],
+      "resolved_unit": "AMPERE",
       "enabled_default": true
     }
   }

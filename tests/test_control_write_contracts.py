@@ -22,6 +22,11 @@ ENTITIES = {
     "load_enable": ("switch", "LoadBalancingEnableSwitch", "G_ExternalLimitPowerEnable", True),
     "lcd": ("switch", "LcdDisplaySwitch", "G_LCDCloseEnable", True),
     "mode": ("select", "WorkingModeSelect", "G_OffPeakEnable", "off_peak"),
+    "warm_up": ("switch", "WarmUpSwitch", "G_FullContinueChargeEnable", True),
+    "warm_up_off": ("switch", "WarmUpSwitch", "G_FullContinueChargeEnable", False),
+    "authorization": ("select", "AuthorizationModeSelect", "G_ChargerMode", "rfid_only"),
+    "load_enable_off": ("switch", "LoadBalancingEnableSwitch", "G_ExternalLimitPowerEnable", False),
+    "lcd_off": ("switch", "LcdDisplaySwitch", "G_LCDCloseEnable", False),
     "schedule": ("time", "AutoChargeStartTime", "G_AutoChargeTime", time(2)),
 }
 FIELDS = (
@@ -63,6 +68,16 @@ async def capture(name, outcome):
         "G_TimeSharingPrice": "time1=00:00-23:59&price1=0.25",
         "G_AutoChargeTime": "01:00-06:00",
     }
+    raw.update({"G_ChargerMode": "1", "G_FullContinueChargeEnable": "0"})
+    if name.endswith("_off"):
+        if name == "warm_up_off":
+            raw["G_FullContinueChargeEnable"] = "1"
+        if name == "load_enable_off":
+            raw["G_ExternalLimitPowerEnable"] = "1"
+            c.external_limit_power_enable = True
+        if name == "lcd_off":
+            raw["G_LCDCloseEnable"] = "Disable"
+            c.lcd_close_enable = "Disable"
     c.configuration_values = {
         key: configuration.configuration_value_from_item(
             {"key": key, "value": value, "readonly": False}
@@ -111,7 +126,7 @@ async def capture(name, outcome):
                 "lcd": "Enable",
                 "mode": "Fast",
                 "schedule": "03:00-07:00",
-            }[name]
+            }.get(name, "0" if name == "authorization" else "1" if name.endswith("_off") else "0")
             if name == "mode":
                 entity._pending_option, entity._pending_intent = "fast", entity._intent_sequence + 1
             if name == "max_current":
@@ -146,7 +161,10 @@ async def capture(name, outcome):
         if platform == "number":
             await entity.async_set_native_value(value)
         elif platform == "switch":
-            await entity.async_turn_on()
+            if value:
+                await entity.async_turn_on()
+            else:
+                await entity.async_turn_off()
         elif platform == "select":
             await entity.async_select_option(value)
         else:
