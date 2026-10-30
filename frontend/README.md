@@ -224,3 +224,7 @@ TrueType font if neither Chalkboard nor DejaVu Sans is available.
 
 Keep annotation explanations beside the images in the relevant handbook chapter.
 The annotation script writes PNGs only; it does not generate documentation prose.
+
+## Shared styles
+
+`shared/tokens.css` owns the light and dark palettes. Components include `tokenStyles` from `shared/styles.ts` before their local trusted CSS. Dialogs additionally include `dialogStyles` from `shared/dialog.css`, which owns positioning, the backdrop, scrolling and responsive bounds. All three dialogs share a 520 px maximum width, a 32 px desktop gutter and a 16 px gutter below 600 px. Local styles retain content spacing and form layout. Dialogs follow their owning card’s explicit theme as well as Home Assistant’s automatic theme.

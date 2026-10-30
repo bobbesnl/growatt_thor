@@ -1,3 +1,4 @@
+import { tokenStyles, dialogStyles } from '../shared/styles';
 import { LitElement, unsafeCSS } from 'lit';
 import type { Hass } from '../shared/types';
 import { translate } from '../shared/strings';
@@ -5,8 +6,9 @@ import { renderAuthDialog } from './dialog.template';
 import cssText from './dialog.css';
 
 export class ThorAuthDialog extends LitElement {
-  static styles = unsafeCSS(cssText);
+  static styles = [tokenStyles, dialogStyles, unsafeCSS(cssText)];
   static properties = {
+    dark: { type: Boolean },
     hass: { attribute: false },
     entityId: {},
     option: { state: true },
@@ -14,6 +16,7 @@ export class ThorAuthDialog extends LitElement {
     error: { state: true },
   };
   hass?: Hass;
+  dark?: boolean;
   entityId = '';
   option = '';
   busy = false;

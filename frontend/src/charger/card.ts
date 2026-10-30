@@ -1,5 +1,7 @@
+import { tokenStyles } from '../shared/styles';
 import { LitElement } from 'lit';
-import { styles } from './styles';
+import cssText from './card.css';
+import { unsafeCSS } from 'lit';
 import { capabilities, commandInfo, resolveEntity, statusEntities } from '../shared/model';
 import { buildCardViewModel } from './card-view-model';
 import { renderCard, type CardActions } from './card.template';
@@ -24,7 +26,7 @@ import type { ThorGoalDialog } from '../targets/dialog';
 import '../sessions/card';
 
 export class ThorCard extends LitElement {
-  static styles = [styles, cardNoticeStyles];
+  static styles = [tokenStyles, unsafeCSS(cssText), cardNoticeStyles];
   static properties = {
     hass: { attribute: false },
     _config: { state: true },

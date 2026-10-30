@@ -1,8 +1,9 @@
+import { tokenStyles, dialogStyles } from '../shared/styles';
 import { browserTimeZone, localTimeToUtc } from '../shared/time';
-import { LitElement } from 'lit';
+import { LitElement, unsafeCSS } from 'lit';
 import { renderGoalDialog, type GoalDialogActions } from './dialog.template';
-import { styles } from '../charger/styles';
-import { goalDialogStyles } from './dialog-styles';
+import chargerCss from '../charger/card.css';
+import localCss from './dialog.css';
 import { translate } from '../shared/strings';
 import { canReplace, validLiveTarget, type LiveGoal } from './live';
 import {
@@ -36,7 +37,7 @@ export class ThorGoalDialog extends LitElement {
     _recurrence: { state: true },
     _now: { state: true },
   };
-  static styles = [styles, goalDialogStyles];
+  static styles = [tokenStyles, unsafeCSS(chargerCss), dialogStyles, unsafeCSS(localCss)];
   language = 'en';
   timeZone = browserTimeZone();
   dark = false;

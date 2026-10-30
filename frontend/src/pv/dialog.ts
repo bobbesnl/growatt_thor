@@ -1,3 +1,4 @@
+import { tokenStyles, dialogStyles } from '../shared/styles';
 import { LitElement, unsafeCSS } from 'lit';
 import type { CardData, Hass, PvLinkageData } from '../shared/types';
 import {
@@ -13,8 +14,9 @@ import { renderPvLinkageDialog } from './dialog.template';
 import cssText from './dialog.css';
 
 export class ThorPvLinkageDialog extends LitElement {
-  static styles = unsafeCSS(cssText);
+  static styles = [tokenStyles, dialogStyles, unsafeCSS(cssText)];
   static properties = {
+    dark: { type: Boolean },
     hass: { attribute: false },
     entityId: {},
     step: { state: true },
@@ -23,6 +25,7 @@ export class ThorPvLinkageDialog extends LitElement {
     error: { state: true },
   };
   hass?: Hass;
+  dark?: boolean;
   entityId = '';
   step = 0;
   draft: PvLinkageDraft = initialPvDraft({

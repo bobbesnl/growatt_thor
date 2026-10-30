@@ -1,0 +1,37 @@
+:host {
+  --dialog-width: 520px;
+  --dialog-gutter: 32px;
+  font-family: var(--primary-font-family, Inter, Roboto, Arial, sans-serif);
+}
+dialog,
+dialog.card {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(var(--dialog-width), calc(100vw - var(--dialog-gutter)));
+  max-height: calc(100dvh - var(--dialog-gutter));
+  box-sizing: border-box;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: 0 24px 90px #0005;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+dialog:not([open]) {
+  display: none;
+}
+dialog::backdrop {
+  background: #07150db3;
+  backdrop-filter: blur(5px);
+}
+@media (max-width: 600px) {
+  :host {
+    --dialog-gutter: 16px;
+  }
+  dialog,
+  dialog.card {
+    border-radius: 22px;
+  }
+}

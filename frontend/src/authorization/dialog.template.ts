@@ -4,6 +4,7 @@ import type { Translator } from '../shared/strings';
 
 export const renderAuthDialog = (dialog: ThorAuthDialog, t: Translator) =>
   html` <dialog
+    class=${(dialog.dark ?? dialog.hass?.themes?.darkMode) ? 'dark' : ''}
     aria-labelledby="auth-title"
     @cancel=${(event: Event) => {
       if (dialog.busy) event.preventDefault();

@@ -655,6 +655,6 @@ export function renderCard(view: CardViewModel, actions: CardActions, feedback: 
       .dark=${dark}
       .currency=${currency}
     ></growatt-thor-goal-dialog
-    ><growatt-thor-auth-dialog .hass=${hass}></growatt-thor-auth-dialog
-    ><growatt-thor-pv-linkage-dialog .hass=${hass}></growatt-thor-pv-linkage-dialog>`;
+    ><growatt-thor-auth-dialog .hass=${hass} .dark=${dark}></growatt-thor-auth-dialog
+    ><growatt-thor-pv-linkage-dialog .hass=${hass} .dark=${dark}></growatt-thor-pv-linkage-dialog>`;
 }

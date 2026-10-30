@@ -1,26 +1,5 @@
-:host {
-  --lime: #85c226;
-  --green: #456b18;
-  --ink: var(--primary-text-color, #17231c);
-  --muted: var(--secondary-text-color, #647168);
-  --panel: var(--secondary-background-color, #f3f6f1);
-  color: var(--ink);
-}
 dialog {
-  color: inherit;
-  background: var(--card-background-color, #fff);
-  border: 1px solid var(--divider-color, #dce4da);
-  border-radius: 24px;
   padding: 24px;
-  width: min(680px, calc(100vw - 32px));
-  max-height: calc(100vh - 32px);
-  box-sizing: border-box;
-  box-shadow: 0 24px 80px #0005;
-  overflow-y: auto;
-}
-dialog::backdrop {
-  background: #07150e99;
-  backdrop-filter: blur(3px);
 }
 .heading {
   display: flex;
@@ -58,7 +37,7 @@ nav div {
   gap: 7px;
   color: var(--muted);
   font-size: 12px;
-  border-top: 2px solid var(--divider-color, #dce4da);
+  border-top: 2px solid var(--line);
   padding-top: 8px;
 }
 nav i {
@@ -98,7 +77,7 @@ nav .done i {
   padding: 14px;
   border-radius: 14px;
   background: var(--panel);
-  border: 1px solid var(--divider-color, #dce4da);
+  border: 1px solid var(--line);
 }
 .checks .ok ha-icon {
   color: var(--green);
@@ -181,7 +160,7 @@ input {
   padding: 9px 11px;
   font: inherit;
   color: inherit;
-  background: var(--card-background-color, #fff);
+  background: var(--surface);
 }
 label b,
 .field b {
@@ -220,7 +199,7 @@ label b,
   align-items: start;
   margin-top: 10px;
   padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--lime) 36%, var(--divider-color, #dce4da));
+  border: 1px solid color-mix(in srgb, var(--lime) 36%, var(--line));
   border-radius: 12px;
   background: color-mix(in srgb, var(--lime) 8%, var(--panel));
 }
@@ -253,7 +232,7 @@ label b,
 }
 dl {
   margin: 14px 0;
-  border: 1px solid var(--divider-color, #dce4da);
+  border: 1px solid var(--line);
   border-radius: 14px;
   overflow: hidden;
 }
@@ -262,7 +241,7 @@ dl div {
   justify-content: space-between;
   gap: 20px;
   padding: 13px 14px;
-  border-bottom: 1px solid var(--divider-color, #dce4da);
+  border-bottom: 1px solid var(--line);
 }
 dl div:last-child {
   border: 0;

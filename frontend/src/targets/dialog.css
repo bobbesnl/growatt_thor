@@ -1,24 +1,8 @@
 :host {
   display: contents;
 }
-dialog.card {
-  position: fixed;
-  inset: 0;
-  width: min(520px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
+dialog {
   padding: 0;
-  margin: auto;
-  overflow: auto;
-  overscroll-behavior: contain;
-  border-radius: 24px;
-  box-shadow: 0 24px 90px #0005;
-}
-dialog:not([open]) {
-  display: none;
-}
-dialog::backdrop {
-  background: #07150db3;
-  backdrop-filter: blur(5px);
 }
 .dialog-head {
   display: flex;
@@ -241,11 +225,6 @@ input[type='datetime-local'] {
   font-weight: 600;
 }
 @media (max-width: 600px) {
-  dialog.card {
-    width: calc(100vw - 16px);
-    max-height: calc(100dvh - 16px);
-    border-radius: 22px;
-  }
   .dialog-head {
     padding: 20px 18px 12px;
   }

@@ -1,0 +1,14 @@
+div {
+  display: grid;
+  gap: 14px;
+  padding: 8px;
+}
+label {
+  display: grid;
+  gap: 6px;
+}
+input,
+select {
+  font: inherit;
+  padding: 8px;
+}

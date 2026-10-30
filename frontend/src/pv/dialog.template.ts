@@ -177,6 +177,7 @@ function review(dialog: ThorPvLinkageDialog, t: PvTranslator) {
 
 export const renderPvLinkageDialog = (dialog: ThorPvLinkageDialog, t: PvTranslator) =>
   html`<dialog
+    class=${(dialog.dark ?? dialog.hass?.themes?.darkMode) ? 'dark' : ''}
     aria-labelledby="pv-title"
     @cancel=${(e: Event) => {
       if (dialog.busy) e.preventDefault();

@@ -1,3 +1,5 @@
+import editorCss from './editor.css';
+import { tokenStyles } from '../shared/styles';
 import { LitElement, html, unsafeCSS } from 'lit';
 import { statusEntities } from '../shared/model';
 import { sessionTranslate } from './locales';
@@ -5,11 +7,7 @@ import type { Hass, SessionCardConfig } from '../shared/types';
 
 export class ThorSessionEditor extends LitElement {
   static properties = { hass: { attribute: false }, _config: { state: true } };
-  static styles = unsafeCSS(`
-    div { display: grid; gap: 14px; padding: 8px; }
-    label { display: grid; gap: 6px; }
-    input, select { font: inherit; padding: 8px; }
-  `);
+  static styles = [tokenStyles, unsafeCSS(editorCss)];
   hass?: Hass;
   private _config: SessionCardConfig = { type: 'custom:growatt-thor-session-card' };
 

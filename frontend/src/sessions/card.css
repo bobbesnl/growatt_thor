@@ -7,14 +7,6 @@
   box-sizing: border-box;
 }
 .card {
-  --ink: #192821;
-  --muted: #65756b;
-  --surface: #fff;
-  --panel: #f4f7f2;
-  --line: #e5ebe3;
-  --lime: #8bc53f;
-  --green: #3f7510;
-  --amber: #976016;
   color: var(--ink);
   display: block;
   background: var(--surface);
@@ -24,16 +16,6 @@
   padding: 18px 20px;
   overflow: hidden;
   position: relative;
-}
-.card.dark {
-  --ink: #eff4ed;
-  --muted: #a4b3a6;
-  --surface: #18211d;
-  --panel: #212d25;
-  --line: #344039;
-  --lime: #8bc53f;
-  --green: #a5da69;
-  --amber: #efbe6b;
 }
 .card:before {
   content: '';
@@ -516,18 +498,8 @@ th.num {
 }
 
 .accounting {
-  --source-solar: #8bc53f;
-  --source-battery: #7564b5;
-  --source-grid: #b36f14;
-  --source-unknown: #d7ded7;
   padding: 16px 0;
   border-top: 1px solid var(--line);
-}
-.dark .accounting {
-  --source-solar: #a5da69;
-  --source-battery: #b9a9f4;
-  --source-grid: #efbe6b;
-  --source-unknown: #445248;
 }
 .accounting-heading {
   display: flex;

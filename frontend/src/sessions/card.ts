@@ -1,3 +1,4 @@
+import { tokenStyles } from '../shared/styles';
 import { renderSessionAccounting } from './accounting.template';
 import { cardInitialization } from '../shared/card-initialization';
 import { cardNoticeStyles, renderCardNotice } from '../shared/card-notice';
@@ -65,7 +66,7 @@ echarts.use([
 ]);
 
 export class ThorSessionCard extends LitElement {
-  static styles = [unsafeCSS(cssText), cardNoticeStyles];
+  static styles = [tokenStyles, unsafeCSS(cssText), cardNoticeStyles];
   static properties = {
     hass: { attribute: false },
     _config: { state: true },
