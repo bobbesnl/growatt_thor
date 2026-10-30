@@ -187,7 +187,60 @@ class BaseConfigNumber(ThorEntity, NumberEntity):
 # Max Current
 
 
-class MaxCurrentNumber(GrowattConfigurationWriteMixin, BaseConfigNumber):
+class ConfigurationNumberWriteMixin(GrowattConfigurationWriteMixin):
+    """Execute a domain-valued number write with one rollback/error boundary."""
+
+    _refresh_in_accept = False
+
+    def _queued_write_block_reason(self):
+        return self._charger_write_block_reason
+
+    def _queued_value_block_reason(self, value):
+        return None
+
+    async def _write_to_thor(self, charge_point, value, previous, generation):
+        reason = self._queued_write_block_reason() or self._queued_value_block_reason(value)
+        if reason is not None:
+            self.coordinator.mark_configuration_write(
+                self._config_key,
+                ConfigurationWriteStatus.SKIPPED,
+                generation=generation,
+                result=reason,
+            )
+            return ChargerWriteResult.skipped(reason)
+        try:
+            raw_value = self._encode(value)
+            response = await self._configuration_exchange(
+                charge_point, self._config_key, raw_value, generation
+            )
+            if not response.accepted:
+                self._restore_previous_value(previous, generation)
+                return ChargerWriteResult.failed("charger_rejected", response.result)
+            if response.current:
+                self._on_accepted(raw_value, key=self._config_key, value=value)
+            if not self._refresh_in_accept or not response.current:
+                self.coordinator.schedule_configuration_refresh()
+            if response.result == ConfigurationStatus.reboot_required:
+                _LOGGER.warning("%s accepted; charger reboot required", self._config_key)
+            return ChargerWriteResult.success(response.result)
+        except ChargerConnectionUnavailable:
+            raise
+        except ChargerRequestOutcomeUncertain as exc:
+            self.coordinator.mark_configuration_write(
+                self._config_key,
+                ConfigurationWriteStatus.UNCERTAIN,
+                generation=generation,
+                result=str(exc),
+            )
+            self.coordinator.schedule_configuration_refresh(delay=0)
+            return ChargerWriteResult.uncertain(str(exc))
+        except Exception:
+            _LOGGER.exception("Failed to set %s", self._config_key)
+            self._restore_previous_value(previous, generation)
+            return ChargerWriteResult.failed("unexpected_error")
+
+
+class MaxCurrentNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
     _attr_translation_key = "max_current"
     _attr_icon = "mdi:current-ac"
     _attr_native_min_value = MIN_CHARGING_CURRENT_A
@@ -218,10 +271,16 @@ class MaxCurrentNumber(GrowattConfigurationWriteMixin, BaseConfigNumber):
     def _encode(self, value) -> str:
         return str(value)
 
-    def _on_accepted(self, raw_value, *, key=None, value=None) -> None:
+    def _on_accepted(self, raw_value, *, value, key=None) -> None:
         self.coordinator.max_current = value
         super()._on_accepted(raw_value, key=key, value=value)
         self.coordinator.async_set_updated_data(True)
+
+    def _queued_write_block_reason(self):
+        return self._charger_write_block_reason
+
+    def _queued_value_block_reason(self, value):
+        return None if self._value_is_valid(value) else "model_limit_changed"
 
     def _value_is_valid(self, value: int) -> bool:
         return self.native_min_value <= value <= self.native_max_value
@@ -296,85 +355,11 @@ class MaxCurrentNumber(GrowattConfigurationWriteMixin, BaseConfigNumber):
         )
         await async_require_command_completion(handle)
 
-    async def _write_to_thor(
-        self,
-        charge_point,
-        value: int,
-        previous: int | None,
-        generation: int,
-    ) -> ChargerWriteResult:
-        if (block_reason := self._charger_write_block_reason) is not None:
-            _LOGGER.warning("Skipping queued Max Current change: %s", block_reason)
-            self.coordinator.mark_configuration_write(
-                self._config_key,
-                ConfigurationWriteStatus.SKIPPED,
-                generation=generation,
-                result=block_reason,
-            )
-            return ChargerWriteResult.skipped(block_reason)
-        if not self._value_is_valid(value):
-            _LOGGER.warning(
-                "Skipping queued Max Current change: %d A exceeds the current model limit of %d A",
-                value,
-                self.native_max_value,
-            )
-            self.coordinator.mark_configuration_write(
-                self._config_key,
-                ConfigurationWriteStatus.SKIPPED,
-                generation=generation,
-                result="model_limit_changed",
-            )
-            return ChargerWriteResult.skipped("model_limit_changed")
-        try:
-            response = await self._configuration_exchange(
-                charge_point, self._config_key, self._encode(value), generation
-            )
-            result, outcome_is_current = response.result, response.current
-
-            if result == ConfigurationStatus.accepted:
-                if outcome_is_current:
-                    self._on_accepted(self._encode(value), key=self._config_key, value=value)
-                _LOGGER.info("Max Current written to Thor: %d A", value)
-            elif result == ConfigurationStatus.reboot_required:
-                if outcome_is_current:
-                    self._on_accepted(self._encode(value), key=self._config_key, value=value)
-                _LOGGER.warning("Max Current write accepted (reboot required): %d A", value)
-            else:
-                _LOGGER.error(
-                    "Max Current rejected by Thor: %s — rolling back UI to %s A",
-                    result,
-                    previous,
-                )
-                self._restore_previous_value(previous, generation)
-                return ChargerWriteResult.failed("charger_rejected", result)
-
-            self.coordinator.schedule_configuration_refresh()
-            return ChargerWriteResult.success(result)
-
-        except ChargerConnectionUnavailable:
-            raise
-        except ChargerRequestOutcomeUncertain as exc:
-            # Keep the requested UI value until reconnect readback resolves the
-            # ambiguity; rolling back now could be just as wrong as assuming
-            # success.
-            self.coordinator.mark_configuration_write(
-                self._config_key,
-                ConfigurationWriteStatus.UNCERTAIN,
-                generation=generation,
-                result=str(exc),
-            )
-            self.coordinator.schedule_configuration_refresh(delay=0)
-            return ChargerWriteResult.uncertain(str(exc))
-        except Exception as exc:
-            _LOGGER.error("Failed to set Max Current: %s", exc, exc_info=True)
-            self._restore_previous_value(previous, generation)
-            return ChargerWriteResult.failed("unexpected_error")
-
 
 # Load Balancing Limit
 
 
-class LoadBalancingLimitNumber(GrowattConfigurationWriteMixin, BaseConfigNumber):
+class LoadBalancingLimitNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
     _attr_translation_key = "load_balancing_limit"
     _attr_icon = "mdi:speedometer"
     _attr_device_class = NumberDeviceClass.POWER
@@ -383,6 +368,17 @@ class LoadBalancingLimitNumber(GrowattConfigurationWriteMixin, BaseConfigNumber)
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "kW"
     _config_key = "G_ExternalLimitPower"
+    # This entity historically schedules readback before publishing its mirror.
+    _refresh_in_accept = True
+
+    def _queued_write_block_reason(self):
+        return self._write_block_reason
+
+    def _on_accepted(self, raw_value, *, value, key=None) -> None:
+        super()._on_accepted(raw_value, key=key, value=value)
+        self.coordinator.schedule_configuration_refresh()
+        self.coordinator.external_limit_power = value
+        self.coordinator.async_set_updated_data(True)
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "load_balancing_limit", device="meter")
@@ -489,85 +485,11 @@ class LoadBalancingLimitNumber(GrowattConfigurationWriteMixin, BaseConfigNumber)
         )
         await async_require_command_completion(handle)
 
-    async def _write_to_thor(
-        self,
-        charge_point,
-        value: int,
-        previous: int | None,
-        generation: int,
-    ) -> ChargerWriteResult:
-        if (block_reason := self._write_block_reason) is not None:
-            _LOGGER.warning(
-                "Skipping queued Load Balancing Limit change: %s",
-                block_reason,
-            )
-            self.coordinator.mark_configuration_write(
-                self._config_key,
-                ConfigurationWriteStatus.SKIPPED,
-                generation=generation,
-                result=block_reason,
-            )
-            return ChargerWriteResult.skipped(block_reason)
-        try:
-            raw_value = self._encode(value)
-            response = await self._configuration_exchange(
-                charge_point, self._config_key, raw_value, generation
-            )
-            result, accepted, outcome_is_current = (
-                response.result,
-                response.accepted,
-                response.current,
-            )
-            if accepted and outcome_is_current:
-                self._on_accepted(raw_value, key=self._config_key, value=value)
-            if accepted:
-                self.coordinator.schedule_configuration_refresh()
-
-            if result == ConfigurationStatus.accepted:
-                if outcome_is_current:
-                    self.coordinator.external_limit_power = value
-                    self.coordinator.async_set_updated_data(True)
-                _LOGGER.info("Load Balancing Limit written to Thor: %d kW", value)
-            elif result == ConfigurationStatus.reboot_required:
-                if outcome_is_current:
-                    self.coordinator.external_limit_power = value
-                    self.coordinator.async_set_updated_data(True)
-                _LOGGER.warning(
-                    "Load Balancing Limit write accepted (reboot required): %d kW",
-                    value,
-                )
-            else:
-                _LOGGER.error(
-                    "Load Balancing Limit rejected by Thor: %s — rolling back UI to %s kW",
-                    result,
-                    previous,
-                )
-                self._restore_previous_value(previous, generation)
-                return ChargerWriteResult.failed("charger_rejected", result)
-
-            return ChargerWriteResult.success(result)
-
-        except ChargerConnectionUnavailable:
-            raise
-        except ChargerRequestOutcomeUncertain as exc:
-            self.coordinator.mark_configuration_write(
-                self._config_key,
-                ConfigurationWriteStatus.UNCERTAIN,
-                generation=generation,
-                result=str(exc),
-            )
-            self.coordinator.schedule_configuration_refresh(delay=0)
-            return ChargerWriteResult.uncertain(str(exc))
-        except Exception as exc:
-            _LOGGER.error("Failed to set Load Balancing Limit: %s", exc, exc_info=True)
-            self._restore_previous_value(previous, generation)
-            return ChargerWriteResult.failed("unexpected_error")
-
 
 # Electricity price
 
 
-class ElectricityPriceNumber(GrowattConfigurationWriteMixin, BaseConfigNumber):
+class ElectricityPriceNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
     _attr_translation_key = "electricity_price"
     _attr_icon = "mdi:cash"
     _attr_native_min_value = -2.0
@@ -599,7 +521,7 @@ class ElectricityPriceNumber(GrowattConfigurationWriteMixin, BaseConfigNumber):
         # Match the full-day time-period format returned by THOR.
         return f"time1=00:00-23:59&price1={value:.2f}"
 
-    def _on_accepted(self, raw_value, *, key=None, value=None) -> None:
+    def _on_accepted(self, raw_value, *, value, key=None) -> None:
         self.coordinator.electricity_price = value
         super()._on_accepted(raw_value, key=key, value=value)
         self.coordinator.async_set_updated_data(True)
@@ -667,71 +589,6 @@ class ElectricityPriceNumber(GrowattConfigurationWriteMixin, BaseConfigNumber):
             ),
         )
         await async_require_command_completion(handle)
-
-    async def _write_to_thor(
-        self,
-        charge_point,
-        value: float,
-        previous: float | None,
-        generation: int,
-    ) -> ChargerWriteResult:
-        if (block_reason := self._charger_write_block_reason) is not None:
-            _LOGGER.warning(
-                "Skipping queued Electricity Price change: %s",
-                block_reason,
-            )
-            self.coordinator.mark_configuration_write(
-                self._config_key,
-                ConfigurationWriteStatus.SKIPPED,
-                generation=generation,
-                result=block_reason,
-            )
-            return ChargerWriteResult.skipped(block_reason)
-        price_str = self._encode(value)
-        try:
-            response = await self._configuration_exchange(
-                charge_point, self._config_key, price_str, generation
-            )
-            result, outcome_is_current = response.result, response.current
-
-            if result == ConfigurationStatus.accepted:
-                if outcome_is_current:
-                    self._on_accepted(price_str, key=self._config_key, value=value)
-                _LOGGER.info("Electricity tariff written to Thor: %s", price_str)
-            elif result == ConfigurationStatus.reboot_required:
-                if outcome_is_current:
-                    self._on_accepted(price_str, key=self._config_key, value=value)
-                _LOGGER.warning(
-                    "Electricity tariff write accepted (reboot required): %s",
-                    price_str,
-                )
-            else:
-                _LOGGER.error(
-                    "Electricity tariff rejected by Thor: %s — rolling back to %.2f",
-                    result,
-                    previous,
-                )
-                self._restore_previous_value(previous, generation)
-                return ChargerWriteResult.failed("charger_rejected", result)
-
-            self.coordinator.schedule_configuration_refresh()
-            return ChargerWriteResult.success(result)
-
-        except ChargerConnectionUnavailable:
-            raise
-        except ChargerRequestOutcomeUncertain as exc:
-            self.coordinator.mark_configuration_write(
-                self._config_key,
-                ConfigurationWriteStatus.UNCERTAIN,
-                generation=generation,
-                result=str(exc),
-            )
-            self.coordinator.schedule_configuration_refresh(delay=0)
-            return ChargerWriteResult.uncertain(str(exc))
-        except Exception as exc:
-            _LOGGER.error("Failed to set Electricity tariff: %s", exc, exc_info=True)
-            self._restore_previous_value(previous, generation)
-            return ChargerWriteResult.failed("unexpected_error")
 
 
 class SolarGridImportLimitNumber(

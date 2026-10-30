@@ -136,7 +136,7 @@ class LoadBalancingEnableSwitch(GrowattConfigurationWriteMixin, ThorEntity, Swit
 
         key = KEY_EXTERNAL_LIMIT_POWER_ENABLE
         try:
-            result = await self._send_configuration(charge_point, key, self._encode(value))
+            result = await self._send_configuration(charge_point, key, value)
         except ChargerConnectionUnavailable:
             raise
         except ChargerRequestOutcomeUncertain as exc:
@@ -301,7 +301,7 @@ class LcdDisplaySwitch(GrowattConfigurationWriteMixin, ThorEntity, SwitchEntity)
 
         key = KEY_LCDCLOSE_ENABLE
         try:
-            result = await self._send_configuration(charge_point, key, self._encode(value))
+            result = await self._send_configuration(charge_point, key, value)
         except ChargerConnectionUnavailable:
             raise
         except ChargerRequestOutcomeUncertain as exc:

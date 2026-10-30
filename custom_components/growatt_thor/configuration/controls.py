@@ -44,14 +44,6 @@ class ConfigurationWriteResponse:
 class GrowattConfigurationWriteMixin:
     """Share queue-callback primitives without adding entity state attributes."""
 
-    def _validate_write_value(self, value):
-        """Retain boundary-specific validation in the entity that owns it."""
-        return value
-
-    def _encode(self, value):
-        """The default boundary already receives an encoded wire string."""
-        return value
-
     def _on_accepted(self, raw_value: str, *, key=None, value=None) -> None:
         """Apply reported state only after the caller checked current intent."""
         self.coordinator.update_configuration_value(key or self._configuration_key, raw_value)
@@ -136,7 +128,7 @@ class GrowattConfigurationControlMixin(GrowattConfigurationWriteMixin):
         }
 
     async def _async_write_configuration(self, raw_value: str) -> None:
-        raw_value = self._encode(self._validate_write_value(raw_value))
+        # Callers validate domain values and pass the finished OCPP wire string.
         pending_raw_value = pending_configuration_value(
             self.coordinator.configuration_writes,
             self._configuration_key,

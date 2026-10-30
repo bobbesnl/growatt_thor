@@ -137,10 +137,10 @@ class WorkingModeSelect(GrowattConfigurationWriteMixin, ThorEntity, SelectEntity
     def extra_state_attributes(self):
         return self.information_attributes
 
-    def _encode(self, option):
+    def _encode_working_mode(self, option):
         return encode_working_mode(option)
 
-    def _on_accepted(self, raw_value, *, key=None, value=None) -> None:
+    def _on_accepted(self, raw_value, *, value, key=None) -> None:
         option = value
         super()._on_accepted(raw_value, key=key, value=value)
         reported_mode = {
@@ -190,7 +190,7 @@ class WorkingModeSelect(GrowattConfigurationWriteMixin, ThorEntity, SelectEntity
         if charge_point is None:
             _LOGGER.warning("Cannot change working mode: charger not connected")
             raise_charger_disconnected()
-        key, raw_value = self._encode(option)
+        key, raw_value = self._encode_working_mode(option)
         self._intent_sequence += 1
         intent = self._intent_sequence
         self._pending_option = option
