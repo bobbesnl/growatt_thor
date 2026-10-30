@@ -21,7 +21,6 @@ import cssText from './card.css';
 import { resolveEntity, statusEntities } from '../shared/model';
 import {
   formatSessionDate,
-  formatSessionChartTick,
   formatSessionNumber,
   sessionChartBreaks,
   sessionChartExtent,
@@ -37,14 +36,18 @@ import {
 import { sessionTranslate } from './locales';
 import { renderSessionList } from './list.template';
 import { renderSessionIdentifier } from './identifier.template';
-import {
-  renderSessionEvents,
-  sessionEventLabel,
-  sessionEventColors,
-  sessionEventReason,
-} from './events.template';
+import { renderSessionEvents } from './events.template';
 import { SessionDetailStore } from './detail-store';
-import { SessionChartHost } from './chart-host';
+import { SessionChartHost, bindSessionChartEvents } from './chart-host';
+import { chartPalette } from '../shared/palette';
+import {
+  buildSessionChartOption,
+  buildSessionEventMarkLine,
+  SESSION_COMPACT_WIDTH_PX,
+  CHART_ANIMATION_MS,
+  WATTS_PER_KILOWATT,
+  type SessionChartModel,
+} from './chart-options';
 import type {
   Hass,
   SessionCardConfig,
@@ -169,37 +172,27 @@ export class ThorSessionCard extends LitElement {
       this._chartHost.disconnect();
       return;
     }
-    if (this._chartHost.attach(el)) {
-      this._chart!.on('legendselectchanged', (event: unknown) => {
-        const selected = (event as { selected?: Record<string, boolean> }).selected;
-        this._legendSelected = { ...(selected || {}) };
-        this.drawChart();
-      });
-      this._chart!.on('datazoom', (event: unknown) => {
-        const zoomEvent = event as {
-          start?: number;
-          end?: number;
-          batch?: Array<{ start?: number; end?: number }>;
-        };
-        const range = zoomEvent.batch?.[0] || zoomEvent;
-        if (Number.isFinite(range.start) && Number.isFinite(range.end))
-          this._dataZoomRange = { start: range.start!, end: range.end! };
-      });
-      this._chart!.on('axisbreakchanged', (event: unknown) => {
-        const breaks = (
-          event as { breaks?: Array<{ start: unknown; end: unknown; isExpanded: boolean }> }
-        ).breaks;
-        for (const axisBreak of breaks || []) {
-          const key = `${axisBreak.start}:${axisBreak.end}`;
-          if (axisBreak.isExpanded) this._expandedBreaks.add(key);
+    const attached = this._chartHost.attach(el);
+    const chart = this._chartHost.chart;
+    if (!chart) return;
+    if (attached)
+      bindSessionChartEvents(chart, {
+        legend: (selected) => {
+          this._legendSelected = selected;
+          this.drawChart();
+        },
+        zoom: (range) => {
+          this._dataZoomRange = range;
+        },
+        axisBreak: (key, expanded) => {
+          if (expanded) this._expandedBreaks.add(key);
           else this._expandedBreaks.delete(key);
-        }
+        },
       });
-    }
     const dark =
       this._config.theme === 'dark' ||
       (this._config.theme !== 'light' && !!this.hass?.themes?.darkMode);
-    const compact = this.clientWidth <= 600;
+    const compact = this.clientWidth <= SESSION_COMPACT_WIDTH_PX;
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const session = this.selectedSession(data);
     const sessionKey = session?.session_id || `${session?.start_time || 'unknown'}`;
@@ -211,9 +204,13 @@ export class ThorSessionCard extends LitElement {
     const points = sessionChartPoints(session?.power_curve || []);
     const measuredCurrents = sessionContextPoints(session?.measured_current_sum_curve_a);
     const configuredCurrents = sessionContextPoints(session?.configured_current_limit_curve_a);
-    const pvSurplus = sessionContextPoints(session?.site_pv_surplus_curve_w, 1000);
-    const houseLoad = sessionContextPoints(session?.site_house_load_curve_w, 1000);
-    const batteryFlow = sessionContextPoints(session?.site_battery_curve_w, 1000, true);
+    const pvSurplus = sessionContextPoints(session?.site_pv_surplus_curve_w, WATTS_PER_KILOWATT);
+    const houseLoad = sessionContextPoints(session?.site_house_load_curve_w, WATTS_PER_KILOWATT);
+    const batteryFlow = sessionContextPoints(
+      session?.site_battery_curve_w,
+      WATTS_PER_KILOWATT,
+      true,
+    );
     if (
       !points.length &&
       !measuredCurrents.length &&
@@ -281,16 +278,6 @@ export class ThorSessionCard extends LitElement {
                 : configuredCurrentVisible && configuredCurrents.length
                   ? 'configured-current'
                   : 'events';
-    const palette = {
-      charge: '#8bc53f',
-      solar: dark ? '#a5da69' : '#8bc53f',
-      target: dark ? '#79c7f2' : '#2f7fb8',
-      house: dark ? '#efbe6b' : '#b36f14',
-      battery: dark ? '#b9a9f4' : '#7564b5',
-      measuredCurrent: dark ? '#a5da69' : '#3f7510',
-      neutral: dark ? '#a4b3a6' : '#6c7b72',
-    };
-    const markerColors = sessionEventColors(dark);
     const fadeKey = `${session?.session_id || 'unknown'}:${eventHost}:${markers
       .map((marker) => `${marker.at}:${marker.events.map((event) => event.type).join(',')}`)
       .join('|')}`;
@@ -301,291 +288,49 @@ export class ThorSessionCard extends LitElement {
       this._eventLabelFadeKey !== fadeKey;
     if (!eventLayerVisible) this._eventLabelFadeKey = undefined;
     else if (fadeEventLabels) this._eventLabelFadeKey = fadeKey;
-    const eventMarkLine = (labelOpacity: number) =>
-      eventLayerVisible
-        ? {
-            animation: !reducedMotion,
-            animationDuration: 0,
-            animationDurationUpdate: 240,
-            animationEasingUpdate: 'cubicOut' as const,
-            silent: false,
-            symbol: ['none', 'none'],
-            data: markers.map((marker) => {
-              const color = markerColors[marker.tone];
-              const types = marker.events.map((event) => event.type);
-              const label = sessionEventLabel(types, marker.provisional, language);
-              const reason = sessionEventReason(
-                marker.events.map((event) => event.reason).find(Boolean),
-                language,
-              );
-              return {
-                name: label,
-                xAxis: marker.at,
-                lineStyle: {
-                  color,
-                  type: marker.provisional ? ('dashed' as const) : ('solid' as const),
-                  width: 1.5,
-                },
-                label: {
-                  show: true,
-                  formatter: label,
-                  position: 'insideEndTop',
-                  rotate: 90,
-                  align: 'center',
-                  verticalAlign: 'middle',
-                  offset: [0, 4],
-                  color: marker.tone === 'lime' ? '#172019' : '#fff',
-                  backgroundColor: color,
-                  padding: [3, 6],
-                  borderRadius: 4,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  opacity: labelOpacity,
-                },
-                tooltip: {
-                  formatter: [
-                    label,
-                    new Date(marker.at).toLocaleString(language, { timeZone }),
-                    reason,
-                  ]
-                    .filter(Boolean)
-                    .join('<br>'),
-                },
-              };
-            }),
-          }
-        : undefined;
-    const initialEventMarkLine = eventMarkLine(fadeEventLabels ? 0 : 1);
-    this._chart!.setOption(
-      {
-        animation: !reducedMotion,
-        legend: {
-          bottom: 0,
-          left: 'center',
-          type: 'scroll',
-          data: [
-            points.length && powerSeriesName,
-            pvSurplus.length && pvSurplusSeriesName,
-            houseLoad.length && houseLoadSeriesName,
-            batteryFlow.length && batteryFlowSeriesName,
-            configuredCurrents.length && configuredCurrentSeriesName,
-            measuredCurrents.length && measuredCurrentSeriesName,
-            !compact && eventSeriesName,
-          ].filter(Boolean),
-          selected: this._legendSelected,
-          textStyle: { color: dark ? '#d7dfd8' : '#34423a', fontSize: 10 },
-        },
-        dataZoom: [
-          {
-            type: 'inside',
-            xAxisIndex: 0,
-            start: this._dataZoomRange.start,
-            end: this._dataZoomRange.end,
-            filterMode: 'none',
-            zoomOnMouseWheel: 'shift',
-            moveOnMouseMove: true,
-            moveOnMouseWheel: false,
-          },
-          {
-            type: 'slider',
-            xAxisIndex: 0,
-            start: this._dataZoomRange.start,
-            end: this._dataZoomRange.end,
-            filterMode: 'none',
-            bottom: 36,
-            height: 16,
-            showDetail: false,
-            showDataShadow: 'auto',
-            backgroundColor: dark ? 'rgba(52,64,57,.32)' : 'rgba(229,235,227,.45)',
-            borderColor: dark ? '#506057' : '#d3ddd1',
-            fillerColor: dark ? 'rgba(139,197,63,.24)' : 'rgba(139,197,63,.20)',
-            dataBackground: {
-              lineStyle: { color: dark ? '#738078' : '#9ba89f', opacity: 0.45 },
-              areaStyle: { color: dark ? '#3b4840' : '#dce4da', opacity: 0.3 },
-            },
-            selectedDataBackground: {
-              lineStyle: { color: palette.charge, opacity: 0.85 },
-              areaStyle: { color: palette.charge, opacity: 0.16 },
-            },
-            handleSize: 12,
-            handleStyle: {
-              color: dark ? '#212d25' : '#fff',
-              borderColor: palette.charge,
-              borderWidth: 1.5,
-            },
-            moveHandleStyle: { color: palette.charge, opacity: 0.7 },
-            brushSelect: true,
-          },
-        ],
-        grid: { left: 40, right: currentAxisVisible ? 40 : 16, top: compact ? 24 : 48, bottom: 88 },
-        tooltip: { trigger: 'axis', confine: true },
-        xAxis: {
-          type: 'time',
-          splitNumber: Math.max(
-            2,
-            Math.min(8, Math.floor((el.clientWidth - 80) / (chartSpansDays ? 140 : 110))),
-          ),
-          min: extent?.[0],
-          max: extent?.[1],
-          breaks: chartBreaks,
-          breakArea: {
-            show: true,
-            expandOnClick: true,
-            zigzagAmplitude: 3,
-            zigzagMinSpan: 4,
-            zigzagMaxSpan: 10,
-            itemStyle: {
-              color: dark ? 'rgba(24,33,29,.88)' : 'rgba(255,255,255,.9)',
-              borderColor: dark ? '#a4b3a6' : '#65756b',
-              borderWidth: 1,
-              opacity: 0.9,
-            },
-          },
-          axisLabel: {
-            hideOverlap: true,
-            fontSize: compact ? 11 : 12,
-            color: dark ? '#a4b3a6' : '#65756b',
-            formatter: (value: number) =>
-              formatSessionChartTick(value, language, chartSpansDays, timeZone),
-          },
-          axisTick: { show: false },
-          axisLine: { lineStyle: { color: dark ? '#344039' : '#e5ebe3' } },
-        },
-        yAxis: [
-          {
-            type: 'value',
-            name: 'kW',
-            show: powerAxisVisible,
-            splitNumber: 3,
-            nameTextStyle: { color: dark ? '#a4b3a6' : '#65756b' },
-            axisLabel: { color: dark ? '#a4b3a6' : '#65756b' },
-            splitLine: { lineStyle: { color: dark ? '#344039' : '#e5ebe3' } },
-          },
-          {
-            type: 'value',
-            name: 'A',
-            show: currentAxisVisible,
-            splitNumber: 3,
-            nameTextStyle: { color: dark ? '#a4b3a6' : '#65756b' },
-            axisLabel: { color: dark ? '#a4b3a6' : '#65756b' },
-            axisLine: { show: true, lineStyle: { color: dark ? '#344039' : '#e5ebe3' } },
-            splitLine: { show: false },
-          },
-        ],
-        series: [
-          {
-            name: powerSeriesName,
-            id: 'power',
-            type: 'line',
-            yAxisIndex: 0,
-            data: points,
-            smooth: 0.25,
-            showSymbol: false,
-            symbolSize: 5,
-            lineStyle: { width: 3, color: palette.charge },
-            itemStyle: { color: palette.charge },
-            areaStyle: { color: dark ? 'rgba(139,197,63,.16)' : 'rgba(139,197,63,.20)' },
-            z: 4,
-            markLine: eventHost === 'power' ? initialEventMarkLine : undefined,
-          },
-          {
-            name: pvSurplusSeriesName,
-            id: 'pv',
-            type: 'line',
-            yAxisIndex: 0,
-            data: pvSurplus,
-            smooth: 0.22,
-            showSymbol: false,
-            symbolSize: 3,
-            lineStyle: { width: 2, color: palette.solar, type: 'dashed' },
-            itemStyle: { color: palette.solar },
-            z: 3,
-            markLine: eventHost === 'pv' ? initialEventMarkLine : undefined,
-          },
-          {
-            name: houseLoadSeriesName,
-            id: 'house',
-            type: 'line',
-            yAxisIndex: 0,
-            data: houseLoad,
-            smooth: 0.18,
-            showSymbol: false,
-            symbolSize: 3,
-            lineStyle: { width: 1.6, color: palette.house, opacity: 0.82 },
-            itemStyle: { color: palette.house },
-            z: 2,
-            markLine: eventHost === 'house' ? initialEventMarkLine : undefined,
-          },
-          {
-            name: batteryFlowSeriesName,
-            id: 'battery',
-            type: 'line',
-            yAxisIndex: 0,
-            data: batteryFlow,
-            smooth: 0.18,
-            showSymbol: false,
-            symbolSize: 3,
-            lineStyle: { width: 1.8, color: palette.battery },
-            itemStyle: { color: palette.battery },
-            z: 3,
-            markLine: eventHost === 'battery' ? initialEventMarkLine : undefined,
-          },
-          {
-            name: measuredCurrentSeriesName,
-            id: 'measured-current',
-            type: 'line',
-            yAxisIndex: 1,
-            data: measuredCurrents,
-            smooth: 0.2,
-            showSymbol: false,
-            symbolSize: 4,
-            lineStyle: { width: 2, color: palette.measuredCurrent },
-            itemStyle: { color: palette.measuredCurrent },
-            z: 3,
-            markLine: eventHost === 'measured-current' ? initialEventMarkLine : undefined,
-          },
-          {
-            name: configuredCurrentSeriesName,
-            id: 'configured-current',
-            step: 'end',
-            type: 'line',
-            yAxisIndex: 1,
-            data: configuredCurrents,
-            smooth: false,
-            showSymbol: false,
-            symbolSize: 3,
-            lineStyle: { width: 1.5, color: palette.target, opacity: 0.55 },
-            itemStyle: { color: palette.target, opacity: 0.6 },
-            emphasis: { lineStyle: { width: 2, opacity: 0.85 } },
-            z: 1,
-            markLine: eventHost === 'configured-current' ? initialEventMarkLine : undefined,
-          },
-          {
-            name: eventSeriesName,
-            id: 'events',
-            type: 'line',
-            yAxisIndex: 0,
-            data: points,
-            symbol: 'none',
-            lineStyle: { opacity: 0 },
-            itemStyle: { color: palette.neutral },
-            tooltip: { show: false },
-            z: 6,
-            markLine: eventHost === 'events' ? initialEventMarkLine : undefined,
-          },
-        ],
-      },
-      { notMerge: true },
-    );
+    const chartModel: SessionChartModel = {
+      points,
+      measuredCurrents,
+      configuredCurrents,
+      pvSurplus,
+      houseLoad,
+      batteryFlow,
+      markers,
+      eventHost,
+      eventLayerVisible,
+      reducedMotion,
+      fadeEventLabels,
+      dark,
+      compact,
+      language,
+      timeZone,
+      chartSpansDays,
+      powerAxisVisible,
+      currentAxisVisible,
+      extent,
+      chartBreaks,
+      legendSelected: this._legendSelected,
+      zoomRange: this._dataZoomRange,
+      powerSeriesName,
+      pvSurplusSeriesName,
+      houseLoadSeriesName,
+      batteryFlowSeriesName,
+      configuredCurrentSeriesName,
+      measuredCurrentSeriesName,
+      eventSeriesName,
+    };
+    chart.setOption(buildSessionChartOption(chartModel, chartPalette(dark), el.clientWidth), {
+      notMerge: true,
+    });
     if (this._labelFadeFrame !== undefined) cancelAnimationFrame(this._labelFadeFrame);
     if (fadeEventLabels) {
       this._labelFadeFrame = requestAnimationFrame(() => {
         this._labelFadeFrame = requestAnimationFrame(() => {
           if (this._eventLabelFadeKey !== fadeKey) return;
           this._chart?.setOption({
-            animationDurationUpdate: 240,
+            animationDurationUpdate: CHART_ANIMATION_MS,
             animationEasingUpdate: 'cubicOut',
-            series: [{ id: eventHost, markLine: eventMarkLine(1) }],
+            series: [{ id: eventHost, markLine: buildSessionEventMarkLine(chartModel, 1) }],
           });
         });
       });
