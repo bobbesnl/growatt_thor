@@ -221,7 +221,7 @@ class ChargerWriteQueue:
             self.task = self.owner.hass.async_create_task(self._process_write_queue())
         return handle
 
-    async def _process_write_queue(self):
+    async def _process_write_queue(self) -> None:
         """Process writes without losing them across a charger reconnect."""
         async with self._lock:
             try:
@@ -245,196 +245,15 @@ class ChargerWriteQueue:
                         )
                         continue
 
-                    if write_item.requires_connection:
-                        charge_point = self.owner.runtime_data.get(ACTIVE_CHARGE_POINT)
-                        if charge_point is None or not self.owner.connected:
-                            if (
-                                write_item.policy.reconnect
-                                == ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED
-                            ):
-                                self._pending.popleft()
-                                self._finish_unsent_write(
-                                    write_item,
-                                    ChargerWriteResult.expired("discarded_on_disconnect"),
-                                )
-                                continue
-                            # Do not pop an unsent command while disconnected.
-                            # A later write with the same dedupe key can still
-                            # replace it, preserving last-value-wins semantics.
-                            _LOGGER.info(
-                                "Waiting for reconnect before %s",
-                                write_item.command_name,
-                            )
-                            self.connection_changed.clear()
-                            charge_point = self.owner.runtime_data.get(ACTIVE_CHARGE_POINT)
-                            if charge_point is None or not self.owner.connected:
-                                try:
-                                    await asyncio.wait_for(
-                                        self.connection_changed.wait(),
-                                        timeout=self._write_expiry_remaining(write_item),
-                                    )
-                                except TimeoutError:
-                                    # The next loop iteration records the
-                                    # terminal expired result without sending.
-                                    pass
-                            continue
-
-                    if write_item.rate_limited and self._last_write_monotonic is not None:
-                        time_since_last = self.owner.hass.loop.time() - self._last_write_monotonic
-                        wait_time = max(
-                            0.0,
-                            self.min_write_interval - time_since_last,
-                        )
-
-                        if wait_time > 0:
-                            _LOGGER.info(
-                                "Waiting %.1fs before %s. Queue: %d total",
-                                wait_time,
-                                write_item.command_name,
-                                len(self._pending),
-                            )
-                            self._changed.clear()
-                            try:
-                                await asyncio.wait_for(
-                                    self._changed.wait(),
-                                    timeout=min(
-                                        wait_time,
-                                        self._write_expiry_remaining(write_item),
-                                    ),
-                                )
-                            except TimeoutError:
-                                # Re-run the connection and queue checks before
-                                # removing the item.  The THOR may have
-                                # disconnected during this long rate-limit wait.
-                                continue
-                            else:
-                                # Re-evaluate the head of the queue so a newly
-                                # queued control command can run immediately.
-                                continue
+                    if not await self._await_connection(write_item):
+                        continue
+                    if not await self._await_rate_limit(write_item):
+                        continue
 
                     # Keep the item in the queue while rate limiting so a newer
                     # write with the same dedupe key can still replace it.
                     write_item = self._pending.popleft()
-                    call_args = list(write_item.args)
-                    if write_item.requires_connection:
-                        # The current connection can differ from the one that
-                        # existed when the UI action was queued.  Rebinding here
-                        # prevents commands from being sent to a closed socket.
-                        call_args[0] = self.owner.runtime_data[ACTIVE_CHARGE_POINT]
-                    self._active = write_item
-
-                    try:
-                        queue_age = self.owner.hass.loop.time() - write_item.enqueued_at
-                        _LOGGER.info(
-                            "Executing %s [%s] after %.1fs. Remaining in queue: %d",
-                            write_item.command_name,
-                            write_item.command_id,
-                            queue_age,
-                            len(self._pending),
-                        )
-
-                        if write_item.rate_limited:
-                            self.owner.pause_polling_until(
-                                self.owner.hass.loop.time() + self.poll_pause_after_write
-                            )
-                            _LOGGER.info("Polling paused BEFORE write (Thor FW protection)")
-
-                        result = await write_item.func(
-                            *call_args,
-                            **write_item.kwargs,
-                        )
-
-                        if isinstance(result, ChargerWriteResult) and result.status in {
-                            ChargerWriteStatus.SKIPPED,
-                            ChargerWriteStatus.EXPIRED,
-                        }:
-                            self._run_unsent_cleanup(write_item, result)
-
-                        if write_item.rate_limited and not (
-                            isinstance(result, ChargerWriteResult)
-                            and result.status
-                            in {
-                                ChargerWriteStatus.SKIPPED,
-                                ChargerWriteStatus.EXPIRED,
-                            }
-                        ):
-                            self._last_write_monotonic = self.owner.hass.loop.time()
-
-                        self._log_write_result(write_item, result)
-                        completion_result = (
-                            result
-                            if isinstance(result, ChargerWriteResult)
-                            else ChargerWriteResult.uncertain("missing_structured_outcome")
-                        )
-                        self._resolve_write_result(
-                            write_item,
-                            completion_result,
-                        )
-
-                    except ChargerConnectionUnavailable as err:
-                        # The request was definitely not sent.  Put it back at
-                        # the front; on the next pass its connection argument is
-                        # rebound again.  This differs from an uncertain write,
-                        # which must be read back before any retry.
-                        if (
-                            write_item.policy.reconnect
-                            == ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED
-                        ):
-                            self._finish_unsent_write(
-                                write_item,
-                                ChargerWriteResult.expired("discarded_on_disconnect"),
-                            )
-                        elif self._write_item_is_expired(write_item):
-                            self._finish_unsent_write(
-                                write_item,
-                                ChargerWriteResult.expired(),
-                            )
-                        else:
-                            self._pending.appendleft(write_item)
-                            _LOGGER.info(
-                                "Deferring %s until the current connection is ready: %s",
-                                write_item.command_name,
-                                err,
-                            )
-                        await asyncio.sleep(0)
-
-                    except ChargerRequestOutcomeUncertain as err:
-                        if write_item.rate_limited:
-                            self._last_write_monotonic = self.owner.hass.loop.time()
-                        configuration_key = write_item.configuration_key
-                        configuration_generation = write_item.configuration_generation
-                        if configuration_key and configuration_generation is not None:
-                            self.owner.mark_configuration_write(
-                                configuration_key,
-                                ConfigurationWriteStatus.UNCERTAIN,
-                                generation=configuration_generation,
-                                result=str(err),
-                            )
-                            self.owner.schedule_configuration_refresh(delay=0)
-                        result = ChargerWriteResult.uncertain(str(err))
-                        self._log_write_result(write_item, result)
-                        self._resolve_write_result(write_item, result)
-
-                    except asyncio.CancelledError:
-                        # The callback may already have handed its request to
-                        # OCPP.  Unload therefore resolves the active command
-                        # as uncertain, never as safely cancelled or skipped.
-                        result = ChargerWriteResult.uncertain(
-                            "integration_unloaded_during_execution"
-                        )
-                        self._log_write_result(write_item, result)
-                        self._resolve_write_result(write_item, result)
-                        raise
-
-                    except Exception as err:
-                        _LOGGER.error("Write command failed: %s", err, exc_info=True)
-                        self._resolve_write_result(
-                            write_item,
-                            ChargerWriteResult.failed("unexpected_error"),
-                        )
-
-                    finally:
-                        self._active = None
+                    await self._execute(write_item)
 
             except asyncio.CancelledError:
                 raise
@@ -452,6 +271,207 @@ class ChargerWriteQueue:
                 self.task = None
                 if not self._pending:
                     self.idle.set()
+
+    async def _await_connection(self, write_item: ChargerWriteItem) -> bool:
+        """Return readiness, or restart selection after disconnect handling."""
+        if write_item.requires_connection:
+            charge_point = self.owner.runtime_data.get(ACTIVE_CHARGE_POINT)
+            if charge_point is None or not self.owner.connected:
+                if (
+                    write_item.policy.reconnect
+                    == ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED
+                ):
+                    self._pending.popleft()
+                    self._finish_unsent_write(
+                        write_item,
+                        ChargerWriteResult.expired("discarded_on_disconnect"),
+                    )
+                    return False
+                # Do not pop an unsent command while disconnected.
+                # A later write with the same dedupe key can still
+                # replace it, preserving last-value-wins semantics.
+                _LOGGER.info(
+                    "Waiting for reconnect before %s",
+                    write_item.command_name,
+                )
+                self.connection_changed.clear()
+                charge_point = self.owner.runtime_data.get(ACTIVE_CHARGE_POINT)
+                if charge_point is None or not self.owner.connected:
+                    try:
+                        await asyncio.wait_for(
+                            self.connection_changed.wait(),
+                            timeout=self._write_expiry_remaining(write_item),
+                        )
+                    except TimeoutError:
+                        # The next loop iteration records the
+                        # terminal expired result without sending.
+                        pass
+                return False
+
+        return True
+
+    async def _await_rate_limit(self, write_item: ChargerWriteItem) -> bool:
+        """Return readiness, or restart selection after a wakeup or timeout."""
+        if write_item.rate_limited and self._last_write_monotonic is not None:
+            time_since_last = self.owner.hass.loop.time() - self._last_write_monotonic
+            wait_time = max(
+                0.0,
+                self.min_write_interval - time_since_last,
+            )
+
+            if wait_time > 0:
+                _LOGGER.info(
+                    "Waiting %.1fs before %s. Queue: %d total",
+                    wait_time,
+                    write_item.command_name,
+                    len(self._pending),
+                )
+                self._changed.clear()
+                try:
+                    await asyncio.wait_for(
+                        self._changed.wait(),
+                        timeout=min(
+                            wait_time,
+                            self._write_expiry_remaining(write_item),
+                        ),
+                    )
+                except TimeoutError:
+                    # Re-run the connection and queue checks before
+                    # removing the item.  The THOR may have
+                    # disconnected during this long rate-limit wait.
+                    return False
+                else:
+                    # Re-evaluate the head of the queue so a newly
+                    # queued control command can run immediately.
+                    return False
+
+        return True
+
+    async def _execute(self, write_item: ChargerWriteItem) -> None:
+        """Bind the current socket and resolve one active callback's outcome."""
+        call_args = list(write_item.args)
+        if write_item.requires_connection:
+            # The current connection can differ from the one that
+            # existed when the UI action was queued.  Rebinding here
+            # prevents commands from being sent to a closed socket.
+            call_args[0] = self.owner.runtime_data[ACTIVE_CHARGE_POINT]
+        self._active = write_item
+
+        try:
+            queue_age = self.owner.hass.loop.time() - write_item.enqueued_at
+            _LOGGER.info(
+                "Executing %s [%s] after %.1fs. Remaining in queue: %d",
+                write_item.command_name,
+                write_item.command_id,
+                queue_age,
+                len(self._pending),
+            )
+
+            if write_item.rate_limited:
+                self.owner.pause_polling_until(
+                    self.owner.hass.loop.time() + self.poll_pause_after_write
+                )
+                _LOGGER.info("Polling paused BEFORE write (Thor FW protection)")
+
+            result = await write_item.func(
+                *call_args,
+                **write_item.kwargs,
+            )
+
+            if isinstance(result, ChargerWriteResult) and result.status in {
+                ChargerWriteStatus.SKIPPED,
+                ChargerWriteStatus.EXPIRED,
+            }:
+                self._run_unsent_cleanup(write_item, result)
+
+            if write_item.rate_limited and not (
+                isinstance(result, ChargerWriteResult)
+                and result.status
+                in {
+                    ChargerWriteStatus.SKIPPED,
+                    ChargerWriteStatus.EXPIRED,
+                }
+            ):
+                self._last_write_monotonic = self.owner.hass.loop.time()
+
+            self._log_write_result(write_item, result)
+            completion_result = (
+                result
+                if isinstance(result, ChargerWriteResult)
+                else ChargerWriteResult.uncertain("missing_structured_outcome")
+            )
+            self._resolve_write_result(
+                write_item,
+                completion_result,
+            )
+
+        except asyncio.CancelledError as err:
+            await self._classify_failure(write_item, err)
+            raise
+        except Exception as err:
+            await self._classify_failure(write_item, err)
+        finally:
+            self._active = None
+
+    async def _classify_failure(
+        self, write_item: ChargerWriteItem, err: Exception | asyncio.CancelledError
+    ) -> None:
+        """Keep unsent retries, uncertain outcomes and cancellation distinct."""
+        if isinstance(err, ChargerConnectionUnavailable):
+            # The request was definitely not sent.  Put it back at
+            # the front; on the next pass its connection argument is
+            # rebound again.  This differs from an uncertain write,
+            # which must be read back before any retry.
+            if write_item.policy.reconnect == ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED:
+                self._finish_unsent_write(
+                    write_item,
+                    ChargerWriteResult.expired("discarded_on_disconnect"),
+                )
+            elif self._write_item_is_expired(write_item):
+                self._finish_unsent_write(
+                    write_item,
+                    ChargerWriteResult.expired(),
+                )
+            else:
+                self._pending.appendleft(write_item)
+                _LOGGER.info(
+                    "Deferring %s until the current connection is ready: %s",
+                    write_item.command_name,
+                    err,
+                )
+            await asyncio.sleep(0)
+
+        elif isinstance(err, ChargerRequestOutcomeUncertain):
+            if write_item.rate_limited:
+                self._last_write_monotonic = self.owner.hass.loop.time()
+            configuration_key = write_item.configuration_key
+            configuration_generation = write_item.configuration_generation
+            if configuration_key and configuration_generation is not None:
+                self.owner.mark_configuration_write(
+                    configuration_key,
+                    ConfigurationWriteStatus.UNCERTAIN,
+                    generation=configuration_generation,
+                    result=str(err),
+                )
+                self.owner.schedule_configuration_refresh(delay=0)
+            result = ChargerWriteResult.uncertain(str(err))
+            self._log_write_result(write_item, result)
+            self._resolve_write_result(write_item, result)
+
+        elif isinstance(err, asyncio.CancelledError):
+            # The callback may already have handed its request to
+            # OCPP.  Unload therefore resolves the active command
+            # as uncertain, never as safely cancelled or skipped.
+            result = ChargerWriteResult.uncertain("integration_unloaded_during_execution")
+            self._log_write_result(write_item, result)
+            self._resolve_write_result(write_item, result)
+
+        else:
+            _LOGGER.error("Write command failed: %s", err, exc_info=True)
+            self._resolve_write_result(
+                write_item,
+                ChargerWriteResult.failed("unexpected_error"),
+            )
 
     def cancel(
         self,

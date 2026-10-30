@@ -128,6 +128,7 @@ Inbound OCPP actions share `guarded_ocpp_handler`, preserving each action's fall
 ## Charger write queue
 
 Each runtime creates one `runtime/charger_write_queue.py::ChargerWriteQueue`.
+The processor delegates connection waiting, rate-limit waiting, active execution and failure classification to `_await_connection`, `_await_rate_limit`, `_execute` and `_classify_failure`. A wait always returns to queue selection before removal, preserving replacement and priority behavior. Socket rebinding and the active marker retain their existing exception boundary; cancellation resolves the active command as uncertain and still propagates to shutdown.
 The shared connection-change event wakes both the queue and configuration
 readback; the queue's idle event lets readback wait without owning the write
 processor. Intent replacement and cancellation touch only pending entries.
