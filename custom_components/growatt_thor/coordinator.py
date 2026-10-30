@@ -20,12 +20,12 @@ from .charging.faults import (
     fault_from_data_transfer,
     fault_from_status_notification,
 )
+from .charging.pv_draft import PvLinkageDraftState
 from .charging.pv_linkage import (
     PvBoostMode,
     PvLinkageApplyResult,
     PvLinkageDraft,
     draft_matches_reported,
-    parse_manual_period,
 )
 from .coerce import enum_value
 from .configuration.values import (
@@ -50,7 +50,6 @@ from .const import (
     CONF_LOCATION,
     CONF_POLL_INTERVAL,
     CONFIGURATION_WRITE_SPACING_SECONDS,
-    DEFAULT_POLL_INTERVAL,
 )
 from .energy.options import CONF_BATTERY_POWER_ENTITY, CONF_BATTERY_POWER_SIGN
 from .energy.session_accumulator import SessionAccumulator
@@ -58,11 +57,9 @@ from .energy.site_inputs import site_inputs
 from .energy.sources import BATTERY_POSITIVE_DISCHARGE
 from .ocpp.diagnostics import create_ocpp_snapshot
 from .ocpp.external_meter import (
-    external_meter_health,
     parse_external_meter_data,
-    status_clears_external_meter_fault,
-    status_reports_external_meter_fault,
 )
+from .ocpp.external_meter_state import ExternalMeterState
 from .ocpp.meter_samples import (
     DEFAULT_MEASURAND,
     charging_power_curve_point,
@@ -146,6 +143,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         # the active OCPP connection and the poll pause live here, never in a
         # domain-global slot shared with another charger.
         self.runtime_data = EntryRuntime()
+        self.external_meter = ExternalMeterState()
+        self.pv_draft = PvLinkageDraftState()
         self._transaction_id_allocator = TransactionIdAllocator()
         self._transaction_id_lock = asyncio.Lock()
 
@@ -225,16 +224,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.configuration_writes: dict[str, ConfigurationWriteState] = {}
         self.last_command_result: ChargerCommandResult | None = None
 
-        # Local compound PV Linkage draft. It is sent only by the Apply button.
-        self.pv_boost_mode_draft: PvBoostMode | None = None
-        self.pv_manual_start_draft: time | None = None
-        self.pv_manual_end_draft: time | None = None
-        self.pv_smart_finish_draft: time | None = None
-        self.pv_smart_target_energy_draft: float | None = None
-        self.pv_linkage_draft_dirty = False
-        self.pv_linkage_apply_result: PvLinkageApplyResult | None = None
-
-        #  Last session
         self.dashboard_sessions = {
             "items": [],
             "total_energy_kwh": 0.0,
@@ -246,25 +235,163 @@ class GrowattCoordinator(DataUpdateCoordinator):
         #  Persistent cumulative total
         self.total_energy_charged = 0.0  # kWh
 
-        #  External meter (grid connection)
-        self.grid_power = None
-        self.grid_voltages = {}
-        self.grid_currents = {}
-        self.external_meter_used = None
-        self.external_meter_wring = None
-        self.external_meter_last_updated_at = None
-        self.external_meter_poll_interval = DEFAULT_POLL_INTERVAL
-        self.external_meter_faulted = False
-        self.external_meter_fault_connector_id = None
-        self.external_meter_fault_error_code = None
-        self.external_meter_fault_info = None
-        self.meterval_consecutive_timeouts = 0
-
         self._connection_changed = asyncio.Event()
         self.write_queue = ChargerWriteQueue(self, self._connection_changed)
         self._shutting_down = False
         self._configuration_refresh_task = None
         self._auto_charge_schedule_task = None
+
+    @property
+    def grid_power(self) -> float | None:
+        return self.external_meter.power
+
+    @grid_power.setter
+    def grid_power(self, value: float | None) -> None:
+        self.external_meter.power = value
+
+    @property
+    def grid_voltages(self) -> dict[str, float]:
+        return self.external_meter.voltages
+
+    @grid_voltages.setter
+    def grid_voltages(self, value: dict[str, float]) -> None:
+        self.external_meter.voltages = value
+
+    @property
+    def grid_currents(self) -> dict[str, float]:
+        return self.external_meter.currents
+
+    @grid_currents.setter
+    def grid_currents(self, value: dict[str, float]) -> None:
+        self.external_meter.currents = value
+
+    @property
+    def external_meter_used(self) -> int | None:
+        return self.external_meter.used
+
+    @external_meter_used.setter
+    def external_meter_used(self, value: int | None) -> None:
+        self.external_meter.used = value
+
+    @property
+    def external_meter_wring(self) -> int | None:
+        return self.external_meter.wring
+
+    @external_meter_wring.setter
+    def external_meter_wring(self, value: int | None) -> None:
+        self.external_meter.wring = value
+
+    @property
+    def external_meter_last_updated_at(self) -> str | None:
+        return self.external_meter.last_updated_at
+
+    @external_meter_last_updated_at.setter
+    def external_meter_last_updated_at(self, value: str | None) -> None:
+        self.external_meter.last_updated_at = value
+
+    @property
+    def external_meter_poll_interval(self) -> int:
+        return self.external_meter.poll_interval
+
+    @external_meter_poll_interval.setter
+    def external_meter_poll_interval(self, value: int) -> None:
+        self.external_meter.poll_interval = value
+
+    @property
+    def external_meter_faulted(self) -> bool:
+        return self.external_meter.faulted
+
+    @external_meter_faulted.setter
+    def external_meter_faulted(self, value: bool) -> None:
+        self.external_meter.faulted = value
+
+    @property
+    def external_meter_fault_connector_id(self) -> int | str | None:
+        return self.external_meter.fault_connector_id
+
+    @external_meter_fault_connector_id.setter
+    def external_meter_fault_connector_id(self, value: int | str | None) -> None:
+        self.external_meter.fault_connector_id = value
+
+    @property
+    def external_meter_fault_error_code(self) -> str | None:
+        return self.external_meter.fault_error_code
+
+    @external_meter_fault_error_code.setter
+    def external_meter_fault_error_code(self, value: str | None) -> None:
+        self.external_meter.fault_error_code = value
+
+    @property
+    def external_meter_fault_info(self) -> object:
+        return self.external_meter.fault_info
+
+    @external_meter_fault_info.setter
+    def external_meter_fault_info(self, value: object) -> None:
+        self.external_meter.fault_info = value
+
+    @property
+    def meterval_consecutive_timeouts(self) -> int:
+        return self.external_meter.consecutive_timeouts
+
+    @meterval_consecutive_timeouts.setter
+    def meterval_consecutive_timeouts(self, value: int) -> None:
+        self.external_meter.consecutive_timeouts = value
+
+    @property
+    def pv_boost_mode_draft(self) -> PvBoostMode | None:
+        return self.pv_draft.boost_mode
+
+    @pv_boost_mode_draft.setter
+    def pv_boost_mode_draft(self, value: PvBoostMode | None) -> None:
+        self.pv_draft.boost_mode = value
+
+    @property
+    def pv_manual_start_draft(self) -> time | None:
+        return self.pv_draft.manual_start
+
+    @pv_manual_start_draft.setter
+    def pv_manual_start_draft(self, value: time | None) -> None:
+        self.pv_draft.manual_start = value
+
+    @property
+    def pv_manual_end_draft(self) -> time | None:
+        return self.pv_draft.manual_end
+
+    @pv_manual_end_draft.setter
+    def pv_manual_end_draft(self, value: time | None) -> None:
+        self.pv_draft.manual_end = value
+
+    @property
+    def pv_smart_finish_draft(self) -> time | None:
+        return self.pv_draft.smart_finish
+
+    @pv_smart_finish_draft.setter
+    def pv_smart_finish_draft(self, value: time | None) -> None:
+        self.pv_draft.smart_finish = value
+
+    @property
+    def pv_smart_target_energy_draft(self) -> float | None:
+        return self.pv_draft.smart_target_energy_kwh
+
+    @pv_smart_target_energy_draft.setter
+    def pv_smart_target_energy_draft(self, value: float | None) -> None:
+        self.pv_draft.smart_target_energy_kwh = value
+
+    @property
+    def pv_linkage_draft_dirty(self) -> bool:
+        return self.pv_draft.dirty
+
+    @pv_linkage_draft_dirty.setter
+    def pv_linkage_draft_dirty(self, value: bool) -> None:
+        self.pv_draft.dirty = value
+
+    @property
+    def pv_linkage_apply_result(self) -> PvLinkageApplyResult | None:
+        return self.pv_draft.apply_result
+
+    @pv_linkage_apply_result.setter
+    def pv_linkage_apply_result(self, value: PvLinkageApplyResult | None) -> None:
+        self.pv_draft.apply_result = value
 
     # PERSISTENT STORAGE
 
@@ -782,15 +909,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def pv_linkage_draft(self) -> PvLinkageDraft | None:
         """Return the current local PV Linkage draft when initialized."""
-        if self.pv_boost_mode_draft is None:
-            return None
-        return PvLinkageDraft(
-            boost_mode=self.pv_boost_mode_draft,
-            manual_start=self.pv_manual_start_draft,
-            manual_end=self.pv_manual_end_draft,
-            smart_finish=self.pv_smart_finish_draft,
-            smart_target_energy_kwh=self.pv_smart_target_energy_draft,
-        )
+        return self.pv_draft.snapshot()
 
     def update_pv_linkage_draft(self, **changes) -> None:
         """Update local compound-control fields without writing the charger."""
@@ -846,36 +965,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         return True
 
     def _initialize_pv_linkage_draft(self) -> bool:
-        """Initialize an untouched draft from reported configuration values."""
-        if self.pv_linkage_draft_dirty:
-            return False
-
-        updated = False
-        reported_mode = configuration_entity_state(
-            "G_SolarBoost",
-            self.configuration_values.get("G_SolarBoost"),
-        )
-        if isinstance(reported_mode, str):
-            try:
-                mode = PvBoostMode(reported_mode)
-            except ValueError:
-                mode = None
-            if mode is not None and self.pv_boost_mode_draft != mode:
-                self.pv_boost_mode_draft = mode
-                updated = True
-
-        period_value = self.configuration_values.get("G_PeriodTime")
-        period = parse_manual_period(period_value.raw_value if period_value is not None else None)
-        if period is not None:
-            start, end = period
-            if self.pv_manual_start_draft != start:
-                self.pv_manual_start_draft = start
-                updated = True
-            if self.pv_manual_end_draft != end:
-                self.pv_manual_end_draft = end
-                updated = True
-
-        return updated
+        return self.pv_draft.initialize(self.configuration_values)
 
     def mark_connection_activity(self, action):
         """Record the latest inbound OCPP message."""
@@ -1042,20 +1132,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             )
             self._schedule_fault_storage_save()
         info = payload.get("info")
-        if status_reports_external_meter_fault(error_code, info):
-            self.external_meter_faulted = True
-            self.external_meter_fault_connector_id = connector_id
-            self.external_meter_fault_error_code = enum_value(error_code)
-            self.external_meter_fault_info = info
-        elif (
-            self.external_meter_faulted
-            and status_clears_external_meter_fault(error_code)
-            and connector_id == self.external_meter_fault_connector_id
-        ):
-            self.external_meter_faulted = False
-            self.external_meter_fault_connector_id = None
-            self.external_meter_fault_error_code = None
-            self.external_meter_fault_info = None
+        self.external_meter.observe_status(connector_id, error_code, info)
         self.set_status(status)
 
     def process_fault_message(
@@ -1496,11 +1573,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
     @property
     def external_meter_health(self) -> str:
         """Return the effective external-meter communication state."""
-        return external_meter_health(
-            explicit_fault=self.external_meter_faulted,
-            consecutive_timeouts=self.meterval_consecutive_timeouts,
-            has_snapshot=self.external_meter_last_updated_at is not None,
-        )
+        return self.external_meter.health
 
     @property
     def external_meter_ready_for_pv(self) -> bool:
@@ -1521,24 +1594,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """Process external meter values from get_external_meterval DataTransfer."""
         try:
             snapshot = parse_external_meter_data(data_str)
-            self.reset_external_meter_poll_timeouts()
-
-            if self.external_meter_used != snapshot.used:
-                self.external_meter_used = snapshot.used
-
-            if self.external_meter_wring != snapshot.wring:
-                self.external_meter_wring = snapshot.wring
-
-            if self.grid_voltages != snapshot.voltages:
-                self.grid_voltages = snapshot.voltages
-
-            if self.grid_currents != snapshot.currents:
-                self.grid_currents = snapshot.currents
-
-            if self.grid_power != snapshot.power:
-                self.grid_power = snapshot.power
-
-            self.external_meter_last_updated_at = self.now()
+            self.external_meter.apply_snapshot(snapshot, self.now())
             self.sessions.observe_context()
             _LOGGER.debug(
                 "External meter snapshot: used=%s wring=%s power=%s voltages=%s currents=%s",
