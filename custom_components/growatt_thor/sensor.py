@@ -125,7 +125,7 @@ async def async_setup_entry(
     )
 
 
-# Base voor charger sensors (EV Charger device)
+# Base for charger sensors (EV Charger device)
 
 
 class BaseSensor(ThorEntity, SensorEntity):

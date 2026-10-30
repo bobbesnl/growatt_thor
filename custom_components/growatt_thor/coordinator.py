@@ -1166,7 +1166,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     # A long telemetry gap cannot be priced/classified from
                     # just the current site snapshot (including after upgrade).
                     previous_at = self.site_accounting.last_meter_at
-                    max_gap = self._effective_meter_gap_seconds()
+                    max_gap = self.effective_meter_gap_seconds()
                     current_interval = (
                         previous_at is not None
                         and 0 <= (at - previous_at).total_seconds() <= max_gap
@@ -1195,7 +1195,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             previous_transaction_id = self.effective_charging.transaction_id
             self.effective_charging.start(effective_transaction_id)
             effective_updated = previous_transaction_id != self.effective_charging.transaction_id
-            max_gap_seconds = self._effective_meter_gap_seconds()
+            max_gap_seconds = self.effective_meter_gap_seconds()
             for entry in parsed_values:
                 effective_updated = (
                     self.effective_charging.observe(
@@ -1319,10 +1319,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """
         normalized = normalize_ocpp_status(self.status)
         return normalized is None or normalized in LIVE_POWER_STATUSES
-
-    def _effective_meter_gap_seconds(self) -> float:
-        """Compatibility for existing domain consumers of the sample-gap policy."""
-        return self.effective_meter_gap_seconds()
 
     def effective_meter_gap_seconds(self) -> float:
         """Bound counted intervals using the charger-reported sample period."""

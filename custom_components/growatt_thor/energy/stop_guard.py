@@ -99,7 +99,7 @@ class EnergyStopGuard:
         meter = charging_meter_values(snapshot)
         received_at = parse_at(snapshot.get("received_at"))
         sampled_at = parse_at(meter.get("sample_at"))
-        gap = coordinator._effective_meter_gap_seconds()
+        gap = coordinator.effective_meter_gap_seconds()
         meter_fresh = (
             received_at is not None
             and sampled_at is not None
@@ -213,10 +213,3 @@ class EnergyStopGuard:
             except Exception:
                 _LOGGER.exception("Automatic charging stop failed; manual stop remains available")
             await asyncio.sleep(POLL_SECONDS)
-
-
-# Compatibility with policy imports made before the runtime/policy split.
-def __getattr__(name):
-    from . import stop_guard_policy
-
-    return getattr(stop_guard_policy, name)

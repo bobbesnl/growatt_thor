@@ -37,13 +37,13 @@ Session flow thresholds live in `sessions/constants.py`; platform configuration 
 
 `entity.py` owns shared entity naming and charger/meter device metadata. Platform entities retain their existing unique-ID expressions and defer HA attachment to the entity lifecycle; write guards read the coordinator's shared control-policy method.
 
-Generic UTC helpers live in `timestamps.py`; session display normalization lives in `sessions/display_times.py`. Energy code separates allocation mathematics (`allocation.py`), the session accumulator (`session_accumulator.py`), site inputs (`site_inputs.py`), observations (`site_observations.py`) and stop policy/runtime (`stop_guard_policy.py` / `stop_guard.py`). Charging capabilities and Start/Stop rules live in `charging/control_capabilities.py` and `charging/start_stop_rules.py`. Old module paths retain thin compatibility exports. Persisted site/battery option keys are declared in `energy/options.py`.
+Generic UTC helpers live in `timestamps.py`; session display normalization lives in `sessions/display_times.py`. Energy code separates allocation mathematics (`allocation.py`), the session accumulator (`session_accumulator.py`), site inputs (`site_inputs.py`), observations (`site_observations.py`) and stop policy/runtime (`stop_guard_policy.py` / `stop_guard.py`). Charging capabilities and Start/Stop rules live in `charging/control_capabilities.py` and `charging/start_stop_rules.py`. Persisted site/battery option keys are declared in `energy/options.py`.
 
 Simple sensor behavior is declared in `sensor_descriptions.py` through `ThorSensorDescription`: values, availability, extra attributes, units and device ownership. `sensor.py` retains lifecycle projection and thin compatibility constructors alongside the stateful status, fault, command and accounting sensors. Characterization snapshots cover IDs and visible states across unknown, reported, disconnected and failed-coordinator cases.
 
 Site-option validation lives in the pure `energy/site_options.py`; `config_flow.py::build_site_accounting_schema` builds the corresponding HA form. Saved sections update the running coordinator through `async_apply_options`, preserving the existing config-entry data contract and entry-scoped polling/guard ownership.
 
-Live energy-source allocation lives in `energy/live_allocation.py`, using the public meter-gap policy on the coordinator. Presentation owns the battery payload and dashboard entity-map builder in `presentation/battery.py` and `presentation/entity_map.py`. Sensor discovery for options forms lives beside the flow in `source_discovery.py`; legacy `energy/sources.py` imports remain lazy compatibility exports so normalization does not depend on presentation.
+Live energy-source allocation lives in `energy/live_allocation.py`, using the public meter-gap policy on the coordinator. Presentation owns the battery payload and dashboard entity-map builder in `presentation/battery.py` and `presentation/entity_map.py`. Sensor discovery for options forms lives beside the flow in `source_discovery.py`. Energy normalization does not import discovery or presentation.
 
 ## State and typing
 

@@ -16,7 +16,6 @@ from math import isfinite
 from ..charging.control_capabilities import selected_working_mode
 from ..charging.limits import charging_power_identity, maximum_charging_current
 from ..configuration.values import configuration_entity_state
-from ..energy.live_allocation import WATT_SECONDS_PER_KWH as WATT_SECONDS_PER_KWH
 from ..energy.live_allocation import live_charging_sources
 from ..energy.meter_observations import charging_meter_values as dashboard_meter_values
 from ..ocpp.diagnostics import boot_notification_field

@@ -125,7 +125,7 @@ class SessionTelemetry:
                 sampled is None
                 or not 0
                 <= (instant - sampled).total_seconds()
-                <= coordinator._effective_meter_gap_seconds()
+                <= coordinator.effective_meter_gap_seconds()
             ):
                 ev = None
             grid = value(site.grid)

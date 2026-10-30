@@ -11,6 +11,9 @@ PACKAGE_NAME = "thor_energy_sources_test_target"
 package = register_package(PACKAGE_NAME)
 energy_sources = load_package_module(f"{PACKAGE_NAME}.energy.sources", MODULE_PATH)
 
+discovery = load_package_module("source_discovery", package_name=PACKAGE_NAME)
+battery_presentation = load_package_module("presentation.battery", package_name=PACKAGE_NAME)
+
 
 def state(value, unit, name, *, updated=None):
     return SimpleNamespace(
@@ -32,7 +35,7 @@ class EnergySourcesTest(unittest.TestCase):
         }
 
         self.assertEqual(
-            [option["value"] for option in energy_sources.power_sensor_options(states)],
+            [option["value"] for option in discovery.power_sensor_options(states)],
             [
                 "",
                 "sensor.battery_combined_power",
@@ -43,7 +46,7 @@ class EnergySourcesTest(unittest.TestCase):
         )
 
     def test_configured_missing_sensor_remains_selectable_for_repair(self):
-        options = energy_sources.power_sensor_options({}, "sensor.old_battery")
+        options = discovery.power_sensor_options({}, "sensor.old_battery")
         self.assertEqual(options[-1]["value"], "sensor.old_battery")
 
     def test_solar_ranking_and_conflicting_current_selection_remain_repairable(self):
@@ -51,9 +54,9 @@ class EnergySourcesTest(unittest.TestCase):
             "sensor.battery": state("800", "W", "Battery combined power"),
             "sensor.pv": state("5000", "W", "PV generation"),
         }
-        options = energy_sources.power_sensor_options(states, role="solar")
+        options = discovery.power_sensor_options(states, role="solar")
         self.assertEqual(options[1]["value"], "sensor.pv")
-        options = energy_sources.power_sensor_options(
+        options = discovery.power_sensor_options(
             states,
             "sensor.battery",
             role="solar",
@@ -61,7 +64,7 @@ class EnergySourcesTest(unittest.TestCase):
         )
         self.assertIn("sensor.battery", [item["value"] for item in options])
         states["sensor.battery"].attributes["unit_of_measurement"] = "kWh"
-        options = energy_sources.power_sensor_options(states, "sensor.battery")
+        options = discovery.power_sensor_options(states, "sensor.battery")
         self.assertIn("sensor.battery", [item["value"] for item in options])
 
     def test_power_candidates_accept_home_assistant_state_machine(self):
@@ -69,7 +72,7 @@ class EnergySourcesTest(unittest.TestCase):
         battery.entity_id = "sensor.home_battery_power"
         states = SimpleNamespace(async_all=lambda: [battery])
 
-        options = energy_sources.power_sensor_options(states)
+        options = discovery.power_sensor_options(states)
 
         self.assertEqual(
             [option["value"] for option in options],
@@ -91,7 +94,7 @@ class EnergySourcesTest(unittest.TestCase):
             battery_power_sign=energy_sources.BATTERY_POSITIVE_DISCHARGE,
         )
         self.assertEqual(
-            energy_sources.battery_power_attributes(coordinator),
+            battery_presentation.battery_power_attributes(coordinator),
             {
                 "battery_w": 1500,
                 "battery_received_at": "2026-09-12T10:00:00Z",
@@ -99,17 +102,17 @@ class EnergySourcesTest(unittest.TestCase):
             },
         )
         coordinator.battery_power_sign = energy_sources.BATTERY_POSITIVE_CHARGE
-        self.assertEqual(energy_sources.battery_power_attributes(coordinator)["battery_w"], -1500)
+        self.assertEqual(battery_presentation.battery_power_attributes(coordinator)["battery_w"], -1500)
         # A repeated unchanged report is still current; a restored value is not live.
         battery.last_reported = datetime(2026, 9, 12, 10, 5, tzinfo=UTC)
         self.assertEqual(
-            energy_sources.battery_power_attributes(coordinator)["battery_received_at"],
+            battery_presentation.battery_power_attributes(coordinator)["battery_received_at"],
             "2026-09-12T10:05:00Z",
         )
         battery.attributes["restored"] = True
-        self.assertIsNone(energy_sources.battery_power_attributes(coordinator)["battery_w"])
+        self.assertIsNone(battery_presentation.battery_power_attributes(coordinator)["battery_w"])
         coordinator.battery_power_entity = None
-        self.assertEqual(energy_sources.battery_power_attributes(coordinator), {})
+        self.assertEqual(battery_presentation.battery_power_attributes(coordinator), {})
 
 
 if __name__ == "__main__":

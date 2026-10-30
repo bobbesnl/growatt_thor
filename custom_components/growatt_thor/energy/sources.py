@@ -49,25 +49,3 @@ def duplicate_source_fields(assignments: dict[str, str | None]) -> set[str]:
     """Independent power flows cannot share the same entity."""
     selected = [entity for entity in assignments.values() if entity]
     return {field for field, entity in assignments.items() if entity and selected.count(entity) > 1}
-
-
-# Legacy presentation/discovery imports stay lazy to keep energy normalization
-# independent of the UI layers that now own these helpers.
-_attributes = state_attributes
-
-
-def __getattr__(name):
-    from importlib import import_module
-
-    if name in {
-        "power_sensor_options",
-        "tariff_sensor_options",
-        "_candidate_score",
-        "_state_map",
-        "_BATTERY_TERMS",
-        "_BIDIRECTIONAL_TERMS",
-    }:
-        return getattr(import_module("..source_discovery", __package__), name)
-    if name in {"battery_power_attributes", "_timestamp"}:
-        return getattr(import_module("..presentation.battery", __package__), name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

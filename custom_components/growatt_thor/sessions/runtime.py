@@ -53,7 +53,7 @@ class SessionLifecycle:
             or normalize_ocpp_status(coordinator.status) not in LIVE_POWER_STATUSES
             or sampled is None
             or at is None
-            or (at - sampled).total_seconds() > coordinator._effective_meter_gap_seconds()
+            or (at - sampled).total_seconds() > coordinator.effective_meter_gap_seconds()
         ):
             changed = (
                 self.telemetry.observe("measured_current_sum_curve_a", coordinator.now(), None)
@@ -74,7 +74,7 @@ class SessionLifecycle:
         if lower is not None and sampled is not None and sampled < lower:
             return False
         return self.telemetry.observe_meter(
-            entry, received_at, coordinator._effective_meter_gap_seconds()
+            entry, received_at, coordinator.effective_meter_gap_seconds()
         )
 
     def restore_completions(self, value):
