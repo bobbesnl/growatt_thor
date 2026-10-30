@@ -1,5 +1,5 @@
 /** Known Home Assistant attributes; unrelated integration attributes stay opaque. */
-export interface EntityAttributes {
+interface EntityAttributes {
   thor_card?: CardData;
   connected?: boolean;
   options?: string[];
@@ -117,7 +117,7 @@ export interface SessionDetailResponse {
   schema: number;
   item: SessionItem;
 }
-export interface PowerFlowData {
+interface PowerFlowData {
   received_at: string | null;
   stale_after_s: number;
   /** Signed net power at the grid connection: positive import, negative export. */
@@ -194,7 +194,7 @@ export interface PvLinkageData {
     total_steps: number;
   } | null;
 }
-export type Tone = 'green' | 'amber' | 'red' | 'blue' | 'neutral';
+type Tone = 'green' | 'amber' | 'red' | 'blue' | 'neutral';
 export interface Status {
   key: string;
   tone: Tone;

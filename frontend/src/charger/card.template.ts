@@ -27,7 +27,7 @@ export interface CardActions {
   openAuth(entity?: string): void;
   openPv(entity: string, data?: PvLinkageData): void;
 }
-export interface CardFeedback {
+interface CardFeedback {
   error: string;
   sending: boolean;
 }

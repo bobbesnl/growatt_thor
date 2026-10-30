@@ -11,7 +11,7 @@ import {
 } from './model';
 import type { Translator } from '../shared/strings';
 import { canReplace, validLiveTarget, type LiveGoal } from './live';
-export interface GoalDialogView {
+interface GoalDialogView {
   kind: GoalKind;
   values: Record<GoalKind, string>;
   start: GoalStart;

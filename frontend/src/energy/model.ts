@@ -1,11 +1,11 @@
 import { clamp } from '../shared/model';
 import type { CardData } from '../shared/types';
 
-export type GridDirection = 'import' | 'export' | 'balanced' | 'unavailable';
-export type FlowTone = 'import' | 'export' | 'balanced' | 'unavailable';
-export type ChargingSource = 'solar' | 'battery' | 'grid' | 'unknown';
+type GridDirection = 'import' | 'export' | 'balanced' | 'unavailable';
+type FlowTone = 'import' | 'export' | 'balanced' | 'unavailable';
+type ChargingSource = 'solar' | 'battery' | 'grid' | 'unknown';
 
-export interface GaugeTarget {
+interface GaugeTarget {
   fraction: number;
   kw: number;
   zeroGridKw: number;
@@ -15,14 +15,14 @@ export interface GaugeTarget {
   hint: 'zeroGridPointHint' | 'pvControlPointHint';
 }
 
-export interface GaugeOverflow {
+interface GaugeOverflow {
   startFraction: number;
   fraction: number;
   excessKw: number;
   severity: 'warning' | 'critical';
 }
 
-export interface GaugeSourceSegment {
+interface GaugeSourceSegment {
   source: ChargingSource;
   label: 'sourceSolar' | 'sourceBattery' | 'sourceGrid' | 'sourceUnknown';
   startFraction: number;
@@ -30,7 +30,7 @@ export interface GaugeSourceSegment {
   kw: number;
 }
 
-export interface PowerFlowView {
+interface PowerFlowView {
   visible: boolean;
   available: boolean;
   direction: GridDirection;

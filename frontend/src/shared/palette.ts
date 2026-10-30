@@ -64,7 +64,7 @@ const dark: Record<keyof typeof light, string> = {
   'chart-area': 'rgba(139,197,63,.16)',
 };
 
-export function themePalette(isDark: boolean): Record<keyof typeof light, string> {
+function themePalette(isDark: boolean): Record<keyof typeof light, string> {
   return isDark ? dark : light;
 }
 

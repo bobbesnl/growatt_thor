@@ -230,3 +230,9 @@ The annotation script writes PNGs only; it does not generate documentation prose
 `sessions/chart-options.ts` builds ECharts options from an explicit model, palette and container width without touching the DOM. The card retains selection, zoom and label-animation lifecycle; `sessions/chart-host.ts` owns chart attachment and narrows incoming chart events. Chart animation duration, compact breakpoint and tick spacing have named constants. Regression checks preserve smoothing, hidden symbols, signed values and unknown intervals.
 
 The charging card keeps base rules in `charger/card.css` and its header, hero/gauge, session, actions, footer and responsive overrides in corresponding CSS files. `charger/card-styles.ts` assembles these trusted stylesheets in their original cascade order; target dialogs reuse the same collection. The hero template delegates to device, gauge graphics, target-marker, power-flow and phase renderers. SVG path geometry and marker rotation are named constants.
+
+## Feature module pattern
+
+Keep calculations and contracts in `model.ts`, assemble display-ready values in `card-view-model.ts` where needed, render them in `*.template.ts`, and keep Lit lifecycle, subscriptions and guarded Home Assistant calls in the component. Templates receive data and action callbacks rather than the component instance. Shared styles and translations have dedicated owners. Export a type or helper only when another module actually imports it; an inferred return type alone does not require exporting its internal supporting types.
+
+The Phase 5 export audit used Knip with the production entrypoint, simulator TypeScript entrypoints and frontend tests. Internal-only energy and entity types and the internal palette selector no longer export symbols; types referenced across feature boundaries remain exported.

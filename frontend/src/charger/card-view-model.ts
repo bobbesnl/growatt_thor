@@ -15,7 +15,7 @@ import { batteryDrainKw, powerFlowView } from '../energy/model';
 import { translate } from '../shared/strings';
 import type { CardConfig, CardData, Entity, Hass } from '../shared/types';
 
-export interface LocalCommandState {
+interface LocalCommandState {
   issuedAt: number;
   sending: boolean;
 }
