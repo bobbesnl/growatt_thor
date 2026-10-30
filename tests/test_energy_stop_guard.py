@@ -209,7 +209,7 @@ class StopGuardRuntimeTest(unittest.TestCase):
                 ],
             },
             effective_meter_gap_seconds=lambda: 180,
-            _schedule_storage_save=lambda: None,
+            schedule_storage_save=lambda: None,
             async_set_updated_data=lambda _: None,
         )
         self.guard = runtime.EnergyStopGuard(self.hass, self.coordinator)

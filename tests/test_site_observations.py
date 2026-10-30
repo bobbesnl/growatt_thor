@@ -67,6 +67,8 @@ class SiteObservationTest(unittest.TestCase):
         self.assertIsNone(site.PowerObservation(None, AT).value_at(AT))
         coordinator = SimpleNamespace(
             site_accounting_options={"site_grid_source": "thor_external"},
+            hass=None,
+            battery_power_entity=None,
             external_meter_health="faulted",
             grid_power=1000,
             external_meter_last_updated_at=AT,
@@ -81,6 +83,8 @@ class SiteObservationTest(unittest.TestCase):
         )
         coordinator = SimpleNamespace(
             hass=SimpleNamespace(states={"sensor.battery": battery}),
+            site_accounting_options={},
+            battery_power_sign="positive_discharge",
             battery_power_entity="sensor.battery",
         )
 

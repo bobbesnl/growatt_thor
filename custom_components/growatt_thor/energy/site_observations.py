@@ -8,6 +8,7 @@ from math import isfinite
 from typing import Any, Literal
 
 from ..timestamps import parse_utc
+from .contracts import SiteObservationOwner
 from .sources import power_w
 
 BucketQuality = Literal["measured", "derived", "declared", "unknown"]
@@ -83,7 +84,9 @@ def parse_at(value: Any) -> datetime | None:
     return parse_utc(value)
 
 
-def read_site_observations(coordinator, *, require_recent_report: bool = True) -> SiteObservations:
+def read_site_observations(
+    coordinator: SiteObservationOwner, *, require_recent_report: bool = True
+) -> SiteObservations:
     """Read site sources, retaining strict report ages for automatic controls.
 
     HA integrations can suppress writes for unchanged values (often battery 0 W).
@@ -91,8 +94,8 @@ def read_site_observations(coordinator, *, require_recent_report: bool = True) -
     them unavailable. This does not turn their timestamps into fresh measurements
     or relax the independent THOR meter timeout.
     """
-    options = getattr(coordinator, "site_accounting_options", {}) or {}
-    hass = getattr(coordinator, "hass", None)
+    options = coordinator.site_accounting_options or {}
+    hass = coordinator.hass
     states = getattr(hass, "states", None)
 
     def observation(state, *, sign: int = 1) -> PowerObservation:
@@ -123,23 +126,23 @@ def read_site_observations(coordinator, *, require_recent_report: bool = True) -
         else None
     )
     if options.get("site_grid_source") == "thor_external":
-        if getattr(coordinator, "external_meter_health", None) == "healthy":
-            observed = parse_at(getattr(coordinator, "external_meter_last_updated_at", None))
+        if coordinator.external_meter_health == "healthy":
+            observed = parse_at(coordinator.external_meter_last_updated_at)
             grid = PowerObservation(
-                getattr(coordinator, "grid_power", None),
+                coordinator.grid_power,
                 observed,
                 max_age_s=max(
                     15,
-                    int(getattr(coordinator, "external_meter_poll_interval", 30)) * 3 + 5,
+                    int(coordinator.external_meter_poll_interval) * 3 + 5,
                 ),
             )
-    battery_entity = getattr(coordinator, "battery_power_entity", None)
+    battery_entity = coordinator.battery_power_entity
     battery = None
     if battery_entity:
         state = states.get(battery_entity) if states else None
         battery = observation(
             state,
-            sign=-1 if getattr(coordinator, "battery_power_sign", None) == "positive_charge" else 1,
+            sign=-1 if coordinator.battery_power_sign == "positive_charge" else 1,
         )
     return SiteObservations(
         grid=grid,

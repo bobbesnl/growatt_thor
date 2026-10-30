@@ -157,8 +157,8 @@ def build_coordinator(store=None, legacy_store=None, entry_id="entry_test"):
     coordinator.total_energy_charged = 0.0
     coordinator.last_charger_fault = None
     coordinator.effective_charging = coordinator_module.EffectiveChargingTracker()
-    coordinator._pending_effective_charging_minutes = {}
-    coordinator._restore_last_session_state(coordinator_module.LastSessionState.from_dict(None))
+    coordinator.sessions.pending_effective_charging_minutes = {}
+    coordinator.sessions.last_session = coordinator_module.LastSessionState.from_dict(None)
     return coordinator
 
 

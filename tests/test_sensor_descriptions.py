@@ -2,6 +2,7 @@
 
 import json
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -75,7 +76,14 @@ def coordinator(case):
             "grid_currents": {"L1": -2, "L2": 1},
             "grid_voltages": {"L1": 229, "L2": 232},
         }.items():
-            setattr(c, name, value)
+            if name.startswith("last_session_"):
+                field = name.removeprefix("last_session_")
+                field = {"energy": "energy_kwh", "start": "start_time", "end": "end_time"}.get(
+                    field, field
+                )
+                c.sessions.last_session = replace(c.sessions.last_session, **{field: value})
+            else:
+                setattr(c, name, value)
     return c
 
 

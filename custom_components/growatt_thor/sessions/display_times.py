@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+from datetime import tzinfo
+
 from ..ocpp.meter_samples import meter_time_zone
 from ..timestamps import installation_time_zone, utc_timestamp
+from .contracts import SessionClock
 
 
-def session_time_zone(coordinator):
+def session_time_zone(coordinator: SessionClock) -> str | tzinfo | None:
     """Use the same verified wallbox clock for session and meter timestamps."""
     return meter_time_zone(
-        getattr(coordinator, "configuration_values", {}),
-        installation_time_zone(getattr(coordinator, "hass", None)),
+        coordinator.configuration_values,
+        installation_time_zone(coordinator.hass),
     )
 
 

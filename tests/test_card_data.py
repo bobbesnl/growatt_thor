@@ -59,6 +59,7 @@ class CardDataTest(unittest.TestCase):
         at = "2026-09-22T12:00:00Z"
         coordinator = types.SimpleNamespace(
             charging_target_pilot_enabled=False,
+            battery_power_entity=None,
             last_meter_values={
                 "received_at": at,
                 "meter_values": [

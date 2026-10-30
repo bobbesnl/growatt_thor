@@ -75,8 +75,7 @@ The coordinator retains public observations, storage and OCPP meter processing.
 task, monotonic expiry/spacing, completion and shutdown. The coordinator delegates
 its existing queue/cancel/pending API to that owner. A narrow owner protocol
 supplies connection observations, polling pauses, configuration readback and
-result publication; the queue does not import the coordinator. Session transitions are delegated to `SessionLifecycle`; this is
-an incremental boundary, not a replacement of the established runtime owner.
+result publication; the queue does not import the coordinator. `SessionLifecycle` owns session curves, event tracking, restored-session state, pending effective durations, record deduplication and the immutable `LastSessionState`. Existing entity attributes are read-only projections of that summary. Storage uses public lifecycle snapshot/restore methods, preserving its existing keys and record limits. Narrow protocols in `sessions/contracts.py`, `energy/contracts.py` and `charging/contracts.py` declare observations and capabilities without importing the coordinator.
 
 ```mermaid
 flowchart LR

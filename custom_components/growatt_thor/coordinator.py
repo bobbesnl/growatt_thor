@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections import deque
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, time
 from typing import TYPE_CHECKING
@@ -90,7 +89,6 @@ from .runtime.write_results import (
 from .sessions.active_state import ActiveSessionState
 from .sessions.duration import EffectiveChargingTracker
 from .sessions.events import (
-    SessionEventTracker,
     append_session_event,
     session_event,
 )
@@ -175,11 +173,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_current_record = None
         self.last_frozen_record = None
         self.effective_charging = EffectiveChargingTracker()
-        self._pending_effective_charging_minutes: dict[str, float] = {}
-        self._active_power_curve: list[list[object]] = []
-        self._session_event_tracker: SessionEventTracker | None = None
-        self._pending_plugged_event: dict[str, str] | None = None
-        self._restored_active_session = False
         self.site_accounting_options = {}
         self.last_energy_stop = None
         self.site_accounting: SessionAccumulator | None = None
@@ -242,21 +235,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.pv_linkage_apply_result: PvLinkageApplyResult | None = None
 
         #  Last session
-        self.last_session_energy = None  # kWh
-        self.last_session_cost = None  # float
-        self.last_session_start = None  # str
-        self.last_session_end = None  # str
-        self.last_session_plug_time = None  # str
-        self.last_session_unplug_time = None  # str
-        self.last_session_duration_minutes = None  # float
-        self.last_session_effective_charging_minutes = None  # float
-        self.last_session_id = None  # str
-        self.last_session_source = None  # str
-        self.last_session_transaction_id = None  # str
-        self.last_session_charge_mode = None  # str
-        self.last_session_work_mode = None  # str
-        self._last_session_record_key = None
-        self._applied_session_record_keys = deque(maxlen=50)
         self.dashboard_sessions = {
             "items": [],
             "total_energy_kwh": 0.0,
@@ -311,18 +289,21 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.sessions.outbox.restore(data.get("pending_session_rows"))
             self.total_energy_charged = float(data.get("total_energy_charged", 0.0))
             self._transaction_id_allocator.restore(data.get("next_transaction_id", 1))
-            self._restore_last_session_state(LastSessionState.from_dict(data.get("last_session")))
+            self.sessions.last_session = LastSessionState.from_dict(data.get("last_session"))
             stored_keys = data.get("applied_session_record_keys", [])
             if isinstance(stored_keys, list):
                 for value in stored_keys[-50:]:
                     key = normalize_record_key(value)
-                    if key is not None and key not in self._applied_session_record_keys:
-                        self._applied_session_record_keys.append(key)
+                    if key is not None and key not in self.sessions.applied_session_record_keys:
+                        self.sessions.applied_session_record_keys.append(key)
             if (
-                self._last_session_record_key is not None
-                and self._last_session_record_key not in self._applied_session_record_keys
+                self.sessions.last_session.record_key is not None
+                and self.sessions.last_session.record_key
+                not in self.sessions.applied_session_record_keys
             ):
-                self._applied_session_record_keys.append(self._last_session_record_key)
+                self.sessions.applied_session_record_keys.append(
+                    self.sessions.last_session.record_key
+                )
             self.last_charger_fault = ChargerFault.from_dict(data.get("last_charger_fault"))
             self.effective_charging = EffectiveChargingTracker.from_dict(
                 data.get("active_effective_charging")
@@ -336,7 +317,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     transaction_id=self.effective_charging.transaction_id,
                     energy_wh=self.effective_charging.last_energy_wh,
                 )
-            self._restore_active_session_state(active_session)
+            self.sessions.restore_active_session_state(active_session)
             self.site_accounting = SessionAccumulator.from_dict(data.get("active_site_accounting"))
             self.last_site_accounting = SessionAccumulator.from_dict(
                 data.get("pending_site_accounting")
@@ -354,7 +335,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             if isinstance(pending_effective, dict):
                 for key, value in pending_effective.items():
                     try:
-                        self._pending_effective_charging_minutes[str(key)] = float(value)
+                        self.sessions.pending_effective_charging_minutes[str(key)] = float(value)
                     except (TypeError, ValueError):
                         continue
             self.sessions.restore_completions(data.get("pending_completed_sessions"))
@@ -383,15 +364,17 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def _storage_data(self) -> dict[str, object]:
         """Build the current JSON-safe persistent payload."""
-        active_session = self._active_session_state()
+        active_session = self.sessions.active_session_state()
         return {
             "pending_session_rows": self.sessions.outbox.snapshot(),
             "pending_completed_sessions": self.sessions.pending_completions,
             "last_energy_stop": self.last_energy_stop,
             "total_energy_charged": self.total_energy_charged,
             "next_transaction_id": self._transaction_id_allocator.next_transaction_id,
-            "last_session": self._last_session_state().as_dict(),
-            "applied_session_record_keys": [list(key) for key in self._applied_session_record_keys],
+            "last_session": self.sessions.last_session.as_dict(),
+            "applied_session_record_keys": [
+                list(key) for key in self.sessions.applied_session_record_keys
+            ],
             "last_charger_fault": (
                 self.last_charger_fault.as_dict() if self.last_charger_fault is not None else None
             ),
@@ -404,22 +387,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 self.last_site_accounting.as_dict() if self.last_site_accounting else None
             ),
             "site_accounting_totals": dict(self.site_accounting_totals),
-            "pending_effective_charging_minutes": dict(self._pending_effective_charging_minutes),
+            "pending_effective_charging_minutes": dict(
+                self.sessions.pending_effective_charging_minutes
+            ),
         }
 
-    def _active_session_state(self) -> ActiveSessionState | None:
-        """Delegate this transition to the session lifecycle."""
-        return self.sessions._active_session_state()
-
-    def _restore_active_session_state(self, state: ActiveSessionState) -> None:
-        """Delegate this transition to the session lifecycle."""
-        return self.sessions._restore_active_session_state(state)
-
-    def _discard_unconfirmed_restored_session(self) -> None:
-        """Delegate this transition to the session lifecycle."""
-        return self.sessions._discard_unconfirmed_restored_session()
-
-    def _schedule_storage_save(self) -> None:
+    def schedule_storage_save(self) -> None:
         """Coalesce frequent MeterValues persistence into one delayed write."""
         self._store.async_delay_save(self._storage_data, 60)
 
@@ -434,41 +407,57 @@ class GrowattCoordinator(DataUpdateCoordinator):
             )
             return transaction_id
 
-    def _last_session_state(self) -> LastSessionState:
-        """Build the normalized persistent last-session summary."""
-        return LastSessionState(
-            energy_kwh=self.last_session_energy,
-            cost=self.last_session_cost,
-            start_time=self.last_session_start,
-            end_time=self.last_session_end,
-            plug_time=self.last_session_plug_time,
-            unplug_time=self.last_session_unplug_time,
-            duration_minutes=self.last_session_duration_minutes,
-            effective_charging_minutes=(self.last_session_effective_charging_minutes),
-            session_id=self.last_session_id,
-            session_source=self.last_session_source,
-            transaction_id=self.last_session_transaction_id,
-            charge_mode=self.last_session_charge_mode,
-            work_mode=self.last_session_work_mode,
-            record_key=self._last_session_record_key,
-        )
+    @property
+    def last_session_energy(self) -> float | None:
+        return self.sessions.last_session.energy_kwh
 
-    def _restore_last_session_state(self, state: LastSessionState) -> None:
-        """Restore existing entity backing values from persistent storage."""
-        self.last_session_energy = state.energy_kwh
-        self.last_session_cost = state.cost
-        self.last_session_start = state.start_time
-        self.last_session_end = state.end_time
-        self.last_session_plug_time = state.plug_time
-        self.last_session_unplug_time = state.unplug_time
-        self.last_session_duration_minutes = state.duration_minutes
-        self.last_session_effective_charging_minutes = state.effective_charging_minutes
-        self.last_session_id = state.session_id
-        self.last_session_source = state.session_source
-        self.last_session_transaction_id = state.transaction_id
-        self.last_session_charge_mode = state.charge_mode
-        self.last_session_work_mode = state.work_mode
-        self._last_session_record_key = state.record_key
+    @property
+    def last_session_cost(self) -> float | None:
+        return self.sessions.last_session.cost
+
+    @property
+    def last_session_start(self) -> str | None:
+        return self.sessions.last_session.start_time
+
+    @property
+    def last_session_end(self) -> str | None:
+        return self.sessions.last_session.end_time
+
+    @property
+    def last_session_plug_time(self) -> str | None:
+        return self.sessions.last_session.plug_time
+
+    @property
+    def last_session_unplug_time(self) -> str | None:
+        return self.sessions.last_session.unplug_time
+
+    @property
+    def last_session_duration_minutes(self) -> float | None:
+        return self.sessions.last_session.duration_minutes
+
+    @property
+    def last_session_effective_charging_minutes(self) -> float | None:
+        return self.sessions.last_session.effective_charging_minutes
+
+    @property
+    def last_session_id(self) -> str | None:
+        return self.sessions.last_session.session_id
+
+    @property
+    def last_session_source(self) -> str | None:
+        return self.sessions.last_session.session_source
+
+    @property
+    def last_session_transaction_id(self) -> str | None:
+        return self.sessions.last_session.transaction_id
+
+    @property
+    def last_session_charge_mode(self) -> str | None:
+        return self.sessions.last_session.charge_mode
+
+    @property
+    def last_session_work_mode(self) -> str | None:
+        return self.sessions.last_session.work_mode
 
     # WRITE QUEUE METHODS
 
@@ -1014,15 +1003,15 @@ class GrowattCoordinator(DataUpdateCoordinator):
             and (target_connector is None or str(target_connector) == str(connector_id))
         )
         if normalized_status in ENERGY_SESSION_STATUSES:
-            self._restored_active_session = False
+            self.sessions.restored_active_session = False
         elif normalized_status == "available":
-            self._discard_unconfirmed_restored_session()
+            self.sessions.discard_unconfirmed_restored_session()
         if (
             normalized_status == "preparing"
             and session_connector
             and previous_status in (None, "available", "idle")
         ):
-            self._pending_plugged_event = session_event(
+            self.sessions.pending_plugged_event = session_event(
                 "plugged_in", received_at, "ocpp", "derived"
             )
         elif normalized_status == "available" and session_connector:
@@ -1035,15 +1024,15 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 update_fn = self.runtime_data.get(UPDATE_SESSION_EVENTS_IN_CSV)
                 if event_added and session_id and update_fn:
                     self.hass.async_create_task(update_fn(session_id, list(events)))
-            self._pending_plugged_event = None
+            self.sessions.pending_plugged_event = None
         # Connector 0 describes the whole station, not the active EV session.
         # Use receipt time: this is when we observed the pause, not an inferred
         # final power sample or the unknown time at which the car became full.
         transaction = self.active_transaction
-        tracker = self._session_event_tracker
+        tracker = self.sessions.event_tracker
         if transaction and tracker is not None and session_connector:
             if tracker.observe_suspension(received_at, normalized_status):
-                self._schedule_storage_save()
+                self.schedule_storage_save()
         if normalize_ocpp_status(status) == "faulted":
             self.last_charger_fault = fault_from_status_notification(
                 self.now(),
@@ -1146,7 +1135,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 }:
                     return
                 self.transaction_id = transaction_id
-                self._schedule_storage_save()
+                self.schedule_storage_save()
             elif str(transaction_id) != str(active_id):
                 _LOGGER.info("Ignoring MeterValues for inactive transaction %s", transaction_id)
                 return
@@ -1229,12 +1218,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     or effective_updated
                 )
             if effective_updated:
-                self._schedule_storage_save()
+                self.schedule_storage_save()
 
         self.sessions.observe_context()
         for entry in parsed_values:
             if self.sessions.observe_meter(entry, self.last_meter_values["received_at"]):
-                self._schedule_storage_save()
+                self.schedule_storage_save()
 
         live_power = self._live_power_follows_samples()
         ignored_live_samples = False
@@ -1293,25 +1282,26 @@ class GrowattCoordinator(DataUpdateCoordinator):
             if effective_transaction_id is not None:
                 point = charging_power_curve_point(entry)
                 if point is not None and (
-                    not self._active_power_curve or self._active_power_curve[-1][0] != point[0]
+                    not self.sessions.active_power_curve
+                    or self.sessions.active_power_curve[-1][0] != point[0]
                 ):
-                    self._active_power_curve.append(point)
-                    if len(self._active_power_curve) > SESSION_CURVE_POINT_LIMIT * 2:
-                        self._active_power_curve = downsample_curve(
-                            self._active_power_curve,
+                    self.sessions.active_power_curve.append(point)
+                    if len(self.sessions.active_power_curve) > SESSION_CURVE_POINT_LIMIT * 2:
+                        self.sessions.active_power_curve = downsample_curve(
+                            self.sessions.active_power_curve,
                             limit=SESSION_CURVE_POINT_LIMIT,
                             event_times=(
                                 event.get("at")
                                 for event in (
-                                    self._session_event_tracker.events
-                                    if self._session_event_tracker is not None
+                                    self.sessions.event_tracker.events
+                                    if self.sessions.event_tracker is not None
                                     else ()
                                 )
                             ),
                         )
-                    if self._session_event_tracker is not None:
-                        self._session_event_tracker.observe_power(point[0], point[1])
-                    self._schedule_storage_save()
+                    if self.sessions.event_tracker is not None:
+                        self.sessions.event_tracker.observe_power(point[0], point[1])
+                    self.schedule_storage_save()
 
         if self.phase_power:
             total = sum(self.phase_power.values())

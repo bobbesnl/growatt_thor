@@ -7,6 +7,7 @@ from math import isfinite
 
 from ..timestamps import installation_time_zone
 from .allocation import AccountingPolicy, Tariff
+from .contracts import SiteObservationOwner
 from .currency import configured_currency
 from .options import CONF_FIXED_PRICE as CONF_FIXED_PRICE
 from .options import CONF_GRID_ENTITY as CONF_GRID_ENTITY
@@ -48,14 +49,14 @@ def site_policy(profile: str) -> AccountingPolicy:
 
 
 def site_inputs(
-    coordinator, at: datetime, *, received_at: datetime | None = None
+    coordinator: SiteObservationOwner, at: datetime, *, received_at: datetime | None = None
 ) -> tuple[SiteObservations, Tariff, AccountingPolicy] | None:
     """Read configured power observations and the current valid tariff."""
-    options = getattr(coordinator, "site_accounting_options", {}) or {}
+    options = coordinator.site_accounting_options or {}
     profile = options.get(CONF_SITE_PROFILE, "disabled")
     if profile not in PROFILES or profile == "disabled":
         return None
-    hass = getattr(coordinator, "hass", None)
+    hass = coordinator.hass
     states = getattr(hass, "states", None)
 
     site = read_site_observations(coordinator, require_recent_report=False)

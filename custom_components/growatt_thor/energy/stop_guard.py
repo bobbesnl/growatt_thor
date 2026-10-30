@@ -206,7 +206,7 @@ class EnergyStopGuard:
                             else observation.grid_import_w
                         ),
                     }
-                    self.coordinator._schedule_storage_save()
+                    self.coordinator.schedule_storage_save()
                     self.coordinator.async_set_updated_data(True)
             except asyncio.CancelledError:
                 raise

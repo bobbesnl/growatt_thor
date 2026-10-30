@@ -12,6 +12,7 @@ from custom_components.growatt_thor.presentation.card_data import dashboard_attr
 from tests.support import build_coordinator, load_package_module
 
 coordinator_module = load_package_module("coordinator")
+session_events = load_package_module("sessions.events")
 
 AT = datetime(2026, 10, 2, 14, 52, 49, tzinfo=UTC)
 
@@ -36,7 +37,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         )
         c.now = lambda: self.at.isoformat()
         c.async_set_updated_data = lambda _: None
-        c._schedule_storage_save = lambda: None
+        c.schedule_storage_save = lambda: None
 
         async def save():
             pass
@@ -65,8 +66,8 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         c.phase_power = {}
         c.currents = {}
         c.voltages = {}
-        c._active_power_curve = []
-        c._session_event_tracker = None
+        c.sessions.active_power_curve = []
+        c.sessions.event_tracker = None
         c.effective_charging = coordinator_module.EffectiveChargingTracker()
         c.external_meter_faulted = False
         c.meterval_consecutive_timeouts = 0
@@ -171,7 +172,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
             self.c.last_meter_values["meter_values"][0]["raw"]["timestamp"],
             "2026-10-27T13:18:04",
         )
-        self.assertEqual(self.c._active_power_curve[-1], ["2026-10-27T11:18:04Z", 6253])
+        self.assertEqual(self.c.sessions.active_power_curve[-1], ["2026-10-27T11:18:04Z", 6253])
         self.assertAlmostEqual(sum(self.c.site_accounting.buckets.values()), 0.05)
         self.assertIsNotNone(card["power_flow"].get("charging_sources"))
         self.assertTrue(self.guard._observation(self.at).eligible)
@@ -183,10 +184,10 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         self.receive()
         c = self.c
         c.last_energy_stop = {"reason": "battery", "at": AT.isoformat()}
-        c._pending_plugged_event = None
+        c.sessions.pending_plugged_event = None
         c.sessions = coordinator_module.SessionLifecycle(c)
         saved_notices = []
-        c._schedule_storage_save = lambda: saved_notices.append(c.last_energy_stop)
+        c.schedule_storage_save = lambda: saved_notices.append(c.last_energy_stop)
         c.start_transaction(28, connector_id=1, meter_start=1050)
         self.assertIsNone(c.last_energy_stop)
         self.assertEqual(saved_notices, [None])
@@ -195,16 +196,16 @@ class MeterTimeIntegrationTest(unittest.TestCase):
 
     def test_status_notification_persists_session_pause_without_meter_sample(self):
         c = self.c
-        tracker = c._session_event_tracker = coordinator_module.SessionEventTracker.start(
+        tracker = c.sessions.event_tracker = session_events.SessionEventTracker.start(
             AT.isoformat()
         )
         # ActiveSessionState retains identifiers as text across a Core restart.
         c.active_transaction["start"]["request"] = {"connector_id": "1"}
         c.active_transaction["events"] = tracker.events
         self.receive()
-        curve = list(c._active_power_curve)
+        curve = list(c.sessions.active_power_curve)
         saved = []
-        c._schedule_storage_save = lambda: saved.append(True)
+        c.schedule_storage_save = lambda: saved.append(True)
         self.at += timedelta(minutes=5)
         for connector in (None, 0, "0", 2, "2"):
             c.record_status_notification(connector, "SuspendedEV", "NoError")
@@ -213,7 +214,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         self.assertEqual(saved, [True])
         self.assertEqual(c.active_transaction["events"][-1]["reason"], "suspended_ev")
         self.assertEqual(c.active_transaction["events"][-1]["at"], self.at.isoformat())
-        self.assertEqual(c._active_power_curve, curve)
+        self.assertEqual(c.sessions.active_power_curve, curve)
         self.assertEqual(c.transaction_id, 27)
         c.record_status_notification(1, "SuspendedEV", "NoError")
         self.assertEqual(saved, [True])
@@ -222,7 +223,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         c = self.c
         c.sessions = coordinator_module.SessionLifecycle(c)
         c.runtime_data = {}
-        c._restored_active_session = False
+        c.sessions.restored_active_session = False
         c.active_transaction["start"]["request"] = {"connector_id": "1"}
         c.active_transaction["events"] = []
         for connector in (None, 0, "0", 2, "2"):
@@ -244,7 +245,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         self.assertAlmostEqual(sum(sources.values()), 7000)
         self.assertGreater(self.c.site_accounting.buckets["battery_unknown"], 0)
         self.assertAlmostEqual(sum(self.c.site_accounting.buckets.values()), 0.05)
-        self.assertEqual(self.c._active_power_curve[-1][0], "2026-10-02T14:52:49Z")
+        self.assertEqual(self.c.sessions.active_power_curve[-1][0], "2026-10-02T14:52:49Z")
         observation = self.guard._observation(AT)
         self.assertTrue(observation.eligible)
         self.assertEqual(observation.battery_discharge_w, 2000)
@@ -364,8 +365,8 @@ class MeterTimeIntegrationTest(unittest.TestCase):
     def test_restored_numeric_transaction_matches_live_meter_for_stop_guard(self):
         self.c.sessions = coordinator_module.SessionLifecycle(self.c)
         self.c.id_tag = None
-        stored = self.c._active_session_state()
-        self.c._restore_active_session_state(stored)
+        stored = self.c.sessions.active_session_state()
+        self.c.sessions.restore_active_session_state(stored)
         self.assertEqual(self.c.transaction_id, 27)
         self.receive()
         self.assertTrue(self.guard._observation(AT).eligible)

@@ -9,7 +9,6 @@ from math import isfinite
 from ..configuration.values import configuration_numeric_value
 from ..energy.meter_observations import charging_meter_values
 from ..energy.options import (
-    CONF_BATTERY_POWER_ENTITY,
     CONF_GRID_ENTITY,
     CONF_HOUSE_ENTITY,
     CONF_SOLAR_ENTITY,
@@ -17,6 +16,7 @@ from ..energy.options import (
 from ..energy.site_observations import read_site_observations
 from ..timestamps import parse_utc as parse_at
 from ..timestamps import utc_timestamp
+from .contracts import TelemetryOwner
 from .series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 
 CONTEXT_CURVES = (
@@ -88,7 +88,7 @@ class SessionTelemetry:
     def metadata(self):
         return {"site_house_load_source": self.house_load_source} if self.house_load_source else {}
 
-    def observe_context(self, coordinator, at):
+    def observe_context(self, coordinator: TelemetryOwner, at: str) -> bool:
         site = read_site_observations(coordinator, require_recent_report=False)
         instant = parse_at(at)
         if instant is None:
@@ -120,14 +120,14 @@ class SessionTelemetry:
             solar = None
         if house is not None and house < 0:
             house = None
-        options = getattr(coordinator, "site_accounting_options", {})
+        options = coordinator.site_accounting_options
         source = "configured_sensor" if house is not None else None
         if not options.get(CONF_HOUSE_ENTITY) and solar is not None:
-            snapshot = getattr(coordinator, "last_meter_values", None) or {}
+            snapshot = coordinator.last_meter_values or {}
             meter = charging_meter_values(snapshot)
             sampled = parse_at(meter.get("sample_at"))
             ev = meter.get("power_w")
-            if str(getattr(coordinator, "status", "")).lower() in {
+            if str(coordinator.status).lower() in {
                 "suspended_ev",
                 "suspended_evse",
                 "suspendedev",
@@ -146,7 +146,7 @@ class SessionTelemetry:
             # Battery absence is known only for a declared battery-free topology.
             battery_balance = (
                 battery
-                if getattr(coordinator, CONF_BATTERY_POWER_ENTITY, None)
+                if coordinator.battery_power_entity
                 else (
                     0.0 if options.get("site_accounting_profile") in ("pv", "grid_only") else None
                 )
@@ -160,9 +160,7 @@ class SessionTelemetry:
                 self.house_load_source = "mixed"
             else:
                 self.house_load_source = source
-        limit = configuration_numeric_value(
-            getattr(coordinator, "configuration_values", {}).get("G_MaxCurrent")
-        )
+        limit = configuration_numeric_value(coordinator.configuration_values.get("G_MaxCurrent"))
         values = {
             "site_house_load_curve_w": house,
             "site_pv_surplus_curve_w": max(0, solar - house)

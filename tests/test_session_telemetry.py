@@ -38,7 +38,7 @@ def coordinator(entry_id="entry_one"):
     c.now = lambda: c.at.isoformat().replace("+00:00", "Z")
     c.hass.config = SimpleNamespace(time_zone="Europe/Berlin", currency="EUR")
     c.hass.async_create_task = lambda coro: coro.close()
-    c._schedule_storage_save = lambda: None
+    c.schedule_storage_save = lambda: None
     c.site_accounting_options = {
         "site_solar_power_entity": "sensor.pv",
         "site_house_power_entity": "sensor.house",
@@ -117,10 +117,10 @@ class SessionTelemetryTest(unittest.TestCase):
         c.hass.states["sensor.house"].state = "unavailable"
         c.at += timedelta(seconds=30)
         c.sessions.observe_context()
-        state = c._active_session_state()
+        state = c.sessions.active_session_state()
         restarted = coordinator()
         restarted.at = c.at + timedelta(minutes=2)
-        restarted._restore_active_session_state(state)
+        restarted.sessions.restore_active_session_state(state)
         self.assertEqual(
             restarted.sessions.telemetry.snapshot()["site_battery_curve_w"][-1][1], None
         )
@@ -257,9 +257,9 @@ class SessionTelemetryTest(unittest.TestCase):
         self.assertEqual(active["site_house_load_curve_w"][-1][1], 2000)
         self.assertEqual(active["site_pv_surplus_curve_w"][-1][1], 3000)
         self.assertEqual(active["site_house_load_source"], "site_balance")
-        state = c._active_session_state()
+        state = c.sessions.active_session_state()
         other = coordinator()
-        other._restore_active_session_state(state)
+        other.sessions.restore_active_session_state(state)
         self.assertEqual(
             other.sessions.telemetry.metadata(),
             {"site_house_load_source": "site_balance"},

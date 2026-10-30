@@ -20,6 +20,7 @@ from ..runtime.write_results import (
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
 )
+from .contracts import CommandOwner
 from .control_capabilities import charger_write_block_reason
 from .start_stop_rules import (
     REMOTE_START_COMMAND,
@@ -37,7 +38,7 @@ DEFAULT_ID_TAG = "12345678"  # Growatt handshake key
 STATUS_TRIGGER_DELAY_SECONDS = 2
 
 
-def command_state(coordinator, action, state, *, reason=None):
+def command_state(coordinator: CommandOwner, action, state, *, reason=None):
     """Report command acceptance separately from physical charger state."""
     coordinator.dashboard_command = {
         "action": action,
@@ -51,7 +52,7 @@ def command_state(coordinator, action, state, *, reason=None):
 class StopChargingCommand:
     """Use the coordinator's existing queue, never a second command owner."""
 
-    def __init__(self, coordinator):
+    def __init__(self, coordinator: CommandOwner) -> None:
         self.coordinator = coordinator
         self.hass = coordinator.hass
 
@@ -192,13 +193,13 @@ class StopChargingCommand:
 class StartChargingCommand:
     """Submit a revalidated Start through the existing charger write owner."""
 
-    def __init__(self, coordinator):
+    def __init__(self, coordinator: CommandOwner) -> None:
         self.coordinator = coordinator
         self.hass = coordinator.hass
 
     @property
     def write_block_reason(self) -> str | None:
-        if target_blocks_manual_start(getattr(self.coordinator, "charging_target_request", None)):
+        if target_blocks_manual_start(self.coordinator.charging_target_request):
             return "native_target_requires_reconciliation"
         return charger_write_block_reason(
             connected=self.coordinator.connected,

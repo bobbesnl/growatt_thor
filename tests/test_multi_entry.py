@@ -284,7 +284,7 @@ class TransactionBindingTest(unittest.IsolatedAsyncioTestCase):
     def make_coordinator(self):
         c = _build_coordinator()
         c.hass.async_create_task = lambda coro: coro.close()
-        c._schedule_storage_save = lambda: None
+        c.schedule_storage_save = lambda: None
         c.start_transaction(42, id_tag="private", meter_start=0)
         return c
 
@@ -348,13 +348,13 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
         self,
     ):
         c = self.make_coordinator()
-        c._schedule_storage_save = lambda: None
+        c.schedule_storage_save = lambda: None
         c.authorization.policy = c.authorization.policy.with_card("00RFID", "Original name")
         c.start_transaction(1, id_tag="00RFID", meter_start=0)
         # A restart during charging must retain the name as it was at start.
         active = self.make_coordinator(c._storage_data())
         await active.async_load_storage()
-        active._schedule_storage_save = lambda: None
+        active.schedule_storage_save = lambda: None
         active.authorization.policy = active.authorization.policy.with_card(
             "00RFID", "Renamed later"
         )
@@ -387,7 +387,7 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
         self,
     ):
         c = self.make_coordinator()
-        c._schedule_storage_save = lambda: None
+        c.schedule_storage_save = lambda: None
         c.start_transaction(1, id_tag="private", meter_start=0)
         c.stop_transaction(transaction_id=1, meter_stop=5000)
         record = self.record(1)
@@ -402,9 +402,9 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_restart_between_stop_and_vendor_record_preserves_details(self):
         c = self.make_coordinator()
-        c._schedule_storage_save = lambda: None
+        c.schedule_storage_save = lambda: None
         c.start_transaction(1, id_tag="RFID", meter_start=100)
-        c._active_power_curve = [["2026-10-01T10:01:00Z", 7000]]
+        c.sessions.active_power_curve = [["2026-10-01T10:01:00Z", 7000]]
         c.site_accounting = coordinator_module.SessionAccumulator("1", meter_start_wh=100)
         c.stop_transaction(transaction_id=1, meter_stop=5100)
         stored = c._storage_data()
@@ -425,7 +425,7 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
         self,
     ):
         c = self.make_coordinator()
-        c._schedule_storage_save = lambda: None
+        c.schedule_storage_save = lambda: None
         for tx in range(12):
             c.start_transaction(tx, id_tag=f"RFID-{tx}", meter_start=0)
             c.stop_transaction(transaction_id=tx, meter_stop=5000)

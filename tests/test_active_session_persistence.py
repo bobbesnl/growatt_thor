@@ -10,6 +10,7 @@ from tests.support import (
 )
 
 coordinator_module = load_package_module("coordinator")
+session_events = load_package_module("sessions.events")
 
 
 class _DelayedStore:
@@ -41,40 +42,40 @@ class ActiveSessionPersistenceTest(unittest.TestCase):
                 "response": {"transaction_id": 27},
             }
         }
-        source._active_power_curve = [
+        source.sessions.active_power_curve = [
             ["2026-09-21T08:01:00Z", 7100],
             ["2026-09-21T08:02:00Z", 0],
         ]
-        source._session_event_tracker = coordinator_module.SessionEventTracker.start(
+        source.sessions.event_tracker = session_events.SessionEventTracker.start(
             "2026-09-21T08:00:00Z"
         )
-        source._session_event_tracker.observe_power("2026-09-21T08:01:00Z", 7100)
+        source.sessions.event_tracker.observe_power("2026-09-21T08:01:00Z", 7100)
 
-        stored = source._active_session_state()
+        stored = source.sessions.active_session_state()
         restored = build_coordinator()
         restored.sessions = coordinator_module.SessionLifecycle(restored)
-        restored._restore_active_session_state(stored)
+        restored.sessions.restore_active_session_state(stored)
 
         self.assertEqual(restored.transaction_id, 27)
         self.assertEqual(restored.id_tag, "RFID-LIVE")
         self.assertEqual(restored.energy, 2450)
-        self.assertEqual(restored._active_power_curve, source._active_power_curve)
+        self.assertEqual(restored.sessions.active_power_curve, source.sessions.active_power_curve)
         self.assertEqual(
-            restored._session_event_tracker.events,
-            source._session_event_tracker.events,
+            restored.sessions.event_tracker.events,
+            source.sessions.event_tracker.events,
         )
-        self.assertTrue(restored._restored_active_session)
+        self.assertTrue(restored.sessions.restored_active_session)
 
     def test_available_discards_row_but_keeps_details_for_record_correlation(self):
         coordinator = build_coordinator()
         coordinator.sessions = coordinator_module.SessionLifecycle(coordinator)
-        coordinator._restored_active_session = True
+        coordinator.sessions.restored_active_session = True
         coordinator.transaction_id = "27"
         coordinator.id_tag = "RFID-LIVE"
         coordinator.energy = 2450
         coordinator.active_transaction = {"start": {"response": {"transaction_id": 27}}}
-        coordinator._active_power_curve = [["2026-09-21T08:01:00Z", 7100]]
-        coordinator._session_event_tracker = coordinator_module.SessionEventTracker.start(
+        coordinator.sessions.active_power_curve = [["2026-09-21T08:01:00Z", 7100]]
+        coordinator.sessions.event_tracker = session_events.SessionEventTracker.start(
             "2026-09-21T08:00:00Z"
         )
         coordinator.effective_charging = coordinator_module.EffectiveChargingTracker(
@@ -82,10 +83,10 @@ class ActiveSessionPersistenceTest(unittest.TestCase):
             elapsed_seconds=120,
             interval_count=2,
         )
-        coordinator._pending_effective_charging_minutes = {}
+        coordinator.sessions.pending_effective_charging_minutes = {}
         coordinator._store = _DelayedStore()
 
-        coordinator._discard_unconfirmed_restored_session()
+        coordinator.sessions.discard_unconfirmed_restored_session()
 
         self.assertIsNone(coordinator.active_transaction)
         self.assertIsNone(coordinator.transaction_id)
@@ -93,5 +94,5 @@ class ActiveSessionPersistenceTest(unittest.TestCase):
             coordinator.last_completed_transaction["power_curve"],
             [["2026-09-21T08:01:00Z", 7100]],
         )
-        self.assertEqual(coordinator._pending_effective_charging_minutes["27"], 2.0)
+        self.assertEqual(coordinator.sessions.pending_effective_charging_minutes["27"], 2.0)
         self.assertEqual(len(coordinator._store.delays), 1)

@@ -5,6 +5,7 @@ import importlib
 import tempfile
 import types
 import unittest
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
@@ -34,7 +35,7 @@ class UtcTimeContractTest(unittest.TestCase):
         c = _build_coordinator()
         c.hass.config = types.SimpleNamespace(time_zone="Europe/Berlin")
         c.hass.async_create_task = lambda coro: coro.close()
-        c._schedule_storage_save = lambda: None
+        c.schedule_storage_save = lambda: None
         c.now = lambda: "2026-10-27T11:01:25Z"
         c.configuration_values = {
             key: configuration_value_from_item({"key": key, "value": value})
@@ -45,11 +46,11 @@ class UtcTimeContractTest(unittest.TestCase):
         }
         c.start_transaction(51, connector_id=1, meter_start=0, timestamp="2026-10-27T13:01:23")
         active = dashboard_active_session(c)
-        c._active_power_curve = [
+        c.sessions.active_power_curve = [
             ["2026-10-27T11:01:23Z", 7300],
             ["2026-10-27T13:54:08Z", 7350],
         ]
-        c._session_event_tracker.observe_power("2026-10-27T11:01:23Z", 7300)
+        c.sessions.event_tracker.observe_power("2026-10-27T11:01:23Z", 7300)
         c.now = lambda: "2026-10-27T13:54:13Z"
         c.record_status_notification(1, "SuspendedEV", "NoError")
         c.now = lambda: "2026-10-27T14:07:38Z"
@@ -212,7 +213,10 @@ class UtcTimeContractTest(unittest.TestCase):
             (sensor.LastSessionUnplugTimeSensor, "unplug_time"),
         ):
             with self.subTest(field=field):
-                setattr(c, "last_session_" + field, "2026-07-01 10:00:00")
+                state_field = {"start": "start_time", "end": "end_time"}.get(field, field)
+                c.sessions.last_session = replace(
+                    c.sessions.last_session, **{state_field: "2026-07-01 10:00:00"}
+                )
                 entity = object.__new__(cls)
                 entity.coordinator = c
                 self.assertEqual(entity.native_value, "2026-07-01T08:00:00Z")
