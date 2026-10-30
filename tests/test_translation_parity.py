@@ -49,6 +49,18 @@ class TranslationParityTest(unittest.TestCase):
             with self.subTest(language=language):
                 self.assertEqual(locale.keys(), locales["en"].keys())
 
+    def test_localized_descriptions_do_not_retain_english_sentences(self):
+        locales = translations()
+        for language, locale in locales.items():
+            if language == "en":
+                continue
+            for key, english in locales["en"].items():
+                for sentence in re.split(r"(?<=[.!?])\s+", english):
+                    # Short labels and protocol names may legitimately be shared.
+                    if len(sentence) >= 45:
+                        with self.subTest(language=language, key=key, sentence=sentence):
+                            self.assertNotIn(sentence, locale[key])
+
     def test_format_placeholders_are_preserved(self):
         locales = translations()
         for language, locale in locales.items():

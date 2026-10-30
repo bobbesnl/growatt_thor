@@ -205,3 +205,5 @@ The preview uses simulated data and never contacts a charger. Unit tests and
 preview checks do not replace testing on HA or real hardware. Existing target
 capture evidence remains limited to the firmware named in the reverse-engineering
 notes; budget enforcement remains experimental.
+
+The three legacy Number controls execute writes through `ConfigurationNumberWriteMixin`. Number validation and encoding consume domain values; mode-aware control setters pass an already encoded wire string directly to the configuration mixin. Working-mode encoding returns a key/value pair through its explicitly named helper. Accepted Number hooks require the domain value explicitly. The load-limit hook retains its historical ordering: reported configuration, scheduled refresh, then mirror notification. Contract fixtures are checked against the pre-refactoring implementations; see `tests/fixtures/README.md`.
