@@ -257,7 +257,7 @@ class PerEntryWiringSourceTest(unittest.TestCase):
             source = (PACKAGE_PATH / name).read_text(encoding="utf-8")
             with self.subTest(file=name):
                 self.assertIn(
-                    'hass.data[DOMAIN][entry.entry_id]["coordinator"]',
+                    "entry.runtime_data.coordinator",
                     source,
                 )
 

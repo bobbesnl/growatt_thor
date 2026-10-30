@@ -17,7 +17,6 @@ from .configuration.values import (
     ConfigurationValue,
     configuration_entity_state,
 )
-from .const import DOMAIN
 from .energy.currency import configured_currency
 from .energy.options import CONF_SITE_PROFILE
 from .energy.site_inputs import coverage_percent
@@ -37,15 +36,16 @@ from .sensor_descriptions import (
 )
 
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+    from .runtime.entry import ThorConfigEntry
+
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: ThorConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coordinator = entry.runtime_data.coordinator
     boot_sensors = [
         OcppBootSensor(coordinator, entry, description)
         for description in OCPP_BOOT_SENSOR_DESCRIPTIONS

@@ -11,6 +11,8 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from typing import TypeVar
 
+from .keys import ACTIVE_CHARGE_POINT, COORDINATOR
+
 ResultT = TypeVar("ResultT")
 
 
@@ -41,8 +43,8 @@ class IntegrationServiceOperations:
         """Join one in-flight refresh, or start exactly one new sequence."""
         task = self._refresh_task
         if task is None or task.done():
-            charge_point = runtime_data.get("charge_point")
-            coordinator = runtime_data.get("coordinator")
+            charge_point = runtime_data.get(ACTIVE_CHARGE_POINT)
+            coordinator = runtime_data.get(COORDINATOR)
             if (
                 charge_point is None
                 or coordinator is None

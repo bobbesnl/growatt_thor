@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .runtime.keys import ACTIVE_CHARGE_POINT
+
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+    from .runtime.entry import ThorConfigEntry
 
 import logging
 
@@ -28,7 +31,6 @@ from .configuration.writes import (
     ConfigurationWriteStatus,
     pending_configuration_value,
 )
-from .const import DOMAIN
 from .entity import ThorEntity
 from .runtime.action_errors import (
     async_require_command_completion,
@@ -46,10 +48,10 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: ThorConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Growatt THOR switches."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coordinator = entry.runtime_data.coordinator
 
     async_add_entities(
         [
@@ -181,7 +183,7 @@ class LoadBalancingEnableSwitch(GrowattConfigurationWriteMixin, ThorEntity, Swit
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot change Load Balancing: %s", block_reason)
             raise_write_blocked(block_reason)
-        charge_point = self.coordinator.runtime_data.get("charge_point")
+        charge_point = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
 
         if not charge_point:
             _LOGGER.warning("Cannot change Loadbalancing: charger not connected")
@@ -341,7 +343,7 @@ class LcdDisplaySwitch(GrowattConfigurationWriteMixin, ThorEntity, SwitchEntity)
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot change LCD display: %s", block_reason)
             raise_write_blocked(block_reason)
-        charge_point = self.coordinator.runtime_data.get("charge_point")
+        charge_point = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
 
         if not charge_point:
             _LOGGER.warning("Cannot change LCD display: charger not connected")

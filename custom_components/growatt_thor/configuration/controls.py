@@ -17,6 +17,7 @@ from ..runtime.action_errors import (
     raise_charger_disconnected,
     raise_write_blocked,
 )
+from ..runtime.keys import ACTIVE_CHARGE_POINT
 from ..runtime.write_results import (
     CONFIGURATION_WRITE_POLICY,
     ChargerConnectionUnavailable,
@@ -156,7 +157,7 @@ class GrowattConfigurationControlMixin(GrowattConfigurationWriteMixin):
             # blocked automation visible in its trace instead of reporting a
             # successful call for a command that was never queued.
             raise_write_blocked(block_reason)
-        charge_point = self.coordinator.runtime_data.get("charge_point")
+        charge_point = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
         if charge_point is None:
             _LOGGER.warning(
                 "Cannot change %s: charger not connected",

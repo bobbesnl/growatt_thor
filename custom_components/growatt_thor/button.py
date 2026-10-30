@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .runtime.keys import ACTIVE_CHARGE_POINT
+
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+    from .runtime.entry import ThorConfigEntry
 
 import logging
 
@@ -25,7 +28,6 @@ from .charging.pv_linkage import (
     build_pv_linkage_writes,
     draft_validation_errors,
 )
-from .const import DOMAIN
 from .entity import ThorEntity
 from .runtime.action_errors import (
     async_require_command_completion,
@@ -42,10 +44,10 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: ThorConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Growatt THOR button entities."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coordinator = entry.runtime_data.coordinator
 
     async_add_entities(
         [
@@ -163,7 +165,7 @@ class ApplyPvLinkageButton(ThorEntity, ButtonEntity):
                 },
             )
 
-        charge_point = self.coordinator.runtime_data.get("charge_point")
+        charge_point = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
         if charge_point is None:
             _LOGGER.warning("Cannot apply PV Linkage: charger not connected")
             raise_charger_disconnected()

@@ -137,7 +137,6 @@ def build_coordinator(store=None, legacy_store=None, entry_id="entry_test"):
         coordinator.updates += 1
 
     coordinator.async_set_updated_data = _updated
-    coordinator.runtime_data = {}
     coordinator.source_instance_id = entry_id
     coordinator.connected = True
     coordinator._connection_changed.clear()

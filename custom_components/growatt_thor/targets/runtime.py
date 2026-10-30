@@ -20,6 +20,7 @@ from ..charging.control_capabilities import selected_working_mode
 from ..configuration.values import configuration_entity_state
 from ..const import DOMAIN
 from ..ocpp.diagnostics import boot_notification_field
+from ..runtime.keys import ACTIVE_CHARGE_POINT, SKIP_POLLING_UNTIL, TARGET_HANDLERS, TARGET_RUNTIME
 from ..runtime.write_results import ChargerCommandStatus
 from ..timestamps import installation_time_zone
 from .model import (
@@ -148,7 +149,7 @@ class ChargingTargetRuntime:
                 }
                 await self.persist(retained)
 
-        self.coordinator.runtime_data["target_handlers"] = {
+        self.coordinator.runtime_data[TARGET_HANDLERS] = {
             SERVICES[0]: self.preview,
             SERVICES[1]: self.start,
             SERVICES[2]: self.acknowledge,
@@ -266,7 +267,7 @@ class ChargingTargetRuntime:
         if (
             not self.coordinator.connected
             or cp is None
-            or self.coordinator.runtime_data.get("charge_point") is not cp
+            or self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT) is not cp
         ):
             return "charger_disconnected_or_replaced"
         if self.coordinator.transaction_is_active:
@@ -409,8 +410,8 @@ class ChargingTargetRuntime:
         pause_until = (
             self.hass.loop.time() + seconds + self.coordinator.write_queue.poll_pause_after_write
         )
-        self.coordinator.runtime_data["skip_polling_until"] = max(
-            self.coordinator.runtime_data.get("skip_polling_until", 0), pause_until
+        self.coordinator.runtime_data[SKIP_POLLING_UNTIL] = max(
+            self.coordinator.runtime_data.get(SKIP_POLLING_UNTIL, 0), pause_until
         )
 
     async def preview(self, service: ServiceCall) -> dict[str, Any]:
@@ -427,7 +428,7 @@ class ChargingTargetRuntime:
             )
             if self._busy:
                 raise HomeAssistantError("target_request_or_transaction_busy")
-            cp = self.coordinator.runtime_data.get("charge_point")
+            cp = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
             if reason := self.block_reason(cp, activation):
                 raise HomeAssistantError(reason)
             request = {
@@ -557,7 +558,7 @@ class ChargingTargetRuntime:
         target = ChargingTarget.parse(request["kind"], request["value"])
         recurrence = request.get("recurrence", "once")
         activation = "daily_start" if recurrence == "daily" else "reserved_start"
-        cp = self.coordinator.runtime_data.get("charge_point")
+        cp = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
         issued = time.monotonic()
         connection_started_at = self.coordinator.connection_started_at
 
@@ -626,7 +627,7 @@ class ChargingTargetRuntime:
             )
             if self._busy:
                 raise HomeAssistantError("target_request_or_transaction_busy")
-            cp = self.coordinator.runtime_data.get("charge_point")
+            cp = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
             activation = "reserve" if recurrence == "once" else "remote"
             if reason := self.block_reason(cp, activation):
                 raise HomeAssistantError(reason)
@@ -719,12 +720,12 @@ class ChargingTargetRuntime:
                 )
                 return
             reservation_id = request.get("reservation_id")
-            cp = self.coordinator.runtime_data.get("charge_point")
+            cp = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
             if (
                 not isinstance(reservation_id, int)
                 or not self.coordinator.connected
                 or cp is None
-                or self.coordinator.runtime_data.get("charge_point") is not cp
+                or self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT) is not cp
             ):
                 raise HomeAssistantError("reservation_cancel_unavailable")
             request = {
@@ -854,12 +855,12 @@ async def async_setup_target_runtime(
     """Attach one controller without changing the public HA service contract."""
     runtime = ChargingTargetRuntime(hass, entry, coordinator, now_utc=now_utc)
     await runtime.async_setup()
-    coordinator.runtime_data["target_runtime"] = runtime
+    coordinator.runtime_data[TARGET_RUNTIME] = runtime
 
 
 def async_unload_target_runtime(hass: HomeAssistant, entry) -> None:
     entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
-    runtime = entry_data.pop("target_runtime", None)
+    runtime = entry_data.pop(TARGET_RUNTIME, None)
     if runtime is not None:
         runtime.close()
-    entry_data.pop("target_handlers", None)
+    entry_data.pop(TARGET_HANDLERS, None)

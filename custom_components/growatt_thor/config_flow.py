@@ -75,6 +75,7 @@ from .energy.stop_guard_policy import (
     STOP_THRESHOLD_W,
 )
 from .runtime.action_errors import async_require_command_completion
+from .runtime.keys import ACTIVE_CHARGE_POINT, COORDINATOR, POLL_INTERVAL, POLL_INTERVAL_SCHEDULE
 from .runtime.ownership import entry_runtime_data
 from .runtime.write_results import (
     VOLATILE_CONTROL_WRITE_POLICY,
@@ -319,7 +320,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         )
 
     def _entry_coordinator(self):
-        return (self._entry_runtime_data() or {}).get("coordinator")
+        return (self._entry_runtime_data() or {}).get(COORDINATOR)
 
     async def async_step_init(self, user_input=None):
         """Show purpose-based options instead of action checkboxes."""
@@ -368,12 +369,12 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 # Update this entry's running coordinator and poll loop live.
                 # Without a loaded runtime the saved entry data is enough.
                 runtime_data = self._entry_runtime_data() or {}
-                coordinator = runtime_data.get("coordinator")
+                coordinator = runtime_data.get(COORDINATOR)
                 if coordinator:
                     await coordinator.async_apply_options(updated_data, section="general")
                 if runtime_data:
-                    runtime_data["poll_interval"] = poll_interval
-                schedule = runtime_data.get("poll_interval_schedule")
+                    runtime_data[POLL_INTERVAL] = poll_interval
+                schedule = runtime_data.get(POLL_INTERVAL_SCHEDULE)
                 if schedule is not None:
                     # Wake the active sleep so the new cadence starts from
                     # this options save, without reloading the integration.
@@ -745,8 +746,8 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
     async def _activate_ap_mode(self):
         """Activate AP Mode via OCPP DataTransfer."""
         runtime_data = self._entry_runtime_data() or {}
-        charge_point = runtime_data.get("charge_point")
-        coordinator = runtime_data.get("coordinator")
+        charge_point = runtime_data.get(ACTIVE_CHARGE_POINT)
+        coordinator = runtime_data.get(COORDINATOR)
 
         if not charge_point or not coordinator:
             _LOGGER.error("Cannot enable AP Mode: not connected")

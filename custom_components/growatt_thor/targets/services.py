@@ -10,6 +10,7 @@ from homeassistant.core import SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 
 from ..const import DOMAIN
+from ..runtime.keys import TARGET_HANDLERS
 from ..runtime.ownership import resolve_entry_runtime
 from .runtime import (
     SERVICES,
@@ -38,7 +39,7 @@ def async_register_target_services(hass: HomeAssistant) -> None:
                 )
             except ValueError as exc:
                 raise HomeAssistantError(str(exc)) from exc
-            handler = runtime.get("target_handlers", {}).get(name)
+            handler = runtime.get(TARGET_HANDLERS, {}).get(name)
             if handler is None:
                 raise HomeAssistantError("growatt_thor_entry_not_loaded")
             return await handler(service)

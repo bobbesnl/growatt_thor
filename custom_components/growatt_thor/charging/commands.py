@@ -12,6 +12,7 @@ from ..runtime.action_errors import (
     raise_charger_disconnected,
     raise_write_blocked,
 )
+from ..runtime.keys import ACTIVE_CHARGE_POINT
 from ..runtime.write_results import (
     TRANSACTION_CONTROL_WRITE_POLICY,
     VOLATILE_CONTROL_WRITE_POLICY,
@@ -88,7 +89,7 @@ class StopChargingCommand:
             )
             return
 
-        charge_point = self.coordinator.runtime_data.get("charge_point")
+        charge_point = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
         if not charge_point:
             _LOGGER.warning("Cannot stop charging: charger not connected")
             raise_charger_disconnected()
@@ -179,7 +180,7 @@ class StopChargingCommand:
         try:
             # See the matching start helper: delayed work must not retain a
             # websocket that may have been superseded during the wait.
-            charge_point = self.coordinator.runtime_data.get("charge_point")
+            charge_point = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
             if charge_point is None:
                 return
             await charge_point.trigger_status()
@@ -218,7 +219,7 @@ class StartChargingCommand:
         if (block_reason := self.write_block_reason) is not None:
             _LOGGER.warning("Cannot start charging: %s", block_reason)
             raise_write_blocked(block_reason)
-        charge_point = self.coordinator.runtime_data.get("charge_point")
+        charge_point = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
         if not charge_point:
             _LOGGER.warning("Cannot start charging: charger not connected")
             raise_charger_disconnected()
@@ -297,7 +298,7 @@ class StartChargingCommand:
         try:
             # Capturing the charge point used for the original command is unsafe:
             # the THOR can reconnect during this delay and replace its socket.
-            charge_point = self.coordinator.runtime_data.get("charge_point")
+            charge_point = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
             if charge_point is None:
                 return
             await charge_point.trigger_status()

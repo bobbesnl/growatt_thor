@@ -9,7 +9,7 @@ import unittest
 from tests.support import PACKAGE_PATH, load_package_module
 
 MODULE_PATH = PACKAGE_PATH / "runtime/ownership.py"
-ownership = load_package_module("growatt_thor_runtime_ownership_test_target", MODULE_PATH)
+ownership = load_package_module("runtime.ownership")
 
 
 class RuntimeOwnershipDecisionTest(unittest.TestCase):
@@ -191,8 +191,8 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
             if isinstance(node, ast.Assign)
             and any(
                 isinstance(target, ast.Subscript)
-                and isinstance(target.slice, ast.Constant)
-                and target.slice.value == "coordinator"
+                and isinstance(target.slice, ast.Name)
+                and target.slice.id == "COORDINATOR"
                 for target in node.targets
             )
         )

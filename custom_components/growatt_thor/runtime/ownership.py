@@ -16,16 +16,16 @@ from __future__ import annotations
 
 from collections.abc import Mapping, MutableMapping
 from enum import Enum
-from typing import Final
 
-RUNTIME_CONFIG_ENTRY_ID: Final = "config_entry_id"
-ACTIVE_CHARGE_POINT: Final = "charge_point"
+from .entry import EntryRuntime
+from .keys import ACTIVE_CHARGE_POINT as ACTIVE_CHARGE_POINT
+from .keys import RUNTIME_CONFIG_ENTRY_ID as RUNTIME_CONFIG_ENTRY_ID
 
 
 def claim_entry_runtime(
     domain_data: MutableMapping[str, object],
     entry_id: str,
-) -> MutableMapping[str, object] | None:
+) -> EntryRuntime | None:
     """Create and claim the runtime of one config entry.
 
     Returns ``None`` when the entry already has a runtime, for example when
@@ -34,7 +34,7 @@ def claim_entry_runtime(
     """
     if entry_id in domain_data:
         return None
-    runtime_data: MutableMapping[str, object] = {}
+    runtime_data = EntryRuntime()
     claim_runtime_entry(runtime_data, entry_id)
     domain_data[entry_id] = runtime_data
     return runtime_data

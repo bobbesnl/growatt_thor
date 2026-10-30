@@ -24,6 +24,7 @@ from ..configuration.values import (
     redact_configuration_value,
 )
 from ..const import DEFAULT_PATH, OCPP_SUBPROTOCOL
+from ..runtime.keys import ACTIVE_CHARGE_POINT
 from ..runtime.ownership import (
     ChargePointConnectionDecision,
     decide_charge_point_connection,
@@ -110,14 +111,14 @@ class GrowattChargePoint(OcppChargePoint):
 
         # The newest connection on this entry's server owns the entry's
         # connection slot.  Other config entries keep their own slot.
-        self.coordinator.runtime_data["charge_point"] = self
+        self.coordinator.runtime_data[ACTIVE_CHARGE_POINT] = self
 
         self.coordinator.set_charge_point(cp_id)
         _LOGGER.info("GrowattChargePoint initialised for %s", cp_id)
 
     def _is_current_connection(self):
         """Return whether this charge point owns the active connection slot."""
-        return self.coordinator.runtime_data.get("charge_point") is self
+        return self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT) is self
 
     def _connection_may_update_coordinator(self, operation_name: str) -> bool:
         """Allow state changes only from the socket that owns the runtime.
@@ -924,7 +925,7 @@ async def _on_connect(websocket, path, coordinator, hass):
         # Each config entry runs its own server, so this decision only sees
         # the connection and charger identity of the entry that owns it.
         runtime_data = coordinator.runtime_data
-        active_charge_point = runtime_data.get("charge_point")
+        active_charge_point = runtime_data.get(ACTIVE_CHARGE_POINT)
         active_charge_point_id = (
             getattr(active_charge_point, "_cp_id", "<unknown>")
             if active_charge_point is not None

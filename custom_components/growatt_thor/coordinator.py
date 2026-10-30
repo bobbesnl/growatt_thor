@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 from collections import deque
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, time
+from typing import TYPE_CHECKING
 
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -69,6 +72,15 @@ from .ocpp.meter_samples import (
 )
 from .ocpp.status import ENERGY_SESSION_STATUSES, LIVE_POWER_STATUSES, normalize_ocpp_status
 from .runtime.charger_write_queue import ChargerWriteQueue
+from .runtime.entry import EntryRuntime
+from .runtime.keys import (
+    ACTIVE_CHARGE_POINT,
+    ENERGY_STOP_GUARD,
+    PERSIST_CHARGER_IDENTITY,
+    REFRESH_DASHBOARD,
+    SKIP_POLLING_UNTIL,
+    UPDATE_SESSION_EVENTS_IN_CSV,
+)
 from .runtime.write_results import (
     DEFAULT_WRITE_POLICY,
     ChargerCommandHandle,
@@ -89,6 +101,10 @@ from .sessions.state import LastSessionState, normalize_record_key
 from .sessions.transaction_ids import TransactionIdAllocator
 from .timestamps import installation_time_zone
 from .timestamps import parse_utc as parse_at
+
+if TYPE_CHECKING:
+    from .ocpp.server import GrowattChargePoint
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -130,7 +146,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         # it with the mapping registered under hass.data[DOMAIN][entry_id];
         # the active OCPP connection and the poll pause live here, never in a
         # domain-global slot shared with another charger.
-        self.runtime_data = {}
+        self.runtime_data = EntryRuntime()
         self._transaction_id_allocator = TransactionIdAllocator()
         self._transaction_id_lock = asyncio.Lock()
 
@@ -516,6 +532,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     # Utility methods
 
+    @property
+    def charge_point(self) -> GrowattChargePoint | None:
+        """Return the connection currently owned by this entry."""
+        return self.runtime_data.get(ACTIVE_CHARGE_POINT)
+
     def now(self) -> str:
         """Return current UTC timestamp in ISO format."""
         return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -531,10 +552,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def set_charge_point(self, cp_id):
         """Set charge point ID and notify sensors."""
-        if persist := self.runtime_data.get("persist_charger_identity"):
+        if persist := self.runtime_data.get(PERSIST_CHARGER_IDENTITY):
             persist(cp_id)
         self.charge_point_id = cp_id
-        if refresh := self.runtime_data.get("refresh_dashboard"):
+        if refresh := self.runtime_data.get(REFRESH_DASHBOARD):
             self.hass.async_create_task(refresh())
         self.connected = True
         self.connection_started_at = self.now()
@@ -660,7 +681,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             raise ValueError(f"Unknown options section: {section}")
         self.async_set_updated_data(True)
         if section == "site_accounting":
-            guard = self.runtime_data.get("energy_stop_guard")
+            guard = self.runtime_data.get(ENERGY_STOP_GUARD)
             if guard is not None:
                 guard.refresh()
 
@@ -741,10 +762,10 @@ class GrowattCoordinator(DataUpdateCoordinator):
             while True:
                 await self.write_queue.idle.wait()
 
-                charge_point = self.runtime_data.get("charge_point")
+                charge_point = self.runtime_data.get(ACTIVE_CHARGE_POINT)
                 if charge_point is None or not self.connected:
                     self._connection_changed.clear()
-                    charge_point = self.runtime_data.get("charge_point")
+                    charge_point = self.runtime_data.get(ACTIVE_CHARGE_POINT)
                     if charge_point is None or not self.connected:
                         await self._connection_changed.wait()
                     continue
@@ -879,8 +900,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def pause_polling_until(self, until):
         """Pause this entry's external meter poll until a monotonic time."""
-        current = self.runtime_data.get("skip_polling_until", 0)
-        self.runtime_data["skip_polling_until"] = max(current, until)
+        current = self.runtime_data.get(SKIP_POLLING_UNTIL, 0)
+        self.runtime_data[SKIP_POLLING_UNTIL] = max(current, until)
 
     def _reset_live_power(self):
         """Zero live power and current values that are no longer current.
@@ -1008,7 +1029,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 events = target.setdefault("events", [])
                 event_added = append_session_event(events, unplugged, unique_type=True)
                 session_id = target.get("session_id")
-                update_fn = self.runtime_data.get("update_session_events_in_csv")
+                update_fn = self.runtime_data.get(UPDATE_SESSION_EVENTS_IN_CSV)
                 if event_added and session_id and update_fn:
                     self.hass.async_create_task(update_fn(session_id, list(events)))
             self._pending_plugged_event = None

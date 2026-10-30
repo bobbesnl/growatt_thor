@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from ..energy.session_accumulator import SessionAccumulator
 from ..ocpp.diagnostics import create_ocpp_snapshot
 from ..ocpp.status import LIVE_POWER_STATUSES, normalize_ocpp_status
+from ..runtime.keys import APPEND_SESSION_TO_CSV
 from ..timestamps import parse_utc as parse_at
 from ..timestamps import utc_instant, utc_timestamp
 from .active_state import ActiveSessionState
@@ -101,7 +102,7 @@ class SessionLifecycle:
 
     async def async_flush_pending(self):
         coordinator = self.coordinator
-        append_fn = coordinator.runtime_data.get("append_session_to_csv")
+        append_fn = coordinator.runtime_data.get(APPEND_SESSION_TO_CSV)
         if append_fn is None:
             return
         try:
@@ -593,7 +594,7 @@ class SessionLifecycle:
             )
 
             # CSV logging via __init__.py helper
-            append_fn = coordinator.runtime_data.get("append_session_to_csv")
+            append_fn = coordinator.runtime_data.get(APPEND_SESSION_TO_CSV)
             if append_fn:
                 session_row = {
                     "timestamp": coordinator.now(),

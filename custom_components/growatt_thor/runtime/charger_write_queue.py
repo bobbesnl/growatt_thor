@@ -11,6 +11,7 @@ from typing import Any, Protocol
 
 from ..configuration.writes import ConfigurationWriteStatus
 from ..const import CONFIGURATION_WRITE_SPACING_SECONDS
+from .keys import ACTIVE_CHARGE_POINT
 from .write_results import (
     DEFAULT_WRITE_POLICY,
     ChargerCommandHandle,
@@ -245,7 +246,7 @@ class ChargerWriteQueue:
                         continue
 
                     if write_item.requires_connection:
-                        charge_point = self.owner.runtime_data.get("charge_point")
+                        charge_point = self.owner.runtime_data.get(ACTIVE_CHARGE_POINT)
                         if charge_point is None or not self.owner.connected:
                             if (
                                 write_item.policy.reconnect
@@ -265,7 +266,7 @@ class ChargerWriteQueue:
                                 write_item.command_name,
                             )
                             self.connection_changed.clear()
-                            charge_point = self.owner.runtime_data.get("charge_point")
+                            charge_point = self.owner.runtime_data.get(ACTIVE_CHARGE_POINT)
                             if charge_point is None or not self.owner.connected:
                                 try:
                                     await asyncio.wait_for(
@@ -319,7 +320,7 @@ class ChargerWriteQueue:
                         # The current connection can differ from the one that
                         # existed when the UI action was queued.  Rebinding here
                         # prevents commands from being sent to a closed socket.
-                        call_args[0] = self.owner.runtime_data["charge_point"]
+                        call_args[0] = self.owner.runtime_data[ACTIVE_CHARGE_POINT]
                     self._active = write_item
 
                     try:

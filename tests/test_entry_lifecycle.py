@@ -293,6 +293,8 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
         entry.data["bind_address"] = "127.0.0.1"
         self.assertTrue(await integration.async_setup_entry(self.hass, entry))
         runtime = self.runtime("bound")
+        self.assertIs(entry.runtime_data, runtime)
+        self.assertIs(entry.runtime_data.coordinator.runtime_data, runtime)
         runtime["persist_charger_identity"]("EXPECTED")
         self.assertEqual(entry.data["charge_point_id"], "EXPECTED")
         self.assertTrue(await integration.async_unload_entry(self.hass, entry))

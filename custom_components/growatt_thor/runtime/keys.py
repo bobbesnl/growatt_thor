@@ -1,0 +1,23 @@
+"""Stable keys at the runtime mapping boundary."""
+
+from typing import Final
+
+RUNTIME_CONFIG_ENTRY_ID: Final = "config_entry_id"
+ACTIVE_CHARGE_POINT: Final = "charge_point"
+COORDINATOR: Final = "coordinator"
+SERVER: Final = "server"
+APPEND_SESSION_TO_CSV: Final = "append_session_to_csv"
+OWNS_LEGACY_HISTORY: Final = "owns_legacy_history"
+PERSIST_CHARGER_IDENTITY: Final = "persist_charger_identity"
+POLL_INTERVAL: Final = "poll_interval"
+POLL_INTERVAL_SCHEDULE: Final = "poll_interval_schedule"
+POLLING_TASK: Final = "polling_task"
+PV_LINKAGE_PROFILE_HANDLER: Final = "pv_linkage_profile_handler"
+REFRESH_DASHBOARD: Final = "refresh_dashboard"
+SESSION_HISTORY_UNSUB: Final = "session_history_unsub"
+SKIP_POLLING_UNTIL: Final = "skip_polling_until"
+STARTUP_CHECK_TASK: Final = "startup_check_task"
+TARGET_HANDLERS: Final = "target_handlers"
+TARGET_RUNTIME: Final = "target_runtime"
+UPDATE_SESSION_EVENTS_IN_CSV: Final = "update_session_events_in_csv"
+ENERGY_STOP_GUARD: Final = "energy_stop_guard"

@@ -47,6 +47,8 @@ Live energy-source allocation lives in `energy/live_allocation.py`, using the pu
 
 ## State and typing
 
+`runtime/entry.py::EntryRuntime` declares the resources owned by one config entry. Setup publishes the same object on `entry.runtime_data`, the coordinator and the entry-scoped dispatch registry. Platforms read `entry.runtime_data.coordinator`; connection readers can use `coordinator.charge_point`. The mapping interface retains missing-key, callback and identity semantics for queue/dispatch ownership, with stable keys in `runtime/keys.py`. Release clears only the runtime still registered to that entry.
+
 `ChargingTargetRuntime` owns one entry's target storage, lock, busy state and
 schedule timer. Its bound methods implement the unchanged target service
 contract; unload cancels the timer and releases transaction callbacks.
