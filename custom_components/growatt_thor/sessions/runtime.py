@@ -310,6 +310,10 @@ class SessionLifecycle:
                 hooks.transaction_started(transaction_id=transaction_id)
             )
 
+    def record_authorization_response(self, status: object) -> None:
+        """Retain the authorization reply on the transaction just observed."""
+        self.coordinator.active_transaction["start"]["response"]["id_tag_info"] = {"status": status}
+
     def stop_transaction(
         self,
         reason=None,

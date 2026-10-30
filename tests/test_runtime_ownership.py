@@ -267,21 +267,27 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
             )
         ]
 
-        self.assertGreater(len(handlers), 0)
+        self.assertEqual(len(handlers), 8)
         for handler in handlers:
-            guard_calls = [
-                node
-                for node in ast.walk(handler)
-                if isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "_connection_may_update_coordinator"
-            ]
             with self.subTest(handler=handler.name):
-                self.assertGreaterEqual(len(guard_calls), 1)
+                self.assertTrue(
+                    any(
+                        isinstance(decorator, ast.Call)
+                        and isinstance(decorator.func, ast.Name)
+                        and decorator.func.id == "guarded_ocpp_handler"
+                        for decorator in handler.decorator_list
+                    )
+                )
                 if handler.name == "on_start_transaction":
-                    # Allocation awaits a lock, so ownership must be checked a
-                    # second time before the transaction state is committed.
-                    self.assertGreaterEqual(len(guard_calls), 2)
+                    # ID allocation yields; the handler must recheck ownership
+                    # before authorization or committing transaction state.
+                    self.assertIn("_connection_may_update_coordinator", ast.unparse(handler))
+        decorator = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "guarded_ocpp_handler"
+        )
+        self.assertIn("_connection_may_update_coordinator", ast.unparse(decorator))
 
     def test_watchdog_and_handler_cleanup_release_by_object_identity(self):
         tree = ast.parse((PACKAGE_PATH / "ocpp/server.py").read_text())

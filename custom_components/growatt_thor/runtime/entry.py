@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
-    from websockets.asyncio.server import Server
+    from websockets.legacy.server import WebSocketServer
 
     from ..coordinator import GrowattCoordinator
     from ..energy.stop_guard import EnergyStopGuard
@@ -32,7 +32,7 @@ class EntryRuntime(MutableMapping[str, Any]):
 
     config_entry_id: str | None = None
     coordinator: GrowattCoordinator | None = None
-    server: Server | None = None
+    server: WebSocketServer | None = None
     charge_point: GrowattChargePoint | None = None
     polling_task: asyncio.Task | None = None
     startup_check_task: asyncio.Task | None = None

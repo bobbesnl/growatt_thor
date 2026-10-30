@@ -47,6 +47,9 @@ class Coordinator:
         self.charge_point_id = None
         self.next_id = 40
         self.active_transaction = None
+        self.sessions = SimpleNamespace(
+            record_authorization_response=self.record_authorization_response
+        )
         self.stops = []
         self.configuration_batches = []
 
@@ -67,6 +70,9 @@ class Coordinator:
 
     def start_transaction(self, transaction_id, id_tag, **kwargs):
         self.active_transaction = {"start": {"response": {"transaction_id": transaction_id}}}
+
+    def record_authorization_response(self, status):
+        self.active_transaction["start"]["response"]["id_tag_info"] = {"status": status}
 
     def stop_transaction(self, reason, **kwargs):
         self.stops.append(kwargs)

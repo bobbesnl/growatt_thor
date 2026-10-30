@@ -121,6 +121,8 @@ Entry setup keeps claim/failure cleanup around explicit coordinator, server and 
 
 Start and Stop buttons delegate to `StartChargingCommand` and `StopChargingCommand` in `charging/commands.py`. These boundaries own revalidation, queue submission and command-state reporting; delayed status triggers resolve the current connection after the shared two-second delay.
 
+Inbound OCPP actions share `guarded_ocpp_handler`, preserving each action's fallback and the separate rejected reply for superseded DataTransfer sockets. Start rechecks socket ownership after allocating its transaction ID. Handler exceptions carry tracebacks except for authorization/transaction actions, whose existing payload-free logging protects RFID identifiers. Configuration groups share a fetch helper while applying operational keys before the informational request; socket closes share the bounded close helper without moving ownership release.
+
 ## Charger write queue
 
 Each runtime creates one `runtime/charger_write_queue.py::ChargerWriteQueue`.
