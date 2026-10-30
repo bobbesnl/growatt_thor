@@ -166,7 +166,7 @@
         "data_description": {
           "site_stop_threshold_w": "Puissance prélevée sur la batterie ou le réseau. Par défaut : 500 W.",
           "site_stop_hold_seconds": "Par défaut : 180 secondes. Si la production PV actuelle couvre la recharge, deux minutes supplémentaires sont accordées aux appareils domestiques temporaires. Aucun redémarrage automatique.",
-          "site_auto_stop_mode": "La protection automatique fonctionne uniquement en PV Linkage+ (surplus solaire uniquement). Off, battery discharge, grid import, or either. Requires fresh readings and an active charging session; configure the battery source under Optional energy sources."
+          "site_auto_stop_mode": "La protection automatique fonctionne uniquement en PV Linkage+ (surplus solaire uniquement). Désactivée, décharge de la batterie, soutirage du réseau ou les deux. Nécessite des mesures récentes et une session de charge active ; configurez la source de batterie dans Sources d’énergie facultatives."
         }
       },
       "authorization": {
@@ -180,7 +180,7 @@
         "data_description": {
           "restrict_authorization": "Active la vérification locale des identifiants RFID physiques. Une liste vide activée refuse toutes les cartes.",
           "allow_ha_remote_start": "Autorise les démarrages par les commandes, services et automatisations HA. Aucun identifiant technique ne doit être ajouté à la liste RFID.",
-          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics. Un identifiant par ligne, éventuellement suivi d’une espace, |, une espace et un nom : 00Ab12 | Voiture familiale. Conservez la casse et les zéros initiaux. Noms limités à 80 caractères. Gardez seulement l’identifiant pour effacer le nom ; supprimez la ligne pour retirer la carte."
+          "authorized_id_tags": "Jusqu’à 100 identifiants OCPP exacts de 1 à 20 caractères. La liste est conservée localement et réaffichée à l’ouverture de cette boîte de dialogue. Supprimez une ligne pour retirer une carte ; les identifiants sont exclus des journaux et diagnostics ordinaires. Un identifiant par ligne, éventuellement suivi d’une espace, |, une espace et un nom : 00Ab12 | Voiture familiale. Conservez la casse et les zéros initiaux. Noms limités à 80 caractères. Gardez seulement l’identifiant pour effacer le nom ; supprimez la ligne pour retirer la carte."
         }
       },
       "confirm_charger_mode": {
@@ -614,7 +614,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "The operating mode controls which settings apply. Load balancing is available in Fast and Off-Peak mode, but not in PV Linkage mode. Le chargeur signale la charge rapide avec équilibrage de charge activé sous le nom Power Distribution. Home Assistant affiche Charge rapide ; la valeur d’origine reste disponible dans les diagnostics."
+              "details": "Le mode de fonctionnement détermine les réglages applicables. L’équilibrage de charge est disponible en Charge rapide et en Heures creuses, mais pas en PV Linkage. Le chargeur signale la charge rapide avec équilibrage de charge activé sous le nom Power Distribution. Home Assistant affiche Charge rapide ; la valeur d’origine reste disponible dans les diagnostics."
             }
           }
         }
@@ -902,7 +902,7 @@
           "information": {
             "name": "À propos de ce paramètre",
             "state": {
-              "details": "PV Linkage allows the configured regular grid import; PV Linkage+ uses solar surplus only. Manual and Smart Boost may still draw grid power. Existing Boost targets and time windows are not changed. Le chargeur signale la charge rapide avec équilibrage de charge activé sous le nom Power Distribution. Home Assistant affiche Charge rapide ; la valeur d’origine reste disponible dans les diagnostics."
+              "details": "PV Linkage autorise le soutirage régulier configuré ; PV Linkage+ utilise uniquement le surplus solaire. Les modes Boost manuel et intelligent peuvent aussi utiliser le réseau. Les objectifs et plages horaires Boost existants restent inchangés. Le chargeur signale la charge rapide avec équilibrage de charge activé sous le nom Power Distribution. Home Assistant affiche Charge rapide ; la valeur d’origine reste disponible dans les diagnostics."
             }
           }
         }
