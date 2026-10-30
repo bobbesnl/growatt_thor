@@ -1,3 +1,4 @@
+import { createTranslator, type Language } from '../shared/i18n';
 type AccountingMessages = Record<
   | 'title'
   | 'solar'
@@ -19,7 +20,7 @@ type AccountingMessages = Record<
   | 'loadFirst',
   string
 >;
-export const accountingDictionaries: Record<string, AccountingMessages> = {
+export const accountingDictionaries: Record<Language, AccountingMessages> = {
   en: {
     title: 'Charging energy',
     solar: 'Solar',
@@ -215,8 +216,5 @@ export const accountingDictionaries: Record<string, AccountingMessages> = {
       'Ocena iz meritev lokacije. Sončna energija se pred vozilom dodeli hiši in bateriji; to pravilo ne krmili polnilnice.',
   },
 };
-export function accountingTranslate(language: string) {
-  const base = language.toLowerCase().replaceAll('_', '-').split('-')[0];
-  const messages = accountingDictionaries[base] || accountingDictionaries.en;
-  return (key: keyof AccountingMessages) => messages[key];
-}
+export const accountingTranslate = (language = 'en') =>
+  createTranslator(accountingDictionaries, language);

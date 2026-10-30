@@ -1,0 +1,256 @@
+import type { en } from './en';
+
+export const fr: Record<keyof typeof en, string> = {
+  batteryDrainTitle: 'La batterie domestique se décharge',
+  batteryDrainSite: 'Puissance fournie par la batterie à toute la maison pendant la recharge.',
+  batteryDrainModeHint:
+    'La protection optionnelle de la batterie fonctionne uniquement en PV Linkage+. Vérifiez le mode de recharge.',
+  goalLivePilot: 'Objectif de charge',
+  goalLiveWarning:
+    "L'énergie, la durée ou le budget est envoyé à la THOR comme objectif natif. La charge démarre par commande à distance, branchement ou RFID selon le mode d'autorisation.",
+  goalScheduleWarning:
+    "Démarrage unique : Home Assistant définit l'objectif et réserve la THOR maintenant. À l'heure choisie, il actualise l'objectif et envoie la commande de démarrage.",
+  goalScheduleDailyWarning:
+    "Démarrage quotidien : Home Assistant enregistre le planning localement. À l'heure choisie, il envoie l'objectif et la commande de démarrage ; avec Plug & Charge, le véhicule doit alors être branché.",
+  goalBudgetWarning:
+    "Le budget est expérimental : les valeurs inférieures à 1 sont bloquées en raison d'un problème de micrologiciel confirmé. La devise et le tarif ne sont pas transmis avec la commande d'objectif.",
+  goalBudgetEvidence:
+    "L'arrêt automatique selon le budget n'est pas entièrement vérifié. La devise affichée dans Home Assistant et le tarif de la borne doivent correspondre.",
+  goalSchedulePlugWarning:
+    'Préparation expérimentale Plug & Charge : laissez le véhicule débranché. À l’heure choisie, Home Assistant envoie uniquement l’objectif énergétique. Attendez son acceptation, puis branchez le véhicule pour charger.',
+  goalLiveNoTarget: 'Aucune demande d’objectif pour le moment.',
+  goalLiveQueued: 'Envoi de l’objectif – non confirmé. Ne branchez pas le véhicule.',
+  goalLiveAccepted: 'Objectif accepté par le chargeur. En attente du début de la charge.',
+  goalLiveCharging: 'Charge en cours. Le respect de l’objectif n’est pas encore vérifié.',
+  goalLiveChargingVerified: 'Charge en cours. Le chargeur surveille cet objectif natif.',
+  goalLiveRetained:
+    'Demande précédente conservée ; non confirmée sur cette connexion ou dans ce mode.',
+  goalLiveUncertain:
+    'Objectif non confirmé ou résultat inconnu. Vérifiez avant de renvoyer une demande.',
+  goalLiveScheduled: 'Réservation unique acceptée par le chargeur.',
+  goalLiveScheduledDaily: 'Programmation quotidienne dans Home Assistant.',
+  goalLiveScheduleCancelled:
+    'Départ programmé annulé. Un objectif déjà enregistré peut rester sur le chargeur.',
+  goalLiveScheduleMissed:
+    'Heure de départ manquée pendant l’indisponibilité de Home Assistant. Aucun départ différé.',
+  goalLiveScheduleBlocked:
+    'Départ programmé bloqué car le chargeur n’était plus prêt. Aucun objectif ni ordre de démarrage envoyé ; vous pouvez reprogrammer sans risque.',
+  goalLiveCompleted: 'Charge terminée. L’objectif peut être remplacé.',
+  goalLiveAcceptedRfid: 'Objectif accepté. Présentez la carte RFID pour démarrer.',
+  goalLiveStartAccepted: 'Objectif et démarrage acceptés. En attente de charge.',
+  goalLiveReservationRejected:
+    'Réservation refusée ; l’objectif peut rester sur le chargeur. Vérifiez avant de réessayer.',
+  goalLiveCancellationRejected:
+    'Impossible d’annuler la réservation. Elle peut rester active jusqu’à l’heure de départ.',
+  goalLiveUnavailable:
+    'Nécessite le mode Rapide, une borne en ligne et prête, et aucune session active.',
+  goalScheduleUnavailable:
+    "Une réservation unique nécessite le mode Rapide, Plug & Charge ou l'autorisation APP/serveur, une borne débranchée et aucune session active. Un planning quotidien peut aussi être créé pendant qu'un véhicule attend.",
+  goalSchedulePlugUnavailable:
+    'La préparation programmée Plug & Charge nécessite le mode Charge rapide, une borne connectée et un véhicule débranché. Aucune session active.',
+  goalLiveOnlyEnergy:
+    'Fonctions disponibles : énergie, durée et budget ; départ immédiat, réservation unique ou départ quotidien.',
+  goalLiveConflict:
+    "La demande précédente est encore active ou incertaine. Annulez d'abord son planning ou vérifiez son état.",
+  goalLiveConfirm: 'Je confirme cet objectif de charge et je surveillerai sa première utilisation.',
+  goalLiveRefreshConfirm:
+    "Remplacer explicitement l'objectif précédent, terminé ou identique. Son historique reste enregistré.",
+  goalScheduleConfirm:
+    "Je confirme ce démarrage unique expérimental et je veillerai à ce que le véhicule soit prêt à l'heure choisie.",
+  goalScheduleReplaceConfirm:
+    "Remplacer l'objectif conservé par ce démarrage unique expérimental. Je surveillerai l'essai.",
+  goalSchedulePlugConfirm:
+    'Le véhicule est débranché. À l’heure choisie, préparez cet objectif énergétique sans démarrage à distance ; j’attendrai son acceptation avant de brancher le véhicule.',
+  goalSchedulePlugReplaceConfirm:
+    'Le véhicule est débranché. Remplacez l’objectif conservé par cette préparation programmée Plug & Charge ; je superviserai l’essai.',
+  goalScheduleCancel: 'Annuler le démarrage planifié',
+  goalScheduleCancelled: 'Départ programmé annulé. Un objectif déjà enregistré peut rester actif.',
+  goalScheduleSet: 'Réserver une fois',
+  goalScheduleDailySet: 'Planifier chaque jour',
+  goalScheduleSubmitted: 'Envoi de l’objectif et de la réservation unique au chargeur.',
+  goalScheduleDailySubmitted: 'Programmation quotidienne enregistrée dans Home Assistant.',
+  goalSchedulePlugSubmitted:
+    'Préparation Plug & Charge programmée. À l’heure choisie, attendez l’acceptation de l’objectif avant de brancher le véhicule.',
+  goalLiveSet: "Définir l'objectif de charge",
+  goalLiveSubmitted:
+    'Demande en file d’attente. Attendez l’acceptation du chargeur indiquée ci-dessus avant de brancher le véhicule.',
+  goalLiveError:
+    'Échec de la demande. Vérifiez l’état avant de réessayer. Le mode, la connexion ou un objectif précédent peut bloquer l’essai.',
+  goalLiveStartSummary:
+    "L'objectif est envoyé maintenant. La charge démarre par commande à distance, branchement ou RFID selon le mode d'autorisation.",
+  authChangeWarning:
+    'Changer l’autorisation peut redémarrer la borne. Plug & Charge peut lancer immédiatement la charge d’un véhicule branché. Les objectifs existants ne sont pas effacés. Confirmez pour mettre la modification en attente ; la borne doit encore l’accepter.',
+  authControlUnavailable:
+    'Commande d’autorisation indisponible. Aucune modification ne sera envoyée.',
+  authCancel: 'Annuler',
+  authConfirm: 'Confirmer la modification',
+  goalTitle: 'Objectif de charge',
+  goalSimulationNote:
+    "Simulation uniquement : Appliquer affiche l'objectif dans les cartes d'aperçu. Aucun enregistrement, aucune planification et aucune commande vers la borne. Le rechargement réinitialise tout.",
+  goalSimulate: 'Appliquer dans le simulateur',
+  goalSimulation: 'Simulation',
+  goalState_planned: 'Planifié',
+  goalState_active: 'Actif',
+  goalState_reached: 'Atteint',
+  goalState_cancelled: 'Annulé',
+  goalProgress: "Progression de l'objectif",
+  goalOf: 'sur',
+  goalRemaining: 'restant',
+  goalReachedReason: 'Objectif atteint (simulation).',
+  goalCancelledReason: 'Annulé dans le simulateur. Aucun ordre d’arrêt envoyé.',
+  goalSimulationHint: 'Données d’exemple · Aucune commande réelle du chargeur',
+  goalEdit: 'Modifier',
+  goalCancel: "Annuler l'objectif",
+  goalNew: 'Nouvel objectif',
+  goalPreview: 'Aperçu',
+  goalClose: 'Fermer',
+  goalEntry: 'Énergie · durée · budget',
+  goalPreviewNote:
+    "Aperçu de l'interface avec des valeurs d'exemple. Rien n'est enregistré ni envoyé à la borne. La fermeture annule vos modifications.",
+  goalType: 'Quel est votre objectif ?',
+  goalKind_energy: 'Énergie',
+  goalKind_duration: 'Durée',
+  goalKind_budget: 'Budget',
+  goalValue_energy: 'Énergie à ajouter',
+  goalValue_duration: 'Durée de charge',
+  goalValue_budget: 'Limite de coût',
+  goalExample: "Valeur d'exemple — librement modifiable dans cet aperçu.",
+  goalInvalidValue: 'Saisissez un nombre supérieur à zéro.',
+  goalInvalidDuration: 'Saisissez un nombre entier de minutes supérieur à zéro.',
+  goalInvalidBudget: 'Saisissez au moins 1 avec au maximum deux décimales.',
+  goalCurrencyMissing:
+    'Aucune devise signalée. Un budget ne peut pas encore être défini de manière fiable.',
+  goalStart: 'Début',
+  goalStart_now: 'Maintenant',
+  goalStart_later: 'À une heure définie',
+  goalEveryday: 'Tous les jours',
+  goalEverydayHint: "Se répète chaque jour à l'heure locale choisie.",
+  goalAt: 'Date et heure de début',
+  goalLocalTime: 'Heure de Home Assistant. Répétition quotidienne facultative.',
+  goalInvalidTime: 'Sélectionnez une date et une heure de début futures (heure locale).',
+  goalSummary: 'Aperçu de votre sélection',
+  goalSummary_energy: 'Ajouter {value} kWh',
+  goalSummary_duration: 'Charger pendant {value} min',
+  goalSummary_budget: "Charger jusqu'à {value} {currency}",
+  goalIncomplete: "Compléter la valeur de l'objectif",
+  goalStartNowSummary: 'Démarrer maintenant',
+  goalPvNote:
+    "Il s'agit d'une heure de début, et non d'une heure limite de fin. Les objectifs de charge restent distincts de PV Smart Boost.",
+  goalNotConnected: "Appliquer l'objectif — pas encore connecté",
+  durationShort: 'Durée',
+  standby: 'Veille',
+  noCharging: 'Aucune session active',
+  noData: 'Aucune donnée',
+  scaleUnknown: 'Échelle inconnue',
+  phasesAtStart: 'Mesures pendant la charge',
+  cost: 'Coût',
+  autoScaleHint:
+    'Automatique : modèle signalé et limite de courant configurée, calculés à 230 V nominaux par phase. Échelle d’affichage uniquement, pas une limite dynamique de puissance.',
+  manualScaleHint: 'Échelle d’affichage manuelle ; ne modifie pas la limite de charge.',
+  authUnknown: 'Accès inconnu',
+  home_assistant_rfidHint:
+    'Démarrage via Home Assistant ou RFID. La politique locale d’autorisation OCPP est un réglage distinct.',
+  rfid_onlyHint:
+    'Démarrage local en présentant une carte RFID. Le démarrage à distance n’est pas proposé en mode RFID uniquement.',
+  plug_and_chargeHint:
+    'Autorisation automatique au branchement. Après un arrêt, vous pouvez redémarrer ici ; la stratégie et les limites restent applicables.',
+  authUnknownHint: 'En attente du mode d’autorisation signalé par le chargeur.',
+  presentCard: 'Présenter la carte RFID',
+  automaticStart: 'Activation automatique',
+  vehicleConnected: 'Véhicule connecté',
+  vehicleDisconnected: 'Véhicule non connecté',
+  vehicleUnknown: 'Connexion du véhicule inconnue',
+  offline: 'Hors ligne',
+  unknown: 'Statut inconnu',
+  paused: 'En pause',
+  vehiclePauseMeterHint: 'Le véhicule ne demande pas d’énergie',
+  stationPauseMeterHint: 'Pause demandée par la borne',
+  waitingToCharge: 'En attente',
+  pv_wait: 'En attente de surplus',
+  pv_standby: 'En attente de charge',
+  chargingHint: 'Votre véhicule reçoit de l’énergie.',
+  availableHint: 'Branchez votre véhicule pour charger.',
+  idleHint: 'Aucune session de charge en cours.',
+  preparingHint: 'En attente du début de la charge.',
+  vehicleWaitHint:
+    'Le véhicule ne demande pas d’énergie. Il peut être chargé ou attendre son horaire.',
+  stationWaitHint: 'La borne a suspendu la charge. Vérifiez le mode et les limites.',
+  finishingHint: 'La charge est terminée. Vous pouvez débrancher le véhicule.',
+  reservedHint: 'Le point de charge est réservé.',
+  unavailableHint: 'La borne signale qu’elle est indisponible.',
+  offlineHint: 'Aucune connexion. Mesures actuelles et commandes indisponibles.',
+  unknownHint: 'En attente d’une mise à jour de l’état du chargeur.',
+  faultHint: 'La borne signale un défaut. Vérifiez les détails avant de redémarrer.',
+  pvWaitHint: 'La borne signale qu’elle attend de l’énergie solaire.',
+  pvStandbyHint:
+    'Le mode PV est actif. La borne attend peut-être un surplus ; la raison exacte de la pause n’est pas signalée.',
+  pvPauseMeterHint: 'En attente d’un surplus photovoltaïque suffisant.',
+  modeUnknown: 'Mode inconnu',
+  of: 'sur',
+  live: 'En direct',
+  phases: 'Phases',
+  active: 'actives',
+  phaseUnknown: 'Données de phase incomplètes',
+  phaseScale: 'Courant · maximum matériel',
+  inactive: 'Inactif',
+  missing: 'Aucune mesure',
+  stale: 'En attente de mesures récentes',
+  details: 'Détails',
+  energy: 'Énergie ajoutée',
+  duration: 'Durée de la session',
+  lastSession: 'Dernière session',
+  currentSession: 'Session en cours',
+  noSession: 'Aucune donnée de session',
+  telemetry: 'Données de mesure',
+  commandQueued: 'Commande en file d’attente — en attente de la borne.',
+  commandAccepted: 'Demande acceptée — en attente du changement d’état.',
+  commandUnconfirmed: 'État non encore confirmé. Vérifiez la borne avant de réessayer.',
+  localStartDenied:
+    'Démarrage bloqué par le contrôle d’accès local. Vérifiez « Autoriser les démarrages depuis Home Assistant » dans les paramètres THOR.',
+  commandRejected: 'La borne a refusé la demande ou n’a pas pu être jointe.',
+  callError: 'Échec de la demande. Vérifiez la connexion et les autorisations.',
+  localPending: 'Envoi de la demande…',
+  over: "Au-dessus de l'échelle configurée",
+  faultDetails: 'Détails du défaut',
+  pastFault: 'Dernier défaut enregistré (historique)',
+  externalMeter:
+    'Le compteur externe nécessite votre attention. La régulation PV peut être affectée.',
+  gridImport: 'Importation du réseau',
+  gridExport: 'Surplus',
+  gridBalanced: 'Réseau équilibré',
+  gridPowerUnavailable: 'Puissance du réseau indisponible',
+  zeroGridPoint: 'Point zéro réseau',
+  zeroGridPointHint:
+    'Puissance de charge estimée sans échange avec le réseau si les autres consommations domestiques restent constantes. Une batterie domestique peut aussi équilibrer le réseau ; cela ne détermine pas la puissance solaire disponible.',
+  pvControlPoint: 'Puissance de charge estimée',
+  pvControlPointHint:
+    'Puissance de charge estimée à partir du bilan réseau actuel et du soutirage autorisé, limitée au maximum de la jauge. Le soutirage domestique existant réduit la marge restante. Ce n’est pas une mesure solaire ; une batterie peut aussi alimenter la maison.',
+  gridImportAllowed: 'Import réseau autorisé',
+  gridImportAllowedHint:
+    'Soutirage réseau autorisé configuré pour PV Linkage. Il s’agit d’une autorisation, pas de la consommation réseau actuelle ni de la puissance solaire disponible.',
+  sourceMix: 'Sources de charge',
+  sourceSolar: 'PV',
+  sourceBattery: 'Batterie',
+  sourceGrid: 'Réseau',
+  sourceUnknown: 'Inconnu',
+  sourcesUnassigned: 'Sources de recharge indisponibles',
+  selectCharger: "Sélectionnez une borne THOR dans l'éditeur de carte.",
+  oldIntegration: "Cette carte nécessite la mise à jour correspondante de l'intégration THOR.",
+  statusEntity: 'Borne de recharge',
+  name: 'Nom de la carte',
+  maximum: 'Maximum de la jauge (kW)',
+  maximumHint:
+    'Laissez vide pour le réglage automatique selon le modèle et la limite de courant. Remplacez pour un câblage différent ou un modèle inconnu ; affichage uniquement.',
+  theme: 'Apparence',
+  auto: 'Thème Home Assistant',
+  light: 'Clair',
+  dark: 'Sombre',
+  image: "Afficher l'image de la borne",
+  phaseOption: 'Afficher les phases',
+  sessionOption: 'Afficher la session',
+  noChargers: "Aucune entité d'état THOR trouvée. Configurez d'abord l'intégration.",
+  unknownDuration: 'Durée indisponible',
+  deviceIllustration: 'Illustration du produit THOR ; l’écran n’est pas actualisé en direct.',
+  settingHint: 'Ouvrez la commande Home Assistant pour modifier la limite.',
+  viewEntity: "Afficher les détails de l'entité",
+};

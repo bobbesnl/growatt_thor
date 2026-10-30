@@ -1,3 +1,4 @@
+import { createTranslator as featureTranslator } from '../src/shared/i18n';
 import { accountingDictionaries, accountingTranslate } from '../src/sessions/accounting.locales';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -5,7 +6,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { cardLabelDictionaries, cardLabelKeys } from '../src/shared/locales/card-labels';
 import { extractSharedTranslations, sharedPaths } from '../src/shared/shared-translations';
 import { sessionDictionaries, sessionTranslate } from '../src/sessions/locales';
-import { createTranslator } from '../src/shared/strings';
+import { createCardTranslator, cardDictionaries } from '../src/shared/strings';
 import { pvDictionaries, pvTranslate } from '../src/pv/locales';
 
 const directory = new URL('../../custom_components/growatt_thor/translations/', import.meta.url);
@@ -23,20 +24,20 @@ test('Every integration language supplies all mapped card labels', () => {
   for (const [language, labels] of Object.entries(dictionaries)) {
     assert.deepEqual(Object.keys(labels).sort(), Object.keys(sharedPaths).sort(), language);
     for (const [key, value] of Object.entries(labels))
-      assert.equal(createTranslator(language, dictionaries)(key), value);
+      assert.equal(createCardTranslator(language, dictionaries)(key), value);
   }
 });
 test('Regional languages, translated card labels and missing shared labels have fallbacks', () => {
-  assert.equal(createTranslator('de-CH', dictionaries)('available'), 'Verfügbar');
-  assert.equal(createTranslator('DE_ch', dictionaries)('start'), 'Laden starten');
-  assert.equal(createTranslator('de', dictionaries)('noData'), 'Keine Daten');
-  assert.equal(createTranslator('nl', dictionaries)('noData'), 'Geen gegevens');
-  assert.equal(createTranslator('ja', dictionaries)('charging'), dictionaries.en.charging);
+  assert.equal(createCardTranslator('de-CH', dictionaries)('available'), 'Verfügbar');
+  assert.equal(createCardTranslator('DE_ch', dictionaries)('start'), 'Laden starten');
+  assert.equal(createCardTranslator('de', dictionaries)('noData'), 'Keine Daten');
+  assert.equal(createCardTranslator('nl', dictionaries)('noData'), 'Geen gegevens');
+  assert.equal(createCardTranslator('ja', dictionaries)('charging'), dictionaries.en.charging);
   assert.equal(
-    createTranslator('fr', { ...dictionaries, fr: {} })('charging'),
+    createCardTranslator('fr', { ...dictionaries, fr: {} })('charging'),
     dictionaries.en.charging,
   );
-  assert.equal(createTranslator('en', dictionaries)('future_key'), 'future_key');
+  assert.equal(createCardTranslator('en', dictionaries)('future_key'), 'future_key');
 });
 test('Only mapped plain strings enter the bundle', () => {
   assert.deepEqual(
@@ -85,14 +86,17 @@ test('Main card supplies every label for each additional integration language', 
 });
 
 test('Main-card labels use regional translations before the English fallback', () => {
-  assert.equal(createTranslator('nl-NL', dictionaries)('vehicleConnected'), 'Voertuig aangesloten');
   assert.equal(
-    createTranslator('nl', dictionaries)('goalPvNote'),
+    createCardTranslator('nl-NL', dictionaries)('vehicleConnected'),
+    'Voertuig aangesloten',
+  );
+  assert.equal(
+    createCardTranslator('nl', dictionaries)('goalPvNote'),
     'Dit is een starttijd, geen uiterste eindtijd. Laaddoelen blijven gescheiden van PV Smart Boost.',
   );
-  assert.equal(createTranslator('fr', dictionaries)('goalNew'), 'Nouvel objectif');
-  assert.equal(createTranslator('es-MX', dictionaries)('currentSession'), 'Sesión actual');
-  assert.equal(createTranslator('ja', dictionaries)('vehicleConnected'), 'Vehicle connected');
+  assert.equal(createCardTranslator('fr', dictionaries)('goalNew'), 'Nouvel objectif');
+  assert.equal(createCardTranslator('es-MX', dictionaries)('currentSession'), 'Sesión actual');
+  assert.equal(createCardTranslator('ja', dictionaries)('vehicleConnected'), 'Vehicle connected');
 });
 
 test('PV dialog supplies a complete dictionary for every integration language', () => {
@@ -115,4 +119,43 @@ test('Energy breakdown supplies complete localized explanations in every integra
   }
   assert.equal(accountingTranslate('de-CH')('title'), 'Ladeenergie');
   assert.equal(accountingTranslate('xx')('title'), 'Charging energy');
+});
+
+test('Every main-card key is present and placeholders match in all eight languages', () => {
+  const keys = Object.keys(cardDictionaries.en).sort();
+  const placeholders = (value: string) =>
+    [...value.matchAll(/\{([a-zA-Z_][a-zA-Z_0-9]*)\}/g)].map((match) => match[1]).sort();
+  assert.equal(Object.keys(cardDictionaries).length, 8);
+  for (const [language, labels] of Object.entries(cardDictionaries)) {
+    assert.deepEqual(Object.keys(labels).sort(), keys, language);
+    for (const key of keys) {
+      const value = labels[key as keyof typeof labels];
+      assert.ok(value.trim(), `${language}.${key}`);
+      assert.deepEqual(
+        placeholders(value),
+        placeholders(cardDictionaries.en[key as keyof typeof cardDictionaries.en]),
+        `${language}.${key}`,
+      );
+    }
+  }
+});
+
+test('Shared fallback order prefers regional integration, local language, English and finally the key', () => {
+  const dictionary = {
+    en: { label: 'English', englishOnly: 'Fallback' },
+    fr: { label: 'Français' },
+    'fr-ca': { label: 'Québécois' },
+  };
+  assert.equal(featureTranslator(dictionary, 'FR_ca')('label'), 'Québécois');
+  assert.equal(featureTranslator(dictionary, 'fr-CH')('label'), 'Français');
+  assert.equal(featureTranslator(dictionary, 'fr')('englishOnly'), 'Fallback');
+  assert.equal(featureTranslator(dictionary, 'fr')('missing'), 'missing');
+  assert.equal(
+    featureTranslator(dictionary, 'fr', { en: { label: 'Integration English' } })('label'),
+    'Français',
+  );
+  assert.equal(
+    featureTranslator(dictionary, 'fr-CA', { 'fr-ca': { label: 'Integration regional' } })('label'),
+    'Integration regional',
+  );
 });

@@ -1,3 +1,4 @@
+import { createTranslator, type Language } from '../shared/i18n';
 const en = {
   greenPartialHint:
     'Known solar contribution only. Some sessions have incomplete source data; battery energy of unknown origin is not counted as green.',
@@ -401,7 +402,7 @@ const sl: SessionMessages = {
   seriesEvents: 'Dogodki',
 };
 
-export const sessionDictionaries: Record<string, SessionMessages> = {
+export const sessionDictionaries: Record<Language, SessionMessages> = {
   en,
   de,
   nl,
@@ -412,8 +413,5 @@ export const sessionDictionaries: Record<string, SessionMessages> = {
   sl,
 };
 
-export const sessionTranslate = (language = 'en') => {
-  const locale = language.toLowerCase().replaceAll('_', '-');
-  const messages = sessionDictionaries[locale] || sessionDictionaries[locale.split('-')[0]] || en;
-  return (key: SessionKey) => messages[key] || en[key];
-};
+export const sessionTranslate = (language = 'en') =>
+  createTranslator(sessionDictionaries, language);

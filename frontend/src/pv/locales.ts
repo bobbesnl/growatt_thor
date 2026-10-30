@@ -1,3 +1,4 @@
+import { createTranslator, type Language } from '../shared/i18n';
 const en = {
   pvTitle: 'PV charging',
   pvStepPrerequisites: 'Ready',
@@ -115,7 +116,7 @@ const de: PvLabels = {
     'Die Einstellungen wurden nicht bestätigt. Vor einem neuen Versuch den aktuellen Zustand prüfen.',
 };
 
-export const pvDictionaries: Record<string, PvLabels> = {
+export const pvDictionaries: Record<Language, PvLabels> = {
   en,
   de,
   nl: {
@@ -461,8 +462,5 @@ export const pvDictionaries: Record<string, PvLabels> = {
 };
 
 export type PvTranslator = (key: PvKey | string) => string;
-export const pvTranslate = (language = 'en'): PvTranslator => {
-  const locale = language.toLowerCase().replaceAll('_', '-');
-  const labels = pvDictionaries[locale] || pvDictionaries[locale.split('-')[0]] || en;
-  return (key) => labels[key as PvKey] || en[key as PvKey] || key;
-};
+export const pvTranslate = (language = 'en'): PvTranslator =>
+  createTranslator(pvDictionaries, language);

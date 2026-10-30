@@ -139,12 +139,10 @@ Edit labels at their source, then rebuild:
 | Shared status, mode and control names | Integration JSON in `custom_components/growatt_thor/translations/`, mapped by `src/shared/shared-translations.ts`. |
 | Card-specific copy and compact metrics | `src/shared/locales/`. |
 | PV, session and accounting labels | Locale dictionaries in the corresponding feature package. |
-| Language selection and fallback | `src/shared/strings.ts`. |
+| Language selection and fallback | `src/shared/i18n.ts`; `strings.ts` binds the main-card dictionaries and mapped integration labels. |
 
 The build embeds the mapped integration labels; no runtime translation download
-is required. Do not duplicate those labels in `shared/strings.ts`. Regional
-locales use their base language, with English as the fallback. Translation tests
-check key parity across the eight supported integration languages.
+is required. Do not duplicate those labels in `shared/strings.ts`. Each feature uses the same translator factory: mapped integration labels, regional/base-language feature text, English, then the key. Integration labels are supplied only where their meaning matches the feature; session column headings do not inherit charger action labels. Main-card copy has one complete, typed file per language under `shared/locales/`; PV, session and accounting copy stays in feature-by-language dictionaries. Tests cover every main-card key, feature key parity and main-card placeholders across all eight languages.
 
 ## Build outputs and asset provenance
 
