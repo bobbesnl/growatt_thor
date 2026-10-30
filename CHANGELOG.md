@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## Unreleased
+
+### Fixed
+
+- Prevent artificial gaps in session charts when Home Assistant sensors report measurements within the same second.
+
 ## 2.0.0-alpha.2 — 2026-10-30
 
 ### Added
