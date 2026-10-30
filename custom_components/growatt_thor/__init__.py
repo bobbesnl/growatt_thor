@@ -5,15 +5,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import suppress
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import homeassistant.helpers.config_validation as cv
-import voluptuous as vol
-from homeassistant.components.persistent_notification import async_create as pn_create
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -26,9 +23,6 @@ from .charging.pv_service import (
     async_unload_pv_linkage_service,
 )
 from .configuration.validation import (
-    DateRangeValidationError,
-    DateRangeValidationReason,
-    parse_export_date_range,
     validate_bind_address,
     validate_poll_interval,
     validate_tcp_port,
@@ -42,6 +36,7 @@ from .const import (
     DEFAULT_PORT,
     DOMAIN,
     MIN_POLL_INTERVAL,
+    SESSION_LOG_FILE,
 )
 from .coordinator import GrowattCoordinator
 from .energy.options import CONF_BATTERY_POWER_ENTITY, CONF_BATTERY_POWER_SIGN
@@ -49,11 +44,6 @@ from .energy.sources import BATTERY_POSITIVE_DISCHARGE
 from .energy.stop_guard import EnergyStopGuard
 from .ocpp.server import start_ocpp_server
 from .presentation.frontend import async_register_frontend
-from .runtime.action_errors import (
-    raise_action_validation,
-    raise_charger_disconnected,
-    raise_communication_error,
-)
 from .runtime.entity_migrations import (
     LEGACY_SESSION_DURATION_UNIT_MIGRATION,
     PENDING_EXTERNAL_METER_READBACK_MIGRATION,
@@ -80,23 +70,16 @@ from .runtime.keys import (
 from .runtime.ownership import (
     claim_entry_runtime,
     entry_runtime_data,
-    loaded_entry_runtimes,
     release_entry_runtime,
 )
-from .runtime.polling import PollIntervalSchedule
-from .runtime.services import (
-    ChargerServiceUnavailable,
-    IntegrationServiceOperations,
-    ManualRefreshFailed,
-)
+from .runtime.polling import ExternalMeterPoller, PollIntervalSchedule
+from .runtime.service_setup import async_register_services
 from .sessions.csv import (
     append_session_row,
-    dashboard_session_data,
-    enforce_session_retention,
-    export_session_rows,
     update_session_events,
 )
-from .sessions.exports import ensure_export_cleanup, new_export_path
+from .sessions.dashboard import async_refresh_dashboard
+from .sessions.exports import ensure_export_cleanup
 from .sessions.telemetry import async_setup_session_history
 from .sessions.websocket import async_register_session_websocket
 from .targets.services import (
@@ -123,10 +106,6 @@ PLATFORMS = [
     Platform.TIME,
     Platform.BUTTON,
 ]
-
-SESSION_LOG_FILE = "growatt_thor_sessions.csv"
-
-ATTR_CONFIG_ENTRY_ID = "config_entry_id"
 
 # Records which config entries existed when per-entry storage was introduced.
 MIGRATION_STORAGE_KEY = "growatt_thor_migration"
@@ -281,16 +260,7 @@ async def _append_session_to_csv(hass, coordinator, session: dict):
 
     await hass.async_add_executor_job(_write)
     if coordinator is not None:
-        coordinator.dashboard_sessions = await hass.async_add_executor_job(
-            lambda: dashboard_session_data(
-                path,
-                source_instance_id=coordinator.source_instance_id,
-                charge_point_id=coordinator.charge_point_id,
-                include_unassigned_archive=coordinator.runtime_data.get(OWNS_LEGACY_HISTORY, False),
-            )
-        )
-        coordinator.async_set_updated_data(True)
-    _LOGGER.debug("Session appended to CSV: %s", path)
+        await async_refresh_dashboard(hass, coordinator, path)
 
 
 async def _update_session_events_in_csv(
@@ -310,167 +280,12 @@ async def _update_session_events_in_csv(
     if not updated:
         return
     if coordinator is not None:
-        coordinator.dashboard_sessions = await hass.async_add_executor_job(
-            lambda: dashboard_session_data(
-                path,
-                source_instance_id=coordinator.source_instance_id,
-                charge_point_id=coordinator.charge_point_id,
-                include_unassigned_archive=coordinator.runtime_data.get(OWNS_LEGACY_HISTORY, False),
-            )
-        )
-        coordinator.async_set_updated_data(True)
-
-
-def _register_services(hass: HomeAssistant) -> None:
-    """Register domain services once for the lifetime of Home Assistant.
-
-    The handlers resolve ``hass.data`` at call time.  They therefore remain
-    well-defined while a config entry is being reloaded: exports can still use
-    the historical CSV, while charger refresh reports a translated connection
-    error instead of disappearing from the service registry.
-    """
-    if hass.services.has_service(DOMAIN, "refresh") and hass.services.has_service(
-        DOMAIN, "export_sessions"
-    ):
-        return
-
-    operations = IntegrationServiceOperations(hass.async_create_task)
-    # Refreshes are single-flight per charger: concurrent calls for the same
-    # entry share one physical read sequence, while different chargers never
-    # wait for, or join, each other's refresh.
-    refresh_operations: dict[str, IntegrationServiceOperations] = {}
-
-    async def handle_refresh(call: ServiceCall):
-        """Coalesce concurrent refresh calls and report incomplete reads.
-
-        Without ``config_entry_id`` every loaded charger is refreshed.  The
-        call succeeds when at least one charger was refreshed and none failed;
-        a charger that is not connected is only logged.  With
-        ``config_entry_id`` the named charger must be loaded and connected.
-        """
-        _LOGGER.debug("Manual refresh triggered")
-        targets = loaded_entry_runtimes(hass.data.get(DOMAIN, {}))
-        entry_id = call.data.get(ATTR_CONFIG_ENTRY_ID)
-        if entry_id is not None:
-            # An unknown or unloaded entry has no reachable charger either.
-            targets = [target for target in targets if target[0] == entry_id]
-
-        refreshed = 0
-        failure = None
-        for target_entry_id, runtime_data in targets:
-            entry_operations = refresh_operations.setdefault(
-                target_entry_id,
-                IntegrationServiceOperations(hass.async_create_task),
-            )
-            try:
-                await entry_operations.async_refresh(runtime_data)
-            except ChargerServiceUnavailable:
-                _LOGGER.warning(
-                    "No charge point connected for %s - cannot refresh",
-                    target_entry_id,
-                )
-            except ManualRefreshFailed as exc:
-                _LOGGER.warning(
-                    "Manual refresh of %s failed during %s",
-                    target_entry_id,
-                    exc.step,
-                )
-                failure = failure or exc
-            else:
-                refreshed += 1
-
-        if failure is not None:
-            raise_communication_error(
-                "refresh_failed",
-                placeholders={"step": failure.step},
-            )
-        if not refreshed:
-            raise_charger_disconnected()
-        _LOGGER.info("Manual refresh completed successfully")
-
-    async def handle_export_sessions(call: ServiceCall):
-        """Export one date range without racing the same destination file."""
-        date_from_str = call.data.get("date_from")
-        date_to_str = call.data.get("date_to")
-
-        try:
-            date_from, date_to = parse_export_date_range(
-                date_from_str,
-                date_to_str,
-            )
-        except DateRangeValidationError as exc:
-            if exc.reason == DateRangeValidationReason.REVERSED_RANGE:
-                raise_action_validation("invalid_export_date_range")
-            raise_action_validation("invalid_export_date")
-
-        source_path = _get_session_log_path(hass)
-        export_path = new_export_path(hass.config.path("www"))
-        export_filename = export_path.name
-        target_key = str(Path(export_path).resolve())
-
-        async def _export_and_notify() -> int:
-            def _export() -> int:
-                return export_session_rows(
-                    source_path,
-                    export_path,
-                    date_from=date_from,
-                    date_to=date_to,
-                    time_zone=installation_time_zone(hass),
-                )
-
-            ensure_export_cleanup(hass)
-            count = await hass.async_add_executor_job(_export)
-            pn_create(
-                hass,
-                (
-                    f"Export ready: **{count} sessions** from "
-                    f"{date_from_str} to {date_to_str}. Link expires in 15 minutes.\n\n"
-                    f"[⬇️ Download CSV](/local/{export_filename})"
-                ),
-                title="Growatt THOR session export",
-                notification_id=(f"growatt_thor_export_{date_from_str}_{date_to_str}"),
-            )
-            _LOGGER.info(
-                "Session export: %d rows written to %s",
-                count,
-                export_path,
-            )
-            return count
-
-        try:
-            await operations.async_export(target_key, _export_and_notify)
-        except Exception as exc:
-            _LOGGER.error("Session export failed: %s", exc, exc_info=True)
-            raise_communication_error("session_export_failed")
-
-    if not hass.services.has_service(DOMAIN, "refresh"):
-        hass.services.async_register(
-            DOMAIN,
-            "refresh",
-            handle_refresh,
-            schema=vol.Schema(
-                {
-                    vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
-                }
-            ),
-        )
-    if not hass.services.has_service(DOMAIN, "export_sessions"):
-        hass.services.async_register(
-            DOMAIN,
-            "export_sessions",
-            handle_export_sessions,
-            schema=vol.Schema(
-                {
-                    vol.Required("date_from"): cv.string,
-                    vol.Required("date_to"): cv.string,
-                }
-            ),
-        )
+        await async_refresh_dashboard(hass, coordinator, path)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register integration-level services independently from config entries."""
-    _register_services(hass)
+    async_register_services(hass)
     ensure_export_cleanup(hass)
 
     await async_register_frontend(hass)
@@ -497,92 +312,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ThorConfigEntry) -> bool
     try:
         await _recover_pending_entity_migrations(hass, entry)
 
-        coordinator = GrowattCoordinator(
-            hass,
-            source_instance_id=entry.entry_id,
-            seed_from_legacy=await _legacy_seed_allowed(hass, entry),
-        )
-        entry.runtime_data = runtime_data
-        coordinator.runtime_data = runtime_data
-        coordinator.charge_point_id = entry.data.get("charge_point_id")
+        coordinator = await _create_coordinator(hass, entry, runtime_data)
 
-        def persist_charger_identity(cp_id):
-            if entry.data.get("charge_point_id") != cp_id:
-                hass.config_entries.async_update_entry(
-                    entry, data={**entry.data, "charge_point_id": cp_id}
-                )
-
-        runtime_data[PERSIST_CHARGER_IDENTITY] = persist_charger_identity
-        runtime_data[OWNS_LEGACY_HISTORY] = await _owns_legacy_history(hass, entry)
-        coordinator.authorization = LocalAuthorization(entry.data.get(CONF_AUTHORIZATION))
-        coordinator.battery_power_entity = entry.data.get(CONF_BATTERY_POWER_ENTITY)
-        coordinator.battery_power_sign = entry.data.get(
-            CONF_BATTERY_POWER_SIGN,
-            BATTERY_POSITIVE_DISCHARGE,
-        )
-        coordinator.site_accounting_options = dict(entry.data)
-        await coordinator.async_load_storage()
-        runtime_data[COORDINATOR] = coordinator
-        runtime_data[SKIP_POLLING_UNTIL] = 0.0
-        runtime_data[APPEND_SESSION_TO_CSV] = lambda session: _append_session_to_csv(
-            hass, coordinator, session
-        )
-        runtime_data[UPDATE_SESSION_EVENTS_IN_CSV] = lambda session_id, events: (
-            _update_session_events_in_csv(hass, coordinator, session_id, events)
-        )
-        # Replay checkpointed completions before loading the dashboard summary.
-        # Otherwise a restart could show history from before a recovered CSV append.
-        await coordinator.sessions.async_flush_pending()
-        session_log_path = _get_session_log_path(hass)
-
-        def _load_retained_dashboard():
-            enforce_session_retention(session_log_path)
-            return dashboard_session_data(
-                session_log_path,
-                source_instance_id=entry.entry_id,
-                charge_point_id=coordinator.charge_point_id,
-                include_unassigned_archive=runtime_data.get(OWNS_LEGACY_HISTORY, False),
-                time_zone=installation_time_zone(hass),
-            )
-
-        async def refresh_dashboard():
-            coordinator.dashboard_sessions = await hass.async_add_executor_job(
-                _load_retained_dashboard
-            )
-            coordinator.async_set_updated_data(True)
-
-        runtime_data[REFRESH_DASHBOARD] = refresh_dashboard
-        await refresh_dashboard()
-
-        # Revalidate persisted entries as well as form submissions.  This
-        # covers older or manually altered storage before opening a socket or
-        # starting a poll loop with an unusable value.
-        port = validate_tcp_port(entry.data.get(CONF_PORT, DEFAULT_PORT))
-        coordinator.location = entry.data.get(CONF_LOCATION, "")
-
-        poll_interval = validate_poll_interval(
-            entry.data.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
-            minimum=MIN_POLL_INTERVAL,
-        )
-        coordinator.external_meter_poll_interval = poll_interval
-        runtime_data[POLL_INTERVAL] = poll_interval
-        poll_interval_schedule = PollIntervalSchedule(poll_interval)
-        runtime_data[POLL_INTERVAL_SCHEDULE] = poll_interval_schedule
-
-        _LOGGER.info(
-            "%s: configured grid poll interval: %d seconds",
-            entry.title,
-            poll_interval,
-        )
-
-        bind_address = validate_bind_address(entry.data.get("bind_address", "0.0.0.0"))
-        try:
-            server = await start_ocpp_server(bind_address, port, coordinator, hass)
-        except OSError as err:
-            # Typically the port is still held by a server that is shutting
-            # down.  Let Home Assistant retry instead of failing permanently.
-            raise ConfigEntryNotReady(f"Cannot open OCPP port {port}: {err}") from err
-        runtime_data[SERVER] = server
+        server, bind_address, port = await _start_server(hass, entry, coordinator, runtime_data)
+        poll_interval_schedule = runtime_data[POLL_INTERVAL_SCHEDULE]
     except BaseException:
         # A failed setup must release its claim or every future retry would be
         # mistaken for an entry that is already loaded.  No server-owned tasks
@@ -613,58 +346,101 @@ async def async_setup_entry(hass: HomeAssistant, entry: ThorConfigEntry) -> bool
         release_entry_runtime(domain_data, entry.entry_id, runtime_data)
         raise
 
-    async def periodic_external_meter_poll():
-        """Poll the external meter while a charge point is connected."""
-        loop = asyncio.get_event_loop()
-        poll_started = False
+    await _start_background_tasks(hass, entry, coordinator, runtime_data, poll_interval_schedule)
+    return True
 
-        while True:
-            # The schedule can be woken by the options flow.  This makes a new
-            # interval effective for the very next cycle instead of leaving a
-            # stale sleep (or requiring an integration reload).
-            await poll_interval_schedule.async_wait_for_next_cycle()
-            poll_interval = poll_interval_schedule.interval
-            if not poll_started:
-                _LOGGER.info(
-                    "External meter poll started (interval: %ds)",
-                    poll_interval,
-                )
-                poll_started = True
-            try:
-                skip_until = runtime_data.get(SKIP_POLLING_UNTIL, 0.0)
-                current_time = loop.time()
 
-                while current_time < skip_until:
-                    if not getattr(
-                        periodic_external_meter_poll,
-                        "_skip_logged",
-                        False,
-                    ):
-                        remaining = int(skip_until - current_time)
-                        _LOGGER.info("Polling paused (%ds remaining)", remaining)
-                        periodic_external_meter_poll._skip_logged = True
-                    await asyncio.sleep(min(1, skip_until - current_time))
-                    current_time = loop.time()
-                periodic_external_meter_poll._skip_logged = False
+async def _create_coordinator(hass, entry, runtime_data):
+    coordinator = GrowattCoordinator(
+        hass,
+        source_instance_id=entry.entry_id,
+        seed_from_legacy=await _legacy_seed_allowed(hass, entry),
+    )
+    entry.runtime_data = runtime_data
+    coordinator.runtime_data = runtime_data
+    coordinator.charge_point_id = entry.data.get("charge_point_id")
 
-                charge_point = runtime_data.get(ACTIVE_CHARGE_POINT)
-                coordinator = runtime_data.get(COORDINATOR)
+    def persist_charger_identity(cp_id):
+        if entry.data.get("charge_point_id") != cp_id:
+            hass.config_entries.async_update_entry(
+                entry, data={**entry.data, "charge_point_id": cp_id}
+            )
 
-                if charge_point and coordinator:
-                    _LOGGER.debug("Polling external meter (%ds interval)", poll_interval)
-                    # Meter data is periodic and may be skipped once.  It must
-                    # never queue behind or wake together with a configuration
-                    # write, because the THOR firmware is sensitive to bursts
-                    # of integration-initiated requests.
-                    await charge_point.trigger_external_meterval(skip_if_writes_pending=True)
-                else:
-                    _LOGGER.debug("External meter poll skipped: charger not connected")
+    runtime_data[PERSIST_CHARGER_IDENTITY] = persist_charger_identity
+    runtime_data[OWNS_LEGACY_HISTORY] = await _owns_legacy_history(hass, entry)
+    coordinator.authorization = LocalAuthorization(entry.data.get(CONF_AUTHORIZATION))
+    coordinator.battery_power_entity = entry.data.get(CONF_BATTERY_POWER_ENTITY)
+    coordinator.battery_power_sign = entry.data.get(
+        CONF_BATTERY_POWER_SIGN,
+        BATTERY_POSITIVE_DISCHARGE,
+    )
+    coordinator.site_accounting_options = dict(entry.data)
+    await coordinator.async_load_storage()
+    runtime_data[COORDINATOR] = coordinator
+    runtime_data[SKIP_POLLING_UNTIL] = 0.0
+    runtime_data[APPEND_SESSION_TO_CSV] = lambda session: _append_session_to_csv(
+        hass, coordinator, session
+    )
+    runtime_data[UPDATE_SESSION_EVENTS_IN_CSV] = lambda session_id, events: (
+        _update_session_events_in_csv(hass, coordinator, session_id, events)
+    )
+    # Replay checkpointed completions before loading the dashboard summary.
+    # Otherwise a restart could show history from before a recovered CSV append.
+    await coordinator.sessions.async_flush_pending()
+    session_log_path = _get_session_log_path(hass)
 
-            except Exception as exc:
-                _LOGGER.error("Smart poll crashed: %s", exc, exc_info=True)
+    async def refresh_dashboard():
+        await async_refresh_dashboard(
+            hass,
+            coordinator,
+            session_log_path,
+            retain=True,
+            time_zone=installation_time_zone(hass),
+        )
 
+    runtime_data[REFRESH_DASHBOARD] = refresh_dashboard
+    await refresh_dashboard()
+
+    return coordinator
+
+
+async def _start_server(hass, entry, coordinator, runtime_data):
+    # Revalidate persisted entries as well as form submissions.  This
+    # covers older or manually altered storage before opening a socket or
+    # starting a poll loop with an unusable value.
+    port = validate_tcp_port(entry.data.get(CONF_PORT, DEFAULT_PORT))
+    coordinator.location = entry.data.get(CONF_LOCATION, "")
+
+    poll_interval = validate_poll_interval(
+        entry.data.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
+        minimum=MIN_POLL_INTERVAL,
+    )
+    coordinator.external_meter_poll_interval = poll_interval
+    runtime_data[POLL_INTERVAL] = poll_interval
+    poll_interval_schedule = PollIntervalSchedule(poll_interval)
+    runtime_data[POLL_INTERVAL_SCHEDULE] = poll_interval_schedule
+
+    _LOGGER.info(
+        "%s: configured grid poll interval: %d seconds",
+        entry.title,
+        poll_interval,
+    )
+
+    bind_address = validate_bind_address(entry.data.get("bind_address", "0.0.0.0"))
+    try:
+        server = await start_ocpp_server(bind_address, port, coordinator, hass)
+    except OSError as err:
+        # Typically the port is still held by a server that is shutting
+        # down.  Let Home Assistant retry instead of failing permanently.
+        raise ConfigEntryNotReady(f"Cannot open OCPP port {port}: {err}") from err
+    runtime_data[SERVER] = server
+    return server, bind_address, port
+
+
+async def _start_background_tasks(hass, entry, coordinator, runtime_data, poll_interval_schedule):
+    poller = ExternalMeterPoller(runtime_data, poll_interval_schedule)
     runtime_data[POLLING_TASK] = hass.async_create_background_task(
-        periodic_external_meter_poll(),
+        poller.run(),
         name=f"growatt_thor_external_meter_poll_{entry.entry_id}",
     )
 
@@ -673,7 +449,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ThorConfigEntry) -> bool
     runtime_data[ENERGY_STOP_GUARD] = EnergyStopGuard(hass, coordinator)
     runtime_data[ENERGY_STOP_GUARD].refresh()
     runtime_data[SESSION_HISTORY_UNSUB] = async_setup_session_history(hass, coordinator)
-    return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ThorConfigEntry) -> bool:

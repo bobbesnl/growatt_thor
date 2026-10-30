@@ -18,3 +18,5 @@ CONF_BIND_ADDRESS = "bind_address"
 DEFAULT_BIND_ADDRESS = "0.0.0.0"
 CONF_SITE_GRID_SOURCE = "site_grid_source"
 CONFIGURATION_WRITE_SPACING_SECONDS = 20.0
+
+SESSION_LOG_FILE = "growatt_thor_sessions.csv"

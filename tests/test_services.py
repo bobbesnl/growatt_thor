@@ -24,10 +24,11 @@ class IntegrationServiceWiringTest(unittest.TestCase):
 
     def setUp(self):
         self.tree = ast.parse(INIT_PATH.read_text(encoding="utf-8"))
+        self.registration = ast.parse((PACKAGE_PATH / "runtime/service_setup.py").read_text())
 
     def test_domain_setup_registers_services_once(self):
         setup = _function(self.tree, "async_setup")
-        register = _function(self.tree, "_register_services")
+        register = _function(self.registration, "async_register_services")
         setup_calls = {
             node.func.id
             for node in ast.walk(setup)
@@ -39,7 +40,7 @@ class IntegrationServiceWiringTest(unittest.TestCase):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
         }
 
-        self.assertIn("_register_services", setup_calls)
+        self.assertIn("async_register_services", setup_calls)
         self.assertIn("has_service", register_attributes)
         self.assertIn("async_register", register_attributes)
 
@@ -58,7 +59,7 @@ class IntegrationServiceWiringTest(unittest.TestCase):
                 self.assertNotIn("async_remove", attributes)
 
     def test_handlers_translate_refresh_and_export_failures(self):
-        register = _function(self.tree, "_register_services")
+        register = _function(self.registration, "async_register_services")
         nested = {
             node.name: node for node in register.body if isinstance(node, ast.AsyncFunctionDef)
         }

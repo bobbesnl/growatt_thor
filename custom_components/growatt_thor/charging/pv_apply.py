@@ -9,6 +9,8 @@ Assistant button entity so that the behaviour can be tested directly.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
+from dataclasses import dataclass
 
 from ocpp.v16.enums import ConfigurationStatus, DataTransferStatus
 
@@ -18,204 +20,171 @@ from ..runtime.write_results import (
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
 )
+from .contracts import PvApplyOwner, PvApplyTransport
 from .pv_linkage import (
     ConfigurationWrite,
     DataTransferWrite,
     PvLinkageApplyResult,
     PvLinkageApplyStatus,
+    PvLinkageDraft,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def apply_pv_linkage_writes(
-    *,
-    coordinator,
-    charge_point,
-    draft,
-    writes,
+    *, coordinator, charge_point, draft, writes
 ) -> ChargerWriteResult:
-    """Apply every physical step and retain an honest logical outcome.
+    """Apply an explicit snapshot; edits made in flight remain pending."""
+    return await _PvLinkageApply(coordinator, charge_point, draft, writes).run()
 
-    There is deliberately no rollback here: once the charger accepted one
-    OCPP request, sending an inverse request would merely create another
-    independently fallible operation.  Instead, partial and uncertain results
-    retain the user's draft and trigger a readback of all readable settings.
+
+@dataclass(slots=True)
+class _PvLinkageApply:
+    """Own physical progress for one logical Apply.
+
+    There is deliberately no rollback: after the charger accepts a step, an
+    inverse request would be another independently fallible operation. Partial
+    or uncertain results retain the draft and request readable state instead.
     """
-    total_steps = len(writes)
-    completed_steps = 0
-    accepted_configuration = False
-    active_step = "not_started"
-    active_configuration_key = None
-    active_configuration_generation = None
 
-    try:
-        for write in writes:
-            if isinstance(write, ConfigurationWrite):
-                active_step = write.key
-                active_configuration_key = write.key
-                active_configuration_generation = coordinator.begin_configuration_write(
-                    write.key,
-                    write.value,
-                )
-                result = await charge_point.change_configuration(
-                    write.key,
-                    write.value,
-                )
-                accepted = result in {
-                    ConfigurationStatus.accepted,
-                    ConfigurationStatus.reboot_required,
-                }
-                outcome_is_current = coordinator.acknowledge_configuration_write(
-                    write.key,
-                    generation=active_configuration_generation,
-                    accepted=accepted,
-                    result=result,
-                )
-                if not accepted:
-                    _LOGGER.error(
-                        "PV Linkage write %s was rejected: %s",
-                        write.key,
-                        result,
-                    )
-                    outcome = PvLinkageApplyResult.failed(
-                        completed_steps=completed_steps,
-                        total_steps=total_steps,
-                        failed_step=write.key,
-                        reason=result,
-                    )
-                    coordinator.record_pv_linkage_apply_result(outcome)
-                    if outcome.status == PvLinkageApplyStatus.PARTIAL:
-                        # At least one earlier step changed the physical
-                        # charger. Re-read every readable key once the queue is
-                        # idle, even if that earlier step was a DataTransfer.
-                        coordinator.schedule_configuration_refresh(delay=0)
-                        return ChargerWriteResult.partial(
-                            f"{write.key}_rejected",
-                            result,
-                        )
-                    return ChargerWriteResult.failed(
-                        f"{write.key}_rejected",
-                        result,
-                    )
-                if outcome_is_current:
-                    coordinator.update_configuration_value(
-                        write.key,
-                        write.value,
-                    )
-                accepted_configuration = True
-                completed_steps += 1
-                active_configuration_key = None
-                active_configuration_generation = None
-                continue
+    coordinator: PvApplyOwner
+    charge_point: PvApplyTransport
+    draft: PvLinkageDraft
+    writes: Sequence[ConfigurationWrite | DataTransferWrite]
+    completed_steps: int = 0
+    accepted_configuration: bool = False
+    active_step: str = "not_started"
+    active_configuration_key: str | None = None
+    active_configuration_generation: int | None = None
 
-            if isinstance(write, DataTransferWrite):
-                active_step = write.message_id
-                result = await charge_point.send_data_transfer(
-                    vendor_id=write.vendor_id,
-                    message_id=write.message_id,
-                    data=write.data,
-                )
-                if result != DataTransferStatus.accepted:
-                    _LOGGER.error(
-                        "PV Linkage DataTransfer %s was rejected: %s",
-                        write.message_id,
-                        result,
-                    )
-                    outcome = PvLinkageApplyResult.failed(
-                        completed_steps=completed_steps,
-                        total_steps=total_steps,
-                        failed_step=write.message_id,
-                        reason=result,
-                    )
-                    coordinator.record_pv_linkage_apply_result(outcome)
-                    if outcome.status == PvLinkageApplyStatus.PARTIAL:
-                        coordinator.schedule_configuration_refresh(delay=0)
-                        return ChargerWriteResult.partial(
-                            f"{write.message_id}_rejected",
-                            result,
-                        )
-                    return ChargerWriteResult.failed(
-                        f"{write.message_id}_rejected",
-                        result,
-                    )
-                completed_steps += 1
-                continue
-
-            raise TypeError(f"Unsupported PV Linkage write: {type(write).__name__}")
-    except ChargerConnectionUnavailable as exc:
-        if completed_steps == 0:
-            # No step was acknowledged, so the queue can safely rebind the
-            # whole operation to a new connection and retry it.
-            raise
-        if active_configuration_key is not None and active_configuration_generation is not None:
-            coordinator.mark_configuration_write(
-                active_configuration_key,
-                ConfigurationWriteStatus.SKIPPED,
-                generation=active_configuration_generation,
-                result="compound_aborted_after_partial_apply",
+    async def run(self) -> ChargerWriteResult:
+        try:
+            for write in self.writes:
+                if isinstance(write, ConfigurationWrite):
+                    failure = await self._apply_configuration(write)
+                elif isinstance(write, DataTransferWrite):
+                    failure = await self._apply_data_transfer(write)
+                else:
+                    raise TypeError(f"Unsupported PV Linkage write: {type(write).__name__}")
+                if failure is not None:
+                    return failure
+        except ChargerConnectionUnavailable as exc:
+            if self.completed_steps == 0:
+                # No acknowledgement: the queue may safely rebind the whole
+                # operation to a replacement connection and retry it.
+                raise
+            return self._connection_lost(exc)
+        except ChargerRequestOutcomeUncertain as exc:
+            return self._uncertain(exc)
+        except Exception as exc:
+            # A client/transport error does not prove whether OCPP received it.
+            result = self._uncertain(exc)
+            _LOGGER.error(
+                "Unexpected PV Linkage Apply failure at %s: %s",
+                self.active_step,
+                exc,
+                exc_info=True,
             )
+            return result
+
+        outcome = PvLinkageApplyResult.success(len(self.writes))
+        self.coordinator.record_pv_linkage_apply_result(outcome)
+        # Compare the exact snapshot; never erase newer unsent draft edits.
+        self.coordinator.mark_pv_linkage_draft_applied(self.draft)
+        if self.accepted_configuration:
+            self.coordinator.schedule_configuration_refresh()
+        return ChargerWriteResult.success()
+
+    async def _apply_configuration(self, write: ConfigurationWrite) -> ChargerWriteResult | None:
+        self.active_step = write.key
+        self.active_configuration_key = write.key
+        self.active_configuration_generation = self.coordinator.begin_configuration_write(
+            write.key,
+            write.value,
+        )
+        result = await self.charge_point.change_configuration(write.key, write.value)
+        accepted = result in {ConfigurationStatus.accepted, ConfigurationStatus.reboot_required}
+        outcome_is_current = self.coordinator.acknowledge_configuration_write(
+            write.key,
+            generation=self.active_configuration_generation,
+            accepted=accepted,
+            result=result,
+        )
+        if not accepted:
+            _LOGGER.error("PV Linkage write %s was rejected: %s", write.key, result)
+            return self._rejected(write.key, result)
+        if outcome_is_current:
+            self.coordinator.update_configuration_value(write.key, write.value)
+        self.accepted_configuration = True
+        self.completed_steps += 1
+        self.active_configuration_key = None
+        self.active_configuration_generation = None
+        return None
+
+    async def _apply_data_transfer(self, write: DataTransferWrite) -> ChargerWriteResult | None:
+        self.active_step = write.message_id
+        result = await self.charge_point.send_data_transfer(
+            vendor_id=write.vendor_id,
+            message_id=write.message_id,
+            data=write.data,
+        )
+        if result != DataTransferStatus.accepted:
+            _LOGGER.error("PV Linkage DataTransfer %s was rejected: %s", write.message_id, result)
+            return self._rejected(write.message_id, result)
+        self.completed_steps += 1
+        return None
+
+    def _rejected(self, step: str, result: object) -> ChargerWriteResult:
         outcome = PvLinkageApplyResult.failed(
-            completed_steps=completed_steps,
-            total_steps=total_steps,
-            failed_step=active_step,
-            reason=exc,
+            completed_steps=self.completed_steps,
+            total_steps=len(self.writes),
+            failed_step=step,
+            reason=result,
         )
-        coordinator.record_pv_linkage_apply_result(outcome)
-        coordinator.schedule_configuration_refresh(delay=0)
-        return ChargerWriteResult.partial(
-            "connection_lost_after_partial_apply",
-            str(exc),
-        )
-    except ChargerRequestOutcomeUncertain as exc:
-        if active_configuration_key is not None and active_configuration_generation is not None:
-            coordinator.mark_configuration_write(
-                active_configuration_key,
-                ConfigurationWriteStatus.UNCERTAIN,
-                generation=active_configuration_generation,
-                result=str(exc),
-            )
-        outcome = PvLinkageApplyResult.uncertain(
-            completed_steps=completed_steps,
-            total_steps=total_steps,
-            failed_step=active_step,
-            reason=exc,
-        )
-        coordinator.record_pv_linkage_apply_result(outcome)
-        coordinator.schedule_configuration_refresh(delay=0)
-        return ChargerWriteResult.uncertain(str(exc))
-    except Exception as exc:
-        # An unexpected transport/client failure does not prove whether the
-        # active request reached the charger. Preserve the draft and reconcile
-        # readable state instead of labelling the operation as rejected.
-        if active_configuration_key is not None and active_configuration_generation is not None:
-            coordinator.mark_configuration_write(
-                active_configuration_key,
-                ConfigurationWriteStatus.UNCERTAIN,
-                generation=active_configuration_generation,
-                result=str(exc),
-            )
-        outcome = PvLinkageApplyResult.uncertain(
-            completed_steps=completed_steps,
-            total_steps=total_steps,
-            failed_step=active_step,
-            reason=exc,
-        )
-        coordinator.record_pv_linkage_apply_result(outcome)
-        coordinator.schedule_configuration_refresh(delay=0)
-        _LOGGER.error(
-            "Unexpected PV Linkage Apply failure at %s: %s",
-            active_step,
-            exc,
-            exc_info=True,
-        )
-        return ChargerWriteResult.uncertain(str(exc))
+        self.coordinator.record_pv_linkage_apply_result(outcome)
+        if outcome.status == PvLinkageApplyStatus.PARTIAL:
+            # Earlier configuration or DataTransfer steps changed the charger.
+            # Re-read every readable key when the queue is idle.
+            self.coordinator.schedule_configuration_refresh(delay=0)
+            return ChargerWriteResult.partial(f"{step}_rejected", result)
+        return ChargerWriteResult.failed(f"{step}_rejected", result)
 
-    outcome = PvLinkageApplyResult.success(total_steps)
-    coordinator.record_pv_linkage_apply_result(outcome)
-    # The coordinator compares the current draft with this exact snapshot.
-    # Edits made while Apply was in flight must remain visibly pending.
-    coordinator.mark_pv_linkage_draft_applied(draft)
-    if accepted_configuration:
-        coordinator.schedule_configuration_refresh()
-    return ChargerWriteResult.success()
+    def _mark_active_configuration(self, status: ConfigurationWriteStatus, reason: str) -> None:
+        if (
+            self.active_configuration_key is not None
+            and self.active_configuration_generation is not None
+        ):
+            self.coordinator.mark_configuration_write(
+                self.active_configuration_key,
+                status,
+                generation=self.active_configuration_generation,
+                result=reason,
+            )
+
+    def _connection_lost(self, exc: Exception) -> ChargerWriteResult:
+        self._mark_active_configuration(
+            ConfigurationWriteStatus.SKIPPED,
+            "compound_aborted_after_partial_apply",
+        )
+        outcome = PvLinkageApplyResult.failed(
+            completed_steps=self.completed_steps,
+            total_steps=len(self.writes),
+            failed_step=self.active_step,
+            reason=exc,
+        )
+        self.coordinator.record_pv_linkage_apply_result(outcome)
+        self.coordinator.schedule_configuration_refresh(delay=0)
+        return ChargerWriteResult.partial("connection_lost_after_partial_apply", str(exc))
+
+    def _uncertain(self, exc: Exception) -> ChargerWriteResult:
+        self._mark_active_configuration(ConfigurationWriteStatus.UNCERTAIN, str(exc))
+        outcome = PvLinkageApplyResult.uncertain(
+            completed_steps=self.completed_steps,
+            total_steps=len(self.writes),
+            failed_step=self.active_step,
+            reason=exc,
+        )
+        self.coordinator.record_pv_linkage_apply_result(outcome)
+        self.coordinator.schedule_configuration_refresh(delay=0)
+        return ChargerWriteResult.uncertain(str(exc))

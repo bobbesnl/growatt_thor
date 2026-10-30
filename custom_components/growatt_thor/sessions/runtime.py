@@ -21,7 +21,7 @@ from ..timestamps import utc_instant, utc_timestamp
 from .active_state import ActiveSessionState
 from .completion import completion_transaction
 from .contracts import SessionOwner
-from .correlation import CORRELATION_MATCHED, build_unified_session
+from .correlation import CORRELATION_MATCHED, build_unified_session, session_record_matches
 from .display_times import session_time_zone
 from .duration import EffectiveChargingTracker
 from .events import SessionEventTracker, merge_growatt_record_events
@@ -428,18 +428,7 @@ class SessionLifecycle:
         else:
             coordinator.last_frozen_record = snapshot
 
-        completed_transaction = coordinator.last_completed_transaction
-        pending_completion = None
-        for candidate in reversed(self.pending_completions):
-            session = build_unified_session(
-                candidate["transaction"],
-                session_records=(snapshot,),
-                time_zone=session_time_zone(coordinator),
-            )
-            if session and session["correlation"]["status"] == CORRELATION_MATCHED:
-                pending_completion = candidate
-                completed_transaction = candidate["transaction"]
-                break
+        pending_completion, completed_transaction = self._match_pending_completion(snapshot)
 
         try:
             if record.parse_errors:
@@ -449,39 +438,9 @@ class SessionLifecycle:
                     "; ".join(record.parse_errors),
                 )
 
-            # The charger can send the same completed session as both message types.
-            dedup_key = record.dedup_key
-            if dedup_key is not None and (
-                dedup_key in self.applied_session_record_keys
-                or self.last_session.record_key == dedup_key
-            ):
-                duplicate_session = build_unified_session(
-                    completed_transaction,
-                    session_records=(snapshot,),
-                    charge_point_id=coordinator.charge_point_id,
-                    source_instance_id=coordinator.source_instance_id,
-                    time_zone=session_time_zone(coordinator),
-                )
-                effective_minutes = None
-                if (
-                    duplicate_session is not None
-                    and duplicate_session["correlation"]["status"] == CORRELATION_MATCHED
-                ):
-                    effective_minutes = self.pending_effective_charging_minutes.pop(
-                        str(record.transaction_id),
-                        None,
-                    )
-                if effective_minutes is not None:
-                    self.last_session = replace(
-                        self.last_session, effective_charging_minutes=effective_minutes
-                    )
-                    coordinator.hass.async_create_task(coordinator.async_save_storage())
-                _LOGGER.debug(
-                    "Duplicate Growatt session record skipped (transaction=%s)",
-                    record.transaction_id,
-                )
-                coordinator.async_set_updated_data(True)
+            if self._handle_duplicate(record, snapshot, completed_transaction):
                 return
+            dedup_key = record.dedup_key
 
             energy_kwh = record.energy_kwh
             cost = record.cost
@@ -552,47 +511,10 @@ class SessionLifecycle:
                 completed_transaction["session_id"] = identity["session_id"]
                 completed_transaction["events"] = list(events)
 
-            self.last_session = replace(
-                self.last_session,
-                energy_kwh=energy_kwh,
-                cost=cost,
-                start_time=start_str,
-                end_time=end_str,
-                plug_time=record.plug_time,
-                unplug_time=record.unplug_time,
-                duration_minutes=duration_minutes,
-                effective_charging_minutes=effective_minutes,
-                session_id=identity["session_id"],
-                session_source=identity["session_source"],
-                transaction_id=record.transaction_id,
-                charge_mode=record.charge_mode,
-                work_mode=record.work_mode,
-            )
+            self._apply_last_session(record, identity, duration_minutes, effective_minutes)
 
             coordinator.total_energy_charged += energy_kwh
-            accounting = (
-                SessionAccumulator.from_dict(pending_completion.get("accounting"))
-                if matched and pending_completion is not None
-                else coordinator.last_site_accounting
-                if matched
-                and coordinator.last_site_accounting
-                and str(record.transaction_id) == coordinator.last_site_accounting.transaction_id
-                else None
-            )
-            if accounting is not None:
-                accounting.reconcile(energy_kwh)
-                coordinator.site_accounting_totals["energy_kwh"] += energy_kwh
-                for key in (
-                    "direct_solar",
-                    "direct_grid",
-                    "battery_unknown",
-                    "unknown",
-                ):
-                    coordinator.site_accounting_totals[f"{key}_kwh"] += accounting.buckets[key]
-                if accounting.cost_covered:
-                    coordinator.site_accounting_totals["effective_grid_cost"] += (
-                        accounting.effective_grid_cost
-                    )
+            accounting = self._reconcile_accounting(record, energy_kwh, matched, pending_completion)
 
             _LOGGER.info(
                 "%s: energy=%.3f kWh, cost=%.2f, duration=%s min, total=%.3f kWh",
@@ -606,47 +528,17 @@ class SessionLifecycle:
             # CSV logging via __init__.py helper
             append_fn = coordinator.runtime_data.get(APPEND_SESSION_TO_CSV)
             if append_fn:
-                session_row = {
-                    "timestamp": coordinator.now(),
-                    "charger_id": coordinator.charge_point_id or "",
-                    "source_instance_id": coordinator.source_instance_id or "",
-                    "location": coordinator.location,
-                    # Identity above uses the original reported times. Store new
-                    # history instants explicitly so later clock settings cannot
-                    # reinterpret them, while retaining the raw vendor record.
-                    "start_time": utc_timestamp(start_str, zone) or start_str,
-                    "end_time": utc_timestamp(end_str, zone) or end_str,
-                    "energy_kwh": round(energy_kwh, 3),
-                    "cost": round(cost, 2),
-                    "duration_minutes": duration_minutes if duration_minutes is not None else "",
-                    "effective_charging_minutes": (
-                        effective_minutes if effective_minutes is not None else ""
-                    ),
-                    "transaction_id": record.transaction_id,
-                    "session_id": self.last_session.session_id,
-                    "session_source": self.last_session.session_source,
-                    "authorized_identifier": authorized_identifier or "",
-                    "authorized_alias": ((completed_transaction or {}).get("id_tag_alias") or "")
-                    if matched
-                    else "",
-                    **(accounting.as_session_dict() if accounting else {"green_energy_kwh": ""}),
-                    "power_curve": json.dumps(
-                        (completed_transaction or {}).get("power_curve", []) if matched else [],
-                        separators=(",", ":"),
-                    ),
-                    "site_house_load_source": (completed_transaction or {}).get(
-                        "site_house_load_source", ""
-                    )
-                    if matched
-                    else "",
-                    **{
-                        key: json.dumps(curve, separators=(",", ":"))
-                        for key, curve in context_curves(
-                            completed_transaction if matched else {}
-                        ).items()
-                    },
-                    "events": json.dumps(events, separators=(",", ":")),
-                }
+                session_row = self._session_row(
+                    record,
+                    completed_transaction,
+                    matched=matched,
+                    zone=zone,
+                    duration_minutes=duration_minutes,
+                    effective_minutes=effective_minutes,
+                    authorized_identifier=authorized_identifier,
+                    events=events,
+                    accounting=accounting,
+                )
                 self.outbox.enqueue(session_row)
                 coordinator.hass.async_create_task(self.async_flush_pending())
                 if (
@@ -667,3 +559,151 @@ class SessionLifecycle:
                 record.message_id,
                 exc,
             )
+
+    def _match_pending_completion(self, snapshot):
+        coordinator = self.coordinator
+        completed_transaction = coordinator.last_completed_transaction
+        pending_completion = None
+        for candidate in reversed(self.pending_completions):
+            matched = session_record_matches(
+                candidate["transaction"],
+                snapshot,
+                time_zone=session_time_zone(coordinator),
+            )
+            if matched:
+                pending_completion = candidate
+                completed_transaction = candidate["transaction"]
+                break
+
+        return pending_completion, completed_transaction
+
+    def _handle_duplicate(self, record, snapshot, completed_transaction) -> bool:
+        coordinator = self.coordinator
+        # The charger can send the same completed session as both message types.
+        dedup_key = record.dedup_key
+        if dedup_key is not None and (
+            dedup_key in self.applied_session_record_keys
+            or self.last_session.record_key == dedup_key
+        ):
+            effective_minutes = None
+            if session_record_matches(
+                completed_transaction, snapshot, time_zone=session_time_zone(coordinator)
+            ):
+                effective_minutes = self.pending_effective_charging_minutes.pop(
+                    str(record.transaction_id),
+                    None,
+                )
+            if effective_minutes is not None:
+                self.last_session = replace(
+                    self.last_session, effective_charging_minutes=effective_minutes
+                )
+                coordinator.hass.async_create_task(coordinator.async_save_storage())
+            _LOGGER.debug(
+                "Duplicate Growatt session record skipped (transaction=%s)",
+                record.transaction_id,
+            )
+            coordinator.async_set_updated_data(True)
+            return True
+
+        return False
+
+    def _apply_last_session(self, record, identity, duration_minutes, effective_minutes) -> None:
+        self.last_session = replace(
+            self.last_session,
+            energy_kwh=record.energy_kwh,
+            cost=record.cost,
+            start_time=record.start_time,
+            end_time=record.end_time,
+            plug_time=record.plug_time,
+            unplug_time=record.unplug_time,
+            duration_minutes=duration_minutes,
+            effective_charging_minutes=effective_minutes,
+            session_id=identity["session_id"],
+            session_source=identity["session_source"],
+            transaction_id=record.transaction_id,
+            charge_mode=record.charge_mode,
+            work_mode=record.work_mode,
+        )
+
+    def _reconcile_accounting(self, record, energy_kwh, matched, pending_completion):
+        coordinator = self.coordinator
+        accounting = (
+            SessionAccumulator.from_dict(pending_completion.get("accounting"))
+            if matched and pending_completion is not None
+            else coordinator.last_site_accounting
+            if matched
+            and coordinator.last_site_accounting
+            and str(record.transaction_id) == coordinator.last_site_accounting.transaction_id
+            else None
+        )
+        if accounting is not None:
+            accounting.reconcile(energy_kwh)
+            coordinator.site_accounting_totals["energy_kwh"] += energy_kwh
+            for key in (
+                "direct_solar",
+                "direct_grid",
+                "battery_unknown",
+                "unknown",
+            ):
+                coordinator.site_accounting_totals[f"{key}_kwh"] += accounting.buckets[key]
+            if accounting.cost_covered:
+                coordinator.site_accounting_totals["effective_grid_cost"] += (
+                    accounting.effective_grid_cost
+                )
+
+        return accounting
+
+    def _session_row(
+        self,
+        record,
+        completed_transaction,
+        *,
+        matched,
+        zone,
+        duration_minutes,
+        effective_minutes,
+        authorized_identifier,
+        events,
+        accounting,
+    ):
+        coordinator = self.coordinator
+        session_row = {
+            "timestamp": coordinator.now(),
+            "charger_id": coordinator.charge_point_id or "",
+            "source_instance_id": coordinator.source_instance_id or "",
+            "location": coordinator.location,
+            # Identity above uses the original reported times. Store new
+            # history instants explicitly so later clock settings cannot
+            # reinterpret them, while retaining the raw vendor record.
+            "start_time": utc_timestamp(record.start_time, zone) or record.start_time,
+            "end_time": utc_timestamp(record.end_time, zone) or record.end_time,
+            "energy_kwh": round(record.energy_kwh, 3),
+            "cost": round(record.cost, 2),
+            "duration_minutes": duration_minutes if duration_minutes is not None else "",
+            "effective_charging_minutes": (
+                effective_minutes if effective_minutes is not None else ""
+            ),
+            "transaction_id": record.transaction_id,
+            "session_id": self.last_session.session_id,
+            "session_source": self.last_session.session_source,
+            "authorized_identifier": authorized_identifier or "",
+            "authorized_alias": ((completed_transaction or {}).get("id_tag_alias") or "")
+            if matched
+            else "",
+            **(accounting.as_session_dict() if accounting else {"green_energy_kwh": ""}),
+            "power_curve": json.dumps(
+                (completed_transaction or {}).get("power_curve", []) if matched else [],
+                separators=(",", ":"),
+            ),
+            "site_house_load_source": (completed_transaction or {}).get(
+                "site_house_load_source", ""
+            )
+            if matched
+            else "",
+            **{
+                key: json.dumps(curve, separators=(",", ":"))
+                for key, curve in context_curves(completed_transaction if matched else {}).items()
+            },
+            "events": json.dumps(events, separators=(",", ":")),
+        }
+        return session_row

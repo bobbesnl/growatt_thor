@@ -61,8 +61,8 @@ class PollIntervalWiringTest(unittest.TestCase):
             setup_source,
         )
         self.assertIn(
-            "await poll_interval_schedule.async_wait_for_next_cycle()",
-            setup_source,
+            "await self.schedule.async_wait_for_next_cycle()",
+            MODULE_PATH.read_text(),
         )
         self.assertIn("schedule.update(poll_interval)", flow_source)
 

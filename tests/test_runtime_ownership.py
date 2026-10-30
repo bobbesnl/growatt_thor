@@ -185,19 +185,20 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
             and isinstance(node.func, ast.Name)
             and node.func.id == "claim_entry_runtime"
         )
-        coordinator_assignment = next(
+        create_call = next(
             node
             for node in ast.walk(setup)
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Subscript)
-                and isinstance(target.slice, ast.Name)
-                and target.slice.id == "COORDINATOR"
-                for target in node.targets
-            )
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "_create_coordinator"
         )
-
-        self.assertLess(claim_call.lineno, coordinator_assignment.lineno)
+        self.assertLess(claim_call.lineno, create_call.lineno)
+        create = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "_create_coordinator"
+        )
+        self.assertIn("runtime_data[COORDINATOR] = coordinator", ast.unparse(create))
 
     def test_non_owner_unload_is_guarded_before_runtime_cleanup(self):
         tree = ast.parse((PACKAGE_PATH / "__init__.py").read_text())

@@ -96,6 +96,10 @@ flowchart LR
   Targets[Native target runtime] --> Queue
 ```
 
+Meter processing separates transaction admission, site accounting, effective duration, live-sample projections and curve recording. `configuration/values.py` declares live configuration projections and the pure paired-time parser. Session record matching avoids building presentation records for correlation-only checks; lifecycle helpers keep deduplication, last-session updates, accounting and CSV row construction separate. Compound PV Apply owns its progress in one operation object, preserving queue ownership and partial/uncertain outcomes.
+
+Entry setup keeps claim/failure cleanup around explicit coordinator, server and background-task stages. `runtime/polling.py::ExternalMeterPoller` owns polling state. HA service registration lives in `runtime/service_setup.py`; the existing `runtime/services.py` stays independent of HA and owns single-flight refresh/export operations. `sessions/dashboard.py` shares retained-history refresh while preserving the callers' timezone and retention settings.
+
 ## Safety and compatibility invariants
 
 - An accepted command does not prove a transaction started, stopped or moved

@@ -245,29 +245,13 @@ def build_unified_session(
     )
 
     return {
-        "correlation": {
-            "status": correlation_status,
-            "transaction_id_match": (
-                transaction_id == record_transaction_id
-                if transaction_id is not None and record_transaction_id is not None
-                else None
-            ),
-            "sources": [
-                source
-                for source, available in (
-                    ("ocpp", has_ocpp),
-                    (
-                        "currentrecord",
-                        any(info["message_id"] == "currentrecord" for info in matching_records),
-                    ),
-                    (
-                        "frozenrecord",
-                        any(info["message_id"] == "frozenrecord" for info in matching_records),
-                    ),
-                )
-                if available
-            ],
-        },
+        "correlation": _session_correlation(
+            correlation_status,
+            has_ocpp,
+            matching_records,
+            record_transaction_id,
+            transaction_id,
+        ),
         "identity": {
             "session_id": session_id,
             "session_source": session_source,
@@ -279,48 +263,124 @@ def build_unified_session(
                 _optional_text(getattr(record, "record_id", None)) if record is not None else None
             ),
         },
-        "timing": {
-            "effective_charging_duration_minutes": _optional_float(
-                transaction.get("effective_charging_duration_minutes")
-            ),
-            "ocpp": {
-                "start_timestamp": _optional_text(start_request.get("timestamp")),
-                "start_received_at": _optional_text(start_snapshot.get("received_at")),
-                "stop_timestamp": _optional_text(stop_request.get("timestamp")),
-                "stop_received_at": _optional_text(stop_snapshot.get("received_at")),
-            },
-            "growatt": {
-                "plug_time": _optional_text(getattr(record, "plug_time", None)),
-                "start_time": _optional_text(getattr(record, "start_time", None)),
-                "end_time": _optional_text(getattr(record, "end_time", None)),
-                "unplug_time": _optional_text(getattr(record, "unplug_time", None)),
-                "duration_minutes": _optional_float(getattr(record, "duration_minutes", None)),
-            },
-        },
-        "metering": {
-            "ocpp_meter_start_wh": meter_start,
-            "ocpp_meter_stop_wh": meter_stop,
-            "ocpp_meter_delta_wh": meter_delta,
-            "latest_meter_value_wh": latest_meter_energy,
-            "growatt_energy_wh": growatt_energy,
-            "energy_delta_wh": (
-                growatt_energy - comparison_energy
-                if growatt_energy is not None and comparison_energy is not None
-                else None
-            ),
-        },
-        "billing": {
-            "growatt_cost": (
-                _optional_float(getattr(record, "cost", None)) if record is not None else None
-            ),
-        },
-        "modes": {
-            "growatt_charge_mode": (
-                _optional_text(getattr(record, "charge_mode", None)) if record is not None else None
-            ),
-            "growatt_work_mode": (
-                _optional_text(getattr(record, "work_mode", None)) if record is not None else None
-            ),
-        },
+        "timing": _session_timing(
+            record, start_request, start_snapshot, stop_request, stop_snapshot, transaction
+        ),
+        "metering": _session_metering(
+            comparison_energy,
+            growatt_energy,
+            latest_meter_energy,
+            meter_delta,
+            meter_start,
+            meter_stop,
+        ),
+        "billing": _session_billing(record),
+        "modes": _session_modes(record),
         "stop_reason": _optional_text(stop_request.get("reason")),
     }
+
+
+def _session_correlation(
+    correlation_status,
+    has_ocpp,
+    matching_records,
+    record_transaction_id,
+    transaction_id,
+) -> dict[str, Any]:
+    return {
+        "status": correlation_status,
+        "transaction_id_match": (
+            transaction_id == record_transaction_id
+            if transaction_id is not None and record_transaction_id is not None
+            else None
+        ),
+        "sources": [
+            source
+            for source, available in (
+                ("ocpp", has_ocpp),
+                (
+                    "currentrecord",
+                    any(info["message_id"] == "currentrecord" for info in matching_records),
+                ),
+                (
+                    "frozenrecord",
+                    any(info["message_id"] == "frozenrecord" for info in matching_records),
+                ),
+            )
+            if available
+        ],
+    }
+
+
+def _session_timing(
+    record, start_request, start_snapshot, stop_request, stop_snapshot, transaction
+) -> dict[str, Any]:
+    return {
+        "effective_charging_duration_minutes": _optional_float(
+            transaction.get("effective_charging_duration_minutes")
+        ),
+        "ocpp": {
+            "start_timestamp": _optional_text(start_request.get("timestamp")),
+            "start_received_at": _optional_text(start_snapshot.get("received_at")),
+            "stop_timestamp": _optional_text(stop_request.get("timestamp")),
+            "stop_received_at": _optional_text(stop_snapshot.get("received_at")),
+        },
+        "growatt": {
+            "plug_time": _optional_text(getattr(record, "plug_time", None)),
+            "start_time": _optional_text(getattr(record, "start_time", None)),
+            "end_time": _optional_text(getattr(record, "end_time", None)),
+            "unplug_time": _optional_text(getattr(record, "unplug_time", None)),
+            "duration_minutes": _optional_float(getattr(record, "duration_minutes", None)),
+        },
+    }
+
+
+def _session_metering(
+    comparison_energy, growatt_energy, latest_meter_energy, meter_delta, meter_start, meter_stop
+) -> dict[str, Any]:
+    return {
+        "ocpp_meter_start_wh": meter_start,
+        "ocpp_meter_stop_wh": meter_stop,
+        "ocpp_meter_delta_wh": meter_delta,
+        "latest_meter_value_wh": latest_meter_energy,
+        "growatt_energy_wh": growatt_energy,
+        "energy_delta_wh": (
+            growatt_energy - comparison_energy
+            if growatt_energy is not None and comparison_energy is not None
+            else None
+        ),
+    }
+
+
+def _session_billing(record) -> dict[str, Any]:
+    return {
+        "growatt_cost": (
+            _optional_float(getattr(record, "cost", None)) if record is not None else None
+        ),
+    }
+
+
+def _session_modes(record) -> dict[str, Any]:
+    return {
+        "growatt_charge_mode": (
+            _optional_text(getattr(record, "charge_mode", None)) if record is not None else None
+        ),
+        "growatt_work_mode": (
+            _optional_text(getattr(record, "work_mode", None)) if record is not None else None
+        ),
+    }
+
+
+def session_record_matches(transaction, snapshot, *, time_zone=None) -> bool:
+    """Check correlation without building a complete presentation record."""
+    transaction = _mapping(transaction)
+    if not transaction:
+        return False
+    start = _mapping(transaction.get("start"))
+    matches = _select_records(
+        (snapshot,),
+        _transaction_id(transaction),
+        _optional_text(start.get("received_at")),
+        time_zone,
+    )
+    return _primary_record(matches) is not None

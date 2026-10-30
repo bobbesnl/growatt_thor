@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
+from datetime import datetime, time
 from enum import Enum
 from types import MappingProxyType
 from typing import Final, TypeAlias
@@ -832,3 +833,39 @@ def redact_configuration_value(key: object, value: object) -> object:
     if definition is None or definition.sensitivity != ConfigurationSensitivity.PUBLIC:
         return "<redacted>"
     return value
+
+
+def parse_auto_charge_time(raw: str | None) -> tuple[time, time] | None:
+    """Parse the paired schedule with the charger's existing HH:MM rules."""
+    if not raw or "-" not in raw:
+        return None
+    start, stop = raw.split("-", 1)
+    return (
+        datetime.strptime(start.strip(), "%H:%M").time(),
+        datetime.strptime(stop.strip(), "%H:%M").time(),
+    )
+
+
+def _numeric_projection(raw: object, reported: ConfigurationValue | None) -> float | None:
+    return configuration_numeric_value(reported)
+
+
+def _price_projection(raw: object, reported: ConfigurationValue | None) -> float | None:
+    price = parse_time_sharing_price(raw)
+    return round(price, 2) if price is not None else None
+
+
+# The value metadata remains authoritative; these are the established live
+# coordinator observations that also update existing entity backing values.
+COORDINATOR_CONFIGURATION_PROJECTIONS = {
+    "G_MaxCurrent": (_numeric_projection, "max_current"),
+    "G_ExternalLimitPower": (_numeric_projection, "external_limit_power"),
+    "G_ExternalLimitPowerEnable": (
+        lambda raw, _: raw in ("1", "true", "True"),
+        "external_limit_power_enable",
+    ),
+    "G_ChargerMode": (lambda raw, _: int(raw), "charger_mode"),
+    "G_ServerURL": (lambda raw, _: raw, "server_url"),
+    "G_LCDCloseEnable": (lambda raw, _: raw, "lcd_close_enable"),
+    "G_TimeSharingPrice": (_price_projection, "electricity_price"),
+}

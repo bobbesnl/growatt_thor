@@ -29,13 +29,13 @@ from .charging.pv_linkage import (
 )
 from .coerce import enum_value
 from .configuration.values import (
+    COORDINATOR_CONFIGURATION_PROJECTIONS,
     ConfigurationValue,
     configuration_entity_state,
-    configuration_numeric_value,
     configuration_value_from_item,
     merge_configuration_values,
     normalize_unknown_configuration_keys,
-    parse_time_sharing_price,
+    parse_auto_charge_time,
 )
 from .configuration.writes import (
     ConfigurationWriteState,
@@ -114,6 +114,15 @@ STORAGE_VERSION = 1
 MIN_METER_GAP_SECONDS = 30.0
 METER_GAP_INTERVAL_MULTIPLIER = 3
 DEFAULT_METER_GAP_SECONDS = 180.0
+
+
+LIVE_SAMPLE_PROJECTIONS = {
+    DEFAULT_MEASURAND: ("energy", False),
+    "Power.Active.Import": ("phase_power", True),
+    "Current.Import": ("currents", True),
+    "Voltage": ("voltages", True),
+    "Temperature": ("temperature", False),
+}
 
 
 def storage_key_for_entry(source_instance_id) -> str:
@@ -1200,22 +1209,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         transaction_id=None,
     ):
         """Retain all MeterValues samples and update known live sensors."""
-        if transaction_id is not None:
-            active_id = self.transaction_id
-            if active_id is None:
-                # Reconnect recovery requires a charging observation; late
-                # telemetry alone cannot resurrect an ended transaction.
-                if normalize_ocpp_status(self.status) not in {
-                    "charging",
-                    "suspended_ev",
-                    "suspended_evse",
-                }:
-                    return
-                self.transaction_id = transaction_id
-                self.schedule_storage_save()
-            elif str(transaction_id) != str(active_id):
-                _LOGGER.info("Ignoring MeterValues for inactive transaction %s", transaction_id)
-                return
+        if not self._accept_meter_transaction(transaction_id):
+            return
         parsed_values = parse_meter_values(
             meter_values,
             time_zone=meter_time_zone(
@@ -1230,7 +1225,60 @@ class GrowattCoordinator(DataUpdateCoordinator):
             "meter_values": [entry.as_dict() for entry in parsed_values],
         }
         received_at = parse_at(self.last_meter_values["received_at"])
+        self._observe_site_accounting(parsed_values, received_at, transaction_id)
+        effective_transaction_id = self._observe_effective_charging(parsed_values, transaction_id)
+        self.sessions.observe_context()
+        for entry in parsed_values:
+            if self.sessions.observe_meter(entry, self.last_meter_values["received_at"]):
+                self.schedule_storage_save()
+
+        live_power = self._live_power_follows_samples()
         updated = False
+        ignored_live_samples = False
+        for entry in parsed_values:
+            entry_updated, entry_ignored = self._apply_live_samples(entry, live_power=live_power)
+            updated = entry_updated or updated
+            ignored_live_samples = entry_ignored or ignored_live_samples
+            self._append_power_curve(entry, effective_transaction_id)
+
+        if self.phase_power:
+            total = sum(self.phase_power.values())
+            if self.power != total:
+                self.power = total
+                updated = True
+
+        if ignored_live_samples:
+            _LOGGER.debug(
+                "Ignoring live power and current from MeterValues while status is %s",
+                self.status,
+            )
+        _LOGGER.debug(
+            "Retained %d MeterValues entries%s",
+            len(parsed_values),
+            " and updated live sensors" if updated else "",
+        )
+        self.async_set_updated_data(True)
+
+    def _accept_meter_transaction(self, transaction_id) -> bool:
+        if transaction_id is not None:
+            active_id = self.transaction_id
+            if active_id is None:
+                # Reconnect recovery requires a charging observation; late
+                # telemetry alone cannot resurrect an ended transaction.
+                if normalize_ocpp_status(self.status) not in {
+                    "charging",
+                    "suspended_ev",
+                    "suspended_evse",
+                }:
+                    return False
+                self.transaction_id = transaction_id
+                self.schedule_storage_save()
+            elif str(transaction_id) != str(active_id):
+                _LOGGER.info("Ignoring MeterValues for inactive transaction %s", transaction_id)
+                return False
+        return True
+
+    def _observe_site_accounting(self, parsed_values, received_at, transaction_id) -> None:
         if (
             self.site_accounting is not None
             and str(transaction_id or self.transaction_id) == self.site_accounting.transaction_id
@@ -1278,6 +1326,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
                     )
             if accounting_updated:
                 self.hass.async_create_task(self.async_save_storage())
+
+    def _observe_effective_charging(self, parsed_values, transaction_id):
         effective_transaction_id = (
             transaction_id if transaction_id is not None else self.transaction_id
         )
@@ -1297,106 +1347,71 @@ class GrowattCoordinator(DataUpdateCoordinator):
             if effective_updated:
                 self.schedule_storage_save()
 
-        self.sessions.observe_context()
-        for entry in parsed_values:
-            if self.sessions.observe_meter(entry, self.last_meter_values["received_at"]):
-                self.schedule_storage_save()
+        return effective_transaction_id
 
-        live_power = self._live_power_follows_samples()
+    def _apply_live_samples(self, entry, *, live_power: bool) -> tuple[bool, bool]:
+        updated = False
         ignored_live_samples = False
+        for sample in entry.samples:
+            value = sample.numeric_value
+            if value is None:
+                _LOGGER.warning(
+                    "Failed to parse MeterValues sample value %r for %s",
+                    sample.raw_value,
+                    sample.measurand,
+                )
+                continue
 
-        for entry in parsed_values:
-            for sample in entry.samples:
-                value = sample.numeric_value
-                if value is None:
-                    _LOGGER.warning(
-                        "Failed to parse MeterValues sample value %r for %s",
-                        sample.raw_value,
-                        sample.measurand,
-                    )
-                    continue
+            if sample.measurand in ("Power.Active.Import", "Current.Import") and not live_power:
+                # Retained above in last_meter_values for diagnostics,
+                # but not shown as live: the charger reports that it is
+                # not delivering energy.
+                ignored_live_samples = True
+                continue
 
-                if sample.measurand in ("Power.Active.Import", "Current.Import") and not live_power:
-                    # Retained above in last_meter_values for diagnostics,
-                    # but not shown as live: the charger reports that it is
-                    # not delivering energy.
-                    ignored_live_samples = True
-                    continue
-
-                if sample.measurand == DEFAULT_MEASURAND:
-                    if sample.context == "Transaction.Begin":
-                        _LOGGER.debug(
-                            "Skipping transaction-begin energy sample: %.3f Wh",
-                            value,
-                        )
-                    elif self.energy != value:
-                        self.energy = value
-                        updated = True
-
-                elif sample.measurand == "Power.Active.Import":
-                    effective_phase = sample.phase or "L1"
-                    if self.phase_power.get(effective_phase) != value:
-                        self.phase_power[effective_phase] = value
-                        updated = True
-
-                elif sample.measurand == "Current.Import":
-                    effective_phase = sample.phase or "L1"
-                    if self.currents.get(effective_phase) != value:
-                        self.currents[effective_phase] = value
-                        updated = True
-
-                elif sample.measurand == "Voltage":
-                    effective_phase = sample.phase or "L1"
-                    if self.voltages.get(effective_phase) != value:
-                        self.voltages[effective_phase] = value
-                        updated = True
-
-                elif sample.measurand == "Temperature":
-                    if self.temperature != value:
-                        self.temperature = value
-                        updated = True
-
-            if effective_transaction_id is not None:
-                point = charging_power_curve_point(entry)
-                if point is not None and (
-                    not self.sessions.active_power_curve
-                    or self.sessions.active_power_curve[-1][0] != point[0]
-                ):
-                    self.sessions.active_power_curve.append(point)
-                    if len(self.sessions.active_power_curve) > SESSION_CURVE_POINT_LIMIT * 2:
-                        self.sessions.active_power_curve = downsample_curve(
-                            self.sessions.active_power_curve,
-                            limit=SESSION_CURVE_POINT_LIMIT,
-                            event_times=(
-                                event.get("at")
-                                for event in (
-                                    self.sessions.event_tracker.events
-                                    if self.sessions.event_tracker is not None
-                                    else ()
-                                )
-                            ),
-                        )
-                    if self.sessions.event_tracker is not None:
-                        self.sessions.event_tracker.observe_power(point[0], point[1])
-                    self.schedule_storage_save()
-
-        if self.phase_power:
-            total = sum(self.phase_power.values())
-            if self.power != total:
-                self.power = total
+            projection = LIVE_SAMPLE_PROJECTIONS.get(sample.measurand)
+            if projection is None:
+                continue
+            attribute, phased = projection
+            if sample.measurand == DEFAULT_MEASURAND and sample.context == "Transaction.Begin":
+                _LOGGER.debug("Skipping transaction-begin energy sample: %.3f Wh", value)
+                continue
+            if phased:
+                observations = getattr(self, attribute)
+                phase = sample.phase or "L1"
+                if observations.get(phase) != value:
+                    observations[phase] = value
+                    updated = True
+            elif getattr(self, attribute) != value:
+                setattr(self, attribute, value)
                 updated = True
 
-        if ignored_live_samples:
-            _LOGGER.debug(
-                "Ignoring live power and current from MeterValues while status is %s",
-                self.status,
-            )
-        _LOGGER.debug(
-            "Retained %d MeterValues entries%s",
-            len(parsed_values),
-            " and updated live sensors" if updated else "",
-        )
-        self.async_set_updated_data(True)
+        return updated, ignored_live_samples
+
+    def _append_power_curve(self, entry, effective_transaction_id) -> None:
+        if effective_transaction_id is not None:
+            point = charging_power_curve_point(entry)
+            if point is not None and (
+                not self.sessions.active_power_curve
+                or self.sessions.active_power_curve[-1][0] != point[0]
+            ):
+                self.sessions.active_power_curve.append(point)
+                if len(self.sessions.active_power_curve) > SESSION_CURVE_POINT_LIMIT * 2:
+                    self.sessions.active_power_curve = downsample_curve(
+                        self.sessions.active_power_curve,
+                        limit=SESSION_CURVE_POINT_LIMIT,
+                        event_times=(
+                            event.get("at")
+                            for event in (
+                                self.sessions.event_tracker.events
+                                if self.sessions.event_tracker is not None
+                                else ()
+                            )
+                        ),
+                    )
+                if self.sessions.event_tracker is not None:
+                    self.sessions.event_tracker.observe_power(point[0], point[1])
+                self.schedule_storage_save()
 
     def _live_power_follows_samples(self) -> bool:
         """Return whether MeterValues may update live power and current.
@@ -1469,83 +1484,28 @@ class GrowattCoordinator(DataUpdateCoordinator):
             raw = item.get("value")
 
             try:
-                if key == "G_MaxCurrent":
-                    value = configuration_numeric_value(self.configuration_values.get(key))
-                    if value is None:
-                        continue
-                    if self.max_current != value:
-                        self.max_current = value
-                        _LOGGER.debug("Config: MaxCurrent = %.1f A", value)
-                        updated = True
-
-                elif key == "G_ExternalLimitPower":
-                    value = configuration_numeric_value(self.configuration_values.get(key))
-                    if value is None:
-                        continue
-                    if self.external_limit_power != value:
-                        self.external_limit_power = value
-                        _LOGGER.debug("Config: ExternalLimitPower = %.1f kW", value)
-                        updated = True
-
-                elif key == "G_ExternalLimitPowerEnable":
-                    value = raw in ("1", "true", "True")
-                    if self.external_limit_power_enable != value:
-                        self.external_limit_power_enable = value
-                        _LOGGER.debug("Config: ExternalLimitPowerEnable = %s", value)
-                        updated = True
-
-                elif key == "G_ChargerMode":
-                    value = int(raw)
-                    if self.charger_mode != value:
-                        self.charger_mode = value
-                        _LOGGER.debug("Config: ChargerMode = %d", value)
-                        updated = True
-
-                elif key == "G_ServerURL":
-                    if self.server_url != raw:
-                        self.server_url = raw
-                        _LOGGER.debug("Config: ServerURL = %s", raw)
-                        updated = True
-
-                elif key == "G_AutoChargeTime":
-                    if raw and "-" in raw:
-                        start_str, stop_str = raw.split("-", 1)
-                        try:
-                            start_time = datetime.strptime(start_str.strip(), "%H:%M").time()
-                            stop_time = datetime.strptime(stop_str.strip(), "%H:%M").time()
-
-                            if self.auto_charge_start_time != start_time:
-                                self.auto_charge_start_time = start_time
-                                self.auto_charge_start_time_pending = start_time
-                                _LOGGER.debug("Config: AutoChargeStartTime = %s", start_time)
-                                updated = True
-
-                            if self.auto_charge_stop_time != stop_time:
-                                self.auto_charge_stop_time = stop_time
-                                self.auto_charge_stop_time_pending = stop_time
-                                _LOGGER.debug("Config: AutoChargeStopTime = %s", stop_time)
-                                updated = True
-                        except ValueError as exc:
-                            _LOGGER.warning("Failed to parse G_AutoChargeTime '%s': %s", raw, exc)
-
-                elif key == "G_LCDCloseEnable":
-                    if self.lcd_close_enable != raw:
-                        self.lcd_close_enable = raw
-                        _LOGGER.debug("Config: LCDCloseEnable = %s", raw)
-                        updated = True
-
-                elif key == "G_TimeSharingPrice":
-                    value = parse_time_sharing_price(raw)
-                    if value is not None:
-                        value = round(value, 2)
-                        if self.electricity_price != value:
-                            self.electricity_price = value
-                            _LOGGER.debug("Config: G_TimeSharingPrice = %.2f per kWh", value)
-                            updated = True
-                    else:
+                if key == "G_AutoChargeTime":
+                    updated = self._apply_auto_charge_time(raw) or updated
+                    continue
+                projection = COORDINATOR_CONFIGURATION_PROJECTIONS.get(key)
+                if projection is None:
+                    continue
+                parser, attribute = projection
+                value = parser(raw, self.configuration_values.get(key))
+                if value is None and key in {
+                    "G_MaxCurrent",
+                    "G_ExternalLimitPower",
+                    "G_TimeSharingPrice",
+                }:
+                    if key == "G_TimeSharingPrice":
                         _LOGGER.warning(
                             "Could not parse G_TimeSharingPrice from raw value: %s", raw
                         )
+                    continue
+                if getattr(self, attribute) != value:
+                    setattr(self, attribute, value)
+                    _LOGGER.debug("Config: %s = %s", attribute, value)
+                    updated = True
 
             except (ValueError, TypeError) as exc:
                 _LOGGER.warning("Failed to parse config key=%s value=%s: %s", key, raw, exc)
@@ -1561,6 +1521,25 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         if updated:
             self.async_set_updated_data(True)
+
+    def _apply_auto_charge_time(self, raw) -> bool:
+        try:
+            schedule = parse_auto_charge_time(raw)
+        except ValueError as exc:
+            _LOGGER.warning("Failed to parse G_AutoChargeTime '%s': %s", raw, exc)
+            return False
+        if schedule is None:
+            return False
+        updated = False
+        for attribute, value in zip(
+            ("auto_charge_start_time", "auto_charge_stop_time"), schedule, strict=True
+        ):
+            if getattr(self, attribute) != value:
+                setattr(self, attribute, value)
+                setattr(self, attribute + "_pending", value)
+                _LOGGER.debug("Config: %s = %s", attribute, value)
+                updated = True
+        return updated
 
     # Growatt session records
 

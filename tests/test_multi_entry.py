@@ -270,7 +270,7 @@ class PerEntryWiringSourceTest(unittest.TestCase):
         self.assertIn("coordinator.runtime_data = runtime_data", source)
 
     def test_refresh_accepts_an_optional_charger(self):
-        source = (PACKAGE_PATH / "__init__.py").read_text(encoding="utf-8")
+        source = (PACKAGE_PATH / "runtime/service_setup.py").read_text(encoding="utf-8")
         services = (PACKAGE_PATH / "services.yaml").read_text(encoding="utf-8")
         self.assertIn("vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string", source)
         self.assertIn("config_entry_id:", services)
