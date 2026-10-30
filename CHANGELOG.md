@@ -6,42 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-## Unreleased — after 2.0.0-alpha.1
+## 2.0.0-alpha.2 — 2026-10-30
 
 ### Added
 
-- Record PV surplus, household power, battery flow, summed phase current and the maximum current per phase in real charging sessions. Keep these curves across Home Assistant restarts and in the session history, including charging pauses. Where no household sensor is configured, show a calculated household curve as `≈` when the required measurements are available.
-- Show RFID card names in the dashboard session history, with the identifier in a smaller line underneath. Unnamed cards still show only their identifier; search finds both names and IDs.
-- Learn an RFID card from the wallbox in the integration settings, including cards rejected by the current allowlist. Confirm the detected card before saving it, and optionally give it a name such as “Family car”.
-- Add optional card names to the RFID allowlist. Session CSV files and downloads include the reported card identifier and its name at the time the session started.
-- Choose which local Home Assistant IP address accepts connections from the wallbox. This setting is available during setup and in General settings, and is useful when Home Assistant has more than one network connection.
+- Learn RFID cards directly from the wallbox and give them names, such as “Family car”. Names appear in the charging history and CSV exports.
+- Add PV surplus, household power, battery flow and current readings to session charts, including across Home Assistant restarts.
+- Choose the local connection address when Home Assistant has multiple network connections.
 
 ### Fixed
 
-- Keep completed session dates and event markers aligned with the charging curve when the wallbox uses a different clock offset after a clock change.
-- Keep vehicle pauses in the charging history after a Home Assistant restart. A manual stop no longer appears as unplugging when the cable remains connected.
-- Keep live charging power, phase readings and source accounting available after a clock change when the wallbox still uses a fixed time zone. Interpret its reported clock setting before checking whether measurements are current.
-- Show the active session's start time in the correct time zone when the wallbox uses a fixed clock offset, keeping the session identity and original reported timestamp unchanged.
-- Prevent delayed wallbox messages from ending the wrong charging session or bringing an already finished session back into the display.
-- Keep automatic charging protection working if a stop request expires or is skipped before reaching the wallbox. The configured waiting period starts again before another stop is attempted.
-- Remember the assigned wallbox after a Home Assistant restart, so a wallbox with a different charger ID cannot take its place. Hide charger IDs in downloaded session diagnostics.
-- Show the correct integration version in the dashboard card.
-- Give CSV downloads unique links and remove the files automatically after 15 minutes. Protect text fields against being interpreted as spreadsheet formulas. Anyone with the download link can access the file until it is removed.
-- Prevent charging targets from remaining stuck as busy when a request could not be sent. After a restart, interrupted requests are shown as having an unknown outcome and are not repeated automatically.
-- Keep daily charging schedules at the chosen local time after a change between summer and winter time.
-- Prevent repeated reports of recent completed sessions from adding the same energy twice or creating duplicate history entries.
-- Keep recent session details, including RFID information, events and charging curves, across Home Assistant restarts while waiting for the wallbox's final session report.
-- Reduce unnecessary requests to the wallbox when it connects to Home Assistant.
-- Restore session charts correctly after closing a notice, showing curves again or reconnecting the dashboard.
-- Use the Home Assistant time zone consistently for session displays and charging-target entry, even when the browser uses a different time zone. CSV exports include UTC timestamps. Reject charging-target times that do not exist or occur twice when clocks change.
-- Include the known solar share in the green-energy total even when part of a session's energy source is unknown. Show `≥` with an explanation when the total is a minimum estimate, including for older archived sessions.
+- Correct charging readings, session times and daily schedules around time-zone and daylight-saving changes.
+- Show charging pauses and manual stops correctly, without reporting an unplugged cable when it is still connected.
+- Preserve recent session details after restarts and prevent duplicate sessions or energy totals.
+- Restore session charts reliably and include known solar energy even when some energy sources are unknown. Minimum green-energy totals are marked with `≥`.
+- Improve recovery of charging targets and automatic protection stops after interrupted requests.
+- Remember the assigned wallbox after restarts and reduce unnecessary connection requests.
+- Complete translations and correct the version shown in the dashboard card.
 
 ### Changed
 
-- Keep the charging-mode and authorization buttons side by side whenever they fit. Shorten long wallbox names with an ellipsis and show the full name on hover; on narrow cards the buttons can use their own row.
-- Keep measured charging power on the broad gauge arc, show the estimated target with a freestanding blue marker, and place the allowed grid contribution in a thin amber hatched band outside it. Label the grid allowance separately, including while idle, and explain that zero grid import can also be maintained by a home battery.
-- Keep the dashboard cards and session history accessible when the wallbox is disconnected. The status sensor now shows `offline`; automations that check for `unavailable` must also handle `offline`.
-- Reduce unnecessary data stored in Home Assistant's history database by leaving out frequently changing dashboard data and update timestamps. Current dashboard information, connection status history and recorded meter readings remain available.
+- Clearly separate measured charging power, the estimated target and the allowed grid contribution in the gauge.
+- Keep mode buttons together where space allows and shorten long wallbox names.
+- Keep the dashboard and history available while disconnected. **Automations checking for `unavailable` must also handle the new `offline` status.**
+- Reduce Home Assistant history storage and improve CSV download privacy. Download links expire after 15 minutes; anyone with the link can access the file until then.
 
 ## 2.0.0-alpha.1 — 2026-10-25
 
