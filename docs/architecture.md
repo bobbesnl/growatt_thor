@@ -127,7 +127,7 @@ Shutdown first closes queue admission and cancels active work, then resolves
 pending entries as unsent. Active work stays uncertain because it may already
 have reached OCPP. Every handle gets one terminal result, including late work
 during unload. Result models, policies and transport exceptions live in
-`runtime/write_results.py`; `runtime/write_queue.py` remains a compatibility shim.
+`runtime/write_results.py`.
 
 `ConfigurationDefinition` in `configuration/values.py` also owns entity options, normalized aliases and optional state parsers. The existing options/alias mappings remain ordered compatibility views; operational/informational request ordering and diagnostic serialization stay unchanged.
 

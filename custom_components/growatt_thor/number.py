@@ -214,7 +214,7 @@ class ConfigurationNumberWriteMixin(GrowattConfigurationWriteMixin):
                 charge_point, self._config_key, raw_value, generation
             )
             if not response.accepted:
-                self._restore_previous_value(previous, generation)
+                self._restore_optimistic(generation, previous=previous)
                 return ChargerWriteResult.failed("charger_rejected", response.result)
             if response.current:
                 self._on_accepted(raw_value, key=self._config_key, value=value)
@@ -236,7 +236,7 @@ class ConfigurationNumberWriteMixin(GrowattConfigurationWriteMixin):
             return ChargerWriteResult.uncertain(str(exc))
         except Exception:
             _LOGGER.exception("Failed to set %s", self._config_key)
-            self._restore_previous_value(previous, generation)
+            self._restore_optimistic(generation, previous=previous)
             return ChargerWriteResult.failed("unexpected_error")
 
 
@@ -276,17 +276,11 @@ class MaxCurrentNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
         super()._on_accepted(raw_value, key=key, value=value)
         self.coordinator.async_set_updated_data(True)
 
-    def _queued_write_block_reason(self):
-        return self._charger_write_block_reason
-
     def _queued_value_block_reason(self, value):
         return None if self._value_is_valid(value) else "model_limit_changed"
 
     def _value_is_valid(self, value: int) -> bool:
         return self.native_min_value <= value <= self.native_max_value
-
-    def _restore_previous_value(self, previous: int | None, generation: int) -> None:
-        self._restore_optimistic(generation, previous=previous)
 
     def _restore_optimistic(self, generation: int, *, previous=None) -> None:
         # A failed older request must not roll the UI back over a newer value
@@ -348,9 +342,9 @@ class MaxCurrentNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
             configuration_key=self._config_key,
             configuration_generation=generation,
             policy=CONFIGURATION_WRITE_POLICY,
-            on_unsent=lambda _result: self._restore_previous_value(
-                previous,
+            on_unsent=lambda _result: self._restore_optimistic(
                 generation,
+                previous=previous,
             ),
         )
         await async_require_command_completion(handle)
@@ -416,9 +410,6 @@ class LoadBalancingLimitNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
     def _encode(self, value) -> str:
         return str(value)
 
-    def _restore_previous_value(self, previous: int | None, generation: int) -> None:
-        self._restore_optimistic(generation, previous=previous)
-
     def _restore_optimistic(self, generation: int, *, previous=None) -> None:
         """Restore reported power only while this write still owns the UI."""
         if previous is not None and self.coordinator.configuration_write_is_current(
@@ -478,9 +469,9 @@ class LoadBalancingLimitNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
             configuration_key=self._config_key,
             configuration_generation=generation,
             policy=CONFIGURATION_WRITE_POLICY,
-            on_unsent=lambda _result: self._restore_previous_value(
-                previous,
+            on_unsent=lambda _result: self._restore_optimistic(
                 generation,
+                previous=previous,
             ),
         )
         await async_require_command_completion(handle)
@@ -525,9 +516,6 @@ class ElectricityPriceNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
         self.coordinator.electricity_price = value
         super()._on_accepted(raw_value, key=key, value=value)
         self.coordinator.async_set_updated_data(True)
-
-    def _restore_previous_value(self, previous: float | None, generation: int) -> None:
-        self._restore_optimistic(generation, previous=previous)
 
     def _restore_optimistic(self, generation: int, *, previous=None) -> None:
         """Restore reported tariff only while this write still owns the UI."""
@@ -583,9 +571,9 @@ class ElectricityPriceNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
             configuration_key=self._config_key,
             configuration_generation=generation,
             policy=CONFIGURATION_WRITE_POLICY,
-            on_unsent=lambda _result: self._restore_previous_value(
-                previous,
+            on_unsent=lambda _result: self._restore_optimistic(
                 generation,
+                previous=previous,
             ),
         )
         await async_require_command_completion(handle)
