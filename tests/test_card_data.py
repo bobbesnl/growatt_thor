@@ -26,6 +26,15 @@ def sample(value, phase=None, unit="W", measurand="Power.Active.Import"):
 
 
 class CardDataTest(unittest.TestCase):
+    def test_new_coordinator_has_no_command_or_energy_stop_notice(self):
+        coordinator = build_coordinator()
+
+        self.assertIsNone(coordinator.dashboard_command)
+        self.assertIsNone(coordinator.last_energy_stop)
+        attributes = module.dashboard_attributes(coordinator)
+        self.assertIsNone(attributes["command"])
+        self.assertIsNone(attributes["energy_stop"])
+
     def test_fixed_wallbox_clock_normalizes_active_start_without_changing_identity(
         self,
     ):
@@ -81,6 +90,8 @@ class CardDataTest(unittest.TestCase):
             energy=3000,
             max_current=None,
             effective_meter_gap_seconds=lambda: 180,
+            dashboard_command=None,
+            last_energy_stop=None,
             pv_draft=PvLinkageDraftState(),
             external_meter=types.SimpleNamespace(
                 poll_interval=30,
@@ -277,6 +288,8 @@ class CardDataTest(unittest.TestCase):
             transaction_is_active=False,
             energy=None,
             effective_meter_gap_seconds=lambda: 180,
+            dashboard_command=None,
+            last_energy_stop=None,
             pv_draft=PvLinkageDraftState(),
             external_meter=types.SimpleNamespace(
                 poll_interval=30,
@@ -316,6 +329,8 @@ class CardDataTest(unittest.TestCase):
             energy=None,
             max_current=None,
             effective_meter_gap_seconds=lambda: 180,
+            dashboard_command=None,
+            last_energy_stop=None,
             pv_draft=PvLinkageDraftState(),
             external_meter=types.SimpleNamespace(
                 poll_interval=30,
@@ -353,6 +368,8 @@ class CardDataTest(unittest.TestCase):
             transaction_is_active=False,
             energy=None,
             effective_meter_gap_seconds=lambda: 180,
+            dashboard_command=None,
+            last_energy_stop=None,
             pv_draft=PvLinkageDraftState(),
             external_meter=types.SimpleNamespace(
                 poll_interval=30,

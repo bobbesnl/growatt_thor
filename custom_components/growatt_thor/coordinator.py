@@ -181,7 +181,8 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_frozen_record = None
         self.effective_charging = EffectiveChargingTracker()
         self.site_accounting_options = {}
-        self.last_energy_stop = None
+        self.last_energy_stop: dict[str, object] | None = None
+        self.dashboard_command: dict[str, object] | None = None
         self.site_accounting: SessionAccumulator | None = None
         self.last_site_accounting: SessionAccumulator | None = None
         self.site_accounting_totals = {

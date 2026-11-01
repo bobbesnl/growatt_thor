@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class CommandOwner(Protocol):
     hass: HomeAssistant
     connected: bool
-    dashboard_command: dict[str, Any]
+    dashboard_command: dict[str, object] | None
     runtime_data: MutableMapping[str, Any]
     status: str | None
     transaction_id: int | None

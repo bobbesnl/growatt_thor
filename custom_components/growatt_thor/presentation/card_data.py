@@ -389,8 +389,8 @@ def dashboard_attributes(coordinator) -> dict:
             working_mode,
             grid_import_limit,
         ),
-        "command": getattr(coordinator, "dashboard_command", None),
-        "energy_stop": getattr(coordinator, "last_energy_stop", None),
+        "command": coordinator.dashboard_command,
+        "energy_stop": coordinator.last_energy_stop,
         "sessions": dashboard_sessions(coordinator),
     }
     return _enforce_card_attribute_budget(attributes)

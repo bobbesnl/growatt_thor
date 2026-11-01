@@ -74,6 +74,8 @@ validation and calculations as typed functions or data models. Package initializ
 stay free of runtime side effects. Domain code must not depend on HA platform
 entities or frontend projections to perform charger commands.
 
+The coordinator declares `dashboard_command` and `last_energy_stop` as optional state initialized to `None`. Card projections read them directly; absence of a command or stop notice remains distinct from a reported outcome.
+
 The coordinator retains public observations, storage and OCPP meter processing.
 `ChargerWriteQueue` owns pending typed `ChargerWriteItem` entries, the processor
 task, monotonic expiry/spacing, completion and shutdown. The coordinator delegates
