@@ -10,13 +10,16 @@ import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from ..timestamps import parse_utc, utc_timestamp
 from .history_rows import SESSION_EXPORT_HEADERS, normalize_session_row
 from .history_store import history_operation
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 EXPORT_LIFETIME_SECONDS = 15 * 60
 _CLEANUP_KEY = "growatt_thor_export_cleanup"
@@ -38,13 +41,13 @@ def cleanup_expired_exports(directory: str, *, now: float | None = None) -> None
             _LOGGER.exception("Could not expire session export")
 
 
-def ensure_export_cleanup(hass) -> None:
+def ensure_export_cleanup(hass: HomeAssistant) -> None:
     """Start one HA-owned worker; HA shutdown cancels it automatically."""
     task = hass.data.get(_CLEANUP_KEY)
     if task is not None and not task.done():
         return
 
-    async def clean():
+    async def clean() -> None:
         while True:
             await hass.async_add_executor_job(cleanup_expired_exports, hass.config.path("www"))
             await asyncio.sleep(60)

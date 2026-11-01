@@ -12,11 +12,13 @@ python_version = "3.12"
 strict = true
 # Inspect dependency signatures while rolling out strict checks package by package.
 follow_imports = "silent"
+exclude = ['custom_components/growatt_thor/sessions/(runtime|telemetry)\.py$']
 files = [
     "custom_components/growatt_thor/coerce.py",
     "custom_components/growatt_thor/configuration/",
     "custom_components/growatt_thor/energy/",
     "custom_components/growatt_thor/timestamps.py",
+    "custom_components/growatt_thor/sessions/",
     "custom_components/growatt_thor/targets/model.py",
     "custom_components/growatt_thor/targets/requests.py",
 ]

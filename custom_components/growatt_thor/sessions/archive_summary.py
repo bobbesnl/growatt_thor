@@ -52,7 +52,9 @@ def load_archive_summary(path: Path) -> dict[str, Any]:
     }
 
 
-def belongs_to_entry(row, source_instance_id, charge_point_id):
+def belongs_to_entry(
+    row: dict[str, object], source_instance_id: str | None, charge_point_id: str | None
+) -> bool:
     if source_instance_id is None:
         return True
     if row.get("source_instance_id"):
@@ -87,7 +89,7 @@ def session_green(row: dict[str, Any]) -> tuple[float | None, bool]:
     return None, energy is None or not isfinite(energy) or energy > 0
 
 
-def add_archive_row(bucket, row):
+def add_archive_row(bucket: dict[str, Any], row: dict[str, Any]) -> None:
     green, partial = session_green(row)
     bucket["green_partial_count"] = archive_partial_count(bucket) + int(partial)
     bucket["total_energy_kwh"] += csv_float(row.get("energy_kwh")) or 0.0
@@ -98,7 +100,12 @@ def add_archive_row(bucket, row):
     bucket["total_count"] += 1
 
 
-def scoped_archive(archive, entry_id, charge_point_id, include_unassigned=False):
+def scoped_archive(
+    archive: dict[str, Any],
+    entry_id: str,
+    charge_point_id: str | None,
+    include_unassigned: bool = False,
+) -> dict[str, Any]:
     result = empty_archive_summary()
     if include_unassigned:
         # Old 2.0 summaries had no owner labels. Preserve them only for the

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from math import isfinite
+from typing import Any
 
 from ..configuration.values import configuration_numeric_value
 from ..energy.meter_observations import charging_meter_values
@@ -25,7 +26,9 @@ CONTEXT_CURVES = (
 )
 
 
-def context_curves(value, *, limit=SESSION_CURVE_POINT_LIMIT, event_times=()):
+def context_curves(
+    value: object, *, limit: int = SESSION_CURVE_POINT_LIMIT, event_times: Iterable[object] = ()
+) -> dict[str, list[list[Any]]]:
     source = value if isinstance(value, Mapping) else {}
     event_times = tuple(event_times)
     return {

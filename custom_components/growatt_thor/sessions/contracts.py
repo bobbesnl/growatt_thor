@@ -69,3 +69,12 @@ class SessionOwner(TelemetryOwner, Protocol):
     def now(self) -> str: ...
 
     def schedule_storage_save(self) -> None: ...
+
+
+class DashboardHistoryOwner(Protocol):
+    source_instance_id: str | None
+    charge_point_id: str | None
+    runtime_data: MutableMapping[str, Any]
+    dashboard_sessions: dict[str, Any]
+
+    def async_set_updated_data(self, data: bool) -> None: ...

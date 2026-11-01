@@ -17,7 +17,7 @@ def _timestamp(value: object) -> float | None:
     return parsed.timestamp() if parsed is not None else None
 
 
-def valid_curve_points(value: Any, *, signed=False, gaps=False) -> list[list[Any]]:
+def valid_curve_points(value: Any, *, signed: bool = False, gaps: bool = False) -> list[list[Any]]:
     """Return valid ``[timestamp, value]`` pairs without inventing samples."""
     result: list[list[Any]] = []
     for raw in value if isinstance(value, (list, tuple)) else ():

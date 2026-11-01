@@ -62,8 +62,8 @@ def enforce_session_retention(
                 reverse=True,
             )[:max_rows]
         }
-        overflow = []
-        bounded = []
+        overflow: list[dict[str, Any]] = []
+        bounded: list[dict[str, Any]] = []
         for index, row in enumerate(retained):
             (bounded if index in newest_indices else overflow).append(row)
         retained = bounded

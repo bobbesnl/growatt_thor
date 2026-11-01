@@ -29,7 +29,9 @@ from .telemetry import CONTEXT_CURVES, context_curves
 DASHBOARD_SESSION_LIMIT = 20
 
 
-def session_item(row: dict[str, Any], *, details: bool, time_zone: str = "UTC") -> dict[str, Any]:
+def session_item(
+    row: dict[str, Any], *, details: bool, time_zone: str | None = "UTC"
+) -> dict[str, Any]:
     events = session_events(row.get("events")) if details else []
     item = {
         "session_id": row.get("session_id") or None,
@@ -147,9 +149,9 @@ def session_detail_data(
     path: str | Path,
     session_id: str,
     *,
-    source_instance_id=None,
-    charge_point_id=None,
-    time_zone="UTC",
+    source_instance_id: str | None = None,
+    charge_point_id: str | None = None,
+    time_zone: str | None = "UTC",
 ) -> dict[str, Any] | None:
     """Load one retained session with bounded curve and event details."""
     csv_path = Path(path)

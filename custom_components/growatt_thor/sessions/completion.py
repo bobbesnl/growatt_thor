@@ -2,12 +2,13 @@
 
 from collections.abc import Mapping
 from math import isfinite
+from typing import Any
 
 from .active_state import ActiveSessionState
 from .telemetry import context_curves
 
 
-def completion_transaction(value: object) -> dict | None:
+def completion_transaction(value: object) -> dict[str, Any] | None:
     if not isinstance(value, Mapping):
         return None
     start = value.get("start")
@@ -37,7 +38,7 @@ def completion_transaction(value: object) -> dict | None:
             "power_curve": value.get("power_curve"),
         }
     )
-    stop_request = {}
+    stop_request: dict[str, str | int | float] = {}
     for key in ("transaction_id", "meter_stop", "reason", "timestamp", "id_tag"):
         item = stopped.get(key)
         if isinstance(item, str):

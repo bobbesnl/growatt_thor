@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import tzinfo
+from typing import Any
 
 from ..ocpp.meter_samples import meter_time_zone
 from ..timestamps import installation_time_zone, utc_timestamp
@@ -27,7 +28,7 @@ _CURVES = (
 )
 
 
-def session_times(item: dict, time_zone: str) -> dict:
+def session_times(item: dict[str, Any], time_zone: str | None) -> dict[str, Any]:
     result = dict(item)
     for key in ("start_time", "end_time"):
         if key in result:

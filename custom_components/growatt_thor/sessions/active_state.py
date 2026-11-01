@@ -33,7 +33,7 @@ class ActiveSessionState:
     meter_start: float | None = None
     energy_wh: float | None = None
     power_curve: list[list[Any]] = field(default_factory=list)
-    context_curves: dict = field(default_factory=dict)
+    context_curves: dict[str, list[list[Any]]] = field(default_factory=dict)
     site_house_load_source: str | None = None
     events: list[dict[str, str]] = field(default_factory=list)
     energy_flowing: bool | None = None

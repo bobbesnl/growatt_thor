@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isfinite
-from typing import Any
+from typing import Any, cast
 
 from ..coerce import enum_value
 from ..timestamps import parse_utc, utc_timestamp
@@ -155,7 +155,7 @@ def merge_growatt_record_events(
     start_time: object | None,
     end_time: object | None,
     unplug_time: object | None,
-    time_zone=None,
+    time_zone: str | None = None,
 ) -> list[dict[str, str]]:
     """Add vendor charging anchors, never infer disconnection from unplugtime."""
     merged = normalize_session_events(events)
@@ -229,7 +229,7 @@ class SessionEventTracker:
     def observe_power(self, at: object, watts: object) -> bool:
         """Derive flow, pause and resume transitions from total charger power."""
         try:
-            power_w = float(watts)
+            power_w = float(cast(Any, watts))
         except (TypeError, ValueError):
             return False
         if not isfinite(power_w) or power_w < 0:
@@ -249,7 +249,7 @@ class SessionEventTracker:
                 pause_at = parse_utc(
                     last_transition["at"].replace("Z", "+00:00"), allow_naive=True, normalize=False
                 )
-                if sample_at <= pause_at:
+                if sample_at is None or pause_at is None or sample_at <= pause_at:
                     return False
             except (TypeError, ValueError):
                 return False
@@ -281,7 +281,7 @@ class SessionEventTracker:
             session_event("energy_flow_started", at, "meter", "derived"),
         )
 
-    def record_stop_requested(self, at: object, *, reason="remote_stop") -> bool:
+    def record_stop_requested(self, at: object, *, reason: str = "remote_stop") -> bool:
         """Record a Home Assistant stop request only once per transaction."""
         return append_session_event(
             self.events,

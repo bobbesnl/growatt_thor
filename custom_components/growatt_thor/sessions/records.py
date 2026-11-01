@@ -231,8 +231,8 @@ def parse_growatt_session_record(
 
     field_items = tuple(parse_qsl(payload, keep_blank_values=True))
     first_values: dict[str, str] = {}
-    for key, value in field_items:
-        first_values.setdefault(key, value)
+    for key, field_value in field_items:
+        first_values.setdefault(key, field_value)
 
     errors = []
     for key in ("costenergy", "costmoney"):

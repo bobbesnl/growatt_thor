@@ -85,7 +85,7 @@ def csv_float(value: Any) -> float | None:
     return number
 
 
-def accounting_json(value: Any) -> dict:
+def accounting_json(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
     if not isinstance(value, str) or not value:
@@ -97,7 +97,7 @@ def accounting_json(value: Any) -> dict:
     return decoded if isinstance(decoded, dict) else {}
 
 
-def accounting_sources(value: Any) -> dict | None:
+def accounting_sources(value: Any) -> dict[str, Any] | None:
     decoded = accounting_json(value)
     keys = ("direct_solar", "direct_grid", "battery_unknown", "unknown")
     if not decoded or any(
@@ -110,7 +110,7 @@ def accounting_sources(value: Any) -> dict | None:
     return {key: float(decoded[key]) for key in keys}
 
 
-def accounting_policy(value: Any) -> dict | None:
+def accounting_policy(value: Any) -> dict[str, Any] | None:
     decoded = accounting_json(value)
     if (
         decoded.get("id") not in ("grid_first", "load_first", "mixed")

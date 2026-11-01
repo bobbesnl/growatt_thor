@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Any
+from typing import Any, TypedDict
 
 from ..coerce import optional_float, optional_text
 from ..timestamps import utc_instant
@@ -35,12 +35,12 @@ def _timestamp(value: Any, time_zone: str | None = None) -> datetime | None:
     return utc_instant(value, time_zone)
 
 
-def _at_or_after(value: Any, lower_bound: datetime | None, time_zone=None) -> bool:
+def _at_or_after(value: Any, lower_bound: datetime | None, time_zone: str | None = None) -> bool:
     timestamp = _timestamp(value, time_zone)
     return timestamp is None or lower_bound is None or timestamp >= lower_bound
 
 
-def _at_or_before(value: Any, upper_bound: datetime | None, time_zone=None) -> bool:
+def _at_or_before(value: Any, upper_bound: datetime | None, time_zone: str | None = None) -> bool:
     timestamp = _timestamp(value, time_zone)
     return timestamp is None or upper_bound is None or timestamp <= upper_bound
 
@@ -56,7 +56,16 @@ def _transaction_id(transaction: Mapping[str, Any]) -> str | None:
     return _optional_text(response.get("transaction_id", stop_request.get("transaction_id")))
 
 
-def _record_info(snapshot: Any) -> dict[str, Any] | None:
+class RecordInfo(TypedDict):
+    snapshot: Mapping[str, Any]
+    record: object
+    message_id: str
+    received_at: str | None
+    transaction_id: str | None
+    dedup_key: object
+
+
+def _record_info(snapshot: Any) -> RecordInfo | None:
     snapshot_mapping = _mapping(snapshot)
     record = snapshot_mapping.get("record")
     if record is None:
@@ -66,7 +75,7 @@ def _record_info(snapshot: Any) -> dict[str, Any] | None:
     if message_id not in ("currentrecord", "frozenrecord"):
         return None
 
-    return {
+    info: RecordInfo = {
         "snapshot": snapshot_mapping,
         "record": record,
         "message_id": message_id,
@@ -74,6 +83,7 @@ def _record_info(snapshot: Any) -> dict[str, Any] | None:
         "transaction_id": _optional_text(getattr(record, "transaction_id", None)),
         "dedup_key": getattr(record, "dedup_key", None),
     }
+    return info
 
 
 def _select_records(
@@ -81,7 +91,7 @@ def _select_records(
     transaction_id: str | None,
     transaction_started_at: str | None,
     time_zone: str | None = None,
-) -> list[dict[str, Any]]:
+) -> list[RecordInfo]:
     records = [info for snapshot in snapshots if (info := _record_info(snapshot)) is not None]
     if transaction_id is not None:
         started_at = _timestamp(transaction_started_at, time_zone)
@@ -106,7 +116,7 @@ def _select_records(
     return [latest]
 
 
-def _primary_record(records: Sequence[dict[str, Any]]) -> Any:
+def _primary_record(records: Sequence[RecordInfo]) -> object | None:
     if not records:
         return None
     latest = max(
@@ -281,11 +291,11 @@ def build_unified_session(
 
 
 def _session_correlation(
-    correlation_status,
-    has_ocpp,
-    matching_records,
-    record_transaction_id,
-    transaction_id,
+    correlation_status: str,
+    has_ocpp: bool,
+    matching_records: Sequence[RecordInfo],
+    record_transaction_id: str | None,
+    transaction_id: str | None,
 ) -> dict[str, Any]:
     return {
         "status": correlation_status,
@@ -313,7 +323,12 @@ def _session_correlation(
 
 
 def _session_timing(
-    record, start_request, start_snapshot, stop_request, stop_snapshot, transaction
+    record: object,
+    start_request: Mapping[str, Any],
+    start_snapshot: Mapping[str, Any],
+    stop_request: Mapping[str, Any],
+    stop_snapshot: Mapping[str, Any],
+    transaction: Mapping[str, Any],
 ) -> dict[str, Any]:
     return {
         "effective_charging_duration_minutes": _optional_float(
@@ -336,7 +351,12 @@ def _session_timing(
 
 
 def _session_metering(
-    comparison_energy, growatt_energy, latest_meter_energy, meter_delta, meter_start, meter_stop
+    comparison_energy: float | None,
+    growatt_energy: float | None,
+    latest_meter_energy: float | None,
+    meter_delta: float | None,
+    meter_start: float | None,
+    meter_stop: float | None,
 ) -> dict[str, Any]:
     return {
         "ocpp_meter_start_wh": meter_start,
@@ -352,7 +372,7 @@ def _session_metering(
     }
 
 
-def _session_billing(record) -> dict[str, Any]:
+def _session_billing(record: object) -> dict[str, Any]:
     return {
         "growatt_cost": (
             _optional_float(getattr(record, "cost", None)) if record is not None else None
@@ -360,7 +380,7 @@ def _session_billing(record) -> dict[str, Any]:
     }
 
 
-def _session_modes(record) -> dict[str, Any]:
+def _session_modes(record: object) -> dict[str, Any]:
     return {
         "growatt_charge_mode": (
             _optional_text(getattr(record, "charge_mode", None)) if record is not None else None
@@ -371,7 +391,9 @@ def _session_modes(record) -> dict[str, Any]:
     }
 
 
-def session_record_matches(transaction, snapshot, *, time_zone=None) -> bool:
+def session_record_matches(
+    transaction: object, snapshot: object, *, time_zone: str | None = None
+) -> bool:
     """Check correlation without building a complete presentation record."""
     transaction = _mapping(transaction)
     if not transaction:

@@ -7,10 +7,11 @@ import json
 import os
 import stat
 import tempfile
+from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
 from threading import RLock
-from typing import Any
+from typing import Any, Concatenate, cast
 
 # All executor jobs share one history file. Serialize read/modify/write
 # operations so delayed event updates cannot overwrite a completed session.
@@ -23,7 +24,7 @@ def _journal_path(path: Path) -> Path:
     return path.with_name(f"{path.stem}.retention.json")
 
 
-def _atomic_json(path: Path, payload: dict) -> None:
+def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
     temporary_path = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -54,17 +55,21 @@ def _recover_history(path: Path) -> None:
         journal.unlink()
 
 
-def history_operation(operation):
+def history_operation[PathT: str | Path, **P, R](
+    operation: Callable[Concatenate[PathT, P], R],
+) -> Callable[Concatenate[PathT, P], R]:
     @wraps(operation)
-    def locked(path, *args, **kwargs):
+    def locked(path: PathT, *args: P.args, **kwargs: P.kwargs) -> R:
         with _HISTORY_LOCK:
             _recover_history(Path(path))
             return operation(path, *args, **kwargs)
 
-    return locked
+    return cast(Callable[Concatenate[PathT, P], R], locked)
 
 
-def commit_history(path, headers, rows, summary):
+def commit_history(
+    path: Path, headers: list[str], rows: list[dict[str, Any]], summary: dict[str, Any]
+) -> None:
     _atomic_json(
         _journal_path(path),
         {
