@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from datetime import datetime
 from math import isfinite
-from typing import Any
+from typing import Any, cast
 
 from ..configuration.values import configuration_numeric_value
 from ..energy.meter_observations import charging_meter_values
 from ..energy.options import (
     CONF_HOUSE_ENTITY,
 )
-from ..energy.site_observations import read_site_observations
+from ..energy.site_observations import PowerObservation, read_site_observations
+from ..ocpp.meter_samples import MeterValue
 from ..timestamps import parse_utc as parse_at
 from ..timestamps import utc_timestamp
 from .contracts import TelemetryOwner
@@ -48,7 +50,7 @@ def context_curves(
 
 
 class SessionTelemetry:
-    def __init__(self, value=None):
+    def __init__(self, value: object = None) -> None:
         self.curves = context_curves(value)
         self.house_load_source: str | None = (
             (value or {}).get("site_house_load_source") if isinstance(value, Mapping) else None
@@ -56,7 +58,7 @@ class SessionTelemetry:
         if self.house_load_source not in ("configured_sensor", "site_balance", "mixed"):
             self.house_load_source = None
 
-    def observe(self, key, at, value):
+    def observe(self, key: str, at: object, value: object) -> bool:
         timestamp = utc_timestamp(at)
         if key not in CONTEXT_CURVES or timestamp is None:
             return False
@@ -66,7 +68,7 @@ class SessionTelemetry:
             if value < 0 and key != "site_battery_curve_w":
                 return False
         points = self.curves.setdefault(key, [])
-        if points and parse_at(timestamp) < parse_at(points[-1][0]):
+        if points and cast(datetime, parse_at(timestamp)) < cast(datetime, parse_at(points[-1][0])):
             return False
         if points and timestamp == points[-1][0]:
             if points[-1][1] == value:
@@ -94,7 +96,7 @@ class SessionTelemetry:
         if instant is None:
             return False
 
-        def value(observation):
+        def value(observation: PowerObservation | None) -> float | None:
             if observation is None:
                 return None
             observed = observation.observed_at
@@ -152,7 +154,7 @@ class SessionTelemetry:
                 )
             )
             if all(reading is not None for reading in (grid, battery_balance, ev)):
-                balance = solar + grid + battery_balance - ev
+                balance = solar + cast(float, grid) + cast(float, battery_balance) - cast(float, ev)
                 if balance >= 0:
                     house, source = balance, "site_balance"
         if source is not None:
@@ -174,7 +176,7 @@ class SessionTelemetry:
             changed = self.observe(key, at, reading) or changed
         return changed
 
-    def observe_meter(self, entry, received_at, max_age):
+    def observe_meter(self, entry: MeterValue, received_at: str, max_age: float) -> bool:
         sampled, received = parse_at(entry.timestamp), parse_at(received_at)
         if (
             sampled is None
@@ -183,5 +185,9 @@ class SessionTelemetry:
         ):
             return False
         currents = charging_meter_values({"meter_values": [entry.as_dict()]})["currents_a"]
-        amps = sum(currents) if all(value is not None for value in currents) else None
+        amps = (
+            sum(cast(list[float], currents))
+            if all(value is not None for value in currents)
+            else None
+        )
         return self.observe("measured_current_sum_curve_a", entry.timestamp, amps)

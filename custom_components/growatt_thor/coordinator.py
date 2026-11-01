@@ -163,7 +163,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.last_message_at = None
         self.last_message_action = None
         self.last_heartbeat_at = None
-        self.transaction_id = None
+        self.transaction_id: int | str | None = None
         self.charging_target_request = None
         self.transaction_hooks: TransactionHooks | None = None
         self.charging_target_pilot_enabled = False
@@ -979,7 +979,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self,
         reason: str | None = None,
         *,
-        transaction_id: int | None = None,
+        transaction_id: int | str | None = None,
         meter_stop: float | None = None,
         **payload: Any,
     ) -> None:
@@ -995,7 +995,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         meter_values: list[dict[str, Any]],
         *,
         connector_id: int | None = None,
-        transaction_id: int | None = None,
+        transaction_id: int | str | None = None,
     ) -> None:
         """Retain all MeterValues samples and update known live sensors."""
         if not self._accept_meter_transaction(transaction_id):

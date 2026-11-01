@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import tzinfo
 from math import isfinite
 from typing import Any, cast
 
@@ -155,7 +156,7 @@ def merge_growatt_record_events(
     start_time: object | None,
     end_time: object | None,
     unplug_time: object | None,
-    time_zone: str | None = None,
+    time_zone: str | tzinfo | None = None,
 ) -> list[dict[str, str]]:
     """Add vendor charging anchors, never infer disconnection from unplugtime."""
     merged = normalize_session_events(events)

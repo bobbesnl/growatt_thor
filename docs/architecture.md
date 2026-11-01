@@ -67,7 +67,7 @@ or the card disconnects. Live/inline curves bypass historical detail. Known HA
 attributes have explicit types; unrelated attributes are `unknown`, and entity
 lookups can be absent. The TypeScript compiler checks these boundaries in strict
 mode. Python typing is incremental; persisted target dictionaries remain a
-validated serialization boundary rather than a fully typed state machine. The strict Python scope in `pyproject.toml` covers coercion/time helpers, configuration, energy, charging, runtime, OCPP, target models/builders and session modules except lifecycle/telemetry. Card projections use explicit read protocols from `presentation/contracts.py`, and compile-only owner checks in `tests/typing/owner_contracts.py` verify that the concrete coordinator still satisfies them. A minimal HA coordinator stub prevents an unresolved framework base from hiding missing owner attributes. Other integration packages remain outside this initial strict scope.
+validated serialization boundary rather than a fully typed state machine. The strict Python scope in `pyproject.toml` covers coercion/time helpers, configuration, energy, charging, runtime, OCPP, target models/builders and all session modules. Card projections use explicit read protocols from `presentation/contracts.py`, and compile-only owner checks in `tests/typing/owner_contracts.py` verify that the concrete coordinator still satisfies them. A minimal HA coordinator stub prevents an unresolved framework base from hiding missing owner attributes. Other integration packages remain outside this initial strict scope.
 
 Use classes for state with a lifecycle or invariants. Keep transformations,
 validation and calculations as typed functions or data models. Package initializers
@@ -229,3 +229,5 @@ Charging commands declare transaction transport, completion callback and PV serv
 Runtime checks include the queue clock/task host, typed completion callbacks and refresh transports. Task factories preserve result types; framework error helpers declare that they always raise. Queue ordering, lifetime policies and completion ownership remain unchanged.
 
 The OCPP handler guard preserves each handler signature through its decorators. Local library stubs describe subclass, routing and payload-container boundaries; OCPP schema validation still owns wire validation. Compile-only checks connect the concrete charge point to configuration, transaction, PV Apply and refresh transports.
+
+The session lifecycle and telemetry are checked strictly, including pending completion records, observation callbacks and restore paths. Restored opaque transaction identifiers remain valid observations alongside integer OCPP IDs; typing does not coerce or replace them.

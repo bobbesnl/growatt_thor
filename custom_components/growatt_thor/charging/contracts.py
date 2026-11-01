@@ -24,7 +24,7 @@ class CommandOwner(Protocol):
     def runtime_data(self) -> MutableMapping[str, Any]: ...
 
     status: str | None
-    transaction_id: int | None
+    transaction_id: int | str | None
     charging_target_request: dict[str, Any] | None
 
     @property
@@ -84,7 +84,9 @@ class TransactionTransport(Protocol):
         self, *, connector_id: int, id_tag: str
     ) -> Mapping[str, object]: ...
 
-    async def remote_stop_transaction(self, *, transaction_id: int) -> Mapping[str, object]: ...
+    async def remote_stop_transaction(
+        self, *, transaction_id: int | str
+    ) -> Mapping[str, object]: ...
 
     async def trigger_status(self) -> object: ...
 

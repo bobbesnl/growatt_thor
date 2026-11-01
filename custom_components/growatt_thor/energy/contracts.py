@@ -24,7 +24,7 @@ class SiteObservationOwner(Protocol):
 class LiveAllocationOwner(SiteObservationOwner, Protocol):
     source_instance_id: str | None
     charge_point_id: str | None
-    transaction_id: int | None
+    transaction_id: int | str | None
 
     @property
     def transaction_is_active(self) -> bool: ...

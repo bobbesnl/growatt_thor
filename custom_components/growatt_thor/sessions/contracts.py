@@ -62,7 +62,7 @@ class SessionOwner(TelemetryOwner, Protocol):
     status: str | None
     total_energy_charged: float
     transaction_hooks: TransactionHooks | None
-    transaction_id: int | None
+    transaction_id: int | str | None
     voltages: dict[str, float]
 
     async def async_save_storage(self) -> None: ...

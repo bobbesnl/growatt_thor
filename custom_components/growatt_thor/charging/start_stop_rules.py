@@ -48,7 +48,7 @@ def start_revalidation_failure(
 
 def stop_revalidation_failure(
     *,
-    expected_transaction_id: int,
+    expected_transaction_id: int | str,
     current_transaction_id: object,
     transaction_active: bool,
 ) -> str | None:

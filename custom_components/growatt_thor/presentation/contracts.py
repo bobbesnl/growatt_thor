@@ -36,7 +36,7 @@ class ActiveSessionView(Protocol):
 
 class ActiveSessionOwner(SessionClock, Protocol):
     active_transaction: dict[str, Any] | None
-    transaction_id: int | None
+    transaction_id: int | str | None
     source_instance_id: str | None
     charge_point_id: str | None
     energy: float | None

@@ -62,7 +62,7 @@ class StopChargingCommand:
 
     def _stop_revalidation_failure(
         self,
-        expected_transaction_id: int,
+        expected_transaction_id: int | str,
     ) -> str | None:
         """Keep a delayed Stop bound to the transaction it was created for."""
         return stop_revalidation_failure(
@@ -144,7 +144,7 @@ class StopChargingCommand:
     async def _stop_charging(
         self,
         charge_point: TransactionTransport,
-        transaction_id: int,
+        transaction_id: int | str,
         stop_reason: str | None = None,
     ) -> ChargerWriteResult:
         """Stop charging command (runs inside write-queue)."""

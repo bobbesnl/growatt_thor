@@ -868,7 +868,7 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.error("Failed to send remote start transaction")
             return {"status": "Rejected"}
 
-    async def remote_stop_transaction(self, transaction_id: int) -> TransactionResult:
+    async def remote_stop_transaction(self, transaction_id: int | str) -> TransactionResult:
         try:
             _LOGGER.info("RemoteStopTransaction: transaction_id=%d", transaction_id)
             result = await self._run_serialized_request(

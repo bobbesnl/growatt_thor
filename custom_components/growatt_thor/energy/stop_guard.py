@@ -134,7 +134,7 @@ class EnergyStopGuard:
             transaction_id, bool(eligible), battery, grid, solar, meter.get("power_w")
         )
 
-    def _still_eligible(self, expected_transaction_id: int | None) -> str | None:
+    def _still_eligible(self, expected_transaction_id: int | str | None) -> str | None:
         """Recheck live sources before a queued automatic Stop reaches OCPP."""
         at = datetime.now(UTC)
         value = self._observation(at)
@@ -162,7 +162,9 @@ class EnergyStopGuard:
         )
         return None if battery or grid else "auto_stop_condition_cleared"
 
-    def _stop_completed(self, transaction_id: int | None, result: ChargerCommandResult) -> None:
+    def _stop_completed(
+        self, transaction_id: int | str | None, result: ChargerCommandResult
+    ) -> None:
         # Only these terminal results prove that nothing reached the charger.
         # Keep the latch after rejection or uncertainty to avoid blind retries.
         if self.tracker.transaction_id == transaction_id and result.status in {
@@ -192,7 +194,7 @@ class EnergyStopGuard:
                     # The sustained condition authorizes a request now, but a
                     # queue delay can outlive it. Recheck the live source before send.
                     def on_result(
-                        result: ChargerCommandResult, tx: int | None = transaction_id
+                        result: ChargerCommandResult, tx: int | str | None = transaction_id
                     ) -> None:
                         self._stop_completed(tx, result)
 

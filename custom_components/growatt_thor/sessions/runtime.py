@@ -11,9 +11,12 @@ import logging
 from collections import deque
 from collections.abc import Mapping
 from dataclasses import replace
+from datetime import tzinfo
+from typing import Any, TypedDict, cast
 
 from ..energy.session_accumulator import SessionAccumulator
 from ..ocpp.diagnostics import create_ocpp_snapshot
+from ..ocpp.meter_samples import MeterValue
 from ..ocpp.status import LIVE_POWER_STATUSES, normalize_ocpp_status
 from ..runtime.keys import APPEND_SESSION_TO_CSV
 from ..timestamps import parse_utc as parse_at
@@ -33,20 +36,25 @@ from .telemetry import SessionTelemetry, context_curves
 _LOGGER = logging.getLogger(__name__)
 
 
+class PendingCompletion(TypedDict):
+    transaction: dict[str, Any]
+    accounting: dict[str, Any] | None
+
+
 class SessionLifecycle:
     """Apply session transitions to the shared charger observations."""
 
     def __init__(self, coordinator: SessionOwner) -> None:
         self.coordinator = coordinator
         self.outbox = SessionOutbox()
-        self.pending_completions = []
+        self.pending_completions: list[PendingCompletion] = []
         self.telemetry = SessionTelemetry()
         self.pending_effective_charging_minutes: dict[str, float] = {}
         self.active_power_curve: list[list[object]] = []
         self.event_tracker: SessionEventTracker | None = None
         self.pending_plugged_event: dict[str, str] | None = None
         self.restored_active_session = False
-        self.applied_session_record_keys = deque(maxlen=50)
+        self.applied_session_record_keys: deque[tuple[str, str]] = deque(maxlen=50)
         self.last_session = LastSessionState()
 
     def observe_context(self, *, notify: bool = True) -> bool:
@@ -74,7 +82,7 @@ class SessionLifecycle:
             coordinator.async_set_updated_data(True)
         return changed
 
-    def observe_meter(self, entry, received_at):
+    def observe_meter(self, entry: MeterValue, received_at: str) -> bool:
         coordinator = self.coordinator
         if coordinator.transaction_id is None:
             return False
@@ -87,7 +95,7 @@ class SessionLifecycle:
             entry, received_at, coordinator.effective_meter_gap_seconds()
         )
 
-    def restore_completions(self, value):
+    def restore_completions(self, value: object) -> None:
         self.pending_completions = []
         for entry in value[-10:] if isinstance(value, list) else ():
             if not isinstance(entry, Mapping):
@@ -109,7 +117,7 @@ class SessionLifecycle:
                 latest["accounting"]
             )
 
-    async def async_flush_pending(self):
+    async def async_flush_pending(self) -> None:
         coordinator = self.coordinator
         append_fn = coordinator.runtime_data.get(APPEND_SESSION_TO_CSV)
         if append_fn is None:
@@ -127,9 +135,21 @@ class SessionLifecycle:
             if isinstance(coordinator.active_transaction, Mapping)
             else {}
         )
-        start = transaction.get("start") if isinstance(transaction.get("start"), Mapping) else {}
-        request = start.get("request") if isinstance(start.get("request"), Mapping) else {}
-        response = start.get("response") if isinstance(start.get("response"), Mapping) else {}
+        start: Mapping[str, Any] = (
+            cast(Mapping[str, Any], transaction.get("start"))
+            if isinstance(transaction.get("start"), Mapping)
+            else {}
+        )
+        request: Mapping[str, Any] = (
+            cast(Mapping[str, Any], start.get("request"))
+            if isinstance(start.get("request"), Mapping)
+            else {}
+        )
+        response: Mapping[str, Any] = (
+            cast(Mapping[str, Any], start.get("response"))
+            if isinstance(start.get("response"), Mapping)
+            else {}
+        )
         transaction_id = coordinator.transaction_id or response.get("transaction_id")
         if transaction_id is None:
             return None
@@ -243,13 +263,13 @@ class SessionLifecycle:
 
     def start_transaction(
         self,
-        transaction_id,
-        id_tag=None,
+        transaction_id: int,
+        id_tag: str | None = None,
         *,
-        connector_id=None,
-        meter_start=None,
-        **payload,
-    ):
+        connector_id: int | None = None,
+        meter_start: float | None = None,
+        **payload: Any,
+    ) -> None:
         """Start charging transaction."""
         coordinator = self.coordinator
         coordinator.transaction_id = transaction_id
@@ -273,7 +293,7 @@ class SessionLifecycle:
         )
         self.pending_plugged_event = None
         coordinator.active_transaction = {
-            "id_tag_alias": coordinator.authorization.policy.aliases.get(id_tag),
+            "id_tag_alias": coordinator.authorization.policy.aliases.get(cast(str, id_tag)),
             "start": start_snapshot,
             "events": self.event_tracker.events,
         }
@@ -312,16 +332,18 @@ class SessionLifecycle:
 
     def record_authorization_response(self, status: object) -> None:
         """Retain the authorization reply on the transaction just observed."""
-        self.coordinator.active_transaction["start"]["response"]["id_tag_info"] = {"status": status}
+        cast(dict[str, Any], self.coordinator.active_transaction)["start"]["response"][
+            "id_tag_info"
+        ] = {"status": status}
 
     def stop_transaction(
         self,
-        reason=None,
+        reason: str | None = None,
         *,
-        transaction_id=None,
-        meter_stop=None,
-        **payload,
-    ):
+        transaction_id: int | str | None = None,
+        meter_stop: float | None = None,
+        **payload: Any,
+    ) -> None:
         """Stop charging transaction."""
         coordinator = self.coordinator
         stopped_transaction_id = (
@@ -414,7 +436,7 @@ class SessionLifecycle:
                 hooks.transaction_stopped(transaction_id=stopped_transaction_id, reason=reason)
             )
 
-    def record_stop_requested(self, *, reason="remote_stop") -> None:
+    def record_stop_requested(self, *, reason: str = "remote_stop") -> None:
         """Record a stop intent at the point it is handed to OCPP."""
         coordinator = self.coordinator
         if self.event_tracker is None:
@@ -423,7 +445,7 @@ class SessionLifecycle:
             coordinator.schedule_storage_save()
             coordinator.async_set_updated_data(True)
 
-    def process_session_record(self, record: GrowattSessionRecord):
+    def process_session_record(self, record: GrowattSessionRecord) -> None:
         """Retain a Growatt session record and update session statistics."""
         coordinator = self.coordinator
         snapshot = {"received_at": coordinator.now(), "record": record}
@@ -500,7 +522,7 @@ class SessionLifecycle:
                     source_instance_id=coordinator.source_instance_id,
                     time_zone=session_time_zone(coordinator),
                 )
-            identity = session["identity"]
+            identity = cast(dict[str, Any], session)["identity"]
             start_request = ((completed_transaction or {}).get("start") or {}).get("request") or {}
             authorized_identifier = start_request.get("id_tag") if matched else None
             events = merge_growatt_record_events(
@@ -564,7 +586,9 @@ class SessionLifecycle:
                 exc,
             )
 
-    def _match_pending_completion(self, snapshot):
+    def _match_pending_completion(
+        self, snapshot: dict[str, Any]
+    ) -> tuple[PendingCompletion | None, dict[str, Any] | None]:
         coordinator = self.coordinator
         completed_transaction = coordinator.last_completed_transaction
         pending_completion = None
@@ -581,7 +605,12 @@ class SessionLifecycle:
 
         return pending_completion, completed_transaction
 
-    def _handle_duplicate(self, record, snapshot, completed_transaction) -> bool:
+    def _handle_duplicate(
+        self,
+        record: GrowattSessionRecord,
+        snapshot: dict[str, Any],
+        completed_transaction: dict[str, Any] | None,
+    ) -> bool:
         coordinator = self.coordinator
         # The charger can send the same completed session as both message types.
         dedup_key = record.dedup_key
@@ -611,7 +640,13 @@ class SessionLifecycle:
 
         return False
 
-    def _apply_last_session(self, record, identity, duration_minutes, effective_minutes) -> None:
+    def _apply_last_session(
+        self,
+        record: GrowattSessionRecord,
+        identity: dict[str, Any],
+        duration_minutes: float | None,
+        effective_minutes: float | None,
+    ) -> None:
         self.last_session = replace(
             self.last_session,
             energy_kwh=record.energy_kwh,
@@ -629,7 +664,13 @@ class SessionLifecycle:
             work_mode=record.work_mode,
         )
 
-    def _reconcile_accounting(self, record, energy_kwh, matched, pending_completion):
+    def _reconcile_accounting(
+        self,
+        record: GrowattSessionRecord,
+        energy_kwh: float,
+        matched: bool,
+        pending_completion: PendingCompletion | None,
+    ) -> SessionAccumulator | None:
         coordinator = self.coordinator
         accounting = (
             SessionAccumulator.from_dict(pending_completion.get("accounting"))
@@ -659,17 +700,17 @@ class SessionLifecycle:
 
     def _session_row(
         self,
-        record,
-        completed_transaction,
+        record: GrowattSessionRecord,
+        completed_transaction: dict[str, Any] | None,
         *,
-        matched,
-        zone,
-        duration_minutes,
-        effective_minutes,
-        authorized_identifier,
-        events,
-        accounting,
-    ):
+        matched: bool,
+        zone: str | tzinfo | None,
+        duration_minutes: float | None,
+        effective_minutes: float | None,
+        authorized_identifier: str | None,
+        events: list[dict[str, str]],
+        accounting: SessionAccumulator | None,
+    ) -> dict[str, Any]:
         coordinator = self.coordinator
         session_row = {
             "timestamp": coordinator.now(),
@@ -681,8 +722,8 @@ class SessionLifecycle:
             # reinterpret them, while retaining the raw vendor record.
             "start_time": utc_timestamp(record.start_time, zone) or record.start_time,
             "end_time": utc_timestamp(record.end_time, zone) or record.end_time,
-            "energy_kwh": round(record.energy_kwh, 3),
-            "cost": round(record.cost, 2),
+            "energy_kwh": round(cast(float, record.energy_kwh), 3),
+            "cost": round(cast(float, record.cost), 2),
             "duration_minutes": duration_minutes if duration_minutes is not None else "",
             "effective_charging_minutes": (
                 effective_minutes if effective_minutes is not None else ""

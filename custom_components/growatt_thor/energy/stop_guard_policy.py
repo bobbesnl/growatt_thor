@@ -39,7 +39,7 @@ def restore_stop_report(value: object) -> dict[str, object] | None:
 
 @dataclass(frozen=True, slots=True)
 class StopObservation:
-    transaction_id: int | None
+    transaction_id: int | str | None
     eligible: bool
     battery_discharge_w: float | None
     grid_import_w: float | None
@@ -61,7 +61,7 @@ class StopGuardTracker:
     ) -> None:
         self.threshold_w = threshold_w
         self.hold_seconds = hold_seconds
-        self.transaction_id: int | None = None
+        self.transaction_id: int | str | None = None
         self.mode = "off"
         self.above_since: datetime | None = None
         self.fired = False

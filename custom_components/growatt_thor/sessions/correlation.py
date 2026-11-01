@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import datetime, tzinfo
 from typing import Any, TypedDict
 
 from ..coerce import optional_float, optional_text
@@ -31,16 +31,20 @@ def _optional_float(value: Any) -> float | None:
     return optional_float(value, finite=False)
 
 
-def _timestamp(value: Any, time_zone: str | None = None) -> datetime | None:
+def _timestamp(value: Any, time_zone: str | tzinfo | None = None) -> datetime | None:
     return utc_instant(value, time_zone)
 
 
-def _at_or_after(value: Any, lower_bound: datetime | None, time_zone: str | None = None) -> bool:
+def _at_or_after(
+    value: Any, lower_bound: datetime | None, time_zone: str | tzinfo | None = None
+) -> bool:
     timestamp = _timestamp(value, time_zone)
     return timestamp is None or lower_bound is None or timestamp >= lower_bound
 
 
-def _at_or_before(value: Any, upper_bound: datetime | None, time_zone: str | None = None) -> bool:
+def _at_or_before(
+    value: Any, upper_bound: datetime | None, time_zone: str | tzinfo | None = None
+) -> bool:
     timestamp = _timestamp(value, time_zone)
     return timestamp is None or upper_bound is None or timestamp <= upper_bound
 
@@ -90,7 +94,7 @@ def _select_records(
     snapshots: Sequence[Any],
     transaction_id: str | None,
     transaction_started_at: str | None,
-    time_zone: str | None = None,
+    time_zone: str | tzinfo | None = None,
 ) -> list[RecordInfo]:
     records = [info for snapshot in snapshots if (info := _record_info(snapshot)) is not None]
     if transaction_id is not None:
@@ -134,7 +138,7 @@ def _latest_meter_energy_wh(
     transaction_id: str | None,
     transaction_started_at: str | None,
     transaction_stopped_at: str | None,
-    time_zone: str | None = None,
+    time_zone: str | tzinfo | None = None,
 ) -> float | None:
     snapshot = _mapping(meter_values)
     meter_transaction_id = _optional_text(snapshot.get("transaction_id"))
@@ -175,7 +179,7 @@ def build_unified_session(
     session_records: Sequence[Any] = (),
     charge_point_id: str | None = None,
     source_instance_id: str | None = None,
-    time_zone: str | None = None,
+    time_zone: str | tzinfo | None = None,
 ) -> dict[str, Any] | None:
     """Build one diagnostic session view without discarding source values."""
     transaction = _mapping(transaction)
@@ -392,7 +396,7 @@ def _session_modes(record: object) -> dict[str, Any]:
 
 
 def session_record_matches(
-    transaction: object, snapshot: object, *, time_zone: str | None = None
+    transaction: object, snapshot: object, *, time_zone: str | tzinfo | None = None
 ) -> bool:
     """Check correlation without building a complete presentation record."""
     transaction = _mapping(transaction)

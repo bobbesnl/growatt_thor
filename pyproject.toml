@@ -14,7 +14,6 @@ explicit_package_bases = true
 strict = true
 # Inspect dependency signatures while rolling out strict checks package by package.
 follow_imports = "silent"
-exclude = ['custom_components/growatt_thor/sessions/(runtime|telemetry)\.py$']
 files = [
     "custom_components/growatt_thor/coerce.py",
     "custom_components/growatt_thor/charging/",
