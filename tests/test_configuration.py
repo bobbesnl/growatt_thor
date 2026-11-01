@@ -738,7 +738,10 @@ class EntityTranslationTest(unittest.TestCase):
         )
         self.assertEqual(description.suggested_display_precision, 2)
         entity = platform.LastSessionDurationSensor(
-            SimpleNamespace(last_session_duration_minutes=90), SimpleNamespace(entry_id="entry")
+            SimpleNamespace(
+                sessions=SimpleNamespace(last_session=SimpleNamespace(duration_minutes=90))
+            ),
+            SimpleNamespace(entry_id="entry"),
         )
         self.assertEqual(entity.native_value, 1.5)
 

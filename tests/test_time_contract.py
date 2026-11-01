@@ -77,8 +77,8 @@ class UtcTimeContractTest(unittest.TestCase):
         self.assertEqual(row["start_time"], active["start_time"])
         self.assertEqual(row["start_time"], "2026-10-27T11:01:23Z")
         self.assertEqual(row["end_time"], "2026-10-27T14:07:37Z")
-        self.assertEqual(c.last_session_start, record.start_time)
-        self.assertEqual(c.last_session_end, record.end_time)
+        self.assertEqual(c.sessions.last_session.start_time, record.start_time)
+        self.assertEqual(c.sessions.last_session.end_time, record.end_time)
         self.assertEqual(row["energy_kwh"], 20.252)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "sessions.csv"
@@ -230,7 +230,9 @@ class UtcTimeContractTest(unittest.TestCase):
                 entity = object.__new__(cls)
                 entity.coordinator = c
                 self.assertEqual(entity.native_value, "2026-07-01T08:00:00Z")
-                self.assertEqual(getattr(c, "last_session_" + field), "2026-07-01 10:00:00")
+                self.assertEqual(
+                    getattr(c.sessions.last_session, state_field), "2026-07-01 10:00:00"
+                )
 
     def test_new_session_duration_uses_elapsed_instants_across_spring_transition(self):
         from custom_components.growatt_thor.sessions.records import (
@@ -247,5 +249,5 @@ class UtcTimeContractTest(unittest.TestCase):
             "costenergy=1000&costmoney=100",
         )
         c.sessions.process_session_record(record)
-        self.assertEqual(c.last_session_duration_minutes, 60)
-        self.assertEqual(c.last_session_start, "2026-03-29 01:30:00")
+        self.assertEqual(c.sessions.last_session.duration_minutes, 60)
+        self.assertEqual(c.sessions.last_session.start_time, "2026-03-29 01:30:00")

@@ -327,7 +327,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 "next_transaction_id=%d, last_session_transaction_id=%s",
                 self.total_energy_charged,
                 self._transaction_id_allocator.next_transaction_id,
-                self.last_session_transaction_id,
+                self.sessions.last_session.transaction_id,
             )
             if seeded_from_legacy:
                 # Pin the seeded values to this entry's own file, so later
@@ -389,58 +389,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 transaction_id,
             )
             return transaction_id
-
-    @property
-    def last_session_energy(self) -> float | None:
-        return self.sessions.last_session.energy_kwh
-
-    @property
-    def last_session_cost(self) -> float | None:
-        return self.sessions.last_session.cost
-
-    @property
-    def last_session_start(self) -> str | None:
-        return self.sessions.last_session.start_time
-
-    @property
-    def last_session_end(self) -> str | None:
-        return self.sessions.last_session.end_time
-
-    @property
-    def last_session_plug_time(self) -> str | None:
-        return self.sessions.last_session.plug_time
-
-    @property
-    def last_session_unplug_time(self) -> str | None:
-        return self.sessions.last_session.unplug_time
-
-    @property
-    def last_session_duration_minutes(self) -> float | None:
-        return self.sessions.last_session.duration_minutes
-
-    @property
-    def last_session_effective_charging_minutes(self) -> float | None:
-        return self.sessions.last_session.effective_charging_minutes
-
-    @property
-    def last_session_id(self) -> str | None:
-        return self.sessions.last_session.session_id
-
-    @property
-    def last_session_source(self) -> str | None:
-        return self.sessions.last_session.session_source
-
-    @property
-    def last_session_transaction_id(self) -> str | None:
-        return self.sessions.last_session.transaction_id
-
-    @property
-    def last_session_charge_mode(self) -> str | None:
-        return self.sessions.last_session.charge_mode
-
-    @property
-    def last_session_work_mode(self) -> str | None:
-        return self.sessions.last_session.work_mode
 
     # WRITE QUEUE METHODS
 

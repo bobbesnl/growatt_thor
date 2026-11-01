@@ -416,14 +416,14 @@ def _electricity_price_value(coordinator: GrowattCoordinator, phase: str | None)
 
 
 def _last_session_duration_value(coordinator: GrowattCoordinator, phase: str | None) -> SensorValue:
-    minutes = coordinator.last_session_duration_minutes
+    minutes = coordinator.sessions.last_session.duration_minutes
     return round(minutes / 60, 2) if minutes is not None else None
 
 
 def _last_session_effective_charging_duration_value(
     coordinator: GrowattCoordinator, phase: str | None
 ) -> SensorValue:
-    minutes = coordinator.last_session_effective_charging_minutes
+    minutes = coordinator.sessions.last_session.effective_charging_minutes
     return round(minutes / 60, 2) if minutes is not None else None
 
 
@@ -440,23 +440,23 @@ def _last_session_effective_charging_duration_attributes(
 def _last_session_charge_mode_value(
     coordinator: GrowattCoordinator, phase: str | None
 ) -> SensorValue:
-    return normalize_session_charge_mode(coordinator.last_session_charge_mode)
+    return normalize_session_charge_mode(coordinator.sessions.last_session.charge_mode)
 
 
 def _last_session_charge_mode_attributes(
     coordinator: GrowattCoordinator, phase: str | None
 ) -> dict:
-    return {"raw_value": coordinator.last_session_charge_mode}
+    return {"raw_value": coordinator.sessions.last_session.charge_mode}
 
 
 def _last_session_work_mode_value(
     coordinator: GrowattCoordinator, phase: str | None
 ) -> SensorValue:
-    return normalize_session_work_mode(coordinator.last_session_work_mode)
+    return normalize_session_work_mode(coordinator.sessions.last_session.work_mode)
 
 
 def _last_session_work_mode_attributes(coordinator: GrowattCoordinator, phase: str | None) -> dict:
-    return {"raw_value": coordinator.last_session_work_mode}
+    return {"raw_value": coordinator.sessions.last_session.work_mode}
 
 
 def _current_value(coordinator: GrowattCoordinator, phase: str | None) -> SensorValue:
@@ -550,8 +550,8 @@ SENSOR_DESCRIPTIONS = {
     "LastSessionEnergySensor": ThorSensorDescription(
         key="last_session_energy",
         value_fn=lambda coordinator, phase: (
-            round(coordinator.last_session_energy, 3)
-            if coordinator.last_session_energy is not None
+            round(coordinator.sessions.last_session.energy_kwh, 3)
+            if coordinator.sessions.last_session.energy_kwh is not None
             else None
         ),
         translation_key="last_session_energy",
@@ -562,8 +562,8 @@ SENSOR_DESCRIPTIONS = {
     "LastSessionCostSensor": ThorSensorDescription(
         key="last_session_cost",
         value_fn=lambda coordinator, phase: (
-            round(coordinator.last_session_cost, 2)
-            if coordinator.last_session_cost is not None
+            round(coordinator.sessions.last_session.cost, 2)
+            if coordinator.sessions.last_session.cost is not None
             else None
         ),
         translation_key="last_session_cost",
@@ -595,7 +595,7 @@ SENSOR_DESCRIPTIONS = {
     "LastSessionStartSensor": ThorSensorDescription(
         key="last_session_start",
         value_fn=lambda coordinator, phase: utc_timestamp(
-            coordinator.last_session_start, session_time_zone(coordinator)
+            coordinator.sessions.last_session.start_time, session_time_zone(coordinator)
         ),
         translation_key="last_session_start",
         icon="mdi:clock-start",
@@ -603,7 +603,7 @@ SENSOR_DESCRIPTIONS = {
     "LastSessionEndSensor": ThorSensorDescription(
         key="last_session_end",
         value_fn=lambda coordinator, phase: utc_timestamp(
-            coordinator.last_session_end, session_time_zone(coordinator)
+            coordinator.sessions.last_session.end_time, session_time_zone(coordinator)
         ),
         translation_key="last_session_end",
         icon="mdi:clock-end",
@@ -611,7 +611,7 @@ SENSOR_DESCRIPTIONS = {
     "LastSessionPlugTimeSensor": ThorSensorDescription(
         key="last_session_plug_time",
         value_fn=lambda coordinator, phase: utc_timestamp(
-            coordinator.last_session_plug_time, session_time_zone(coordinator)
+            coordinator.sessions.last_session.plug_time, session_time_zone(coordinator)
         ),
         translation_key="last_session_plug_time",
         icon="mdi:power-plug",
@@ -619,14 +619,14 @@ SENSOR_DESCRIPTIONS = {
     "LastSessionUnplugTimeSensor": ThorSensorDescription(
         key="last_session_unplug_time",
         value_fn=lambda coordinator, phase: utc_timestamp(
-            coordinator.last_session_unplug_time, session_time_zone(coordinator)
+            coordinator.sessions.last_session.unplug_time, session_time_zone(coordinator)
         ),
         translation_key="last_session_unplug_time",
         icon="mdi:power-plug-off",
     ),
     "LastSessionTransactionIdSensor": ThorSensorDescription(
         key="last_session_transaction_id",
-        value_fn=lambda coordinator, phase: coordinator.last_session_transaction_id,
+        value_fn=lambda coordinator, phase: coordinator.sessions.last_session.transaction_id,
         translation_key="last_session_transaction_id",
         icon="mdi:identifier",
         entity_category=EntityCategory.DIAGNOSTIC,

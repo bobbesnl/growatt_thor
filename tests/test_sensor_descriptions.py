@@ -50,6 +50,20 @@ def coordinator(case):
     if case == "unknown":
         c.charge_point_id = None
     if case != "unknown":
+        c.sessions.last_session = replace(
+            c.sessions.last_session,
+            energy_kwh=12.34567,
+            cost=2.345,
+            duration_minutes=123.5,
+            effective_charging_minutes=119.5,
+            start_time="2026-10-27T12:00:00+02:00",
+            end_time="2026-10-27T13:00:00+02:00",
+            plug_time="2026-10-27T11:59:00+02:00",
+            unplug_time="2026-10-27T13:01:00+02:00",
+            transaction_id="51",
+            charge_mode="3",
+            work_mode="PVlink",
+        )
         for name, value in {
             "server_url": "ws://example.invalid/ocpp",
             "charge_point_id": "THOR-TEST",
@@ -57,30 +71,12 @@ def coordinator(case):
             "energy": 12345,
             "total_energy_charged": 512.34567,
             "electricity_price": 0.23456,
-            "last_session_energy": 12.34567,
-            "last_session_cost": 2.345,
-            "last_session_duration_minutes": 123.5,
-            "last_session_effective_charging_minutes": 119.5,
             "temperature": 27.5,
-            "last_session_start": "2026-10-27T12:00:00+02:00",
-            "last_session_end": "2026-10-27T13:00:00+02:00",
-            "last_session_plug_time": "2026-10-27T11:59:00+02:00",
-            "last_session_unplug_time": "2026-10-27T13:01:00+02:00",
-            "last_session_transaction_id": "51",
-            "last_session_charge_mode": "3",
-            "last_session_work_mode": "PVlink",
             "currents": {"L1": 16, "L2": 15.5},
             "voltages": {"L1": 230, "L2": 231},
             "phase_power": {"L1": 3680, "L2": 3580},
         }.items():
-            if name.startswith("last_session_"):
-                field = name.removeprefix("last_session_")
-                field = {"energy": "energy_kwh", "start": "start_time", "end": "end_time"}.get(
-                    field, field
-                )
-                c.sessions.last_session = replace(c.sessions.last_session, **{field: value})
-            else:
-                setattr(c, name, value)
+            setattr(c, name, value)
         c.external_meter.power = -1200
         c.external_meter.currents = {"L1": -2, "L2": 1}
         c.external_meter.voltages = {"L1": 229, "L2": 232}

@@ -380,7 +380,7 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
         await restored.async_load_storage()
         restored.sessions.process_session_record(a)
         self.assertEqual(restored.total_energy_charged, 8)
-        self.assertEqual(restored.last_session_transaction_id, "2")
+        self.assertEqual(restored.sessions.last_session.transaction_id, "2")
         self.assertEqual(len(restored.sessions.outbox.snapshot()), 2)
 
     async def test_replay_with_changed_correlation_keeps_original_history_identity(
