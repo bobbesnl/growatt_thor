@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
+    from ..configuration.values import ConfigurationValue
     from ..configuration.writes import ConfigurationWriteStatus
+    from ..ocpp.external_meter_state import ExternalMeterState
     from ..runtime.write_results import ChargerCommandHandle
     from .pv_linkage import PvLinkageApplyResult, PvLinkageDraft
 
@@ -75,3 +77,20 @@ class PvApplyTransport(Protocol):
     async def change_configuration(self, key: str, value: str) -> object: ...
 
     async def send_data_transfer(self, *, vendor_id: str, message_id: str, data: str) -> object: ...
+
+
+class TransactionTransport(Protocol):
+    async def remote_start_transaction(
+        self, *, connector_id: int, id_tag: str
+    ) -> Mapping[str, object]: ...
+
+    async def remote_stop_transaction(self, *, transaction_id: int) -> Mapping[str, object]: ...
+
+    async def trigger_status(self) -> object: ...
+
+
+class PvServiceOwner(PvApplyOwner, CommandOwner, Protocol):
+    configuration_values: dict[str, ConfigurationValue]
+    external_meter: ExternalMeterState
+
+    def update_pv_linkage_draft(self, **changes: object) -> None: ...

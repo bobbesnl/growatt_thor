@@ -33,7 +33,11 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def apply_pv_linkage_writes(
-    *, coordinator, charge_point, draft, writes
+    *,
+    coordinator: PvApplyOwner,
+    charge_point: PvApplyTransport,
+    draft: PvLinkageDraft,
+    writes: Sequence[ConfigurationWrite | DataTransferWrite],
 ) -> ChargerWriteResult:
     """Apply an explicit snapshot; edits made in flight remain pending."""
     return await _PvLinkageApply(coordinator, charge_point, draft, writes).run()

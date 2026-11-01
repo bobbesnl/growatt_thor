@@ -188,15 +188,19 @@ class EnergyStopGuard:
                         self.tracker.threshold_w,
                         self.tracker.required_hold(observation),
                     )
+
                     # The sustained condition authorizes a request now, but a
                     # queue delay can outlive it. Recheck the live source before send.
+                    def on_result(
+                        result: ChargerCommandResult, tx: int | None = transaction_id
+                    ) -> None:
+                        self._stop_completed(tx, result)
+
                     await self.stop_command.async_request(
                         # The awaited request completes before this loop rebinds the ID.
                         auto_guard=lambda: self._still_eligible(transaction_id),  # noqa: B023
                         stop_reason=f"energy_guard_{reason}",
-                        on_result=lambda result, tx=transaction_id: self._stop_completed(
-                            tx, result
-                        ),
+                        on_result=on_result,
                     )
                     # Store only an accepted protection Stop, not an expired
                     # queued intention. The event keeps its reason in history.

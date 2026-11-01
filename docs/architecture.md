@@ -67,7 +67,7 @@ or the card disconnects. Live/inline curves bypass historical detail. Known HA
 attributes have explicit types; unrelated attributes are `unknown`, and entity
 lookups can be absent. The TypeScript compiler checks these boundaries in strict
 mode. Python typing is incremental; persisted target dictionaries remain a
-validated serialization boundary rather than a fully typed state machine. The strict Python scope in `pyproject.toml` covers coercion/time helpers, configuration, energy, target models/builders and session modules except lifecycle/telemetry. Card projections use explicit read protocols from `presentation/contracts.py`, and compile-only owner checks in `tests/typing/owner_contracts.py` verify that the concrete coordinator still satisfies them. A minimal HA coordinator stub prevents an unresolved framework base from hiding missing owner attributes. Other integration packages remain outside this initial strict scope.
+validated serialization boundary rather than a fully typed state machine. The strict Python scope in `pyproject.toml` covers coercion/time helpers, configuration, energy, charging, target models/builders and session modules except lifecycle/telemetry. Card projections use explicit read protocols from `presentation/contracts.py`, and compile-only owner checks in `tests/typing/owner_contracts.py` verify that the concrete coordinator still satisfies them. A minimal HA coordinator stub prevents an unresolved framework base from hiding missing owner attributes. Other integration packages remain outside this initial strict scope.
 
 Use classes for state with a lifecycle or invariants. Keep transformations,
 validation and calculations as typed functions or data models. Package initializers
@@ -223,3 +223,5 @@ capture evidence remains limited to the firmware named in the reverse-engineerin
 notes; budget enforcement remains experimental.
 
 The three legacy Number controls execute writes through `ConfigurationNumberWriteMixin`. Number validation and encoding consume domain values; mode-aware control setters pass an already encoded wire string directly to the configuration mixin. Working-mode encoding returns a key/value pair through its explicitly named helper. Accepted Number hooks require the domain value explicitly. The load-limit hook retains its historical ordering: reported configuration, scheduled refresh, then mirror notification. Contract fixtures are checked against the pre-refactoring implementations; see `tests/fixtures/README.md`.
+
+Charging commands declare transaction transport, completion callback and PV service capabilities. RFID validation narrows identifiers only after the existing validation succeeds; diagnostics retain their identifier-free shape.

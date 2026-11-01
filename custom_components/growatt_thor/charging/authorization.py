@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from hashlib import sha256
 from time import monotonic
+from typing import Any, TypedDict, TypeGuard
 
 from .rfid_learning import RfidLearning
 
@@ -21,7 +22,7 @@ def _valid_alias(value: object) -> bool:
     return isinstance(value, str) and len(value) <= 80 and all(char.isprintable() for char in value)
 
 
-def _valid_id_tag(value: object) -> bool:
+def _valid_id_tag(value: object) -> TypeGuard[str]:
     # Preserve the wire identifier exactly, including case and leading zeroes.
     return (
         isinstance(value, str)
@@ -98,7 +99,7 @@ class AuthorizationPolicy:
             return "Accepted"
         return "Invalid"
 
-    def as_config(self) -> dict:
+    def as_config(self) -> dict[str, Any]:
         return {
             "restricted": self.restricted,
             CONF_STORED_TAGS: sorted(self.id_tags),
@@ -133,7 +134,9 @@ class AuthorizationPolicy:
         return (self.valid or self.independent_ha_permission) and self.allow_ha_remote_start
 
 
-def policy_from_input(existing: AuthorizationPolicy, user_input: Mapping) -> AuthorizationPolicy:
+def policy_from_input(
+    existing: AuthorizationPolicy, user_input: Mapping[str, Any]
+) -> AuthorizationPolicy:
     """Replace the editable list when supplied; an omitted field preserves it."""
     text = user_input.get(CONF_AUTHORIZED_TAGS)
     restricted = user_input.get(CONF_RESTRICT_AUTHORIZATION, False)
@@ -152,7 +155,7 @@ def policy_from_input(existing: AuthorizationPolicy, user_input: Mapping) -> Aut
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         if len(lines) > 100:
             raise ValueError("invalid_authorization")
-        entered = {}
+        entered: dict[str, str] = {}
         for line in lines:
             # Spaces cannot occur in an OCPP identifier, so a spaced separator
             # keeps legacy identifiers containing a bare pipe unambiguous.
@@ -175,12 +178,21 @@ def policy_from_input(existing: AuthorizationPolicy, user_input: Mapping) -> Aut
     )
 
 
+class AuthorizationDecision(TypedDict):
+    action: str
+    status: str
+    timestamp: str
+    restricted: bool
+    configuration_valid: bool
+    source: str
+
+
 class LocalAuthorization:
     """Live policy and bounded, identifier-free decision diagnostics."""
 
-    def __init__(self, config: object = None):
+    def __init__(self, config: object = None) -> None:
         self.policy = AuthorizationPolicy.from_config(config)
-        self.last_decision: dict | None = None
+        self.last_decision: AuthorizationDecision | None = None
         self.learning = RfidLearning()
         self._pending_ha_remote_start: tuple[str, float] | None = None
 
@@ -234,7 +246,7 @@ class LocalAuthorization:
         }
         return status
 
-    def diagnostics(self) -> dict:
+    def diagnostics(self) -> dict[str, Any]:
         return {
             "restricted": self.policy.restricted,
             "configuration_valid": self.policy.valid,

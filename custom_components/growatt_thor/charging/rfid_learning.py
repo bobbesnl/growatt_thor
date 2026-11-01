@@ -18,11 +18,11 @@ class LearningSession:
 class RfidLearning:
     """Capture an identifier without changing the authorization decision."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._session: LearningSession | None = None
         self._timer: asyncio.TimerHandle | None = None
 
-    def _expire(self):
+    def _expire(self) -> None:
         if self._session is not None and monotonic() >= self._session.expires_at:
             self.cancel(self._session)
 

@@ -1,5 +1,6 @@
 """Compile-only checks: concrete owners must implement their advertised capabilities."""
 
+from custom_components.growatt_thor.charging.contracts import PvServiceOwner
 from custom_components.growatt_thor.configuration.contracts import ConfigurationWriteOwner
 from custom_components.growatt_thor.coordinator import GrowattCoordinator
 from custom_components.growatt_thor.energy.contracts import EnergyStopOwner
@@ -24,4 +25,8 @@ def session_owner(coordinator: GrowattCoordinator) -> SessionOwner:
 
 
 def history_owner(coordinator: GrowattCoordinator) -> DashboardHistoryOwner:
+    return coordinator
+
+
+def pv_service_owner(coordinator: GrowattCoordinator) -> PvServiceOwner:
     return coordinator

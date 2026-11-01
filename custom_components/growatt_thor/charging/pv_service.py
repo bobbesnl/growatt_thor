@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import time
+from typing import TYPE_CHECKING, Any, cast
 
 import voluptuous as vol
 from homeassistant.exceptions import HomeAssistantError
@@ -19,14 +21,21 @@ from ..runtime.action_errors import (
 from ..runtime.keys import ACTIVE_CHARGE_POINT, PV_LINKAGE_PROFILE_HANDLER
 from ..runtime.ownership import entry_runtime_data
 from ..runtime.write_results import CONFIGURATION_WRITE_POLICY, ChargerWriteResult
+from .contracts import PvApplyTransport, PvServiceOwner
 from .pv_apply import apply_pv_linkage_writes
 from .pv_linkage import (
+    ConfigurationWrite,
+    DataTransferWrite,
     PvBoostMode,
     PvLinkageDraft,
     PvLinkageProfile,
     build_pv_linkage_profile_writes,
     profile_validation_errors,
 )
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant, ServiceCall
 
 _LOGGER = logging.getLogger(__name__)
 SERVICE = "apply_pv_linkage_profile"
@@ -64,7 +73,7 @@ SERVICE_SCHEMA = vol.Schema(
 )
 
 
-def _profile(data: dict) -> PvLinkageProfile:
+def _profile(data: Mapping[str, Any]) -> PvLinkageProfile:
     return PvLinkageProfile(
         working_mode=data["working_mode"],
         grid_import_limit_kw=data.get("grid_import_limit_kw"),
@@ -78,7 +87,11 @@ def _profile(data: dict) -> PvLinkageProfile:
     )
 
 
-def _block_reason(hass, coordinator, writes) -> str | None:
+def _block_reason(
+    hass: HomeAssistant,
+    coordinator: PvServiceOwner,
+    writes: Sequence[ConfigurationWrite | DataTransferWrite],
+) -> str | None:
     charge_point = coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
     if not coordinator.connected or charge_point is None:
         return "charger_disconnected"
@@ -90,31 +103,33 @@ def _block_reason(hass, coordinator, writes) -> str | None:
         return "external_meter_not_ready"
     for write in writes:
         key = getattr(write, "key", None)
-        reported = coordinator.configuration_values.get(key)
+        reported = coordinator.configuration_values.get(key) if key is not None else None
         if reported is not None and reported.readonly is True:
             return "configuration_read_only"
     return None
 
 
-def async_register_pv_linkage_service(hass) -> None:
+def async_register_pv_linkage_service(hass: HomeAssistant) -> None:
     """Register the public action independently from config-entry reloads."""
     if hass.services.has_service(DOMAIN, SERVICE):
         return
 
-    async def dispatch(call):
+    async def dispatch(call: ServiceCall) -> None:
         runtime = entry_runtime_data(hass.data.get(DOMAIN, {}), call.data["entry_id"]) or {}
         handler = runtime.get(PV_LINKAGE_PROFILE_HANDLER)
         if handler is None:
             raise HomeAssistantError("growatt_thor_entry_not_loaded")
-        return await handler(call)
+        return await cast("Callable[[ServiceCall], Awaitable[None]]", handler)(call)
 
     hass.services.async_register(DOMAIN, SERVICE, dispatch, schema=SERVICE_SCHEMA)
 
 
-async def async_setup_pv_linkage_service(hass, entry, coordinator) -> None:
+async def async_setup_pv_linkage_service(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: PvServiceOwner
+) -> None:
     """Bind the registered service to the entry's runtime."""
 
-    async def handle(call):
+    async def handle(call: ServiceCall) -> None:
         if call.data["entry_id"] != entry.entry_id:
             raise_action_validation(
                 "action_not_allowed",
@@ -145,7 +160,11 @@ async def async_setup_pv_linkage_service(hass, entry, coordinator) -> None:
         )
         charge_point = coordinator.runtime_data[ACTIVE_CHARGE_POINT]
 
-        async def apply(current_charge_point, expected_draft, expected_writes):
+        async def apply(
+            current_charge_point: PvApplyTransport,
+            expected_draft: PvLinkageDraft,
+            expected_writes: Sequence[ConfigurationWrite | DataTransferWrite],
+        ) -> ChargerWriteResult:
             if reason := _block_reason(hass, coordinator, expected_writes):
                 _LOGGER.warning("Skipping queued PV Linkage profile: %s", reason)
                 return ChargerWriteResult.skipped(reason)
@@ -171,7 +190,7 @@ async def async_setup_pv_linkage_service(hass, entry, coordinator) -> None:
     coordinator.runtime_data[PV_LINKAGE_PROFILE_HANDLER] = handle
 
 
-def async_unload_pv_linkage_service(hass, entry) -> None:
+def async_unload_pv_linkage_service(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Detach only the current entry handler; keep the action registered."""
     runtime = entry_runtime_data(hass.data.get(DOMAIN, {}), entry.entry_id)
     if runtime is not None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from typing import TypedDict
 
 MIN_CHARGING_CURRENT_A = 6
 DEFAULT_MAX_CHARGING_CURRENT_A = 32
@@ -31,7 +32,12 @@ def maximum_charging_current(*identity_values: object) -> int:
     return min(limits, default=DEFAULT_MAX_CHARGING_CURRENT_A)
 
 
-def charging_power_identity(*identity_values: object) -> dict:
+class ChargingPowerIdentity(TypedDict):
+    nominal_phases: int | None
+    rated_power_kw: float | None
+
+
+def charging_power_identity(*identity_values: object) -> ChargingPowerIdentity:
     """Read-only nominal gauge metadata; do not infer wiring from live currents."""
     models = (
         (("THOR03AS",), 1, 3.7),

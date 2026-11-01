@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
+from typing import cast
 
 from ..const import DOMAIN as DOMAIN
 from ..runtime.action_errors import (
@@ -16,11 +18,12 @@ from ..runtime.keys import ACTIVE_CHARGE_POINT
 from ..runtime.write_results import (
     TRANSACTION_CONTROL_WRITE_POLICY,
     VOLATILE_CONTROL_WRITE_POLICY,
+    ChargerCommandResult,
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
 )
-from .contracts import CommandOwner
+from .contracts import CommandOwner, TransactionTransport
 from .control_capabilities import charger_write_block_reason
 from .start_stop_rules import (
     REMOTE_START_COMMAND,
@@ -38,7 +41,9 @@ DEFAULT_ID_TAG = "12345678"  # Growatt handshake key
 STATUS_TRIGGER_DELAY_SECONDS = 2
 
 
-def command_state(coordinator: CommandOwner, action, state, *, reason=None):
+def command_state(
+    coordinator: CommandOwner, action: str, state: str, *, reason: str | None = None
+) -> None:
     """Report command acceptance separately from physical charger state."""
     coordinator.dashboard_command = {
         "action": action,
@@ -67,7 +72,13 @@ class StopChargingCommand:
             transaction_active=self.coordinator.transaction_is_active,
         )
 
-    async def async_request(self, *, auto_guard=None, stop_reason=None, on_result=None) -> None:
+    async def async_request(
+        self,
+        *,
+        auto_guard: Callable[[], str | None] | None = None,
+        stop_reason: str | None = None,
+        on_result: Callable[[ChargerCommandResult], None] | None = None,
+    ) -> None:
         """Stop a charging session via queue."""
 
         # A Stop pressed before a queued Start reaches OCPP means "do not
@@ -123,7 +134,7 @@ class StopChargingCommand:
             requires_connection=True,
             policy=TRANSACTION_CONTROL_WRITE_POLICY,
             revalidate=lambda: (
-                self._stop_revalidation_failure(transaction_id)
+                self._stop_revalidation_failure(cast(int, transaction_id))
                 or (auto_guard() if auto_guard is not None else None)
             ),
         )
@@ -133,7 +144,7 @@ class StopChargingCommand:
 
     async def _stop_charging(
         self,
-        charge_point,
+        charge_point: TransactionTransport,
         transaction_id: int,
         stop_reason: str | None = None,
     ) -> ChargerWriteResult:
@@ -175,7 +186,7 @@ class StopChargingCommand:
             _LOGGER.error("Failed to stop charging: %s", exc, exc_info=True)
             return ChargerWriteResult.failed("unexpected_error")
 
-    async def _post_status_update(self):
+    async def _post_status_update(self) -> None:
         """Trigger a status update on whichever connection is current later."""
         await asyncio.sleep(STATUS_TRIGGER_DELAY_SECONDS)
         try:
@@ -251,7 +262,7 @@ class StartChargingCommand:
         # edits, so their HA actions can wait for a bounded physical outcome.
         await async_require_command_completion(handle)
 
-    async def _start_charging(self, charge_point) -> ChargerWriteResult:
+    async def _start_charging(self, charge_point: TransactionTransport) -> ChargerWriteResult:
         """Start charging command (runs inside write-queue)."""
         if (reason := self._start_revalidation_failure()) is not None:
             _LOGGER.warning("Skipping queued start charging: %s", reason)
@@ -293,7 +304,7 @@ class StartChargingCommand:
             _LOGGER.error("Failed to start charging: %s", exc, exc_info=True)
             return ChargerWriteResult.failed("unexpected_error")
 
-    async def _post_status_update(self):
+    async def _post_status_update(self) -> None:
         """Trigger a status update on whichever connection is current later."""
         await asyncio.sleep(STATUS_TRIGGER_DELAY_SECONDS)
         try:

@@ -172,7 +172,7 @@ def fault_from_data_transfer(
         and existing.category == category
         and _events_are_close(existing.observed_at, observed_at)
     )
-    if can_merge:
+    if can_merge and existing is not None:
         sources = tuple(dict.fromkeys((*existing.sources, "DataTransfer/faultmessage")))
         return replace(
             existing,
