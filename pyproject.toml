@@ -16,6 +16,8 @@ files = [
     "custom_components/growatt_thor/coerce.py",
     "custom_components/growatt_thor/configuration/",
     "custom_components/growatt_thor/timestamps.py",
+    "custom_components/growatt_thor/targets/model.py",
+    "custom_components/growatt_thor/targets/requests.py",
 ]
 
 [[tool.mypy.overrides]]

@@ -47,7 +47,7 @@ def new_target_request(
     previous: TargetRecord | None,
     replacing: bool,
 ) -> TargetRecord:
-    request = {
+    request: TargetRecord = {
         **target.diagnostic(),
         "request_id": uuid4().hex,
         "state": TargetState.QUEUED,
@@ -75,7 +75,7 @@ def new_scheduled_request(
     previous: TargetRecord | None,
     replacing: bool,
 ) -> TargetRecord:
-    request = {
+    request: TargetRecord = {
         **target.diagnostic(),
         "request_id": uuid4().hex,
         "state": TargetState.RESERVATION_QUEUED if recurrence == "once" else TargetState.SCHEDULED,

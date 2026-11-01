@@ -6,6 +6,29 @@ import re
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from enum import StrEnum
+from typing import TypedDict
+
+
+class TargetPayload(TypedDict):
+    vendorId: str
+    messageId: str
+    connectorId: int
+    data: str
+
+
+class TargetDiagnostic(TypedDict):
+    kind: str
+    value: str
+    unit: str
+
+
+class TargetPlan(TargetDiagnostic):
+    start: str
+    pilot_supported: bool
+    reason: str
+    target_payload: TargetPayload
+    activation: str
+    automatic_stop_verified: bool
 
 
 class TargetState(StrEnum):
@@ -91,7 +114,7 @@ class ChargingTarget:
             value = value.rstrip("0").rstrip(".")
         return value.replace(".", ",") if self.kind == "budget" else value
 
-    def payload(self) -> dict:
+    def payload(self) -> TargetPayload:
         return {
             "vendorId": "Growatt",
             "messageId": MESSAGE_IDS[self.kind],
@@ -99,7 +122,7 @@ class ChargingTarget:
             "data": self.wire_value,
         }
 
-    def diagnostic(self) -> dict:
+    def diagnostic(self) -> TargetDiagnostic:
         return {
             "kind": self.kind,
             "value": str(self.value),
@@ -111,7 +134,7 @@ class ChargingTarget:
         }
 
 
-def target_plan(target: ChargingTarget, start: str = "now") -> dict:
+def target_plan(target: ChargingTarget, start: str = "now") -> TargetPlan:
     """Return the capture-backed operation plan without claiming completion."""
     if start not in {"now", "once", "recurring"}:
         raise ValueError("unsupported_start_kind")
