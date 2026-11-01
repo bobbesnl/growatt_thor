@@ -246,8 +246,8 @@ class SessionTelemetryTest(unittest.TestCase):
         c.site_accounting_options.update(
             site_accounting_profile="pv_battery", site_grid_source="thor_external"
         )
-        c.grid_power = 1200
-        c.external_meter_last_updated_at = c.now()
+        c.external_meter.power = 1200
+        c.external_meter.last_updated_at = c.now()
         c.hass.states["sensor.battery"].state = "600"
         c.start_transaction(100, connector_id=1, timestamp=c.now())
         self.assertNotIn("site_house_load_curve_w", c.sessions.telemetry.snapshot())
@@ -269,7 +269,7 @@ class SessionTelemetryTest(unittest.TestCase):
         c.sessions.observe_context()
         self.assertIsNone(c.sessions.telemetry.snapshot()["site_house_load_curve_w"][-1][1])
         c.hass.states["sensor.battery"].state = "600"
-        c.external_meter_last_updated_at = (c.at - timedelta(minutes=10)).isoformat()
+        c.external_meter.last_updated_at = (c.at - timedelta(minutes=10)).isoformat()
         c.at += timedelta(seconds=30)
         c.sessions.observe_context()
         self.assertIsNone(c.sessions.telemetry.snapshot()["site_house_load_curve_w"][-1][1])

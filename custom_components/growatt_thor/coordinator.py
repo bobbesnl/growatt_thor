@@ -251,102 +251,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._auto_charge_schedule_task = None
 
     @property
-    def grid_power(self) -> float | None:
-        return self.external_meter.power
-
-    @grid_power.setter
-    def grid_power(self, value: float | None) -> None:
-        self.external_meter.power = value
-
-    @property
-    def grid_voltages(self) -> dict[str, float]:
-        return self.external_meter.voltages
-
-    @grid_voltages.setter
-    def grid_voltages(self, value: dict[str, float]) -> None:
-        self.external_meter.voltages = value
-
-    @property
-    def grid_currents(self) -> dict[str, float]:
-        return self.external_meter.currents
-
-    @grid_currents.setter
-    def grid_currents(self, value: dict[str, float]) -> None:
-        self.external_meter.currents = value
-
-    @property
-    def external_meter_used(self) -> int | None:
-        return self.external_meter.used
-
-    @external_meter_used.setter
-    def external_meter_used(self, value: int | None) -> None:
-        self.external_meter.used = value
-
-    @property
-    def external_meter_wring(self) -> int | None:
-        return self.external_meter.wring
-
-    @external_meter_wring.setter
-    def external_meter_wring(self, value: int | None) -> None:
-        self.external_meter.wring = value
-
-    @property
-    def external_meter_last_updated_at(self) -> str | None:
-        return self.external_meter.last_updated_at
-
-    @external_meter_last_updated_at.setter
-    def external_meter_last_updated_at(self, value: str | None) -> None:
-        self.external_meter.last_updated_at = value
-
-    @property
-    def external_meter_poll_interval(self) -> int:
-        return self.external_meter.poll_interval
-
-    @external_meter_poll_interval.setter
-    def external_meter_poll_interval(self, value: int) -> None:
-        self.external_meter.poll_interval = value
-
-    @property
-    def external_meter_faulted(self) -> bool:
-        return self.external_meter.faulted
-
-    @external_meter_faulted.setter
-    def external_meter_faulted(self, value: bool) -> None:
-        self.external_meter.faulted = value
-
-    @property
-    def external_meter_fault_connector_id(self) -> int | str | None:
-        return self.external_meter.fault_connector_id
-
-    @external_meter_fault_connector_id.setter
-    def external_meter_fault_connector_id(self, value: int | str | None) -> None:
-        self.external_meter.fault_connector_id = value
-
-    @property
-    def external_meter_fault_error_code(self) -> str | None:
-        return self.external_meter.fault_error_code
-
-    @external_meter_fault_error_code.setter
-    def external_meter_fault_error_code(self, value: str | None) -> None:
-        self.external_meter.fault_error_code = value
-
-    @property
-    def external_meter_fault_info(self) -> object:
-        return self.external_meter.fault_info
-
-    @external_meter_fault_info.setter
-    def external_meter_fault_info(self, value: object) -> None:
-        self.external_meter.fault_info = value
-
-    @property
-    def meterval_consecutive_timeouts(self) -> int:
-        return self.external_meter.consecutive_timeouts
-
-    @meterval_consecutive_timeouts.setter
-    def meterval_consecutive_timeouts(self, value: int) -> None:
-        self.external_meter.consecutive_timeouts = value
-
-    @property
     def pv_boost_mode_draft(self) -> PvBoostMode | None:
         return self.pv_draft.boost_mode
 
@@ -794,7 +698,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         """Apply one saved options section without changing entry ownership or storage."""
         if section == "general":
             self.location = data.get(CONF_LOCATION, "")
-            self.external_meter_poll_interval = data[CONF_POLL_INTERVAL]
+            self.external_meter.poll_interval = data[CONF_POLL_INTERVAL]
         elif section == "energy_sources":
             self.battery_power_entity = data.get(CONF_BATTERY_POWER_ENTITY) or None
             self.battery_power_sign = (
@@ -1549,25 +1453,15 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     # Growatt external meter values
 
-    @property
-    def external_meter_health(self) -> str:
-        """Return the effective external-meter communication state."""
-        return self.external_meter.health
-
-    @property
-    def external_meter_ready_for_pv(self) -> bool:
-        """Return whether entering a PV Linkage mode is currently safe."""
-        return self.external_meter_health == "healthy"
-
     def record_external_meter_poll_timeout(self) -> None:
         """Record one missed external-meter response and refresh HA state."""
-        self.meterval_consecutive_timeouts += 1
+        self.external_meter.consecutive_timeouts += 1
         self.async_set_updated_data(True)
 
     def reset_external_meter_poll_timeouts(self) -> None:
         """Clear communication timeouts after a valid meter response."""
-        if self.meterval_consecutive_timeouts:
-            self.meterval_consecutive_timeouts = 0
+        if self.external_meter.consecutive_timeouts:
+            self.external_meter.consecutive_timeouts = 0
 
     def process_external_meter(self, data_str: str) -> bool:
         """Process external meter values from get_external_meterval DataTransfer."""

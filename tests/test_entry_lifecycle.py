@@ -124,6 +124,7 @@ class _Coordinator:
     instances = []
 
     def __init__(self, hass, source_instance_id=None, seed_from_legacy=True):
+        self.external_meter = load_package_module("ocpp.external_meter_state").ExternalMeterState()
         self.hass = hass
         self.source_instance_id = source_instance_id
         self.runtime_data = {}

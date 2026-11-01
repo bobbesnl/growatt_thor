@@ -69,9 +69,13 @@ class SiteObservationTest(unittest.TestCase):
             site_accounting_options={"site_grid_source": "thor_external"},
             hass=None,
             battery_power_entity=None,
-            external_meter_health="faulted",
-            grid_power=1000,
-            external_meter_last_updated_at=AT,
+            external_meter=SimpleNamespace(
+                poll_interval=30,
+                health="faulted",
+                ready_for_pv=False,
+                power=1000,
+                last_updated_at=AT,
+            ),
         )
         self.assertIsNone(site.read_site_observations(coordinator).grid)
 

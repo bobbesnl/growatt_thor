@@ -47,7 +47,7 @@ Live energy-source allocation lives in `energy/live_allocation.py`, using the pu
 
 ## State and typing
 
-`ocpp/external_meter_state.py::ExternalMeterState` owns external-meter observations, fault matching, poll timeouts and health. `charging/pv_draft.py::PvLinkageDraftState` owns the local PV draft and initialization from readback. Existing coordinator attributes remain projections, including their update behavior.
+`ocpp/external_meter_state.py::ExternalMeterState` owns external-meter observations, fault matching, poll timeouts, health and PV readiness. Sensors, diagnostics, site observations and control guards read `coordinator.external_meter` directly; coordinator methods still publish updates at the same transition boundaries. `charging/pv_draft.py::PvLinkageDraftState` owns the local PV draft and initialization from readback; its existing coordinator attributes remain projections.
 
 `runtime/entry.py::EntryRuntime` declares the resources owned by one config entry. Setup publishes the same object on `entry.runtime_data`, the coordinator and the entry-scoped dispatch registry. Platforms read `entry.runtime_data.coordinator`; connection readers can use `coordinator.charge_point`. The mapping interface retains missing-key, callback and identity semantics for queue/dispatch ownership, with stable keys in `runtime/keys.py`. Release clears only the runtime still registered to that entry.
 

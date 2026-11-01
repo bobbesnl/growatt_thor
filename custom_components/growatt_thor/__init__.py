@@ -412,7 +412,7 @@ async def _start_server(hass, entry, coordinator, runtime_data):
         entry.data.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
         minimum=MIN_POLL_INTERVAL,
     )
-    coordinator.external_meter_poll_interval = poll_interval
+    coordinator.external_meter.poll_interval = poll_interval
     runtime_data[POLL_INTERVAL] = poll_interval
     poll_interval_schedule = PollIntervalSchedule(poll_interval)
     runtime_data[POLL_INTERVAL_SCHEDULE] = poll_interval_schedule

@@ -123,17 +123,21 @@ class StatusCardContractTest(unittest.TestCase):
 
     def test_all_external_meter_sensors_exclude_only_the_poll_timestamp(self):
         c = SimpleNamespace(
-            external_meter_used=1,
-            external_meter_wring=0,
-            external_meter_last_updated_at="2026-10-25T10:00:00Z",
-            external_meter_fault_connector_id=None,
-            external_meter_fault_error_code=None,
-            external_meter_fault_info=None,
-            meterval_consecutive_timeouts=0,
-            external_meter_health="healthy",
-            grid_power=100,
-            grid_voltages={"L1": 230, "L2": 231, "L3": 232},
-            grid_currents={"L1": 1, "L2": 2, "L3": 3},
+            external_meter=SimpleNamespace(
+                poll_interval=30,
+                health="healthy",
+                ready_for_pv=True,
+                power=100,
+                last_updated_at="2026-10-25T10:00:00Z",
+                used=1,
+                wring=0,
+                fault_connector_id=None,
+                fault_error_code=None,
+                fault_info=None,
+                consecutive_timeouts=0,
+                voltages={"L1": 230, "L2": 231, "L3": 232},
+                currents={"L1": 1, "L2": 2, "L3": 3},
+            ),
         )
         variants = [
             (sensor.GridPowerSensor, None),
@@ -153,9 +157,9 @@ class StatusCardContractTest(unittest.TestCase):
                 self.assertEqual(entity._unrecorded_attributes, frozenset({"last_updated_at"}))
                 before = entity.extra_state_attributes
                 value = entity.native_value
-                c.external_meter_last_updated_at = "2026-10-25T10:01:00Z"
+                c.external_meter.last_updated_at = "2026-10-25T10:01:00Z"
                 after = entity.extra_state_attributes
-                self.assertEqual(after["last_updated_at"], c.external_meter_last_updated_at)
+                self.assertEqual(after["last_updated_at"], c.external_meter.last_updated_at)
                 self.assertEqual(entity.native_value, value)
                 self.assertEqual(
                     {
@@ -170,4 +174,4 @@ class StatusCardContractTest(unittest.TestCase):
                     },
                 )
                 self.assertEqual(after["vendor_used"], 1)
-                c.external_meter_last_updated_at = "2026-10-25T10:00:00Z"
+                c.external_meter.last_updated_at = "2026-10-25T10:00:00Z"

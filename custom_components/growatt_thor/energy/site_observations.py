@@ -126,14 +126,14 @@ def read_site_observations(
         else None
     )
     if options.get("site_grid_source") == "thor_external":
-        if coordinator.external_meter_health == "healthy":
-            observed = parse_at(coordinator.external_meter_last_updated_at)
+        if coordinator.external_meter.health == "healthy":
+            observed = parse_at(coordinator.external_meter.last_updated_at)
             grid = PowerObservation(
-                coordinator.grid_power,
+                coordinator.external_meter.power,
                 observed,
                 max_age_s=max(
                     15,
-                    int(coordinator.external_meter_poll_interval) * 3 + 5,
+                    int(coordinator.external_meter.poll_interval) * 3 + 5,
                 ),
             )
     battery_entity = coordinator.battery_power_entity

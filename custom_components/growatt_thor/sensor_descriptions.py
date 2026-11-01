@@ -82,9 +82,9 @@ class ThorSensorDescription(SensorEntityDescription):
 
 def _external_meter_attributes(coordinator: GrowattCoordinator) -> dict:
     return {
-        "vendor_used": coordinator.external_meter_used,
-        "vendor_wring": coordinator.external_meter_wring,
-        "last_updated_at": coordinator.external_meter_last_updated_at,
+        "vendor_used": coordinator.external_meter.used,
+        "vendor_wring": coordinator.external_meter.wring,
+        "last_updated_at": coordinator.external_meter.last_updated_at,
     }
 
 
@@ -478,19 +478,19 @@ def _external_meter_health_attributes(coordinator: GrowattCoordinator, phase: st
     return {
         **_external_meter_attributes(coordinator),
         **INFORMATION_ATTRIBUTES,
-        "connector_id": coordinator.external_meter_fault_connector_id,
-        "error_code": coordinator.external_meter_fault_error_code,
-        "info": coordinator.external_meter_fault_info,
-        "consecutive_timeouts": coordinator.meterval_consecutive_timeouts,
+        "connector_id": coordinator.external_meter.fault_connector_id,
+        "error_code": coordinator.external_meter.fault_error_code,
+        "info": coordinator.external_meter.fault_info,
+        "consecutive_timeouts": coordinator.external_meter.consecutive_timeouts,
     }
 
 
 def _grid_voltage_value(coordinator: GrowattCoordinator, phase: str | None) -> SensorValue:
-    return coordinator.grid_voltages.get(phase)
+    return coordinator.external_meter.voltages.get(phase)
 
 
 def _grid_current_value(coordinator: GrowattCoordinator, phase: str | None) -> SensorValue:
-    return coordinator.grid_currents.get(phase)
+    return coordinator.external_meter.currents.get(phase)
 
 
 SENSOR_DESCRIPTIONS = {
@@ -696,7 +696,7 @@ SENSOR_DESCRIPTIONS = {
     ),
     "ExternalMeterHealthSensor": ThorSensorDescription(
         key="health",
-        value_fn=lambda coordinator, phase: coordinator.external_meter_health,
+        value_fn=lambda coordinator, phase: coordinator.external_meter.health,
         translation_key="external_meter_health",
         device_class=SensorDeviceClass.ENUM,
         options=list(EXTERNAL_METER_HEALTH_OPTIONS),
@@ -708,7 +708,7 @@ SENSOR_DESCRIPTIONS = {
     ),
     "GridPowerSensor": ThorSensorDescription(
         key="power",
-        value_fn=lambda coordinator, phase: coordinator.grid_power,
+        value_fn=lambda coordinator, phase: coordinator.external_meter.power,
         translation_key="grid_power",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -716,7 +716,7 @@ SENSOR_DESCRIPTIONS = {
         native_unit_of_measurement=UnitOfPower.WATT,
         device="meter",
         available_fn=lambda coordinator, phase: (
-            coordinator.connected and (coordinator.grid_power is not None)
+            coordinator.connected and (coordinator.external_meter.power is not None)
         ),
     ),
     "GridVoltageSensor": ThorSensorDescription(

@@ -86,7 +86,7 @@ def _block_reason(hass, coordinator, writes) -> str | None:
         return "charger_faulted"
     if coordinator.transaction_is_active:
         return "active_transaction"
-    if not coordinator.external_meter_ready_for_pv:
+    if not coordinator.external_meter.ready_for_pv:
         return "external_meter_not_ready"
     for write in writes:
         key = getattr(write, "key", None)

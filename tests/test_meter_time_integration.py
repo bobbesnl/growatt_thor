@@ -69,11 +69,11 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         c.sessions.active_power_curve = []
         c.sessions.event_tracker = None
         c.effective_charging = coordinator_module.EffectiveChargingTracker()
-        c.external_meter_faulted = False
-        c.meterval_consecutive_timeouts = 0
-        c.external_meter_poll_interval = 30
-        c.external_meter_last_updated_at = AT.isoformat()
-        c.grid_power = 0
+        c.external_meter.faulted = False
+        c.external_meter.consecutive_timeouts = 0
+        c.external_meter.poll_interval = 30
+        c.external_meter.last_updated_at = AT.isoformat()
+        c.external_meter.power = 0
         c.battery_power_entity = "sensor.battery"
         c.battery_power_sign = "positive_charge"
         c.site_accounting_options = {
@@ -118,7 +118,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         self.at = datetime(2026, 10, 27, 11, 18, 5, tzinfo=UTC)
         for state in self.c.hass.states.values():
             state.last_updated = self.at
-        self.c.external_meter_last_updated_at = self.at.isoformat()
+        self.c.external_meter.last_updated_at = self.at.isoformat()
         self.c.site_accounting.last_meter_at = self.at - timedelta(seconds=5)
         for key, value in {
             "G_TimeZone": "UTC+2",
@@ -273,7 +273,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         battery.last_updated = AT - timedelta(hours=2)
         battery.last_reported = battery.last_updated
         self.c.hass.states["sensor.pv"].state = "10320"
-        self.c.grid_power = -2146
+        self.c.external_meter.power = -2146
         self.receive()
         sources = dashboard_attributes(self.c)["power_flow"]["charging_sources"]
         self.assertAlmostEqual(sources["solar_w"], 7000)
@@ -286,7 +286,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         self.at = AT + timedelta(seconds=2)
         for state in self.c.hass.states.values():
             state.last_updated = AT + timedelta(milliseconds=200)
-        self.c.external_meter_last_updated_at = (AT + timedelta(seconds=1)).isoformat()
+        self.c.external_meter.last_updated_at = (AT + timedelta(seconds=1)).isoformat()
         self.receive()
         self.assertAlmostEqual(self.c.site_accounting.buckets["unknown"], 0)
         self.assertAlmostEqual(self.c.site_accounting.buckets["battery_unknown"], 2 * 30 / 3600)
@@ -302,7 +302,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
     def test_repeated_sensor_poll_offsets_keep_solar_and_total_energy_in_step(self):
         self.c.hass.states["sensor.battery"].state = "0"
         self.c.hass.states["sensor.pv"].state = "10390"
-        self.c.grid_power = -1344
+        self.c.external_meter.power = -1344
         self.c.site_accounting.last_meter_at = AT - timedelta(seconds=5)
         for index in range(9):
             sample_at = AT + timedelta(seconds=5 * index)

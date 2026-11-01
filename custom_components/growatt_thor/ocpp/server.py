@@ -564,7 +564,7 @@ class GrowattChargePoint(OcppChargePoint):
             if not self._connection_may_update_coordinator("external meter timeout"):
                 return False
             self.coordinator.record_external_meter_poll_timeout()
-            count = self.coordinator.meterval_consecutive_timeouts
+            count = self.coordinator.external_meter.consecutive_timeouts
 
             if count >= 2:
                 pause = min(

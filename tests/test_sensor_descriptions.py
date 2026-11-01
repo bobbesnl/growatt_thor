@@ -69,12 +69,9 @@ def coordinator(case):
             "last_session_transaction_id": "51",
             "last_session_charge_mode": "3",
             "last_session_work_mode": "PVlink",
-            "grid_power": -1200,
             "currents": {"L1": 16, "L2": 15.5},
             "voltages": {"L1": 230, "L2": 231},
             "phase_power": {"L1": 3680, "L2": 3580},
-            "grid_currents": {"L1": -2, "L2": 1},
-            "grid_voltages": {"L1": 229, "L2": 232},
         }.items():
             if name.startswith("last_session_"):
                 field = name.removeprefix("last_session_")
@@ -84,6 +81,9 @@ def coordinator(case):
                 c.sessions.last_session = replace(c.sessions.last_session, **{field: value})
             else:
                 setattr(c, name, value)
+        c.external_meter.power = -1200
+        c.external_meter.currents = {"L1": -2, "L2": 1}
+        c.external_meter.voltages = {"L1": 229, "L2": 232}
     return c
 
 

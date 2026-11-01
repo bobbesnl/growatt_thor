@@ -77,7 +77,7 @@ class LiveOptionsTest(unittest.IsolatedAsyncioTestCase):
         await coordinator.async_apply_options(saved, section="site_accounting")
         refresh.assert_called_once_with()
         self.assertEqual(coordinator.location, "Garage")
-        self.assertEqual(coordinator.external_meter_poll_interval, 45)
+        self.assertEqual(coordinator.external_meter.poll_interval, 45)
         self.assertEqual(coordinator.battery_power_entity, "sensor.battery")
         self.assertEqual(coordinator.battery_power_sign, "positive_charge")
         self.assertEqual(coordinator.site_accounting_options, saved)

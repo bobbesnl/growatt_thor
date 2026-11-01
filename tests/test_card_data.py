@@ -80,10 +80,13 @@ class CardDataTest(unittest.TestCase):
             energy=3000,
             max_current=None,
             effective_meter_gap_seconds=lambda: 180,
-            external_meter_health="healthy",
-            grid_power=1000,
-            external_meter_last_updated_at=at,
-            external_meter_poll_interval=30,
+            external_meter=types.SimpleNamespace(
+                poll_interval=30,
+                health="healthy",
+                ready_for_pv=True,
+                power=1000,
+                last_updated_at=at,
+            ),
             site_accounting_options={
                 "site_accounting_profile": "pv",
                 "site_grid_source": "thor_external",
@@ -272,9 +275,13 @@ class CardDataTest(unittest.TestCase):
             transaction_is_active=False,
             energy=None,
             effective_meter_gap_seconds=lambda: 180,
-            external_meter_health="not_reported",
-            grid_power=None,
-            external_meter_last_updated_at=None,
+            external_meter=types.SimpleNamespace(
+                poll_interval=30,
+                health="not_reported",
+                ready_for_pv=False,
+                power=None,
+                last_updated_at=None,
+            ),
         )
         self.assertIsNone(module.dashboard_attributes(coordinator)["auth_mode"])
         for raw, expected in [
@@ -306,9 +313,13 @@ class CardDataTest(unittest.TestCase):
             energy=None,
             max_current=None,
             effective_meter_gap_seconds=lambda: 180,
-            external_meter_health="healthy",
-            grid_power=-3446,
-            external_meter_last_updated_at="2026-09-09T12:00:00Z",
+            external_meter=types.SimpleNamespace(
+                poll_interval=30,
+                health="healthy",
+                ready_for_pv=True,
+                power=-3446,
+                last_updated_at="2026-09-09T12:00:00Z",
+            ),
         )
 
         self.assertEqual(
@@ -338,9 +349,13 @@ class CardDataTest(unittest.TestCase):
             transaction_is_active=False,
             energy=None,
             effective_meter_gap_seconds=lambda: 180,
-            external_meter_health="healthy",
-            grid_power=0,
-            external_meter_last_updated_at="2026-09-12T10:00:00Z",
+            external_meter=types.SimpleNamespace(
+                poll_interval=30,
+                health="healthy",
+                ready_for_pv=True,
+                power=0,
+                last_updated_at="2026-09-12T10:00:00Z",
+            ),
             battery_power_entity="sensor.battery_power",
             battery_power_sign="positive_discharge",
             hass=types.SimpleNamespace(

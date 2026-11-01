@@ -122,7 +122,7 @@ class WorkingModeSelect(GrowattConfigurationWriteMixin, ThorEntity, SelectEntity
     def options(self):
         return available_working_mode_options(
             self.current_option,
-            external_meter_ready=self.coordinator.external_meter_ready_for_pv,
+            external_meter_ready=self.coordinator.external_meter.ready_for_pv,
         )
 
     @property
@@ -174,7 +174,7 @@ class WorkingModeSelect(GrowattConfigurationWriteMixin, ThorEntity, SelectEntity
         if option not in self.options:
             _LOGGER.warning(
                 "Cannot select PV Linkage while external meter health is %s",
-                self.coordinator.external_meter_health,
+                self.coordinator.external_meter.health,
             )
             raise_action_validation(
                 (
@@ -230,10 +230,10 @@ class WorkingModeSelect(GrowattConfigurationWriteMixin, ThorEntity, SelectEntity
         generation: int,
         intent: int,
     ) -> ChargerWriteResult:
-        if option in PV_LINKAGE_WORKING_MODES and not self.coordinator.external_meter_ready_for_pv:
+        if option in PV_LINKAGE_WORKING_MODES and not self.coordinator.external_meter.ready_for_pv:
             _LOGGER.warning(
                 "Skipping queued PV Linkage change: external meter health is %s",
-                self.coordinator.external_meter_health,
+                self.coordinator.external_meter.health,
             )
             self.coordinator.mark_configuration_write(
                 key,

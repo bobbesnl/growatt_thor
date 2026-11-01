@@ -35,6 +35,11 @@ class ExternalMeterState:
             has_snapshot=self.last_updated_at is not None,
         )
 
+    @property
+    def ready_for_pv(self) -> bool:
+        """Return whether entering a PV Linkage mode is currently safe."""
+        return self.health == "healthy"
+
     def apply_snapshot(self, snapshot: ExternalMeterSnapshot, at: str) -> None:
         self.consecutive_timeouts = 0
         for name in ("used", "wring", "voltages", "currents", "power"):

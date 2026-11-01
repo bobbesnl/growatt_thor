@@ -222,9 +222,13 @@ class SiteAccountingTest(unittest.TestCase):
                 "site_solar_power_entity": "sensor.pv",
                 "site_fixed_price": -0.1,
             },
-            external_meter_health="faulted",
-            grid_power=9999,
-            external_meter_last_updated_at=AT,
+            external_meter=types.SimpleNamespace(
+                poll_interval=30,
+                health="faulted",
+                ready_for_pv=False,
+                power=9999,
+                last_updated_at=AT,
+            ),
             battery_power_entity=None,
         )
         site, tariff, policy = runtime.site_inputs(coordinator, AT)

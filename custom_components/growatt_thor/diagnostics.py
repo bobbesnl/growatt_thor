@@ -125,12 +125,12 @@ async def async_get_config_entry_diagnostics(
                 else None
             ),
             "external_meter": {
-                "health": coordinator.external_meter_health,
-                "last_updated_at": coordinator.external_meter_last_updated_at,
-                "consecutive_timeouts": coordinator.meterval_consecutive_timeouts,
-                "fault_connector_id": coordinator.external_meter_fault_connector_id,
-                "fault_error_code": coordinator.external_meter_fault_error_code,
-                "fault_info": coordinator.external_meter_fault_info,
+                "health": coordinator.external_meter.health,
+                "last_updated_at": coordinator.external_meter.last_updated_at,
+                "consecutive_timeouts": coordinator.external_meter.consecutive_timeouts,
+                "fault_connector_id": coordinator.external_meter.fault_connector_id,
+                "fault_error_code": coordinator.external_meter.fault_error_code,
+                "fault_info": coordinator.external_meter.fault_info,
             },
             "session_records": {
                 "current": session_record_diagnostics(coordinator.last_current_record),

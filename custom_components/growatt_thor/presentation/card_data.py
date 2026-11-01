@@ -272,7 +272,7 @@ def _pv_linkage_card_data(coordinator, working_mode, grid_import_limit):
         blocked_reason = "charger_faulted"
     elif bool(getattr(coordinator, "transaction_is_active", False)):
         blocked_reason = "active_transaction"
-    elif not bool(getattr(coordinator, "external_meter_ready_for_pv", False)):
+    elif not bool(coordinator.external_meter.ready_for_pv):
         blocked_reason = "external_meter_not_ready"
     elif any(
         value is not None and value.readonly is True
@@ -369,17 +369,17 @@ def dashboard_attributes(coordinator) -> dict:
         "configured_current_a": _number(getattr(coordinator, "max_current", None)),
         "status_info": status.get("info"),
         "error_code": status.get("error_code"),
-        "external_meter_health": coordinator.external_meter_health,
+        "external_meter_health": coordinator.external_meter.health,
         # Positive is import and negative is export, matching Growatt meter
         # convention. Keep this as a nested, extensible flow snapshot so future
         # PV and battery measurements do not require more top-level card fields.
         "power_flow": {
-            "received_at": getattr(coordinator, "external_meter_last_updated_at", None),
+            "received_at": coordinator.external_meter.last_updated_at,
             "stale_after_s": max(
                 15,
-                int(getattr(coordinator, "external_meter_poll_interval", 30)) * 3 + 5,
+                int(coordinator.external_meter.poll_interval) * 3 + 5,
             ),
-            "grid_w": _signed_number(getattr(coordinator, "grid_power", None)),
+            "grid_w": _signed_number(coordinator.external_meter.power),
             "grid_sign": "positive_import",
             "grid_import_limit_kw": _number(grid_import_limit),
             **battery_power_attributes(coordinator),
