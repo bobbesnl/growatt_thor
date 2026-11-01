@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from ocpp.v16.enums import ConfigurationStatus
 
@@ -24,7 +25,8 @@ from ..runtime.write_results import (
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
 )
-from .values import configuration_value_from_item
+from .contracts import ConfigurationTransport, ConfigurationWriteOwner
+from .values import ConfigurationValue, configuration_value_from_item
 from .writes import (
     ConfigurationWriteStatus,
     pending_configuration_value,
@@ -45,25 +47,38 @@ class ConfigurationWriteResponse:
 class GrowattConfigurationWriteMixin:
     """Share queue-callback primitives without adding entity state attributes."""
 
-    def _on_accepted(self, raw_value: str, *, key=None, value=None) -> None:
+    coordinator: ConfigurationWriteOwner
+
+    if TYPE_CHECKING:
+
+        @property
+        def _configuration_key(self) -> str: ...
+
+    def _on_accepted(self, raw_value: str, *, key: str | None = None, value: object = None) -> None:
         """Apply reported state only after the caller checked current intent."""
         self.coordinator.update_configuration_value(key or self._configuration_key, raw_value)
 
-    def _restore_optimistic(self, generation: int, *, previous=None) -> None:
+    def _restore_optimistic(self, generation: int, *, previous: object = None) -> None:
         """Entities with optimistic local state retain their own rollback policy."""
 
-    async def _send_configuration(self, charge_point, key: str, raw_value: str):
+    async def _send_configuration(
+        self, charge_point: ConfigurationTransport, key: str, raw_value: str
+    ) -> object:
         """Called only from the coordinator-owned write-queue callback."""
         return await charge_point.change_configuration(key, raw_value)
 
-    def _acknowledge_configuration_response(self, key, generation, result):
+    def _acknowledge_configuration_response(
+        self, key: str, generation: int, result: object
+    ) -> ConfigurationWriteResponse:
         accepted = result in {ConfigurationStatus.accepted, ConfigurationStatus.reboot_required}
         current = self.coordinator.acknowledge_configuration_write(
             key, generation=generation, accepted=accepted, result=result
         )
         return ConfigurationWriteResponse(result, accepted, current)
 
-    async def _configuration_exchange(self, charge_point, key, raw_value, generation):
+    async def _configuration_exchange(
+        self, charge_point: ConfigurationTransport, key: str, raw_value: str, generation: int
+    ) -> ConfigurationWriteResponse:
         """For callbacks whose existing error boundary includes acknowledgement."""
         result = await self._send_configuration(charge_point, key, raw_value)
         return self._acknowledge_configuration_response(key, generation, result)
@@ -79,7 +94,7 @@ class GrowattConfigurationControlMixin(GrowattConfigurationWriteMixin):
         return CONTROL_DEFINITIONS[self._control].configuration_key
 
     @property
-    def _configuration_value(self):
+    def _configuration_value(self) -> ConfigurationValue | None:
         reported = self.coordinator.configuration_values.get(self._configuration_key)
         pending_raw_value = pending_configuration_value(
             self.coordinator.configuration_writes,
@@ -121,7 +136,7 @@ class GrowattConfigurationControlMixin(GrowattConfigurationWriteMixin):
         return self.coordinator.write_block_reason(self._control)
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, str]:
         """Expose stable metadata without creating attribute-only history."""
         return {
             "information": "details",
@@ -188,7 +203,7 @@ class GrowattConfigurationControlMixin(GrowattConfigurationWriteMixin):
 
     async def _apply_configuration(
         self,
-        charge_point,
+        charge_point: ConfigurationTransport,
         raw_value: str,
         generation: int,
     ) -> ChargerWriteResult:

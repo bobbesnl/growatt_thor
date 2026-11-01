@@ -14,9 +14,10 @@ strict = true
 follow_imports = "silent"
 files = [
     "custom_components/growatt_thor/coerce.py",
+    "custom_components/growatt_thor/configuration/",
     "custom_components/growatt_thor/timestamps.py",
 ]
 
 [[tool.mypy.overrides]]
-module = ["homeassistant.*", "voluptuous", "voluptuous.*", "voluptuous_serialize"]
+module = ["homeassistant.*", "voluptuous", "voluptuous.*", "voluptuous_serialize", "ocpp.*"]
 ignore_missing_imports = true

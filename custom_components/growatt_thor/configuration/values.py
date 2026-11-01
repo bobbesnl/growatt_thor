@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, time
 from enum import Enum
 from types import MappingProxyType
-from typing import Final, TypeAlias
+from typing import Any, Final, TypeAlias
 
 ConfigurationScalar: TypeAlias = str | int | float | bool | None
 
@@ -690,7 +690,7 @@ _ENTITY_VIEW_KEYS = (
 CONFIGURATION_ENTITY_OPTIONS: Final[Mapping[str, tuple[str, ...]]] = MappingProxyType(
     {key: CONFIGURATION_REGISTRY[key].entity_options for key in _ENTITY_VIEW_KEYS}
 )
-_CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType(
+_CONFIGURATION_ENTITY_ALIASES: Final[Mapping[str, Mapping[str, str] | None]] = MappingProxyType(
     {key: CONFIGURATION_REGISTRY[key].entity_aliases for key in _ENTITY_VIEW_KEYS}
 )
 
@@ -712,7 +712,7 @@ def configuration_numeric_value(value: ConfigurationValue | None) -> float | Non
     return None
 
 
-def parse_time_sharing_price(raw_value: str | None) -> float | None:
+def parse_time_sharing_price(raw_value: object) -> float | None:
     """Extract the first tariff from Growatt's compound price payload.
 
     ``G_TimeSharingPrice`` is not a plain number; the THOR reports values such
@@ -857,7 +857,9 @@ def _price_projection(raw: object, reported: ConfigurationValue | None) -> float
 
 # The value metadata remains authoritative; these are the established live
 # coordinator observations that also update existing entity backing values.
-COORDINATOR_CONFIGURATION_PROJECTIONS = {
+COORDINATOR_CONFIGURATION_PROJECTIONS: dict[
+    str, tuple[Callable[[Any, ConfigurationValue | None], ConfigurationScalar], str]
+] = {
     "G_MaxCurrent": (_numeric_projection, "max_current"),
     "G_ExternalLimitPower": (_numeric_projection, "external_limit_power"),
     "G_ExternalLimitPowerEnable": (
