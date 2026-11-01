@@ -18,6 +18,7 @@ exclude = ['custom_components/growatt_thor/sessions/(runtime|telemetry)\.py$']
 files = [
     "custom_components/growatt_thor/coerce.py",
     "custom_components/growatt_thor/charging/",
+    "custom_components/growatt_thor/runtime/",
     "custom_components/growatt_thor/configuration/",
     "custom_components/growatt_thor/energy/",
     "custom_components/growatt_thor/timestamps.py",

@@ -5,6 +5,7 @@ from custom_components.growatt_thor.configuration.contracts import Configuration
 from custom_components.growatt_thor.coordinator import GrowattCoordinator
 from custom_components.growatt_thor.energy.contracts import EnergyStopOwner
 from custom_components.growatt_thor.presentation.contracts import DashboardOwner
+from custom_components.growatt_thor.runtime.charger_write_queue import WriteQueueOwner
 from custom_components.growatt_thor.sessions.contracts import DashboardHistoryOwner, SessionOwner
 
 
@@ -29,4 +30,8 @@ def history_owner(coordinator: GrowattCoordinator) -> DashboardHistoryOwner:
 
 
 def pv_service_owner(coordinator: GrowattCoordinator) -> PvServiceOwner:
+    return coordinator
+
+
+def write_queue_owner(coordinator: GrowattCoordinator) -> WriteQueueOwner:
     return coordinator

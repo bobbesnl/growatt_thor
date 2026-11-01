@@ -49,7 +49,7 @@ class SessionLifecycle:
         self.applied_session_record_keys = deque(maxlen=50)
         self.last_session = LastSessionState()
 
-    def observe_context(self, *, notify=True):
+    def observe_context(self, *, notify: bool = True) -> bool:
         coordinator = self.coordinator
         if coordinator.transaction_id is None or self.restored_active_session:
             return False

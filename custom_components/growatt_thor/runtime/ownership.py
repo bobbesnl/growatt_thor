@@ -144,7 +144,9 @@ def decide_charge_point_connection(
     return ChargePointConnectionDecision.ACCEPT_FIRST
 
 
-def resolve_entry_runtime(domain_data, entry_id=None):
+def resolve_entry_runtime(
+    domain_data: Mapping[str, object], entry_id: str | None = None
+) -> MutableMapping[str, object]:
     """Select a charger without ever guessing between multiple loaded entries."""
     if entry_id is not None:
         runtime = entry_runtime_data(domain_data, entry_id)

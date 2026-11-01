@@ -10,6 +10,7 @@ error.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import NoReturn
 
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
@@ -43,7 +44,7 @@ _WRITE_BLOCK_TRANSLATIONS: Mapping[str, tuple[type[HomeAssistantError], str]] = 
 }
 
 
-def raise_write_blocked(reason: str) -> None:
+def raise_write_blocked(reason: str) -> NoReturn:
     """Raise the HA exception matching one stable internal block reason."""
     exception_type, translation_key = _WRITE_BLOCK_TRANSLATIONS.get(
         reason,
@@ -63,7 +64,7 @@ def raise_write_blocked(reason: str) -> None:
     )
 
 
-def raise_charger_disconnected() -> None:
+def raise_charger_disconnected() -> NoReturn:
     """Report a stale or missing runtime connection to Home Assistant."""
     raise_write_blocked("charger_disconnected")
 
@@ -72,7 +73,7 @@ def raise_action_validation(
     translation_key: str,
     *,
     placeholders: Mapping[str, object] | None = None,
-) -> None:
+) -> NoReturn:
     """Reject a user action using a known integration translation key."""
     raise ServiceValidationError(
         translation_domain=DOMAIN,
@@ -85,7 +86,7 @@ def raise_communication_error(
     translation_key: str,
     *,
     placeholders: Mapping[str, object] | None = None,
-) -> None:
+) -> NoReturn:
     """Report a runtime service failure to the calling HA automation."""
     raise HomeAssistantError(
         translation_domain=DOMAIN,

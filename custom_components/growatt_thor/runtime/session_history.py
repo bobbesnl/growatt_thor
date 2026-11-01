@@ -1,20 +1,31 @@
 """Attach Home Assistant events to the entry's session telemetry owner."""
 
+from __future__ import annotations
+
+from collections.abc import Callable
 from datetime import timedelta
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from homeassistant.core import Event, HomeAssistant
+
+    from ..coordinator import GrowattCoordinator
 
 from ..energy.options import CONF_GRID_ENTITY, CONF_HOUSE_ENTITY, CONF_SOLAR_ENTITY
 
 SESSION_HISTORY_CAPTURE_INTERVAL_SECONDS = 30
 
 
-def async_setup_session_history(hass, coordinator):
+def async_setup_session_history(
+    hass: HomeAssistant, coordinator: GrowattCoordinator
+) -> Callable[[], None]:
     """Observe configured HA sources immediately and snapshot pauses every 30s."""
     from homeassistant.helpers.event import async_track_time_interval
 
-    async def capture(_event):
+    async def capture(_event: object) -> None:
         coordinator.sessions.observe_context()
 
-    async def state_changed(event):
+    async def state_changed(event: Event) -> None:
         options = coordinator.site_accounting_options
         sources = {
             options.get(key)
@@ -38,7 +49,7 @@ def async_setup_session_history(hass, coordinator):
         unsubscribe()
         raise
 
-    def stop():
+    def stop() -> None:
         unsubscribe()
         cancel_timer()
 

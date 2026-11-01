@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
-from typing import Protocol, TypeVar, cast
+from functools import partial
+from typing import Any, Protocol, TypeVar, cast
 
 from .keys import ACTIVE_CHARGE_POINT, COORDINATOR
 
@@ -32,22 +33,32 @@ class RefreshOwner(Protocol):
     connected: bool
 
 
+class RefreshTransport(Protocol):
+    async def trigger_status(self, *, skip_if_writes_pending: bool) -> bool: ...
+    async def trigger_external_meterval(self, *, skip_if_writes_pending: bool) -> bool: ...
+    async def trigger_get_configuration(self, *, skip_if_writes_pending: bool) -> bool: ...
+
+
+class TaskFactory(Protocol):
+    def __call__[T](self, operation: Awaitable[T], /) -> asyncio.Task[T]: ...
+
+
 class IntegrationServiceOperations:
     """Share refreshes and same-target exports between concurrent callers."""
 
     def __init__(
         self,
-        create_task: Callable[[Awaitable], asyncio.Task],
+        create_task: TaskFactory,
     ) -> None:
         self._create_task = create_task
-        self._refresh_task: asyncio.Task | None = None
-        self._export_tasks: dict[str, asyncio.Task] = {}
+        self._refresh_task: asyncio.Task[None] | None = None
+        self._export_tasks: dict[str, asyncio.Task[Any]] = {}
 
     async def async_refresh(self, runtime_data: Mapping[str, object]) -> None:
         """Join one in-flight refresh, or start exactly one new sequence."""
         task = self._refresh_task
         if task is None or task.done():
-            charge_point = runtime_data.get(ACTIVE_CHARGE_POINT)
+            charge_point = cast(RefreshTransport | None, runtime_data.get(ACTIVE_CHARGE_POINT))
             coordinator = cast(RefreshOwner | None, runtime_data.get(COORDINATOR))
             if charge_point is None or coordinator is None or not coordinator.connected:
                 raise ChargerServiceUnavailable
@@ -60,7 +71,7 @@ class IntegrationServiceOperations:
         # sequence while another caller is still waiting for the same result.
         await asyncio.shield(task)
 
-    async def _run_refresh(self, charge_point) -> None:
+    async def _run_refresh(self, charge_point: RefreshTransport) -> None:
         """Run each optional read and stop as soon as a write takes priority."""
         steps = (
             ("status", charge_point.trigger_status),
@@ -82,7 +93,7 @@ class IntegrationServiceOperations:
                 # complete instead of pretending success.
                 raise ManualRefreshFailed(step)
 
-    def _release_refresh_task(self, completed: asyncio.Task) -> None:
+    def _release_refresh_task(self, completed: asyncio.Task[None]) -> None:
         """Forget only the task that still owns the single-flight slot."""
         if self._refresh_task is completed:
             self._refresh_task = None
@@ -98,18 +109,13 @@ class IntegrationServiceOperations:
         if task is None or task.done():
             task = self._create_task(export())
             self._export_tasks[target] = task
-            task.add_done_callback(
-                lambda completed, target=target: self._release_export_task(
-                    target,
-                    completed,
-                )
-            )
-        return await asyncio.shield(task)
+            task.add_done_callback(partial(self._release_export_task, target))
+        return cast(ResultT, await asyncio.shield(task))
 
     def _release_export_task(
         self,
         target: str,
-        completed: asyncio.Task,
+        completed: asyncio.Task[Any],
     ) -> None:
         """Release one path without touching a newer export for that path."""
         if self._export_tasks.get(target) is completed:
@@ -117,7 +123,7 @@ class IntegrationServiceOperations:
         _consume_background_exception(completed)
 
 
-def _consume_background_exception(task: asyncio.Task) -> None:
+def _consume_background_exception(task: asyncio.Task[Any]) -> None:
     """Avoid an unobserved exception if every shielded caller was cancelled."""
     if not task.cancelled():
         task.exception()

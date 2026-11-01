@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Coroutine, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -28,11 +28,20 @@ from .write_results import (
 _LOGGER = logging.getLogger(__name__)
 
 
+class WriteQueueHost(Protocol):
+    loop: asyncio.AbstractEventLoop
+
+    def async_create_task(self, coroutine: Coroutine[Any, Any, None]) -> asyncio.Task[None]: ...
+
+
 class WriteQueueOwner(Protocol):
     """Observation and publication boundary; never a second queue owner."""
 
-    hass: Any
-    runtime_data: Mapping[str, Any]
+    hass: WriteQueueHost
+
+    @property
+    def runtime_data(self) -> Mapping[str, Any]: ...
+
     connected: bool
 
     def now(self) -> str: ...
@@ -85,7 +94,7 @@ class ChargerWriteQueue:
         self._changed = asyncio.Event()
         self.idle = asyncio.Event()
         self.idle.set()
-        self.task: asyncio.Task | None = None
+        self.task: asyncio.Task[None] | None = None
         self._active: ChargerWriteItem | None = None
         self._closing = False
         self._last_write_monotonic: float | None = None
@@ -115,19 +124,19 @@ class ChargerWriteQueue:
 
     async def enqueue(
         self,
-        write_func,
-        *args,
-        dedupe_key=None,
-        priority=False,
-        rate_limited=True,
-        command_name=None,
-        requires_connection=False,
-        configuration_key=None,
-        configuration_generation=None,
+        write_func: Callable[..., Awaitable[Any]],
+        *args: Any,
+        dedupe_key: object | None = None,
+        priority: bool = False,
+        rate_limited: bool = True,
+        command_name: str | None = None,
+        requires_connection: bool = False,
+        configuration_key: str | None = None,
+        configuration_generation: int | None = None,
         policy: ChargerWriteQueuePolicy = DEFAULT_WRITE_POLICY,
-        revalidate=None,
-        on_unsent=None,
-        **kwargs,
+        revalidate: Callable[[], str | None] | None = None,
+        on_unsent: Callable[[ChargerWriteResult], None] | None = None,
+        **kwargs: Any,
     ) -> ChargerCommandHandle:
         """Queue a charger command with optional deduplication and priority.
 
@@ -185,7 +194,7 @@ class ChargerWriteQueue:
             return handle
 
         if dedupe_key is not None:
-            retained_items = deque()
+            retained_items: deque[ChargerWriteItem] = deque()
             for item in self._pending:
                 if item.dedupe_key == dedupe_key:
                     # The replacement's generation is already current. Marking
@@ -487,7 +496,7 @@ class ChargerWriteQueue:
         the charger; pretending to cancel it would create a false guarantee for
         automations and could leave Home Assistant out of sync with the THOR.
         """
-        retained_items = deque()
+        retained_items: deque[ChargerWriteItem] = deque()
         cancelled_items = []
         for item in self._pending:
             matches = item.dedupe_key == dedupe_key and (

@@ -34,8 +34,8 @@ class EntryRuntime(MutableMapping[str, Any]):
     coordinator: GrowattCoordinator | None = None
     server: WebSocketServer | None = None
     charge_point: GrowattChargePoint | None = None
-    polling_task: asyncio.Task | None = None
-    startup_check_task: asyncio.Task | None = None
+    polling_task: asyncio.Task[None] | None = None
+    startup_check_task: asyncio.Task[None] | None = None
     poll_interval: int | None = None
     poll_interval_schedule: PollIntervalSchedule | None = None
     skip_polling_until: float | None = None
@@ -43,8 +43,10 @@ class EntryRuntime(MutableMapping[str, Any]):
     target_runtime: ChargingTargetRuntime | None = None
     target_handlers: dict[str, Callable[..., Awaitable[Any]]] | None = None
     pv_linkage_profile_handler: Callable[..., Awaitable[None]] | None = None
-    append_session_to_csv: Callable[[dict], Awaitable[None]] | None = None
-    update_session_events_in_csv: Callable[[str, list], Awaitable[None]] | None = None
+    append_session_to_csv: Callable[[dict[str, Any]], Awaitable[None]] | None = None
+    update_session_events_in_csv: Callable[[str, list[dict[str, str]]], Awaitable[None]] | None = (
+        None
+    )
     refresh_dashboard: Callable[[], Awaitable[None]] | None = None
     persist_charger_identity: Callable[[str], None] | None = None
     session_history_unsub: Callable[[], None] | None = None
@@ -69,7 +71,9 @@ class EntryRuntime(MutableMapping[str, Any]):
         return getattr(self, key)
 
     def __setitem__(self, key: str, value: Any) -> None:
-        if key == "_present" or key not in self.__slots__:
+        # Dataclasses generate this metadata; declaring it conflicts with slots=True.
+        slots = getattr(self, "__slots__")  # noqa: B009 - runtime-generated metadata
+        if key == "_present" or key not in slots:
             raise KeyError(key)
         setattr(self, key, value)
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
-from typing import cast
 
 from ..const import DOMAIN as DOMAIN
 from ..runtime.action_errors import (
@@ -134,7 +133,7 @@ class StopChargingCommand:
             requires_connection=True,
             policy=TRANSACTION_CONTROL_WRITE_POLICY,
             revalidate=lambda: (
-                self._stop_revalidation_failure(cast(int, transaction_id))
+                self._stop_revalidation_failure(transaction_id)
                 or (auto_guard() if auto_guard is not None else None)
             ),
         )

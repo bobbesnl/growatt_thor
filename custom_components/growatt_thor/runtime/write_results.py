@@ -11,6 +11,7 @@ possible to reason about from diagnostics a year from now.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from math import isfinite
@@ -229,7 +230,7 @@ class ChargerCommandHandle:
         """Return whether the queue has published a terminal result."""
         return self._completion.done()
 
-    def add_done_callback(self, callback) -> None:
+    def add_done_callback(self, callback: Callable[[ChargerCommandResult], None]) -> None:
         """Observe the terminal result even after a caller stops waiting."""
         self._completion.add_done_callback(lambda future: callback(future.result()))
 

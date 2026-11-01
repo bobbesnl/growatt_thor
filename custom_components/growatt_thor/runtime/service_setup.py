@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import cast
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
@@ -49,7 +50,7 @@ def async_register_services(hass: HomeAssistant) -> None:
     # wait for, or join, each other's refresh.
     refresh_operations: dict[str, IntegrationServiceOperations] = {}
 
-    async def handle_refresh(call: ServiceCall):
+    async def handle_refresh(call: ServiceCall) -> None:
         """Coalesce concurrent refresh calls and report incomplete reads.
 
         Without ``config_entry_id`` every loaded charger is refreshed.  The
@@ -97,7 +98,7 @@ def async_register_services(hass: HomeAssistant) -> None:
             raise_charger_disconnected()
         _LOGGER.info("Manual refresh completed successfully")
 
-    async def handle_export_sessions(call: ServiceCall):
+    async def handle_export_sessions(call: ServiceCall) -> None:
         """Export one date range without racing the same destination file."""
         date_from_str = call.data.get("date_from")
         date_to_str = call.data.get("date_to")
@@ -124,11 +125,11 @@ def async_register_services(hass: HomeAssistant) -> None:
                     export_path,
                     date_from=date_from,
                     date_to=date_to,
-                    time_zone=installation_time_zone(hass),
+                    time_zone=cast(str, installation_time_zone(hass)),
                 )
 
             ensure_export_cleanup(hass)
-            count = await hass.async_add_executor_job(_export)
+            count: int = await hass.async_add_executor_job(_export)
             pn_create(
                 hass,
                 (

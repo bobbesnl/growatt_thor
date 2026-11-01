@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from ..const import DOMAIN
+
+if TYPE_CHECKING:
+    from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntryDisabler
 
 LEGACY_SESSION_DURATION_UNIT_MIGRATION = "_migrate_session_duration_unit"
 PENDING_EXTERNAL_METER_READBACK_MIGRATION = "_migrate_external_meter_readbacks"
@@ -13,7 +18,7 @@ REDUNDANT_EXTERNAL_METER_READBACK_SUFFIXES = (
 )
 
 
-def migrate_session_duration_unit(registry, entry_id: str) -> bool:
+def migrate_session_duration_unit(registry: EntityRegistry, entry_id: str) -> bool:
     """Replace the legacy minute display override with hours once."""
     unique_id = f"{entry_id}_last_session_duration"
     entity_id = registry.async_get_entity_id(
@@ -55,9 +60,9 @@ def migrate_session_duration_unit(registry, entry_id: str) -> bool:
 
 
 def disable_redundant_external_meter_readbacks(
-    registry,
+    registry: EntityRegistry,
     entry_id: str,
-    disabled_by,
+    disabled_by: RegistryEntryDisabler,
 ) -> tuple[str, ...]:
     """Disable readback sensors replaced by External Meter controls."""
     disabled = []

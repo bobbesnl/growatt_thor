@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Mapping
+from typing import Any
 
 from .keys import ACTIVE_CHARGE_POINT, COORDINATOR, SKIP_POLLING_UNTIL
 
@@ -67,7 +69,7 @@ class PollIntervalSchedule:
 class ExternalMeterPoller:
     """Own polling cadence and the one-entry pause log state."""
 
-    def __init__(self, runtime, schedule: PollIntervalSchedule) -> None:
+    def __init__(self, runtime: Mapping[str, Any], schedule: PollIntervalSchedule) -> None:
         self.runtime = runtime
         self.schedule = schedule
         self._skip_logged = False
