@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from math import isfinite
+from typing import Any
 
 from .options import CONF_BATTERY_POWER_ENTITY as CONF_BATTERY_POWER_ENTITY
 from .options import CONF_BATTERY_POWER_SIGN as CONF_BATTERY_POWER_SIGN
@@ -18,12 +19,12 @@ POWER_UNIT_FACTORS = {
 }
 
 
-def state_attributes(state) -> dict:
+def state_attributes(state: object) -> dict[str, Any]:
     attributes = getattr(state, "attributes", None)
     return attributes if isinstance(attributes, dict) else {}
 
 
-def is_power_sensor(entity_id: str, state) -> bool:
+def is_power_sensor(entity_id: str, state: object) -> bool:
     """Return whether an entity is a sensor with a supported power unit."""
     return (
         entity_id.startswith("sensor.")
@@ -31,15 +32,17 @@ def is_power_sensor(entity_id: str, state) -> bool:
     )
 
 
-def power_w(state) -> float | None:
+def power_w(state: object) -> float | None:
     """Normalize a supported HA power state to watts."""
     if state is None:
         return None
-    factor = POWER_UNIT_FACTORS.get(state_attributes(state).get("unit_of_measurement"))
+    unit: Any = state_attributes(state).get("unit_of_measurement")
+    factor = POWER_UNIT_FACTORS.get(unit)
     if factor is None:
         return None
     try:
-        value = float(getattr(state, "state", None)) * factor
+        raw: Any = getattr(state, "state", None)
+        value = float(raw) * factor
     except (TypeError, ValueError):
         return None
     return value if isfinite(value) else None

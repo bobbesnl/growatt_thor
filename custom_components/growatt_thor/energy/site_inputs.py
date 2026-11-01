@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 from math import isfinite
+from typing import Literal, cast
 
 from ..timestamps import installation_time_zone
 from .allocation import AccountingPolicy, Tariff
@@ -53,7 +54,9 @@ def site_policy(profile: str) -> AccountingPolicy:
     if profile == "grohome_load_first":
         return AccountingPolicy("load_first", topology="pv_battery")
     return AccountingPolicy(
-        topology=profile if profile in ("grid_only", "pv", "pv_battery") else "grid_only"
+        topology=cast(Literal["grid_only", "pv", "pv_battery"], profile)
+        if profile in ("grid_only", "pv", "pv_battery")
+        else "grid_only"
     )
 
 

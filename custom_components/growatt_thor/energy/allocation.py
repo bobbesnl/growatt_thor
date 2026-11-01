@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from math import isfinite
-from typing import Literal
+from typing import Literal, NotRequired, TypedDict
 
 from .site_observations import BucketQuality, PowerObservation, SiteObservations
 
@@ -76,6 +76,21 @@ class DataQuality:
     missing: tuple[str, ...] = ()
 
 
+class AccountingPolicyData(TypedDict):
+    id: str
+    version: int
+    topology: NotRequired[str | None]
+
+
+class SessionAccountingData(TypedDict):
+    source_energy_kwh: dict[str, float]
+    effective_grid_cost: float | None
+    accounting_coverage: float
+    accounting_quality: str
+    accounting_policy: AccountingPolicyData
+    green_energy_kwh: NotRequired[float | None]
+
+
 @dataclass(frozen=True, slots=True)
 class Allocation:
     direct_solar: float
@@ -87,7 +102,7 @@ class Allocation:
     policy_id: str
     policy_version: int
 
-    def as_session_dict(self) -> dict:
+    def as_session_dict(self) -> SessionAccountingData:
         return {
             "source_energy_kwh": {
                 "direct_solar": self.direct_solar,

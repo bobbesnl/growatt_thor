@@ -290,6 +290,7 @@ class CardDataTest(unittest.TestCase):
             effective_meter_gap_seconds=lambda: 180,
             dashboard_command=None,
             last_energy_stop=None,
+            now=lambda: "2026-11-01T12:00:00Z",
             pv_draft=PvLinkageDraftState(),
             external_meter=types.SimpleNamespace(
                 poll_interval=30,
@@ -331,6 +332,7 @@ class CardDataTest(unittest.TestCase):
             effective_meter_gap_seconds=lambda: 180,
             dashboard_command=None,
             last_energy_stop=None,
+            now=lambda: "2026-11-01T12:00:00Z",
             pv_draft=PvLinkageDraftState(),
             external_meter=types.SimpleNamespace(
                 poll_interval=30,
@@ -370,6 +372,7 @@ class CardDataTest(unittest.TestCase):
             effective_meter_gap_seconds=lambda: 180,
             dashboard_command=None,
             last_energy_stop=None,
+            now=lambda: "2026-11-01T12:00:00Z",
             pv_draft=PvLinkageDraftState(),
             external_meter=types.SimpleNamespace(
                 poll_interval=30,

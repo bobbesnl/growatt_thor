@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 from math import isfinite
-from typing import Protocol
+from typing import Any, Protocol
 
 from ..const import CONF_SITE_GRID_SOURCE
 from .currency import normalized_price_unit
@@ -40,7 +40,11 @@ def profile_requires_battery(profile: object) -> bool:
 
 
 def validate_site_options(
-    user_input: Mapping, current: Mapping, states: StateLookup, *, currency: str = "EUR"
+    user_input: Mapping[str, Any],
+    current: Mapping[str, Any],
+    states: StateLookup,
+    *,
+    currency: str = "EUR",
 ) -> dict[str, str]:
     errors = {}
     profile = user_input.get(CONF_SITE_PROFILE, "disabled")

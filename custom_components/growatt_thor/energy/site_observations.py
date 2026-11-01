@@ -98,7 +98,7 @@ def read_site_observations(
     hass = coordinator.hass
     states = getattr(hass, "states", None)
 
-    def observation(state, *, sign: int = 1) -> PowerObservation:
+    def observation(state: object, *, sign: int = 1) -> PowerObservation:
         watts = power_w(state)
         attributes = getattr(state, "attributes", {})
         if isinstance(attributes, dict) and attributes.get("restored"):

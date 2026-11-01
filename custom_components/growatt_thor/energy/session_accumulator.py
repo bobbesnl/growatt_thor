@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from math import isfinite
-from typing import Any
+from typing import Any, cast
 
-from .allocation import AccountingPolicy, EVEnergyDelta, Tariff, allocate
+from .allocation import AccountingPolicy, EVEnergyDelta, SessionAccountingData, Tariff, allocate
 from .site_observations import SiteObservations, parse_at
 
 BUCKETS = ("direct_solar", "direct_grid", "battery_unknown", "unknown")
@@ -144,7 +144,7 @@ class SessionAccumulator:
                     self.buckets[key] *= ratio
                 self.effective_grid_cost *= ratio
 
-    def as_session_dict(self) -> dict:
+    def as_session_dict(self) -> SessionAccountingData:
         total = sum(self.buckets.values())
         known = total - self.buckets["unknown"]
         coverage = known / total if total else 0.0
@@ -167,7 +167,7 @@ class SessionAccumulator:
             else None,
         }
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "transaction_id": self.transaction_id,
             "meter_start_wh": self.meter_start_wh,
@@ -203,7 +203,11 @@ class SessionAccumulator:
                 parsed if parsed is None or isfinite(parsed) and parsed >= 0 else None,
             )
         instance.last_meter_at = parse_at(value.get("last_meter_at"))
-        raw_buckets = value.get("buckets") if isinstance(value.get("buckets"), dict) else {}
+        raw_buckets = (
+            cast(dict[str, Any], value.get("buckets"))
+            if isinstance(value.get("buckets"), dict)
+            else {}
+        )
         for key in BUCKETS:
             try:
                 parsed = float(raw_buckets.get(key, 0))
@@ -230,7 +234,7 @@ class SessionAccumulator:
         )
         for key in ("power_fallback_kwh", "last_power_w"):
             try:
-                parsed = float(value.get(key))
+                parsed = float(cast(Any, value.get(key)))
             except (TypeError, ValueError):
                 parsed = None
             if parsed is not None and isfinite(parsed) and parsed >= 0:

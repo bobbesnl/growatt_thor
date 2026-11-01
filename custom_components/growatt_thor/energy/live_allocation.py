@@ -1,20 +1,34 @@
 """Live source allocation using the same site-input policy as session accounting."""
 
-from datetime import UTC, datetime, timedelta
+from collections.abc import Mapping
+from datetime import timedelta
+from typing import TypedDict
 
 from ..timestamps import parse_utc as parse_at
 from .allocation import EVEnergyDelta, allocate
+from .contracts import LiveAllocationOwner
+from .meter_observations import ChargingMeterObservation
 from .site_inputs import site_inputs
 
 WATT_SECONDS_PER_KWH = 3_600_000
 
 
-def live_charging_sources(coordinator, meter_display, snapshot) -> dict | None:
-    charging_sources = None
+class ChargingSources(TypedDict):
+    solar_w: float
+    grid_w: float
+    battery_w: float
+    unknown_w: float
+
+
+def live_charging_sources(
+    coordinator: LiveAllocationOwner,
+    meter_display: ChargingMeterObservation,
+    snapshot: Mapping[str, object],
+) -> ChargingSources | None:
+    charging_sources: ChargingSources | None = None
     sample_at = parse_at(meter_display.get("sample_at"))
     received_at = parse_at(snapshot.get("received_at"))
-    now_method = getattr(coordinator, "now", None)
-    now = parse_at(now_method()) if callable(now_method) else datetime.now(UTC)
+    now = parse_at(coordinator.now())
     power_w = meter_display.get("power_w")
     if (
         sample_at is not None
@@ -24,7 +38,7 @@ def live_charging_sources(coordinator, meter_display, snapshot) -> dict | None:
         and power_w >= 0
         and 0 <= (now - sample_at).total_seconds() <= coordinator.effective_meter_gap_seconds()
         and 0 <= (now - received_at).total_seconds() <= coordinator.effective_meter_gap_seconds()
-        and bool(getattr(coordinator, "transaction_is_active", False))
+        and coordinator.transaction_is_active
     ):
         # Live sources have independent update schedules; evaluate them now,
         # after checking the charger's sample and receipt are both still fresh.

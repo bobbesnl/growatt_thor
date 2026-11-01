@@ -21,7 +21,7 @@ PV_GRACE_SECONDS = 120.0
 StopReason = Literal["battery", "grid"]
 
 
-def restore_stop_report(value: object) -> dict | None:
+def restore_stop_report(value: object) -> dict[str, object] | None:
     """Retain a small historical explanation, never a restored control intent."""
     if not isinstance(value, dict) or value.get("reason") not in ("battery", "grid"):
         return None

@@ -6,11 +6,13 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 from math import isfinite
+from typing import TYPE_CHECKING
 
 from ..charging.commands import StopChargingCommand
 from ..charging.control_capabilities import selected_working_mode
 from ..ocpp.status import normalize_ocpp_status
-from ..runtime.write_results import ChargerCommandStatus
+from ..runtime.write_results import ChargerCommandResult, ChargerCommandStatus
+from .contracts import EnergyStopOwner
 from .meter_observations import charging_meter_values
 from .site_observations import parse_at, read_site_observations
 from .stop_guard_policy import (
@@ -26,6 +28,9 @@ from .stop_guard_policy import (
     StopObservation,
 )
 
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+
 _LOGGER = logging.getLogger(__name__)
 POLL_SECONDS = 10
 
@@ -33,18 +38,18 @@ POLL_SECONDS = 10
 class EnergyStopGuard:
     """Observe the active EV session; never alter site-device settings."""
 
-    def __init__(self, hass, coordinator) -> None:
+    def __init__(self, hass: HomeAssistant, coordinator: EnergyStopOwner) -> None:
         self.hass = hass
         self.coordinator = coordinator
         self.tracker = StopGuardTracker()
         self.stop_command = StopChargingCommand(coordinator)
-        self.task: asyncio.Task | None = None
+        self.task: asyncio.Task[None] | None = None
         self._configure()
 
     def _configure(self) -> None:
         options = self.coordinator.site_accounting_options
 
-        def setting(key, default, low, high):
+        def setting(key: str, default: float, low: float, high: float) -> float:
             value = options.get(key, default)
             return (
                 float(value)
@@ -100,14 +105,15 @@ class EnergyStopGuard:
         received_at = parse_at(snapshot.get("received_at"))
         sampled_at = parse_at(meter.get("sample_at"))
         gap = coordinator.effective_meter_gap_seconds()
+        power = meter["power_w"]
         meter_fresh = (
             received_at is not None
             and sampled_at is not None
             and 0 <= (at - received_at).total_seconds() <= gap
             and 0 <= (at - sampled_at).total_seconds() <= gap
             and snapshot.get("transaction_id") == transaction_id
-            and isinstance(meter.get("power_w"), (int, float))
-            and meter["power_w"] > 0
+            and isinstance(power, (int, float))
+            and power > 0
         )
         eligible = (
             self.mode() != "off"
@@ -128,7 +134,7 @@ class EnergyStopGuard:
             transaction_id, bool(eligible), battery, grid, solar, meter.get("power_w")
         )
 
-    def _still_eligible(self, expected_transaction_id: int) -> str | None:
+    def _still_eligible(self, expected_transaction_id: int | None) -> str | None:
         """Recheck live sources before a queued automatic Stop reaches OCPP."""
         at = datetime.now(UTC)
         value = self._observation(at)
@@ -156,7 +162,7 @@ class EnergyStopGuard:
         )
         return None if battery or grid else "auto_stop_condition_cleared"
 
-    def _stop_completed(self, transaction_id, result) -> None:
+    def _stop_completed(self, transaction_id: int | None, result: ChargerCommandResult) -> None:
         # Only these terminal results prove that nothing reached the charger.
         # Keep the latch after rejection or uncertainty to avoid blind retries.
         if self.tracker.transaction_id == transaction_id and result.status in {

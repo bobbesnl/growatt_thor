@@ -6,7 +6,7 @@ DEFAULT_CURRENCY = "EUR"
 _CURRENCY_SYMBOLS = {"EUR": "€"}
 
 
-def configured_currency(hass) -> str:
+def configured_currency(hass: object) -> str:
     """Return Home Assistant's configured currency with a stable fallback."""
     config = getattr(hass, "config", None)
     currency = getattr(config, "currency", None)
@@ -15,7 +15,7 @@ def configured_currency(hass) -> str:
     return str(currency).upper()
 
 
-def electricity_price_unit(hass) -> str:
+def electricity_price_unit(hass: object) -> str:
     """Return the configured currency per kWh unit."""
     return f"{configured_currency(hass)}/kWh"
 

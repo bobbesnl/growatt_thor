@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta
 from math import isfinite
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .allocation import Tariff
@@ -13,14 +13,14 @@ from .site_observations import parse_at
 
 
 def _daily_bounds(
-    start: object, end: object, at: datetime | None, time_zone: str
+    start: object, end: object, at: datetime | None, time_zone: str | None
 ) -> tuple[datetime, datetime] | None:
     """Resolve time-only slots in HA's local day, including slots crossing midnight."""
     if not isinstance(start, str) or not isinstance(end, str) or at is None or at.tzinfo is None:
         return None
     try:
         start_time, end_time = time.fromisoformat(start), time.fromisoformat(end)
-        zone = ZoneInfo(time_zone)
+        zone = ZoneInfo(cast(str, time_zone))
     except (ValueError, ZoneInfoNotFoundError):
         return None
     if start_time.tzinfo is not None or end_time.tzinfo is not None or start_time == end_time:
@@ -37,7 +37,7 @@ def _daily_bounds(
 
 
 def tariff_from_state(
-    state: Any, currency: str, *, at: datetime | None = None, time_zone: str = "UTC"
+    state: Any, currency: str, *, at: datetime | None = None, time_zone: str | None = "UTC"
 ) -> Tariff:
     """Honor availability and declared validity; state age is not price validity."""
     unknown = Tariff(None, currency=currency)
@@ -65,10 +65,14 @@ def tariff_from_state(
     # Some tariff integrations expose a daily schedule (e.g. 05:00–00:00),
     # rather than dated slots. Anchor it to the sample's local day, not UTC.
     daily = (
-        _daily_bounds(*(attributes.get(key) for key in slot_keys), at, time_zone) if slot else None
+        _daily_bounds(attributes.get(slot_keys[0]), attributes.get(slot_keys[1]), at, time_zone)
+        if slot
+        else None
     )
     bounds: list[datetime | None] = []
     if daily is not None:
+        start: datetime | None
+        end: datetime | None
         start, end = daily
         for key in ("valid_from", "valid_to"):
             value = attributes.get(key)
