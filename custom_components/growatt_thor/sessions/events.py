@@ -198,7 +198,7 @@ class SessionEventTracker:
         )
         return tracker
 
-    def observe_suspension(self, at: object, status: str) -> bool:
+    def observe_suspension(self, at: object, status: str | None) -> bool:
         """Record a reported pause even when the charger stops sending meters.
 
         This is a status observation, not a zero-watt sample or evidence that the

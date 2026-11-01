@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from collections.abc import Awaitable, Callable, Iterable, Sequence
+from datetime import UTC, datetime, time
+from typing import TYPE_CHECKING, Any, cast
 
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -61,6 +61,7 @@ from .ocpp.external_meter import (
 from .ocpp.external_meter_state import ExternalMeterState
 from .ocpp.meter_samples import (
     DEFAULT_MEASURAND,
+    MeterValue,
     charging_power_curve_point,
     meter_time_zone,
     parse_meter_values,
@@ -81,6 +82,7 @@ from .runtime.write_results import (
     ChargerCommandHandle,
     ChargerCommandResult,
     ChargerWriteQueuePolicy,
+    ChargerWriteResult,
 )
 from .sessions.active_state import ActiveSessionState
 from .sessions.duration import EffectiveChargingTracker
@@ -98,6 +100,8 @@ from .timestamps import installation_time_zone
 from .timestamps import parse_utc as parse_at
 
 if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+
     from .ocpp.server import GrowattChargePoint
 
 
@@ -124,17 +128,28 @@ LIVE_SAMPLE_PROJECTIONS = {
 }
 
 
-def storage_key_for_entry(source_instance_id) -> str:
+def storage_key_for_entry(source_instance_id: str | None) -> str:
     """Return the storage key of one config entry."""
     if not source_instance_id:
         return STORAGE_KEY
     return f"{STORAGE_KEY}_{source_instance_id}"
 
 
-class GrowattCoordinator(DataUpdateCoordinator):
+if TYPE_CHECKING:
+    _CoordinatorBase = DataUpdateCoordinator[bool]
+else:
+    _CoordinatorBase = DataUpdateCoordinator
+
+
+class GrowattCoordinator(_CoordinatorBase):
     """Coordinator for Growatt THOR OCPP data."""
 
-    def __init__(self, hass, source_instance_id=None, seed_from_legacy=True):
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        source_instance_id: str | None = None,
+        seed_from_legacy: bool = True,
+    ) -> None:
         super().__init__(hass, _LOGGER, name="Growatt THOR Coordinator")
 
         self.sessions = SessionLifecycle(self)
@@ -156,31 +171,31 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._transaction_id_allocator = TransactionIdAllocator()
         self._transaction_id_lock = asyncio.Lock()
 
-        self.charge_point_id = None
-        self.status = None
+        self.charge_point_id: str | None = None
+        self.status: str | None = None
         self.connected = False
-        self.connection_started_at = None
-        self.last_message_at = None
-        self.last_message_action = None
-        self.last_heartbeat_at = None
+        self.connection_started_at: str | None = None
+        self.last_message_at: str | None = None
+        self.last_message_action: str | None = None
+        self.last_heartbeat_at: str | None = None
         self.transaction_id: int | str | None = None
-        self.charging_target_request = None
+        self.charging_target_request: dict[str, Any] | None = None
         self.transaction_hooks: TransactionHooks | None = None
         self.charging_target_pilot_enabled = False
-        self.id_tag = None
+        self.id_tag: str | None = None
         self.authorization = LocalAuthorization()
 
         # Latest normalized OCPP requests retained for HA diagnostics.
-        self.boot_notification = None
-        self.last_status_notification = None
+        self.boot_notification: dict[str, Any] | None = None
+        self.last_status_notification: dict[str, Any] | None = None
         self.last_charger_fault: ChargerFault | None = None
-        self.last_meter_values = None
-        self.active_transaction = None
-        self.last_completed_transaction = None
-        self.last_current_record = None
-        self.last_frozen_record = None
+        self.last_meter_values: dict[str, Any] | None = None
+        self.active_transaction: dict[str, Any] | None = None
+        self.last_completed_transaction: dict[str, Any] | None = None
+        self.last_current_record: dict[str, Any] | None = None
+        self.last_frozen_record: dict[str, Any] | None = None
         self.effective_charging = EffectiveChargingTracker()
-        self.site_accounting_options = {}
+        self.site_accounting_options: dict[str, Any] = {}
         self.last_energy_stop: dict[str, object] | None = None
         self.dashboard_command: dict[str, object] | None = None
         self.site_accounting: SessionAccumulator | None = None
@@ -195,37 +210,39 @@ class GrowattCoordinator(DataUpdateCoordinator):
         }
 
         #  Totals
-        self.power = None  # W
-        self.energy = None  # Wh
+        self.power: float | None = None  # W
+        self.energy: float | None = None  # Wh
 
         #  Per-phase values
-        self.currents = {}  # {"L1": A, "L2": A, "L3": A}
-        self.voltages = {}  # {"L1": V, "L2": V, "L3": V}
-        self.phase_power = {}  # {"L1": W, "L2": W, "L3": W}
+        self.currents: dict[str, float] = {}  # {"L1": A, "L2": A, "L3": A}
+        self.voltages: dict[str, float] = {}  # {"L1": V, "L2": V, "L3": V}
+        self.phase_power: dict[str, float] = {}  # {"L1": W, "L2": W, "L3": W}
 
-        self.temperature = None  # °C
+        self.temperature: float | None = None  # °C
 
         #  Config (Growatt)
-        self.max_current = None
+        self.max_current: float | None = None
         self._external_limit_power = 10.0
-        self.external_limit_power_enable = None
-        self.charger_mode = None
-        self.server_url = None
-        self.lcd_close_enable = None
+        self.external_limit_power_enable: bool | None = None
+        self.charger_mode: int | None = None
+        self.server_url: str | None = None
+        self.lcd_close_enable: str | None = None
         self.location = ""
-        self.battery_power_entity = None
+        self.battery_power_entity: str | None = None
         self.battery_power_sign = BATTERY_POSITIVE_DISCHARGE
 
         # Auto charge times (Thor values)
-        self.auto_charge_start_time = None
-        self.auto_charge_stop_time = None
+        self.auto_charge_start_time: time | None = None
+        self.auto_charge_stop_time: time | None = None
 
         # Auto charge times (pending UI values)
-        self.auto_charge_start_time_pending = None
-        self.auto_charge_stop_time_pending = None
+        self.auto_charge_start_time_pending: time | None = None
+        self.auto_charge_stop_time_pending: time | None = None
 
         #  Electricity price
-        self.electricity_price = None  # Currency per kWh, parsed from G_TimeSharingPrice
+        self.electricity_price: float | None = (
+            None  # Currency per kWh, parsed from G_TimeSharingPrice
+        )
 
         # Last-known raw and normalized GetConfiguration values.
         self.configuration_values: dict[str, ConfigurationValue] = {}
@@ -233,7 +250,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.configuration_writes: dict[str, ConfigurationWriteState] = {}
         self.last_command_result: ChargerCommandResult | None = None
 
-        self.dashboard_sessions = {
+        self.dashboard_sessions: dict[str, Any] = {
             "items": [],
             "total_energy_kwh": 0.0,
             "total_cost": 0.0,
@@ -247,12 +264,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._connection_changed = asyncio.Event()
         self.write_queue = ChargerWriteQueue(self, self._connection_changed)
         self._shutting_down = False
-        self._configuration_refresh_task = None
-        self._auto_charge_schedule_task = None
+        self._configuration_refresh_task: asyncio.Task[bool] | None = None
+        self._auto_charge_schedule_task: asyncio.Task[None] | None = None
 
     # PERSISTENT STORAGE
 
-    async def async_load_storage(self):
+    async def async_load_storage(self) -> None:
         """Load persistent statistics from HA storage."""
         data = await self._store.async_load()
         seeded_from_legacy = False
@@ -277,9 +294,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
             stored_keys = data.get("applied_session_record_keys", [])
             if isinstance(stored_keys, list):
                 for value in stored_keys[-50:]:
-                    key = normalize_record_key(value)
-                    if key is not None and key not in self.sessions.applied_session_record_keys:
-                        self.sessions.applied_session_record_keys.append(key)
+                    record_key = normalize_record_key(value)
+                    if (
+                        record_key is not None
+                        and record_key not in self.sessions.applied_session_record_keys
+                    ):
+                        self.sessions.applied_session_record_keys.append(record_key)
             if (
                 self.sessions.last_session.record_key is not None
                 and self.sessions.last_session.record_key
@@ -337,7 +357,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         else:
             _LOGGER.info("No persistent storage found, starting fresh")
 
-    async def async_save_storage(self):
+    async def async_save_storage(self) -> None:
         """Save persistent statistics to HA storage."""
         await self._store.async_save(self._storage_data())
         _LOGGER.debug(
@@ -395,19 +415,19 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     async def queue_write(
         self,
-        write_func,
-        *args,
-        dedupe_key=None,
-        priority=False,
-        rate_limited=True,
-        command_name=None,
-        requires_connection=False,
-        configuration_key=None,
-        configuration_generation=None,
+        write_func: Callable[..., Awaitable[Any]],
+        *args: Any,
+        dedupe_key: object | None = None,
+        priority: bool = False,
+        rate_limited: bool = True,
+        command_name: str | None = None,
+        requires_connection: bool = False,
+        configuration_key: str | None = None,
+        configuration_generation: int | None = None,
         policy: ChargerWriteQueuePolicy = DEFAULT_WRITE_POLICY,
-        revalidate=None,
-        on_unsent=None,
-        **kwargs,
+        revalidate: Callable[[], str | None] | None = None,
+        on_unsent: Callable[[ChargerWriteResult], None] | None = None,
+        **kwargs: Any,
     ) -> ChargerCommandHandle:
         """Delegate charger intent to this entry's queue owner."""
         return await self.write_queue.enqueue(
@@ -444,12 +464,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
     # LOAD BALANCING PROPERTY
 
     @property
-    def external_limit_power(self):
+    def external_limit_power(self) -> float:
         """Return current load balancing limit (kW)."""
         return self._external_limit_power
 
     @external_limit_power.setter
-    def external_limit_power(self, value):
+    def external_limit_power(self, value: Any) -> None:
         """Update load balancing limit."""
         self._external_limit_power = float(value)
         _LOGGER.debug("Load balancing limit updated to: %.1f kW", self._external_limit_power)
@@ -586,7 +606,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.async_set_updated_data(True)
         return outcome_is_current
 
-    async def async_apply_options(self, data, *, section: str) -> None:
+    async def async_apply_options(self, data: dict[str, Any], *, section: str) -> None:
         """Apply one saved options section without changing entry ownership or storage."""
         if section == "general":
             self.location = data.get(CONF_LOCATION, "")
@@ -619,7 +639,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
             charger_faulted=self.charger_is_faulted,
         )
 
-    def schedule_configuration_refresh(self, *, delay: float = CONFIGURATION_WRITE_SPACING_SECONDS):
+    def schedule_configuration_refresh(
+        self, *, delay: float = CONFIGURATION_WRITE_SPACING_SECONDS
+    ) -> asyncio.Task[bool]:
         """Coalesce post-write readbacks into one reconnect-safe task.
 
         Historically each accepted write slept for exactly the same 20 seconds
@@ -644,7 +666,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         write_callback: Callable[[], Awaitable[None]],
         *,
         delay: float = 0.5,
-    ):
+    ) -> asyncio.Task[None]:
         """Debounce the two entity edits that form one Auto Charge schedule.
 
         Home Assistant exposes start and stop as separate time entities, while
@@ -673,7 +695,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 if self._auto_charge_schedule_task is asyncio.current_task():
                     self._auto_charge_schedule_task = None
 
-        task = self.hass.async_create_task(_delayed_write())
+        task: asyncio.Task[None] = self.hass.async_create_task(_delayed_write())
         self._auto_charge_schedule_task = task
         return task
 
@@ -712,7 +734,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         finally:
             self._configuration_refresh_task = None
 
-    def update_pv_linkage_draft(self, **changes) -> None:
+    def update_pv_linkage_draft(self, **changes: object) -> None:
         """Update local compound-control fields without writing the charger."""
         for attribute, value in changes.items():
             if attribute not in {
@@ -783,7 +805,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         current = self.runtime_data.get(SKIP_POLLING_UNTIL, 0)
         self.runtime_data[SKIP_POLLING_UNTIL] = max(current, until)
 
-    def _reset_live_power(self):
+    def _reset_live_power(self) -> bool:
         """Zero live power and current values that are no longer current.
 
         The THOR sends MeterValues only while it charges.  When charging ends
@@ -838,7 +860,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             await self.sessions.async_flush_pending()
             await self.async_save_storage()
 
-    def set_status(self, status):
+    def set_status(self, status: object) -> None:
         """Set charger status and notify sensors."""
         value = enum_value(status, stringify_fallback=True)
 
@@ -1048,7 +1070,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         )
         self.async_set_updated_data(True)
 
-    def _accept_meter_transaction(self, transaction_id) -> bool:
+    def _accept_meter_transaction(self, transaction_id: int | str | None) -> bool:
         if transaction_id is not None:
             active_id = self.transaction_id
             if active_id is None:
@@ -1067,7 +1089,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
                 return False
         return True
 
-    def _observe_site_accounting(self, parsed_values, received_at, transaction_id) -> None:
+    def _observe_site_accounting(
+        self,
+        parsed_values: Sequence[MeterValue],
+        received_at: datetime | None,
+        transaction_id: int | str | None,
+    ) -> None:
         if (
             self.site_accounting is not None
             and str(transaction_id or self.transaction_id) == self.site_accounting.transaction_id
@@ -1116,7 +1143,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
             if accounting_updated:
                 self.hass.async_create_task(self.async_save_storage())
 
-    def _observe_effective_charging(self, parsed_values, transaction_id):
+    def _observe_effective_charging(
+        self, parsed_values: Sequence[MeterValue], transaction_id: int | str | None
+    ) -> int | str | None:
         effective_transaction_id = (
             transaction_id if transaction_id is not None else self.transaction_id
         )
@@ -1138,7 +1167,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         return effective_transaction_id
 
-    def _apply_live_samples(self, entry, *, live_power: bool) -> tuple[bool, bool]:
+    def _apply_live_samples(self, entry: MeterValue, *, live_power: bool) -> tuple[bool, bool]:
         updated = False
         ignored_live_samples = False
         for sample in entry.samples:
@@ -1177,7 +1206,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         return updated, ignored_live_samples
 
-    def _append_power_curve(self, entry, effective_transaction_id) -> None:
+    def _append_power_curve(
+        self, entry: MeterValue, effective_transaction_id: int | str | None
+    ) -> None:
         if effective_transaction_id is not None:
             point = charging_power_curve_point(entry)
             if point is not None and (
@@ -1222,20 +1253,22 @@ class GrowattCoordinator(DataUpdateCoordinator):
             if value is None:
                 continue
             try:
-                interval = float(value.parsed_value)
+                interval = float(cast(Any, value.parsed_value))
             except (TypeError, ValueError):
                 continue
             if interval > 0:
                 return max(MIN_METER_GAP_SECONDS, interval * METER_GAP_INTERVAL_MULTIPLIER)
         return DEFAULT_METER_GAP_SECONDS
 
-    def record_stop_requested(self, *, reason="remote_stop") -> None:
+    def record_stop_requested(self, *, reason: str = "remote_stop") -> None:
         """Delegate this transition to the session lifecycle."""
         return self.sessions.record_stop_requested(reason=reason)
 
     # GetConfiguration processing
 
-    def process_configuration(self, configuration: list, unknown_keys=()):
+    def process_configuration(
+        self, configuration: Sequence[object], unknown_keys: Iterable[object] = ()
+    ) -> None:
         """Validate configuration responses and safely reject malformed values."""
         self.configuration_values, updated = merge_configuration_values(
             self.configuration_values,
@@ -1269,7 +1302,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         for item in configuration:
             if not isinstance(item, dict):
                 continue
-            key = item.get("key")
+            key: Any = item.get("key")
             raw = item.get("value")
 
             try:
@@ -1311,9 +1344,9 @@ class GrowattCoordinator(DataUpdateCoordinator):
         if updated:
             self.async_set_updated_data(True)
 
-    def _apply_auto_charge_time(self, raw) -> bool:
+    def _apply_auto_charge_time(self, raw: object) -> bool:
         try:
-            schedule = parse_auto_charge_time(raw)
+            schedule = parse_auto_charge_time(cast(Any, raw))
         except ValueError as exc:
             _LOGGER.warning("Failed to parse G_AutoChargeTime '%s': %s", raw, exc)
             return False
@@ -1332,7 +1365,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     # Growatt session records
 
-    def process_session_record(self, record: GrowattSessionRecord):
+    def process_session_record(self, record: GrowattSessionRecord) -> None:
         """Delegate this transition to the session lifecycle."""
         return self.sessions.process_session_record(record)
 
