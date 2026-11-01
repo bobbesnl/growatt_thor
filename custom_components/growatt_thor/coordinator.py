@@ -273,7 +273,7 @@ class GrowattCoordinator(_CoordinatorBase):
         """Load persistent statistics from HA storage."""
         data = await self._store.async_load()
         seeded_from_legacy = False
-        legacy_store = getattr(self, "_legacy_store", None)
+        legacy_store = self._legacy_store
         if not data and legacy_store is not None:
             data = await legacy_store.async_load()
             seeded_from_legacy = bool(data)

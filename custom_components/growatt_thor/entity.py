@@ -14,6 +14,10 @@ if TYPE_CHECKING:
 
     from .coordinator import GrowattCoordinator
 
+    _CoordinatorEntityBase = CoordinatorEntity[GrowattCoordinator]
+else:
+    _CoordinatorEntityBase = CoordinatorEntity
+
 INFORMATION_ATTRIBUTES = {"information": "details"}
 
 
@@ -35,7 +39,7 @@ def meter_device_info(entry: ConfigEntry) -> DeviceInfo:
     }
 
 
-class ThorEntity(CoordinatorEntity):
+class ThorEntity(_CoordinatorEntityBase):
     """Attach one entity to its entry's charger or external meter device."""
 
     _attr_has_entity_name = True

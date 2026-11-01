@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from .runtime.keys import ACTIVE_CHARGE_POINT
 
 if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+    from .coordinator import GrowattCoordinator
+    from .ocpp.server import GrowattChargePoint
     from .runtime.entry import ThorConfigEntry
 
 import asyncio
@@ -31,6 +34,7 @@ from .charging.pv_linkage import PvBoostMode
 from .configuration.controls import GrowattConfigurationControlMixin, GrowattConfigurationWriteMixin
 from .configuration.values import (
     CONFIGURATION_ENTITY_OPTIONS,
+    ConfigurationScalar,
     configuration_entity_state,
 )
 from .configuration.writes import ConfigurationWriteStatus
@@ -55,7 +59,8 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ThorConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Growatt THOR select entities."""
-    coordinator = entry.runtime_data.coordinator
+    # HA forwards platforms only after this entry has claimed its coordinator.
+    coordinator = cast("GrowattCoordinator", entry.runtime_data.coordinator)
     async_add_entities(
         [
             WorkingModeSelect(coordinator, entry),
@@ -70,6 +75,8 @@ async def async_setup_entry(
 class AuthorizationModeSelect(GrowattConfigurationControlMixin, ThorEntity, SelectEntity):
     """Explicit, idle-only authorization changes; never issue a reboot or start."""
 
+    coordinator: GrowattCoordinator
+
     _control = ChargingControl.AUTHORIZATION_MODE
     _attr_has_entity_name = True
     _attr_translation_key = "authorization_mode"
@@ -77,19 +84,19 @@ class AuthorizationModeSelect(GrowattConfigurationControlMixin, ThorEntity, Sele
     _attr_entity_category = EntityCategory.CONFIG
     _attr_options = list(CONFIGURATION_ENTITY_OPTIONS["G_ChargerMode"])
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_authorization_mode_control"
 
     @property
-    def current_option(self):
+    def current_option(self) -> ConfigurationScalar:
         return configuration_entity_state(
             self._configuration_key,
             self._configuration_value,
         )
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self._control_available and self.current_option is not None
 
     async def async_select_option(self, option: str) -> None:
@@ -99,34 +106,36 @@ class AuthorizationModeSelect(GrowattConfigurationControlMixin, ThorEntity, Sele
 class WorkingModeSelect(GrowattConfigurationWriteMixin, ThorEntity, SelectEntity):
     """Select a charging strategy through the captured indirect writes."""
 
+    coordinator: GrowattCoordinator
+
     _attr_has_entity_name = True
     _attr_translation_key = "working_mode"
     _attr_icon = "mdi:ev-station"
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._pending_option: str | None = None
         self._intent_sequence = 0
         self._pending_intent: int | None = None
-        self._readback_task: asyncio.Task | None = None
+        self._readback_task: asyncio.Task[None] | None = None
         self._attr_unique_id = f"{entry.entry_id}_working_mode_control"
 
     @property
-    def current_option(self):
+    def current_option(self) -> str | None:
         if self._pending_option is not None:
             return self._pending_option
         return selected_working_mode(self.coordinator.configuration_values)
 
     @property
-    def options(self):
+    def options(self) -> list[str]:
         return available_working_mode_options(
             self.current_option,
             external_meter_ready=self.coordinator.external_meter.ready_for_pv,
         )
 
     @property
-    def available(self):
+    def available(self) -> bool:
         # An active charging transaction prevents mode changes, but the last
         # reported strategy remains useful state and must stay visible.
         return super().available and self.coordinator.connected and self.current_option is not None
@@ -136,13 +145,15 @@ class WorkingModeSelect(GrowattConfigurationWriteMixin, ThorEntity, SelectEntity
         return self.coordinator.write_block_reason(ChargingControl.WORKING_MODE)
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         return self.information_attributes
 
-    def _encode_working_mode(self, option):
+    def _encode_working_mode(self, option: str) -> tuple[str, str]:
         return encode_working_mode(option)
 
-    def _on_accepted(self, raw_value, *, value, key=None) -> None:
+    def _on_working_mode_accepted(
+        self, raw_value: str, *, value: str, key: str | None = None
+    ) -> None:
         option = value
         super()._on_accepted(raw_value, key=key, value=value)
         reported_mode = {
@@ -163,10 +174,10 @@ class WorkingModeSelect(GrowattConfigurationWriteMixin, ThorEntity, SelectEntity
                 "1&Disable",
             )
 
-    def _restore_optimistic(self, generation: int, *, previous=None) -> None:
+    def _restore_optimistic(self, generation: int, *, previous: object = None) -> None:
         # The entity intent, not a per-key generation, owns cross-key selection.
         if previous is not None:
-            self._clear_pending_option(*previous)
+            self._clear_pending_option(*cast(tuple[str, int], previous))
 
     async def async_select_option(self, option: str) -> None:
         if option == self.current_option:
@@ -223,7 +234,7 @@ class WorkingModeSelect(GrowattConfigurationWriteMixin, ThorEntity, SelectEntity
 
     async def _apply_working_mode(
         self,
-        charge_point,
+        charge_point: GrowattChargePoint,
         key: str,
         raw_value: str,
         option: str,
@@ -288,7 +299,7 @@ class WorkingModeSelect(GrowattConfigurationWriteMixin, ThorEntity, SelectEntity
             # Working modes use different underlying Growatt keys. Therefore
             # the entity-level intent token complements the per-key generation
             # and prevents an older mode response from winning across keys.
-            self._on_accepted(raw_value, key=key, value=option)
+            self._on_working_mode_accepted(raw_value, key=key, value=option)
 
         if selection_is_current:
             self._readback_task = self.hass.async_create_task(
@@ -346,6 +357,8 @@ class ExternalSamplingMethodSelect(
 ):
     """Select the captured external current sampling method."""
 
+    coordinator: GrowattCoordinator
+
     _control = ChargingControl.EXTERNAL_SAMPLING_METHOD
     _attr_has_entity_name = True
     _attr_translation_key = "external_sampling_method"
@@ -353,19 +366,19 @@ class ExternalSamplingMethodSelect(
     _attr_icon = "mdi:connection"
     _attr_options = list(CONFIGURATION_ENTITY_OPTIONS["G_ExternalSamplingCurWring"])
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, device="meter")
         self._attr_unique_id = f"{entry.entry_id}_external_sampling_method_control"
 
     @property
-    def current_option(self):
+    def current_option(self) -> ConfigurationScalar:
         return configuration_entity_state(
             self._configuration_key,
             self._configuration_value,
         )
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self._control_available and self.current_option is not None
 
     async def async_select_option(self, option: str) -> None:
@@ -379,6 +392,8 @@ class PowerMeterTypeSelect(
 ):
     """Select the Modbus meter model reported through OCPP."""
 
+    coordinator: GrowattCoordinator
+
     _control = ChargingControl.POWER_METER_TYPE
     _attr_has_entity_name = True
     _attr_translation_key = "power_meter_type"
@@ -386,19 +401,19 @@ class PowerMeterTypeSelect(
     _attr_icon = "mdi:counter"
     _attr_options = list(CONFIGURATION_ENTITY_OPTIONS["G_PowerMeterType"])
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, device="meter")
         self._attr_unique_id = f"{entry.entry_id}_power_meter_type_control"
 
     @property
-    def current_option(self):
+    def current_option(self) -> ConfigurationScalar:
         return configuration_entity_state(
             self._configuration_key,
             self._configuration_value,
         )
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self._control_available and self.current_option is not None
 
     async def async_select_option(self, option: str) -> None:
@@ -414,12 +429,12 @@ class PvBoostDraftSelect(ThorEntity, SelectEntity):
     _attr_icon = "mdi:rocket-launch-outline"
     _attr_options = [mode.value for mode in PvBoostMode]
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_pv_boost_mode_draft"
 
     @property
-    def current_option(self):
+    def current_option(self) -> ConfigurationScalar:
         mode = self.coordinator.pv_draft.boost_mode
         return mode.value if mode is not None else None
 
@@ -428,7 +443,7 @@ class PvBoostDraftSelect(ThorEntity, SelectEntity):
         return self.coordinator.write_block_reason(ChargingControl.SOLAR_BOOST)
 
     @property
-    def available(self):
+    def available(self) -> bool:
         # Draft state is still meaningful during charging or a charger fault.
         # Those conditions block applying it, but should not make it disappear.
         return (
@@ -442,7 +457,7 @@ class PvBoostDraftSelect(ThorEntity, SelectEntity):
         )
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         return self.information_attributes
 
     async def async_select_option(self, option: str) -> None:

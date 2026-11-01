@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from .runtime.keys import ACTIVE_CHARGE_POINT
 
 if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+    from .coordinator import GrowattCoordinator
+    from .ocpp.server import GrowattChargePoint
     from .runtime.entry import ThorConfigEntry
 
 import logging
@@ -60,14 +63,14 @@ from .runtime.write_results import (
 _LOGGER = logging.getLogger(__name__)
 
 
-def _display_number(entity, value: object) -> str:
+def _display_number(entity: NumberEntity, value: object) -> str:
     """Add the entity unit to validation errors without changing the value."""
     unit = entity.native_unit_of_measurement
     return f"{value} {unit}" if unit else str(value)
 
 
 def _validated_entity_number(
-    entity,
+    entity: NumberEntity,
     value: object,
     *,
     integer: bool = False,
@@ -115,7 +118,7 @@ def _validated_entity_number(
 
 
 def _validated_reported_entity_number(
-    entity,
+    entity: NumberEntity,
     value: object,
     *,
     integer: bool = False,
@@ -145,7 +148,8 @@ def _validated_reported_entity_number(
 async def async_setup_entry(
     hass: HomeAssistant, entry: ThorConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    coordinator = entry.runtime_data.coordinator
+    # HA forwards platforms only after this entry has claimed its coordinator.
+    coordinator = cast("GrowattCoordinator", entry.runtime_data.coordinator)
 
     async_add_entities(
         [
@@ -167,7 +171,14 @@ class BaseConfigNumber(ThorEntity, NumberEntity):
     _attr_entity_category = EntityCategory.CONFIG
     _attr_native_mode = NumberMode.BOX
 
-    def __init__(self, coordinator, entry, key, *, device="charger"):
+    def __init__(
+        self,
+        coordinator: GrowattCoordinator,
+        entry: ConfigEntry,
+        key: str,
+        *,
+        device: Literal["charger", "meter"] = "charger",
+    ) -> None:
         super().__init__(coordinator, entry, device=device)
         self._attr_unique_id = f"{entry.entry_id}_{key}"
 
@@ -179,7 +190,7 @@ class BaseConfigNumber(ThorEntity, NumberEntity):
         )
 
     @property
-    def available(self):
+    def available(self) -> bool:
         # Faults and active transactions may block writes, but neither erases a
         # value already reported by the charger.  Availability represents that
         # readable state; each setter still enforces its write guard.
@@ -192,15 +203,29 @@ class BaseConfigNumber(ThorEntity, NumberEntity):
 class ConfigurationNumberWriteMixin(GrowattConfigurationWriteMixin):
     """Execute a domain-valued number write with one rollback/error boundary."""
 
+    coordinator: GrowattCoordinator
+
+    if TYPE_CHECKING:
+        _config_key: str
+
+        @property
+        def _charger_write_block_reason(self) -> str | None: ...
+        def _encode(self, value: float) -> str: ...
+        def _on_number_accepted(
+            self, raw_value: str, *, value: float, key: str | None = None
+        ) -> None: ...
+
     _refresh_in_accept = False
 
-    def _queued_write_block_reason(self):
+    def _queued_write_block_reason(self) -> str | None:
         return self._charger_write_block_reason
 
-    def _queued_value_block_reason(self, value):
+    def _queued_value_block_reason(self, value: float) -> str | None:
         return None
 
-    async def _write_to_thor(self, charge_point, value, previous, generation):
+    async def _write_to_thor(
+        self, charge_point: GrowattChargePoint, value: float, previous: object, generation: int
+    ) -> ChargerWriteResult:
         reason = self._queued_write_block_reason() or self._queued_value_block_reason(value)
         if reason is not None:
             self.coordinator.mark_configuration_write(
@@ -219,7 +244,7 @@ class ConfigurationNumberWriteMixin(GrowattConfigurationWriteMixin):
                 self._restore_optimistic(generation, previous=previous)
                 return ChargerWriteResult.failed("charger_rejected", response.result)
             if response.current:
-                self._on_accepted(raw_value, key=self._config_key, value=value)
+                self._on_number_accepted(raw_value, key=self._config_key, value=value)
             if not self._refresh_in_accept or not response.current:
                 self.coordinator.schedule_configuration_refresh()
             if response.result == ConfigurationStatus.reboot_required:
@@ -243,6 +268,7 @@ class ConfigurationNumberWriteMixin(GrowattConfigurationWriteMixin):
 
 
 class MaxCurrentNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
+    coordinator: GrowattCoordinator
     _attr_translation_key = "max_current"
     _attr_icon = "mdi:current-ac"
     _attr_native_min_value = MIN_CHARGING_CURRENT_A
@@ -250,16 +276,16 @@ class MaxCurrentNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
     _attr_native_unit_of_measurement = "A"
     _config_key = "G_MaxCurrent"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "max_current")
 
     @property
-    def native_value(self):
+    def native_value(self) -> float | None:
         value = self.coordinator.max_current
         return int(value) if value is not None else None
 
     @property
-    def native_max_value(self):
+    def native_max_value(self) -> float:
         """Return the maximum current supported by the reported model."""
         boot_notification = self.coordinator.boot_notification
         return maximum_charging_current(
@@ -267,31 +293,31 @@ class MaxCurrentNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
             boot_notification_field(boot_notification, "firmware_version"),
         )
 
-    def _validate_write_value(self, value):
+    def _validate_write_value(self, value: object) -> int | float:
         return _validated_entity_number(self, value, integer=True)
 
-    def _encode(self, value) -> str:
+    def _encode(self, value: float) -> str:
         return str(value)
 
-    def _on_accepted(self, raw_value, *, value, key=None) -> None:
+    def _on_number_accepted(self, raw_value: str, *, value: float, key: str | None = None) -> None:
         self.coordinator.max_current = value
         super()._on_accepted(raw_value, key=key, value=value)
         self.coordinator.async_set_updated_data(True)
 
-    def _queued_value_block_reason(self, value):
+    def _queued_value_block_reason(self, value: float) -> str | None:
         return None if self._value_is_valid(value) else "model_limit_changed"
 
-    def _value_is_valid(self, value: int) -> bool:
+    def _value_is_valid(self, value: float) -> bool:
         return self.native_min_value <= value <= self.native_max_value
 
-    def _restore_optimistic(self, generation: int, *, previous=None) -> None:
+    def _restore_optimistic(self, generation: int, *, previous: object = None) -> None:
         # A failed older request must not roll the UI back over a newer value
         # that another automation has already selected.
         if previous is not None and self.coordinator.configuration_write_is_current(
             self._config_key,
             generation,
         ):
-            self.coordinator.max_current = previous
+            self.coordinator.max_current = cast(float, previous)
             self.coordinator.async_set_updated_data(True)
 
     async def async_set_native_value(self, value: float) -> None:
@@ -356,6 +382,7 @@ class MaxCurrentNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
 
 
 class LoadBalancingLimitNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
+    coordinator: GrowattCoordinator
     _attr_translation_key = "load_balancing_limit"
     _attr_icon = "mdi:speedometer"
     _attr_device_class = NumberDeviceClass.POWER
@@ -367,25 +394,25 @@ class LoadBalancingLimitNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
     # This entity historically schedules readback before publishing its mirror.
     _refresh_in_accept = True
 
-    def _queued_write_block_reason(self):
+    def _queued_write_block_reason(self) -> str | None:
         return self._write_block_reason
 
-    def _on_accepted(self, raw_value, *, value, key=None) -> None:
+    def _on_number_accepted(self, raw_value: str, *, value: float, key: str | None = None) -> None:
         super()._on_accepted(raw_value, key=key, value=value)
         self.coordinator.schedule_configuration_refresh()
         self.coordinator.external_limit_power = value
         self.coordinator.async_set_updated_data(True)
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "load_balancing_limit", device="meter")
 
     @property
-    def native_value(self):
+    def native_value(self) -> float | None:
         value = self.coordinator.external_limit_power
         return int(value) if value is not None else 10
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return (
             super().available
             and self.coordinator.connected
@@ -400,19 +427,19 @@ class LoadBalancingLimitNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
         return self.coordinator.write_block_reason(ChargingControl.LOAD_BALANCING_LIMIT)
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         return {
             **self.information_attributes,
             "ocpp_key": self._config_key,
         }
 
-    def _validate_write_value(self, value):
+    def _validate_write_value(self, value: object) -> int | float:
         return _validated_entity_number(self, value, integer=True)
 
-    def _encode(self, value) -> str:
+    def _encode(self, value: float) -> str:
         return str(value)
 
-    def _restore_optimistic(self, generation: int, *, previous=None) -> None:
+    def _restore_optimistic(self, generation: int, *, previous: object = None) -> None:
         """Restore reported power only while this write still owns the UI."""
         if previous is not None and self.coordinator.configuration_write_is_current(
             self._config_key,
@@ -483,6 +510,7 @@ class LoadBalancingLimitNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
 
 
 class ElectricityPriceNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
+    coordinator: GrowattCoordinator
     _attr_translation_key = "electricity_price"
     _attr_icon = "mdi:cash"
     _attr_native_min_value = -2.0
@@ -491,41 +519,41 @@ class ElectricityPriceNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
     _attr_suggested_display_precision = 2
     _config_key = "G_TimeSharingPrice"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "electricity_price")
         self._attr_native_unit_of_measurement = electricity_price_unit(coordinator.hass)
 
     @property
-    def native_value(self):
+    def native_value(self) -> float | None:
         return self.coordinator.electricity_price
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         value = self.coordinator.configuration_values.get(self._config_key)
         return {
             "ocpp_key": self._config_key,
             "raw_value": value.raw_value if value is not None else None,
         }
 
-    def _validate_write_value(self, value):
+    def _validate_write_value(self, value: object) -> int | float:
         return _validated_entity_number(self, value)
 
-    def _encode(self, value) -> str:
+    def _encode(self, value: float) -> str:
         # Match the full-day time-period format returned by THOR.
         return f"time1=00:00-23:59&price1={value:.2f}"
 
-    def _on_accepted(self, raw_value, *, value, key=None) -> None:
+    def _on_number_accepted(self, raw_value: str, *, value: float, key: str | None = None) -> None:
         self.coordinator.electricity_price = value
         super()._on_accepted(raw_value, key=key, value=value)
         self.coordinator.async_set_updated_data(True)
 
-    def _restore_optimistic(self, generation: int, *, previous=None) -> None:
+    def _restore_optimistic(self, generation: int, *, previous: object = None) -> None:
         """Restore reported tariff only while this write still owns the UI."""
         if previous is not None and self.coordinator.configuration_write_is_current(
             self._config_key,
             generation,
         ):
-            self.coordinator.electricity_price = previous
+            self.coordinator.electricity_price = cast(float, previous)
             self.coordinator.async_set_updated_data(True)
 
     async def async_set_native_value(self, value: float) -> None:
@@ -588,6 +616,8 @@ class SolarGridImportLimitNumber(
 ):
     """Configure the grid power allowance used by PV Linkage."""
 
+    coordinator: GrowattCoordinator
+
     _control = ChargingControl.SOLAR_GRID_IMPORT_LIMIT
     _attr_has_entity_name = True
     _attr_translation_key = "solar_grid_import_limit"
@@ -601,12 +631,12 @@ class SolarGridImportLimitNumber(
     _attr_suggested_display_precision = 1
     _attr_icon = "mdi:transmission-tower-import"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_solar_grid_import_limit_control"
 
     @property
-    def native_value(self):
+    def native_value(self) -> float | None:
         value = configuration_entity_state(
             self._configuration_key,
             self._configuration_value,
@@ -614,7 +644,7 @@ class SolarGridImportLimitNumber(
         return float(value) if isinstance(value, (int, float)) else None
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self._control_available and self.native_value is not None
 
     async def async_set_native_value(self, value: float) -> None:
@@ -629,6 +659,8 @@ class PowerMeterAddressNumber(
 ):
     """Configure the Modbus address of the external power meter."""
 
+    coordinator: GrowattCoordinator
+
     _control = ChargingControl.POWER_METER_ADDRESS
     _attr_has_entity_name = True
     _attr_translation_key = "power_meter_address"
@@ -639,12 +671,12 @@ class PowerMeterAddressNumber(
     _attr_native_step = 1
     _attr_icon = "mdi:numeric"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, device="meter")
         self._attr_unique_id = f"{entry.entry_id}_power_meter_address_control"
 
     @property
-    def native_value(self):
+    def native_value(self) -> float | None:
         value = configuration_entity_state(
             self._configuration_key,
             self._configuration_value,
@@ -652,7 +684,7 @@ class PowerMeterAddressNumber(
         return int(value) if isinstance(value, (int, float)) else None
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self._control_available and self.native_value is not None
 
     async def async_set_native_value(self, value: float) -> None:
@@ -672,11 +704,11 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
     _attr_native_unit_of_measurement = "kWh"
     _attr_suggested_display_precision = 1
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "pv_smart_boost_target_energy")
 
     @property
-    def native_value(self):
+    def native_value(self) -> float | None:
         return self.coordinator.pv_draft.smart_target_energy_kwh
 
     @property
@@ -684,7 +716,7 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
         return self.coordinator.write_block_reason(ChargingControl.SOLAR_BOOST)
 
     @property
-    def available(self):
+    def available(self) -> bool:
         # Keep a populated local draft visible even while applying it is unsafe.
         return (
             super().available
@@ -696,7 +728,7 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
         )
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         return self.information_attributes
 
     async def async_set_native_value(self, value: float) -> None:

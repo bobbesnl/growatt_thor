@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from .runtime.keys import ACTIVE_CHARGE_POINT
 
 if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+    from .coordinator import GrowattCoordinator
+    from .ocpp.server import GrowattChargePoint
     from .runtime.entry import ThorConfigEntry
 
 import logging
@@ -42,7 +45,8 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ThorConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Growatt THOR time entities."""
-    coordinator = entry.runtime_data.coordinator
+    # HA forwards platforms only after this entry has claimed its coordinator.
+    coordinator = cast("GrowattCoordinator", entry.runtime_data.coordinator)
 
     async_add_entities(
         [
@@ -58,18 +62,21 @@ async def async_setup_entry(
 class BaseAutoChargeTime(GrowattConfigurationWriteMixin, ThorEntity, TimeEntity):
     """Base class for auto charge time entities (auto-apply via queue)."""
 
+    coordinator: GrowattCoordinator
+
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
     _attr_icon = "mdi:clock-outline"
 
+    _is_start: bool
     _CONFIG_KEY = "G_AutoChargeTime"
 
-    def __init__(self, coordinator, entry, key):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry, key: str) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_{key}"
 
     @property
-    def available(self):
+    def available(self) -> bool:
         # Writing a schedule while charging is unsafe, but that temporary write
         # guard must not hide the already reported schedule from Home Assistant.
         return (
@@ -86,14 +93,14 @@ class BaseAutoChargeTime(GrowattConfigurationWriteMixin, ThorEntity, TimeEntity)
     def _write_block_reason(self) -> str | None:
         return self.coordinator.write_block_reason(ChargingControl.AUTO_CHARGE_SCHEDULE)
 
-    def _encode(self, value) -> str:
+    def _encode(self, value: tuple[time, time]) -> str:
         start_time, stop_time = value
         return f"{start_time.strftime('%H:%M')}-{stop_time.strftime('%H:%M')}"
 
     def _restore_reported_schedule(self, generation: int) -> None:
         self._restore_optimistic(generation)
 
-    def _restore_optimistic(self, generation: int, *, previous=None) -> None:
+    def _restore_optimistic(self, generation: int, *, previous: object = None) -> None:
         """Discard an unsent optimistic schedule owned by this generation."""
         if not self.coordinator.configuration_write_is_current(
             self._CONFIG_KEY,
@@ -136,7 +143,7 @@ class BaseAutoChargeTime(GrowattConfigurationWriteMixin, ThorEntity, TimeEntity)
                 lambda: self._queue_pending_schedule(charge_point)
             )
 
-    async def _queue_pending_schedule(self, charge_point) -> None:
+    async def _queue_pending_schedule(self, charge_point: GrowattChargePoint) -> None:
         """Queue one snapshot after the paired entity values have settled."""
         start_time = self.coordinator.auto_charge_start_time_pending
         stop_time = self.coordinator.auto_charge_stop_time_pending
@@ -172,7 +179,7 @@ class BaseAutoChargeTime(GrowattConfigurationWriteMixin, ThorEntity, TimeEntity)
 
     async def _apply_schedule(
         self,
-        charge_point,
+        charge_point: GrowattChargePoint,
         formatted_value: str,
         start_time: time,
         stop_time: time,
@@ -245,16 +252,16 @@ class AutoChargeStartTime(BaseAutoChargeTime):
     _attr_translation_key = "auto_charge_start_time"
     _is_start = True
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "auto_charge_start_time")
 
     @property
-    def native_value(self):
+    def native_value(self) -> time | None:
         """Return pending start time."""
         return self.coordinator.auto_charge_start_time_pending
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         """Show Thor value vs pending."""
         thor_value = self.coordinator.auto_charge_start_time
         return {
@@ -269,16 +276,16 @@ class AutoChargeStopTime(BaseAutoChargeTime):
     _attr_translation_key = "auto_charge_stop_time"
     _is_start = False
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "auto_charge_stop_time")
 
     @property
-    def native_value(self):
+    def native_value(self) -> time | None:
         """Return pending stop time."""
         return self.coordinator.auto_charge_stop_time_pending
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         """Show Thor value vs pending."""
         thor_value = self.coordinator.auto_charge_stop_time
         return {
@@ -296,20 +303,20 @@ class BasePvBoostTime(ThorEntity, TimeEntity):
     _required_mode: PvBoostMode
     _draft_field: str
 
-    def __init__(self, coordinator, entry, key):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry, key: str) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_{key}_draft"
 
     @property
-    def native_value(self):
-        return getattr(self.coordinator.pv_draft, self._draft_field)
+    def native_value(self) -> time | None:
+        return cast(time | None, getattr(self.coordinator.pv_draft, self._draft_field))
 
     @property
     def _write_block_reason(self) -> str | None:
         return self.coordinator.write_block_reason(ChargingControl.SOLAR_BOOST)
 
     @property
-    def available(self):
+    def available(self) -> bool:
         # Temporary write guards belong in async_set_value, not availability.
         # The locally edited draft remains useful state during a charge session.
         return (
@@ -324,7 +331,7 @@ class BasePvBoostTime(ThorEntity, TimeEntity):
         )
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         return self.information_attributes
 
     async def async_set_value(self, value: time) -> None:
@@ -341,7 +348,7 @@ class PvManualBoostStartTime(BasePvBoostTime):
     _required_mode = PvBoostMode.MANUAL
     _draft_field = "manual_start"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "pv_manual_boost_start")
 
 
@@ -352,7 +359,7 @@ class PvManualBoostEndTime(BasePvBoostTime):
     _required_mode = PvBoostMode.MANUAL
     _draft_field = "manual_end"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "pv_manual_boost_end")
 
 
@@ -363,5 +370,5 @@ class PvSmartBoostFinishTime(BasePvBoostTime):
     _required_mode = PvBoostMode.SMART
     _draft_field = "smart_finish"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "pv_smart_boost_finish")

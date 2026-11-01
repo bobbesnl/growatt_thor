@@ -1,0 +1,36 @@
+"""HA entity metadata and lifecycle used by the integration's platform adapters."""
+
+from dataclasses import dataclass
+from typing import Any
+
+from homeassistant.core import HomeAssistant
+
+@dataclass(frozen=True, kw_only=True)
+class EntityDescription:
+    key: str
+    name: str | None = ...
+    icon: str | None = ...
+    translation_key: str | None = ...
+    translation_placeholders: dict[str, str] | None = ...
+    entity_category: Any = ...
+    entity_registry_enabled_default: bool = ...
+    has_entity_name: bool = ...
+
+EntityCategory: Any
+
+class Entity:
+    hass: HomeAssistant
+    entity_description: Any
+    _attr_unique_id: str
+    _attr_device_info: Any
+    _attr_has_entity_name: bool
+    _attr_entity_category: Any
+    _attr_icon: str | None
+    _attr_translation_key: str | None
+    _attr_translation_placeholders: dict[str, str]
+    @property
+    def name(self) -> str | None: ...
+    @property
+    def available(self) -> bool: ...
+    def async_write_ha_state(self) -> None: ...
+    async def async_will_remove_from_hass(self) -> None: ...

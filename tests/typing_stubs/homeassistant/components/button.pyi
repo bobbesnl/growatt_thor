@@ -1,0 +1,3 @@
+from homeassistant.helpers.entity import Entity
+
+class ButtonEntity(Entity): ...

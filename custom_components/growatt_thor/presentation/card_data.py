@@ -107,7 +107,7 @@ def dashboard_active_session(coordinator: ActiveSessionOwner) -> dict[str, Any] 
     events = normalize_session_events(transaction.get("events"))
     accounting = coordinator.site_accounting
     metered_kwh = sum(accounting.buckets.values()) if accounting is not None else None
-    fallback_kwh = getattr(accounting, "power_fallback_kwh", 0.0) if accounting is not None else 0.0
+    fallback_kwh = accounting.power_fallback_kwh if accounting is not None else 0.0
     sessions = coordinator.sessions
     telemetry = sessions.telemetry
     return {

@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from .runtime.keys import ACTIVE_CHARGE_POINT
 
 if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+    from .coordinator import GrowattCoordinator
+    from .ocpp.server import GrowattChargePoint
     from .runtime.entry import ThorConfigEntry
 
 import logging
@@ -51,7 +54,8 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ThorConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Growatt THOR switches."""
-    coordinator = entry.runtime_data.coordinator
+    # HA forwards platforms only after this entry has claimed its coordinator.
+    coordinator = cast("GrowattCoordinator", entry.runtime_data.coordinator)
 
     async_add_entities(
         [
@@ -65,17 +69,19 @@ async def async_setup_entry(
 class LoadBalancingEnableSwitch(GrowattConfigurationWriteMixin, ThorEntity, SwitchEntity):
     """Switch to enable/disable load balancing."""
 
+    coordinator: GrowattCoordinator
+
     _attr_has_entity_name = True
     _attr_translation_key = "load_balancing"
     _attr_icon = "mdi:power-plug-outline"
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, device="meter")
         self._attr_unique_id = f"{entry.entry_id}_load_balancing_enable"
 
     @property
-    def is_on(self):
+    def is_on(self) -> bool | None:
         """Return true if load balancing is enabled."""
         desired_value = pending_configuration_value(
             self.coordinator.configuration_writes,
@@ -86,7 +92,7 @@ class LoadBalancingEnableSwitch(GrowattConfigurationWriteMixin, ThorEntity, Swit
         return self.coordinator.external_limit_power_enable
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return (
             super().available
             and self.coordinator.connected
@@ -101,23 +107,23 @@ class LoadBalancingEnableSwitch(GrowattConfigurationWriteMixin, ThorEntity, Swit
         return self.coordinator.write_block_reason(ChargingControl.LOAD_BALANCING)
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         return {
             **self.information_attributes,
             "ocpp_key": KEY_EXTERNAL_LIMIT_POWER_ENABLE,
         }
 
-    async def async_turn_on(self, **kwargs):
+    async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable load balancing."""
         await self._set_value("1")
 
-    async def async_turn_off(self, **kwargs):
+    async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable load balancing."""
         await self._set_value("0")
 
     async def _apply_external_limit_power_enable(
         self,
-        charge_point,
+        charge_point: GrowattChargePoint,
         value: str,
         generation: int,
     ) -> ChargerWriteResult:
@@ -178,7 +184,7 @@ class LoadBalancingEnableSwitch(GrowattConfigurationWriteMixin, ThorEntity, Swit
             return ChargerWriteResult.failed("charger_rejected", result)
         return ChargerWriteResult.success(result)
 
-    async def _set_value(self, value: str):
+    async def _set_value(self, value: str) -> None:
         """Queue the configuration update (prevents rapid-fire FW crashes)."""
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot change Load Balancing: %s", block_reason)
@@ -219,23 +225,25 @@ class LoadBalancingEnableSwitch(GrowattConfigurationWriteMixin, ThorEntity, Swit
 class LcdDisplaySwitch(GrowattConfigurationWriteMixin, ThorEntity, SwitchEntity):
     """Switch to enable/disable LCD display (G_LCDCloseEnable)."""
 
+    coordinator: GrowattCoordinator
+
     _attr_has_entity_name = True
     _attr_translation_key = "lcd_display"
     _attr_icon = "mdi:monitor"
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_lcd_display"
         # Keep LCD controls on the same charger device as current and Start/Stop.
 
-    def _on_accepted(self, raw_value, *, key=None, value=None) -> None:
+    def _on_accepted(self, raw_value: str, *, key: str | None = None, value: object = None) -> None:
         self.coordinator.lcd_close_enable = raw_value
         super()._on_accepted(raw_value, key=key, value=value)
         self.coordinator.async_set_updated_data(True)
 
     @property
-    def is_on(self):
+    def is_on(self) -> bool | None:
         """Return the desired state while a write awaits acknowledgement.
 
         Home Assistant refreshes a switch immediately after its service call.
@@ -253,7 +261,7 @@ class LcdDisplaySwitch(GrowattConfigurationWriteMixin, ThorEntity, SwitchEntity)
         return self.coordinator.lcd_close_enable == "Disable"
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         """Expose pending versus reported state for support diagnostics."""
         write = self.coordinator.configuration_writes.get(KEY_LCDCLOSE_ENABLE)
         return {
@@ -270,22 +278,22 @@ class LcdDisplaySwitch(GrowattConfigurationWriteMixin, ThorEntity, SwitchEntity)
         )
 
     @property
-    def available(self):
+    def available(self) -> bool:
         # A fault can block changing the LCD without invalidating its last
         # reported (or currently pending) state.
         return super().available and self.coordinator.connected and self.is_on is not None
 
-    async def async_turn_on(self, **kwargs):
+    async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the LCD on (G_LCDCloseEnable = Disable)."""
         await self._set_value("Disable")
 
-    async def async_turn_off(self, **kwargs):
+    async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the LCD off (G_LCDCloseEnable = Enable)."""
         await self._set_value("Enable")
 
     async def _apply_lcd_close_enable(
         self,
-        charge_point,
+        charge_point: GrowattChargePoint,
         value: str,
         generation: int,
     ) -> ChargerWriteResult:
@@ -338,7 +346,7 @@ class LcdDisplaySwitch(GrowattConfigurationWriteMixin, ThorEntity, SwitchEntity)
         self.coordinator.schedule_configuration_refresh()
         return ChargerWriteResult.success(result)
 
-    async def _set_value(self, value: str):
+    async def _set_value(self, value: str) -> None:
         """Queue the configuration update (prevents rapid-fire FW crashes)."""
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot change LCD display: %s", block_reason)
@@ -391,15 +399,17 @@ class BaseModeAwareSwitch(
 ):
     """Base class for verified boolean Growatt configuration controls."""
 
+    coordinator: GrowattCoordinator
+
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, entry, key):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry, key: str) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_{key}_control"
 
     @property
-    def is_on(self):
+    def is_on(self) -> bool | None:
         state = configuration_entity_state(
             self._configuration_key,
             self._configuration_value,
@@ -409,13 +419,13 @@ class BaseModeAwareSwitch(
         return state == "enabled"
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return super().available and self._control_available
 
-    async def async_turn_on(self, **kwargs):
+    async def async_turn_on(self, **kwargs: Any) -> None:
         await self._async_write_configuration(encode_control_value(self._control, True))
 
-    async def async_turn_off(self, **kwargs):
+    async def async_turn_off(self, **kwargs: Any) -> None:
         await self._async_write_configuration(encode_control_value(self._control, False))
 
 
@@ -426,5 +436,5 @@ class WarmUpSwitch(BaseModeAwareSwitch):
     _attr_translation_key = "warm_up"
     _attr_icon = "mdi:car-defrost-front"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "warm_up")

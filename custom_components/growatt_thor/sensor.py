@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -36,16 +36,20 @@ from .sensor_descriptions import (
 )
 
 if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+    from .coordinator import GrowattCoordinator
     from .runtime.entry import ThorConfigEntry
+    from .sensor_descriptions import GrowattConfigurationSensorDefinition, OcppBootSensorDefinition
 
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ThorConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    coordinator = entry.runtime_data.coordinator
+    # HA forwards platforms only after this entry has claimed its coordinator.
+    coordinator = cast("GrowattCoordinator", entry.runtime_data.coordinator)
     boot_sensors = [
         OcppBootSensor(coordinator, entry, description)
         for description in OCPP_BOOT_SENSOR_DESCRIPTIONS
@@ -131,7 +135,7 @@ async def async_setup_entry(
 class BaseSensor(ThorEntity, SensorEntity):
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator, entry, key):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry, key: str) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_{key}"
 
@@ -139,7 +143,7 @@ class BaseSensor(ThorEntity, SensorEntity):
 class SiteAccountingSensor(BaseSensor):
     """Cumulative observed accounting since this feature was enabled."""
 
-    def __init__(self, coordinator, entry, key):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry, key: str) -> None:
         super().__init__(coordinator, entry, f"site_{key}")
         self.key = key
         self._attr_translation_key = f"site_{key}"
@@ -183,7 +187,7 @@ class LastChargerFaultSensor(BaseSensor):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:alert-octagon-outline"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "last_charger_fault")
 
     @property
@@ -196,7 +200,7 @@ class LastChargerFaultSensor(BaseSensor):
         return super().available and self.coordinator.last_charger_fault is not None
 
     @property
-    def extra_state_attributes(self) -> dict:
+    def extra_state_attributes(self) -> dict[str, Any]:
         fault = self.coordinator.last_charger_fault
         if fault is None:
             return self.information_attributes
@@ -215,7 +219,7 @@ class LastCommandResultSensor(BaseSensor):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:progress-check"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "last_command_result")
 
     @property
@@ -228,7 +232,7 @@ class LastCommandResultSensor(BaseSensor):
         return super().available and self.coordinator.last_command_result is not None
 
     @property
-    def extra_state_attributes(self) -> dict:
+    def extra_state_attributes(self) -> dict[str, Any]:
         result = self.coordinator.last_command_result
         if result is None:
             return self.information_attributes
@@ -251,7 +255,12 @@ class GrowattConfigurationSensor(ThorEntity, SensorEntity):
 
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator, entry, definition):
+    def __init__(
+        self,
+        coordinator: GrowattCoordinator,
+        entry: ConfigEntry,
+        definition: GrowattConfigurationSensorDefinition,
+    ) -> None:
         super().__init__(
             coordinator, entry, device="meter" if definition.external_meter else "charger"
         )
@@ -280,7 +289,7 @@ class GrowattConfigurationSensor(ThorEntity, SensorEntity):
         return super().available and self.native_value is not None
 
     @property
-    def extra_state_attributes(self) -> dict:
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         value = self._configuration_value
         if value is None:
             return None
@@ -300,7 +309,12 @@ class GrowattConfigurationSensor(ThorEntity, SensorEntity):
 class OcppBootSensor(BaseSensor):
     """Expose one retained BootNotification field."""
 
-    def __init__(self, coordinator, entry, definition):
+    def __init__(
+        self,
+        coordinator: GrowattCoordinator,
+        entry: ConfigEntry,
+        definition: OcppBootSensorDefinition,
+    ) -> None:
         super().__init__(coordinator, entry, definition.entity_description.key)
         self.entity_description = definition.entity_description
         self._payload_key = definition.payload_key
@@ -337,7 +351,7 @@ class StatusSensor(BaseSensor):
     _attr_options = (*OCPP_STATUS_OPTIONS, "offline")
     _attr_icon = "mdi:ev-station"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "status")
 
     @property
@@ -354,7 +368,7 @@ class StatusSensor(BaseSensor):
         return True
 
     @property
-    def extra_state_attributes(self) -> dict:
+    def extra_state_attributes(self) -> dict[str, Any]:
         return {
             "connected": self.coordinator.connected,
             "connection_started_at": self.coordinator.connection_started_at,
@@ -364,7 +378,7 @@ class StatusSensor(BaseSensor):
             "thor_card": self._dashboard_attributes(),
         }
 
-    def _dashboard_attributes(self):
+    def _dashboard_attributes(self) -> dict[str, Any]:
         data = dashboard_attributes(self.coordinator)
         data["entities"] = dashboard_entity_map(self.hass, self.coordinator.source_instance_id)
         return data
@@ -376,7 +390,9 @@ class ThorSensor(ThorEntity, SensorEntity):
     entity_description: ThorSensorDescription
     phase: str | None = None
 
-    def __init__(self, coordinator, entry, phase=None):
+    def __init__(
+        self, coordinator: GrowattCoordinator, entry: ConfigEntry, phase: str | None = None
+    ) -> None:
         description = self.entity_description
         super().__init__(coordinator, entry, device=description.device)
         self.phase = phase
@@ -404,7 +420,7 @@ class ThorSensor(ThorEntity, SensorEntity):
         )
 
     @property
-    def extra_state_attributes(self) -> dict | None:
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         description = self.entity_description
         if description.attrs_fn is not None:
             return description.attrs_fn(self.coordinator, self.phase)

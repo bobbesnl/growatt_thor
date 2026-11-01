@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from .runtime.keys import ACTIVE_CHARGE_POINT
 
 if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+    from .coordinator import GrowattCoordinator
+    from .ocpp.server import GrowattChargePoint
     from .runtime.entry import ThorConfigEntry
 
 import logging
+from collections.abc import Sequence
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.helpers.entity import EntityCategory
@@ -25,6 +29,9 @@ from .charging.control_capabilities import (
 )
 from .charging.pv_apply import apply_pv_linkage_writes
 from .charging.pv_linkage import (
+    ConfigurationWrite,
+    DataTransferWrite,
+    PvLinkageDraft,
     build_pv_linkage_writes,
     draft_validation_errors,
 )
@@ -47,7 +54,8 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ThorConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Growatt THOR button entities."""
-    coordinator = entry.runtime_data.coordinator
+    # HA forwards platforms only after this entry has claimed its coordinator.
+    coordinator = cast("GrowattCoordinator", entry.runtime_data.coordinator)
 
     async_add_entities(
         [
@@ -67,7 +75,7 @@ class StartChargingButton(ThorEntity, ButtonEntity):
     _attr_translation_key = "start_charging"
     _attr_icon = "mdi:play-circle"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_start_charging"
 
@@ -93,7 +101,7 @@ class StopChargingButton(ThorEntity, ButtonEntity):
     _attr_translation_key = "stop_charging"
     _attr_icon = "mdi:stop-circle"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_stop_charging"
 
@@ -110,7 +118,7 @@ class ApplyPvLinkageButton(ThorEntity, ButtonEntity):
     _attr_icon = "mdi:check-bold"
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_apply_pv_linkage"
 
@@ -124,7 +132,7 @@ class ApplyPvLinkageButton(ThorEntity, ButtonEntity):
         return ("draft_not_initialized",) if draft is None else draft_validation_errors(draft)
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return (
             super().available
             and self._write_block_reason is None
@@ -133,7 +141,7 @@ class ApplyPvLinkageButton(ThorEntity, ButtonEntity):
         )
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         last_apply = self.coordinator.pv_draft.apply_result
         return {
             **self.information_attributes,
@@ -187,9 +195,9 @@ class ApplyPvLinkageButton(ThorEntity, ButtonEntity):
 
     async def _apply_writes(
         self,
-        charge_point,
-        draft,
-        writes,
+        charge_point: GrowattChargePoint,
+        draft: PvLinkageDraft,
+        writes: Sequence[ConfigurationWrite | DataTransferWrite],
     ) -> ChargerWriteResult:
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning(

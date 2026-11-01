@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -74,13 +74,13 @@ class ThorSensorDescription(SensorEntityDescription):
 
     value_fn: Callable[[GrowattCoordinator, str | None], SensorValue]
     available_fn: Callable[[GrowattCoordinator, str | None], bool] | None = None
-    attrs_fn: Callable[[GrowattCoordinator, str | None], dict] | None = None
+    attrs_fn: Callable[[GrowattCoordinator, str | None], dict[str, Any]] | None = None
     unit_fn: Callable[[GrowattCoordinator], str] | None = None
     device: Literal["charger", "meter"] = "charger"
     coordinator_available: bool = True
 
 
-def _external_meter_attributes(coordinator: GrowattCoordinator) -> dict:
+def _external_meter_attributes(coordinator: GrowattCoordinator) -> dict[str, Any]:
     return {
         "vendor_used": coordinator.external_meter.used,
         "vendor_wring": coordinator.external_meter.wring,
@@ -429,7 +429,7 @@ def _last_session_effective_charging_duration_value(
 
 def _last_session_effective_charging_duration_attributes(
     coordinator: GrowattCoordinator, phase: str | None
-) -> dict:
+) -> dict[str, Any]:
     return {
         **INFORMATION_ATTRIBUTES,
         "calculation_method": "ocpp_meter_values",
@@ -445,7 +445,7 @@ def _last_session_charge_mode_value(
 
 def _last_session_charge_mode_attributes(
     coordinator: GrowattCoordinator, phase: str | None
-) -> dict:
+) -> dict[str, Any]:
     return {"raw_value": coordinator.sessions.last_session.charge_mode}
 
 
@@ -455,26 +455,30 @@ def _last_session_work_mode_value(
     return normalize_session_work_mode(coordinator.sessions.last_session.work_mode)
 
 
-def _last_session_work_mode_attributes(coordinator: GrowattCoordinator, phase: str | None) -> dict:
+def _last_session_work_mode_attributes(
+    coordinator: GrowattCoordinator, phase: str | None
+) -> dict[str, Any]:
     return {"raw_value": coordinator.sessions.last_session.work_mode}
 
 
 def _current_value(coordinator: GrowattCoordinator, phase: str | None) -> SensorValue:
-    value = coordinator.currents.get(phase)
+    value = coordinator.currents.get(cast(str, phase))
     return value if value is not None else 0
 
 
 def _voltage_value(coordinator: GrowattCoordinator, phase: str | None) -> SensorValue:
-    value = coordinator.voltages.get(phase)
+    value = coordinator.voltages.get(cast(str, phase))
     return value if value is not None else 0
 
 
 def _phase_power_value(coordinator: GrowattCoordinator, phase: str | None) -> SensorValue:
-    value = coordinator.phase_power.get(phase)
+    value = coordinator.phase_power.get(cast(str, phase))
     return value if value is not None else 0
 
 
-def _external_meter_health_attributes(coordinator: GrowattCoordinator, phase: str | None) -> dict:
+def _external_meter_health_attributes(
+    coordinator: GrowattCoordinator, phase: str | None
+) -> dict[str, Any]:
     return {
         **_external_meter_attributes(coordinator),
         **INFORMATION_ATTRIBUTES,
@@ -486,11 +490,11 @@ def _external_meter_health_attributes(coordinator: GrowattCoordinator, phase: st
 
 
 def _grid_voltage_value(coordinator: GrowattCoordinator, phase: str | None) -> SensorValue:
-    return coordinator.external_meter.voltages.get(phase)
+    return coordinator.external_meter.voltages.get(cast(str, phase))
 
 
 def _grid_current_value(coordinator: GrowattCoordinator, phase: str | None) -> SensorValue:
-    return coordinator.external_meter.currents.get(phase)
+    return coordinator.external_meter.currents.get(cast(str, phase))
 
 
 SENSOR_DESCRIPTIONS = {

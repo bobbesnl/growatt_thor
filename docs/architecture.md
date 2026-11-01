@@ -67,7 +67,7 @@ or the card disconnects. Live/inline curves bypass historical detail. Known HA
 attributes have explicit types; unrelated attributes are `unknown`, and entity
 lookups can be absent. The TypeScript compiler checks these boundaries in strict
 mode. Python typing is incremental; persisted target dictionaries remain a
-validated serialization boundary rather than a fully typed state machine. The strict Python scope in `pyproject.toml` covers coercion/time helpers, configuration, energy, charging, runtime, OCPP, target models/builders and all session modules and the coordinator. Card projections use explicit read protocols from `presentation/contracts.py`, and compile-only owner checks in `tests/typing/owner_contracts.py` verify that the concrete coordinator still satisfies them. A minimal HA coordinator stub prevents an unresolved framework base from hiding missing owner attributes. Other integration packages remain outside this initial strict scope.
+validated serialization boundary rather than a fully typed state machine. The strict Python scope in `pyproject.toml` covers coercion/time helpers, configuration, energy, charging, runtime, OCPP, target models/builders and all session modules, the coordinator and all six HA platforms. Card projections use explicit read protocols from `presentation/contracts.py`, and compile-only owner checks in `tests/typing/owner_contracts.py` verify that the concrete coordinator still satisfies them. A minimal HA coordinator stub prevents an unresolved framework base from hiding missing owner attributes. Integration setup/config flows, target execution, diagnostics and the remaining presentation helpers stay outside this explicit scope; their expansion is a separate step.
 
 Use classes for state with a lifecycle or invariants. Keep transformations,
 validation and calculations as typed functions or data models. Package initializers
@@ -233,3 +233,5 @@ The OCPP handler guard preserves each handler signature through its decorators. 
 The session lifecycle and telemetry are checked strictly, including pending completion records, observation callbacks and restore paths. Restored opaque transaction identifiers remain valid observations alongside integer OCPP IDs; typing does not coerce or replace them.
 
 The coordinator declares its observation fields and scheduled tasks explicitly. Its typed HA base is selected only for static checking, so runtime inheritance and test stand-ins remain unchanged.
+
+HA platform stubs describe the entity properties and coordinator generic used by these adapters without importing HA at development time. Number acceptance and working-mode acceptance use separate required-domain hooks; the shared transport helper retains raw configuration acknowledgement. This preserves the established per-entity write ordering while making each domain callback checkable.
