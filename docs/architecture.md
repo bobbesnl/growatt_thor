@@ -67,7 +67,7 @@ or the card disconnects. Live/inline curves bypass historical detail. Known HA
 attributes have explicit types; unrelated attributes are `unknown`, and entity
 lookups can be absent. The TypeScript compiler checks these boundaries in strict
 mode. Python typing is incremental; persisted target dictionaries remain a
-validated serialization boundary rather than a fully typed state machine.
+validated serialization boundary rather than a fully typed state machine. The strict Python scope in `pyproject.toml` covers coercion/time helpers, configuration, energy, target models/builders and session modules except lifecycle/telemetry. Card projections use explicit read protocols from `presentation/contracts.py`, and compile-only owner checks in `tests/typing/owner_contracts.py` verify that the concrete coordinator still satisfies them. A minimal HA coordinator stub prevents an unresolved framework base from hiding missing owner attributes. Other integration packages remain outside this initial strict scope.
 
 Use classes for state with a lifecycle or invariants. Keep transformations,
 validation and calculations as typed functions or data models. Package initializers

@@ -17,7 +17,10 @@ class CommandOwner(Protocol):
     hass: HomeAssistant
     connected: bool
     dashboard_command: dict[str, object] | None
-    runtime_data: MutableMapping[str, Any]
+
+    @property
+    def runtime_data(self) -> MutableMapping[str, Any]: ...
+
     status: str | None
     transaction_id: int | None
     charging_target_request: dict[str, Any] | None
@@ -32,7 +35,9 @@ class CommandOwner(Protocol):
 
     def async_set_updated_data(self, data: bool) -> None: ...
 
-    def cancel_queued_writes(self, **kwargs: Any) -> int: ...
+    def cancel_queued_writes(
+        self, *, dedupe_key: str, command_name: str | None = None, reason: str
+    ) -> int: ...
 
     async def queue_write(self, *args: Any, **kwargs: Any) -> ChargerCommandHandle: ...
 

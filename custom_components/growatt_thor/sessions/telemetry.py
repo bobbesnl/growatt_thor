@@ -50,7 +50,7 @@ def context_curves(
 class SessionTelemetry:
     def __init__(self, value=None):
         self.curves = context_curves(value)
-        self.house_load_source = (
+        self.house_load_source: str | None = (
             (value or {}).get("site_house_load_source") if isinstance(value, Mapping) else None
         )
         if self.house_load_source not in ("configured_sensor", "site_balance", "mixed"):
@@ -82,10 +82,10 @@ class SessionTelemetry:
             )
         return True
 
-    def snapshot(self, *, event_times=()):
+    def snapshot(self, *, event_times: Iterable[object] = ()) -> dict[str, list[list[Any]]]:
         return context_curves(self.curves, event_times=event_times)
 
-    def metadata(self):
+    def metadata(self) -> dict[str, str]:
         return {"site_house_load_source": self.house_load_source} if self.house_load_source else {}
 
     def observe_context(self, coordinator: TelemetryOwner, at: str) -> bool:

@@ -118,7 +118,7 @@ async def async_get_config_entry_diagnostics(
             }
         ),
         "growatt": {
-            "charging_target_request": getattr(coordinator, "charging_target_request", None),
+            "charging_target_request": coordinator.charging_target_request,
             "last_charger_fault": (
                 coordinator.last_charger_fault.as_dict()
                 if coordinator.last_charger_fault is not None

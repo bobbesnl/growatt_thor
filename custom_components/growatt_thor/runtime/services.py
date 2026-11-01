@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
-from typing import TypeVar
+from typing import Protocol, TypeVar, cast
 
 from .keys import ACTIVE_CHARGE_POINT, COORDINATOR
 
@@ -28,6 +28,10 @@ class ManualRefreshFailed(RuntimeError):
         self.step = step
 
 
+class RefreshOwner(Protocol):
+    connected: bool
+
+
 class IntegrationServiceOperations:
     """Share refreshes and same-target exports between concurrent callers."""
 
@@ -44,12 +48,8 @@ class IntegrationServiceOperations:
         task = self._refresh_task
         if task is None or task.done():
             charge_point = runtime_data.get(ACTIVE_CHARGE_POINT)
-            coordinator = runtime_data.get(COORDINATOR)
-            if (
-                charge_point is None
-                or coordinator is None
-                or not getattr(coordinator, "connected", False)
-            ):
+            coordinator = cast(RefreshOwner | None, runtime_data.get(COORDINATOR))
+            if charge_point is None or coordinator is None or not coordinator.connected:
                 raise ChargerServiceUnavailable
 
             task = self._create_task(self._run_refresh(charge_point))

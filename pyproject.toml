@@ -9,6 +9,8 @@ ignore = ["UP040", "UP042"]
 
 [tool.mypy]
 python_version = "3.12"
+mypy_path = "tests/typing_stubs"
+explicit_package_bases = true
 strict = true
 # Inspect dependency signatures while rolling out strict checks package by package.
 follow_imports = "silent"
@@ -19,6 +21,10 @@ files = [
     "custom_components/growatt_thor/energy/",
     "custom_components/growatt_thor/timestamps.py",
     "custom_components/growatt_thor/sessions/",
+    "custom_components/growatt_thor/presentation/card_data.py",
+    "custom_components/growatt_thor/presentation/battery.py",
+    "custom_components/growatt_thor/presentation/contracts.py",
+    "tests/typing/owner_contracts.py",
     "custom_components/growatt_thor/targets/model.py",
     "custom_components/growatt_thor/targets/requests.py",
 ]

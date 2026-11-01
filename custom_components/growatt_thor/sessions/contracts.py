@@ -19,7 +19,9 @@ if TYPE_CHECKING:
 
 class SessionClock(Protocol):
     hass: HomeAssistant
-    configuration_values: Mapping[str, ConfigurationValue]
+
+    @property
+    def configuration_values(self) -> Mapping[str, ConfigurationValue]: ...
 
 
 class TelemetryOwner(SiteObservationOwner, SessionClock, Protocol):
@@ -49,7 +51,10 @@ class SessionOwner(TelemetryOwner, Protocol):
     location: str
     phase_power: dict[str, float]
     power: float | None
-    runtime_data: MutableMapping[str, Any]
+
+    @property
+    def runtime_data(self) -> MutableMapping[str, Any]: ...
+
     site_accounting: SessionAccumulator | None
     site_accounting_options: dict[str, Any]
     site_accounting_totals: dict[str, float]
@@ -74,7 +79,10 @@ class SessionOwner(TelemetryOwner, Protocol):
 class DashboardHistoryOwner(Protocol):
     source_instance_id: str | None
     charge_point_id: str | None
-    runtime_data: MutableMapping[str, Any]
+
+    @property
+    def runtime_data(self) -> MutableMapping[str, Any]: ...
+
     dashboard_sessions: dict[str, Any]
 
     def async_set_updated_data(self, data: bool) -> None: ...

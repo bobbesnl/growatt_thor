@@ -10,13 +10,15 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from math import isfinite
+from typing import Any, cast
 
 from ..charging.control_capabilities import selected_working_mode
 from ..charging.limits import charging_power_identity, maximum_charging_current
-from ..configuration.values import configuration_entity_state
+from ..configuration.values import ConfigurationScalar, configuration_entity_state
 from ..energy.live_allocation import live_charging_sources
+from ..energy.meter_observations import ChargingMeterObservation
 from ..energy.meter_observations import charging_meter_values as dashboard_meter_values
 from ..ocpp.diagnostics import boot_notification_field
 from ..ocpp.meter_samples import meter_time_zone, normalize_meter_timestamp
@@ -28,6 +30,7 @@ from ..sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 from ..sessions.telemetry import CONTEXT_CURVES, context_curves
 from ..timestamps import installation_time_zone, utc_timestamp
 from .battery import battery_power_attributes
+from .contracts import ActiveSessionOwner, DashboardOwner, LiveMeterOwner
 
 _LOGGER = logging.getLogger(__name__)
 DASHBOARD_SESSION_LIMIT = 20
@@ -37,42 +40,42 @@ CARD_ATTRIBUTE_TARGET_BYTES = 12 * 1024
 _SESSION_DETAIL_FIELDS = ("power_curve", "events", *CONTEXT_CURVES)
 
 
-def live_dashboard_meter_values(coordinator):
+def live_dashboard_meter_values(coordinator: LiveMeterOwner) -> ChargingMeterObservation:
     """Keep the card consistent with live sensors without changing raw samples."""
     result = dashboard_meter_values(coordinator.last_meter_values)
-    status = normalize_ocpp_status(getattr(coordinator, "status", None))
-    if not getattr(coordinator, "connected", True) or (status is not None and status != "charging"):
+    status = normalize_ocpp_status(coordinator.status)
+    if not coordinator.connected or (status is not None and status != "charging"):
         result["power_w"] = 0
         result["currents_a"] = [0, 0, 0]
     return result
 
 
-def _number(value):
+def _number(value: object) -> float | None:
     try:
-        result = float(value)
+        result = float(cast(Any, value))
     except (ValueError, TypeError):
         return None
     return result if isfinite(result) and result >= 0 else None
 
 
-def _signed_number(value):
+def _signed_number(value: object) -> float | None:
     """Return a finite signed number, preserving grid import/export direction."""
     try:
-        result = float(value)
+        result = float(cast(Any, value))
     except (ValueError, TypeError):
         return None
     return result if isfinite(result) else None
 
 
-def _mapping(value):
+def _mapping(value: object) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-def _text(value):
+def _text(value: object) -> str | None:
     return None if value in (None, "") else str(value)
 
 
-def _dashboard_power_curve(value, *, event_times=()):
+def _dashboard_power_curve(value: object, *, event_times: Iterable[object] = ()) -> list[list[Any]]:
     """Return bounded, valid time/power pairs from the active transaction."""
     result = []
     for raw in value if isinstance(value, (list, tuple)) else ():
@@ -89,31 +92,29 @@ def _dashboard_power_curve(value, *, event_times=()):
     )
 
 
-def dashboard_active_session(coordinator):
+def dashboard_active_session(coordinator: ActiveSessionOwner) -> dict[str, Any] | None:
     """Build the transient row for the transaction currently in progress."""
-    if not bool(getattr(coordinator, "transaction_is_active", False)):
+    if not bool(coordinator.transaction_is_active):
         return None
 
-    transaction = _mapping(getattr(coordinator, "active_transaction", None))
+    transaction = _mapping(coordinator.active_transaction)
     start = _mapping(transaction.get("start"))
     request = _mapping(start.get("request"))
     response = _mapping(start.get("response"))
-    transaction_id = _text(
-        getattr(coordinator, "transaction_id", None) or response.get("transaction_id")
-    )
+    transaction_id = _text(coordinator.transaction_id or response.get("transaction_id"))
     start_time = _text(request.get("timestamp") or start.get("received_at"))
-    energy_wh = _number(getattr(coordinator, "energy", None))
+    energy_wh = _number(coordinator.energy)
     events = normalize_session_events(transaction.get("events"))
-    accounting = getattr(coordinator, "site_accounting", None)
+    accounting = coordinator.site_accounting
     metered_kwh = sum(accounting.buckets.values()) if accounting is not None else None
     fallback_kwh = getattr(accounting, "power_fallback_kwh", 0.0) if accounting is not None else 0.0
-    sessions = getattr(coordinator, "sessions", None)
-    telemetry = sessions.telemetry if sessions is not None else None
+    sessions = coordinator.sessions
+    telemetry = sessions.telemetry
     return {
         "session_id": build_session_id(
             source=SOURCE_HOME_ASSISTANT,
-            source_instance_id=getattr(coordinator, "source_instance_id", None),
-            charge_point_id=getattr(coordinator, "charge_point_id", None),
+            source_instance_id=coordinator.source_instance_id,
+            charge_point_id=coordinator.charge_point_id,
             transaction_id=transaction_id,
             started_at=start_time,
         ),
@@ -122,8 +123,8 @@ def dashboard_active_session(coordinator):
         "start_time": normalize_meter_timestamp(
             start_time,
             meter_time_zone(
-                getattr(coordinator, "configuration_values", {}),
-                installation_time_zone(getattr(coordinator, "hass", None)),
+                coordinator.configuration_values,
+                installation_time_zone(coordinator.hass),
             ),
         ),
         "end_time": None,
@@ -146,16 +147,18 @@ def dashboard_active_session(coordinator):
             else None
         ),
         "green_energy_kwh": None,
-        **(accounting.as_session_dict() if metered_kwh is not None and metered_kwh > 0 else {}),
+        **(
+            accounting.as_session_dict()
+            if accounting is not None and metered_kwh is not None and metered_kwh > 0
+            else {}
+        ),
         # Growatt reports the authoritative cost only with the completed record.
         "cost": None,
         "duration_minutes": None,
-        "authorized_identifier": _text(
-            request.get("id_tag") or getattr(coordinator, "id_tag", None)
-        ),
+        "authorized_identifier": _text(request.get("id_tag") or coordinator.id_tag),
         "authorized_alias": _text(transaction.get("id_tag_alias")),
         "power_curve": _dashboard_power_curve(
-            sessions.active_power_curve if sessions is not None else None,
+            sessions.active_power_curve,
             event_times=(event.get("at") for event in events),
         ),
         **(telemetry.metadata() if telemetry is not None else {}),
@@ -169,9 +172,9 @@ def dashboard_active_session(coordinator):
     }
 
 
-def dashboard_sessions(coordinator):
+def dashboard_sessions(coordinator: ActiveSessionOwner) -> dict[str, Any]:
     """Combine bounded completed history with one optional active row."""
-    history = dict(getattr(coordinator, "dashboard_sessions", {}) or {})
+    history = dict(coordinator.dashboard_sessions or {})
     items = [dict(item) if isinstance(item, Mapping) else item for item in history.get("items", ())]
     active = dashboard_active_session(coordinator)
     history["items"] = (
@@ -179,7 +182,7 @@ def dashboard_sessions(coordinator):
         if active is not None
         else items[:DASHBOARD_SESSION_LIMIT]
     )
-    zone = installation_time_zone(getattr(coordinator, "hass", None))
+    zone = installation_time_zone(coordinator.hass)
     history["items"] = [
         session_times(item, zone) if isinstance(item, Mapping) else item
         for item in history["items"]
@@ -198,7 +201,7 @@ def _encoded_size(value: object) -> int:
     )
 
 
-def _enforce_card_attribute_budget(attributes: dict) -> dict:
+def _enforce_card_attribute_budget(attributes: dict[str, Any]) -> dict[str, Any]:
     """Keep the state payload below HA's recorder limit with headroom."""
     if _encoded_size(attributes) <= CARD_ATTRIBUTE_TARGET_BYTES:
         return attributes
@@ -261,15 +264,17 @@ def _enforce_card_attribute_budget(attributes: dict) -> dict:
     return attributes
 
 
-def _pv_linkage_card_data(coordinator, working_mode, grid_import_limit):
+def _pv_linkage_card_data(
+    coordinator: DashboardOwner, working_mode: str | None, grid_import_limit: ConfigurationScalar
+) -> dict[str, Any]:
     """Expose the safe configuration snapshot needed by the guided dialog."""
     draft = coordinator.pv_draft.snapshot()
     blocked_reason = None
-    if not bool(getattr(coordinator, "connected", False)):
+    if not bool(coordinator.connected):
         blocked_reason = "charger_disconnected"
-    elif bool(getattr(coordinator, "charger_is_faulted", False)):
+    elif bool(coordinator.charger_is_faulted):
         blocked_reason = "charger_faulted"
-    elif bool(getattr(coordinator, "transaction_is_active", False)):
+    elif bool(coordinator.transaction_is_active):
         blocked_reason = "active_transaction"
     elif not bool(coordinator.external_meter.ready_for_pv):
         blocked_reason = "external_meter_not_ready"
@@ -309,7 +314,7 @@ def _pv_linkage_card_data(coordinator, working_mode, grid_import_limit):
     }
 
 
-def dashboard_attributes(coordinator) -> dict:
+def dashboard_attributes(coordinator: DashboardOwner) -> dict[str, Any]:
     """Expose only fields required by the bundled card on the status entity."""
     snapshot = coordinator.last_meter_values or {}
     status = (coordinator.last_status_notification or {}).get("request", {})
@@ -326,10 +331,10 @@ def dashboard_attributes(coordinator) -> dict:
     attributes = {
         "schema": 1,
         "charging_target_pilot": coordinator.charging_target_pilot_enabled,
-        "connection_started_at": getattr(coordinator, "connection_started_at", None),
+        "connection_started_at": coordinator.connection_started_at,
         "charging_target": {
             key: value
-            for key, value in (getattr(coordinator, "charging_target_request", None) or {}).items()
+            for key, value in (coordinator.charging_target_request or {}).items()
             if key
             in {
                 "request_id",
@@ -355,17 +360,19 @@ def dashboard_attributes(coordinator) -> dict:
         "transaction_active": coordinator.transaction_is_active,
         "session_started_at": utc_timestamp(
             start.get("received_at"),
-            installation_time_zone(getattr(coordinator, "hass", None)),
+            installation_time_zone(coordinator.hass),
         ),
         "session_energy_kwh": (
-            _number(coordinator.energy) / 1000 if _number(coordinator.energy) is not None else None
+            cast(float, _number(coordinator.energy)) / 1000
+            if _number(coordinator.energy) is not None
+            else None
         ),
         "meter_received_at": snapshot.get("received_at"),
         "meter_stale_after": coordinator.effective_meter_gap_seconds(),
         **meter_display,
         "max_current_a": maximum_charging_current(model, firmware),
         **charging_power_identity(model, firmware),
-        "configured_current_a": _number(getattr(coordinator, "max_current", None)),
+        "configured_current_a": _number(coordinator.max_current),
         "status_info": status.get("info"),
         "error_code": status.get("error_code"),
         "external_meter_health": coordinator.external_meter.health,

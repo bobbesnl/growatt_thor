@@ -20,7 +20,9 @@ class ConfigurationWriteOwner(Protocol):
     connected: bool
     configuration_values: dict[str, ConfigurationValue]
     configuration_writes: dict[str, ConfigurationWriteState]
-    runtime_data: MutableMapping[str, Any]
+
+    @property
+    def runtime_data(self) -> MutableMapping[str, Any]: ...
 
     def update_configuration_value(self, key: str, raw_value: str) -> None: ...
 

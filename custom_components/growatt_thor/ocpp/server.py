@@ -59,6 +59,8 @@ from .requests import REQUEST_SKIPPED, SerializedOcppRequestGate
 if TYPE_CHECKING:
     from websockets.legacy.server import WebSocketServer
 
+    from ..coordinator import GrowattCoordinator
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -124,7 +126,7 @@ class GrowattChargePoint(OcppChargePoint):
     Growatt THOR OCPP 1.6 Charge Point with guarded handlers and connection recovery
     """
 
-    def __init__(self, cp_id, websocket, coordinator, hass) -> None:
+    def __init__(self, cp_id, websocket, coordinator: GrowattCoordinator, hass) -> None:
         super().__init__(cp_id, websocket, logger=OcppMetadataLogger(_LOGGER, {}))
 
         self.coordinator = coordinator
@@ -368,8 +370,7 @@ class GrowattChargePoint(OcppChargePoint):
             "StartTransaction",
             self.coordinator.now(),
             # Plug & Charge is an explicit charger mode, not an RFID identity.
-            card_policy_applies=str(getattr(self.coordinator, "charger_mode", ""))
-            != CHARGER_MODE_PLUG_AND_CHARGE,
+            card_policy_applies=str(self.coordinator.charger_mode) != CHARGER_MODE_PLUG_AND_CHARGE,
         )
         self.coordinator.start_transaction(
             transaction_id,
