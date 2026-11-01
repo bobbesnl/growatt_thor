@@ -6,3 +6,17 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B"]
 # Changing Enum string formatting or runtime type-alias objects is not formatting.
 ignore = ["UP040", "UP042"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+# Inspect dependency signatures while rolling out strict checks package by package.
+follow_imports = "silent"
+files = [
+    "custom_components/growatt_thor/coerce.py",
+    "custom_components/growatt_thor/timestamps.py",
+]
+
+[[tool.mypy.overrides]]
+module = ["homeassistant.*", "voluptuous", "voluptuous.*", "voluptuous_serialize"]
+ignore_missing_imports = true

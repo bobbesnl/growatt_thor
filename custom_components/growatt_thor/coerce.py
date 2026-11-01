@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from math import isfinite
+from typing import Any, cast
 
 
-def enum_value(value: object, *, stringify_fallback: bool = False):
+def enum_value(value: object, *, stringify_fallback: bool = False) -> Any:
     """Unwrap enum-like values, preserving each caller's plain-value fallback."""
     if hasattr(value, "value"):
         return value.value
@@ -23,7 +24,8 @@ def optional_float(
     if value in (None, ""):
         return None
     try:
-        number = float(value)
+        # The conversion itself validates arbitrary input at this boundary.
+        number = float(cast(Any, value))
     except errors:
         return None
     if finite and not isfinite(number):

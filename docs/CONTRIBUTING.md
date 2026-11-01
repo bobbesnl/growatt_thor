@@ -68,11 +68,12 @@ python3.12 -m venv .local/dev-venv
 python -m pip install -r tests/requirements-auth.txt ruff==0.17.3
 ruff check .
 ruff format --check .
+python -m mypy
 python -m unittest discover -s tests -q
 ```
 
 Despite its historical name, `requirements-auth.txt` supplies the OCPP and schema
-dependencies used by several regression suites. Many tests load focused modules
+dependencies used by several regression suites and the pinned mypy checker. Many tests load focused modules
 with small HA fakes; they exercise contracts without launching Home Assistant. Shared fixtures live in `tests/support`: `install_ha_stubs`, `load_package_module`, `FakeHass`, `MemoryStore` and `build_coordinator`. The loader skips protocol-dependent cases when optional test dependencies are unavailable and avoids running integration setup for focused modules. Keep explicit test namespaces only where module-global patches require isolation; extend shared fixtures instead of copying bootstrap or storage code.
 Install the dependencies so those cases are not silently skipped. Ruff checks Python style and import hygiene with a 100-character line length and Python 3.12 syntax; `ruff format custom_components tests` applies the formatter. Enum and type-alias modernizations remain excluded because their runtime representation can change. Tests import shared fixtures through `tests.support` rather than importing another test module. `python -m unittest tests.test_time_contract` is supported as an isolated run.
 
@@ -155,3 +156,5 @@ python3 frontend/scripts/annotate-docs.py
 ```
 
 Use `THOR_PLAYWRIGHT_PACKAGE` to point to a shared Playwright `package.json`, `THOR_PREVIEW_URL` for a different preview address, and `THOR_SCREENSHOT_DIR` for a staging directory. The capture script writes the screenshot manifest and updates the corresponding annotation geometry from the rendered UI. Move staged captures and both manifests together before generating the annotated images. Review the results after layout changes; historical Home Assistant settings captures require a separate capture workflow.
+
+Python typing is checked with `python -m mypy`. The strict scope is explicit in `pyproject.toml` and expands package by package; dependency signatures are analyzed without reporting unrelated errors outside that scope. Missing Home Assistant imports are allowed at the framework boundary. Keep unknown wire/storage values at those boundaries and use typed models or capability protocols for internal state.

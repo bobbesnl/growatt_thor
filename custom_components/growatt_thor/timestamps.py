@@ -68,7 +68,9 @@ def utc_timestamp(value: object, time_zone: str | tzinfo | None = None) -> str |
     return parsed.isoformat().replace("+00:00", "Z") if parsed is not None else None
 
 
-def installation_time_zone(hass, fallback="UTC", *, preserve_empty: bool = False):
+def installation_time_zone(
+    hass: object, fallback: str | None = "UTC", *, preserve_empty: bool = False
+) -> str | None:
     """Read HA's zone while preserving callers that distinguish empty settings."""
-    value = getattr(getattr(hass, "config", None), "time_zone", fallback)
+    value: str | None = getattr(getattr(hass, "config", None), "time_zone", fallback)
     return value if preserve_empty else value or fallback
