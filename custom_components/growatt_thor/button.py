@@ -120,7 +120,7 @@ class ApplyPvLinkageButton(ThorEntity, ButtonEntity):
 
     @property
     def _validation_errors(self) -> tuple[str, ...]:
-        draft = self.coordinator.pv_linkage_draft()
+        draft = self.coordinator.pv_draft.snapshot()
         return ("draft_not_initialized",) if draft is None else draft_validation_errors(draft)
 
     @property
@@ -129,15 +129,15 @@ class ApplyPvLinkageButton(ThorEntity, ButtonEntity):
             super().available
             and self._write_block_reason is None
             and not self._validation_errors
-            and self.coordinator.pv_linkage_draft_dirty
+            and self.coordinator.pv_draft.dirty
         )
 
     @property
     def extra_state_attributes(self):
-        last_apply = self.coordinator.pv_linkage_apply_result
+        last_apply = self.coordinator.pv_draft.apply_result
         return {
             **self.information_attributes,
-            "pending_changes": self.coordinator.pv_linkage_draft_dirty,
+            "pending_changes": self.coordinator.pv_draft.dirty,
             "validation_errors": list(self._validation_errors),
             "last_apply": (last_apply.as_dict() if last_apply is not None else None),
         }
@@ -150,7 +150,7 @@ class ApplyPvLinkageButton(ThorEntity, ButtonEntity):
             )
             raise_write_blocked(block_reason)
 
-        draft = self.coordinator.pv_linkage_draft()
+        draft = self.coordinator.pv_draft.snapshot()
         if draft is None or (errors := draft_validation_errors(draft)):
             _LOGGER.warning(
                 "Cannot apply incomplete PV Linkage configuration: %s",

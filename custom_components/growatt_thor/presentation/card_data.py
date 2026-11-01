@@ -263,8 +263,7 @@ def _enforce_card_attribute_budget(attributes: dict) -> dict:
 
 def _pv_linkage_card_data(coordinator, working_mode, grid_import_limit):
     """Expose the safe configuration snapshot needed by the guided dialog."""
-    draft_factory = getattr(coordinator, "pv_linkage_draft", None)
-    draft = draft_factory() if callable(draft_factory) else None
+    draft = coordinator.pv_draft.snapshot()
     blocked_reason = None
     if not bool(getattr(coordinator, "connected", False)):
         blocked_reason = "charger_disconnected"
@@ -281,7 +280,7 @@ def _pv_linkage_card_data(coordinator, working_mode, grid_import_limit):
     ):
         blocked_reason = "configuration_read_only"
 
-    last_apply = getattr(coordinator, "pv_linkage_apply_result", None)
+    last_apply = coordinator.pv_draft.apply_result
     return {
         "working_mode": (
             working_mode if working_mode in {"pv_linkage", "pv_linkage_plus"} else "pv_linkage_plus"
@@ -304,7 +303,7 @@ def _pv_linkage_card_data(coordinator, working_mode, grid_import_limit):
             else None
         ),
         "smart_target_energy_kwh": (draft.smart_target_energy_kwh if draft is not None else None),
-        "draft_dirty": bool(getattr(coordinator, "pv_linkage_draft_dirty", False)),
+        "draft_dirty": bool(coordinator.pv_draft.dirty),
         "last_apply": last_apply.as_dict() if last_apply is not None else None,
         "blocked_reason": blocked_reason,
     }

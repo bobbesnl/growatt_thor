@@ -137,11 +137,11 @@ async def async_setup_pv_linkage_service(hass, entry, coordinator) -> None:
 
         draft = profile.boost
         coordinator.update_pv_linkage_draft(
-            pv_boost_mode_draft=draft.boost_mode,
-            pv_manual_start_draft=draft.manual_start,
-            pv_manual_end_draft=draft.manual_end,
-            pv_smart_finish_draft=draft.smart_finish,
-            pv_smart_target_energy_draft=draft.smart_target_energy_kwh,
+            boost_mode=draft.boost_mode,
+            manual_start=draft.manual_start,
+            manual_end=draft.manual_end,
+            smart_finish=draft.smart_finish,
+            smart_target_energy_kwh=draft.smart_target_energy_kwh,
         )
         charge_point = coordinator.runtime_data[ACTIVE_CHARGE_POINT]
 

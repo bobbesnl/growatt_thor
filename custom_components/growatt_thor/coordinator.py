@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime, time
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from homeassistant.helpers.storage import Store
@@ -22,7 +22,6 @@ from .charging.faults import (
 )
 from .charging.pv_draft import PvLinkageDraftState
 from .charging.pv_linkage import (
-    PvBoostMode,
     PvLinkageApplyResult,
     PvLinkageDraft,
     draft_matches_reported,
@@ -249,62 +248,6 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self._shutting_down = False
         self._configuration_refresh_task = None
         self._auto_charge_schedule_task = None
-
-    @property
-    def pv_boost_mode_draft(self) -> PvBoostMode | None:
-        return self.pv_draft.boost_mode
-
-    @pv_boost_mode_draft.setter
-    def pv_boost_mode_draft(self, value: PvBoostMode | None) -> None:
-        self.pv_draft.boost_mode = value
-
-    @property
-    def pv_manual_start_draft(self) -> time | None:
-        return self.pv_draft.manual_start
-
-    @pv_manual_start_draft.setter
-    def pv_manual_start_draft(self, value: time | None) -> None:
-        self.pv_draft.manual_start = value
-
-    @property
-    def pv_manual_end_draft(self) -> time | None:
-        return self.pv_draft.manual_end
-
-    @pv_manual_end_draft.setter
-    def pv_manual_end_draft(self, value: time | None) -> None:
-        self.pv_draft.manual_end = value
-
-    @property
-    def pv_smart_finish_draft(self) -> time | None:
-        return self.pv_draft.smart_finish
-
-    @pv_smart_finish_draft.setter
-    def pv_smart_finish_draft(self, value: time | None) -> None:
-        self.pv_draft.smart_finish = value
-
-    @property
-    def pv_smart_target_energy_draft(self) -> float | None:
-        return self.pv_draft.smart_target_energy_kwh
-
-    @pv_smart_target_energy_draft.setter
-    def pv_smart_target_energy_draft(self, value: float | None) -> None:
-        self.pv_draft.smart_target_energy_kwh = value
-
-    @property
-    def pv_linkage_draft_dirty(self) -> bool:
-        return self.pv_draft.dirty
-
-    @pv_linkage_draft_dirty.setter
-    def pv_linkage_draft_dirty(self, value: bool) -> None:
-        self.pv_draft.dirty = value
-
-    @property
-    def pv_linkage_apply_result(self) -> PvLinkageApplyResult | None:
-        return self.pv_draft.apply_result
-
-    @pv_linkage_apply_result.setter
-    def pv_linkage_apply_result(self, value: PvLinkageApplyResult | None) -> None:
-        self.pv_draft.apply_result = value
 
     # PERSISTENT STORAGE
 
@@ -820,29 +763,25 @@ class GrowattCoordinator(DataUpdateCoordinator):
         finally:
             self._configuration_refresh_task = None
 
-    def pv_linkage_draft(self) -> PvLinkageDraft | None:
-        """Return the current local PV Linkage draft when initialized."""
-        return self.pv_draft.snapshot()
-
     def update_pv_linkage_draft(self, **changes) -> None:
         """Update local compound-control fields without writing the charger."""
         for attribute, value in changes.items():
             if attribute not in {
-                "pv_boost_mode_draft",
-                "pv_manual_start_draft",
-                "pv_manual_end_draft",
-                "pv_smart_finish_draft",
-                "pv_smart_target_energy_draft",
+                "boost_mode",
+                "manual_start",
+                "manual_end",
+                "smart_finish",
+                "smart_target_energy_kwh",
             }:
                 raise ValueError(f"Unsupported PV Linkage draft field: {attribute}")
-            setattr(self, attribute, value)
-        draft = self.pv_linkage_draft()
+            setattr(self.pv_draft, attribute, value)
+        draft = self.pv_draft.snapshot()
         reported_mode = configuration_entity_state(
             "G_SolarBoost",
             self.configuration_values.get("G_SolarBoost"),
         )
         period_value = self.configuration_values.get("G_PeriodTime")
-        self.pv_linkage_draft_dirty = not (
+        self.pv_draft.dirty = not (
             draft is not None
             and draft_matches_reported(
                 draft,
@@ -857,7 +796,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         result: PvLinkageApplyResult,
     ) -> None:
         """Expose the latest logical compound-write outcome."""
-        self.pv_linkage_apply_result = result
+        self.pv_draft.apply_result = result
         self.async_set_updated_data(True)
 
     def mark_pv_linkage_draft_applied(
@@ -870,15 +809,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
         successful acknowledgement for that older snapshot must not erase the
         newer unsent changes.
         """
-        if self.pv_linkage_draft() != expected_draft:
+        if self.pv_draft.snapshot() != expected_draft:
             _LOGGER.info("Keeping newer PV Linkage draft dirty after an older Apply")
             return False
-        self.pv_linkage_draft_dirty = False
+        self.pv_draft.dirty = False
         self.async_set_updated_data(True)
         return True
-
-    def _initialize_pv_linkage_draft(self) -> bool:
-        return self.pv_draft.initialize(self.configuration_values)
 
     def mark_connection_activity(self, action):
         """Record the latest inbound OCPP message."""
@@ -1378,7 +1314,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.configuration_writes = confirmed_writes
             updated = True
 
-        if self._initialize_pv_linkage_draft():
+        if self.pv_draft.initialize(self.configuration_values):
             updated = True
 
         for item in configuration:

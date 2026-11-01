@@ -175,8 +175,8 @@ async def async_get_config_entry_diagnostics(
         },
         "compound_writes": {
             "pv_linkage": (
-                coordinator.pv_linkage_apply_result.as_dict()
-                if coordinator.pv_linkage_apply_result is not None
+                coordinator.pv_draft.apply_result.as_dict()
+                if coordinator.pv_draft.apply_result is not None
                 else None
             ),
         },

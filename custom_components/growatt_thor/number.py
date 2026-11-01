@@ -677,7 +677,7 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
 
     @property
     def native_value(self):
-        return self.coordinator.pv_smart_target_energy_draft
+        return self.coordinator.pv_draft.smart_target_energy_kwh
 
     @property
     def _write_block_reason(self) -> str | None:
@@ -692,7 +692,7 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
                 ChargingControl.SOLAR_BOOST,
                 self.coordinator.configuration_values,
             )
-            and self.coordinator.pv_boost_mode_draft == PvBoostMode.SMART
+            and self.coordinator.pv_draft.boost_mode == PvBoostMode.SMART
         )
 
     @property
@@ -707,4 +707,4 @@ class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
                 block_reason,
             )
             raise_write_blocked(block_reason)
-        self.coordinator.update_pv_linkage_draft(pv_smart_target_energy_draft=value)
+        self.coordinator.update_pv_linkage_draft(smart_target_energy_kwh=value)

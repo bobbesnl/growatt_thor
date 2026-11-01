@@ -58,7 +58,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         }
         c.last_status_notification = None
         c.boot_notification = None
-        c.pv_boost_mode_draft = None
+        c.pv_draft.boost_mode = None
         c.last_charger_fault = None
         c.max_current = None
         c.energy = 1000

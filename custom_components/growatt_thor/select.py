@@ -420,7 +420,7 @@ class PvBoostDraftSelect(ThorEntity, SelectEntity):
 
     @property
     def current_option(self):
-        mode = self.coordinator.pv_boost_mode_draft
+        mode = self.coordinator.pv_draft.boost_mode
         return mode.value if mode is not None else None
 
     @property
@@ -449,4 +449,4 @@ class PvBoostDraftSelect(ThorEntity, SelectEntity):
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot edit PV Boost mode: %s", block_reason)
             raise_write_blocked(block_reason)
-        self.coordinator.update_pv_linkage_draft(pv_boost_mode_draft=PvBoostMode(option))
+        self.coordinator.update_pv_linkage_draft(boost_mode=PvBoostMode(option))

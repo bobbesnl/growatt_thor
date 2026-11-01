@@ -294,7 +294,7 @@ class BasePvBoostTime(ThorEntity, TimeEntity):
     _attr_entity_category = EntityCategory.CONFIG
     _attr_icon = "mdi:clock-outline"
     _required_mode: PvBoostMode
-    _coordinator_field: str
+    _draft_field: str
 
     def __init__(self, coordinator, entry, key):
         super().__init__(coordinator, entry)
@@ -302,7 +302,7 @@ class BasePvBoostTime(ThorEntity, TimeEntity):
 
     @property
     def native_value(self):
-        return getattr(self.coordinator, self._coordinator_field)
+        return getattr(self.coordinator.pv_draft, self._draft_field)
 
     @property
     def _write_block_reason(self) -> str | None:
@@ -319,7 +319,7 @@ class BasePvBoostTime(ThorEntity, TimeEntity):
                 ChargingControl.SOLAR_BOOST,
                 self.coordinator.configuration_values,
             )
-            and self.coordinator.pv_boost_mode_draft == self._required_mode
+            and self.coordinator.pv_draft.boost_mode == self._required_mode
             and self.native_value is not None
         )
 
@@ -331,7 +331,7 @@ class BasePvBoostTime(ThorEntity, TimeEntity):
         if (block_reason := self._write_block_reason) is not None:
             _LOGGER.warning("Cannot edit PV Boost time: %s", block_reason)
             raise_write_blocked(block_reason)
-        self.coordinator.update_pv_linkage_draft(**{self._coordinator_field: value})
+        self.coordinator.update_pv_linkage_draft(**{self._draft_field: value})
 
 
 class PvManualBoostStartTime(BasePvBoostTime):
@@ -339,7 +339,7 @@ class PvManualBoostStartTime(BasePvBoostTime):
 
     _attr_translation_key = "pv_manual_boost_start"
     _required_mode = PvBoostMode.MANUAL
-    _coordinator_field = "pv_manual_start_draft"
+    _draft_field = "manual_start"
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "pv_manual_boost_start")
@@ -350,7 +350,7 @@ class PvManualBoostEndTime(BasePvBoostTime):
 
     _attr_translation_key = "pv_manual_boost_end"
     _required_mode = PvBoostMode.MANUAL
-    _coordinator_field = "pv_manual_end_draft"
+    _draft_field = "manual_end"
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "pv_manual_boost_end")
@@ -361,7 +361,7 @@ class PvSmartBoostFinishTime(BasePvBoostTime):
 
     _attr_translation_key = "pv_smart_boost_finish"
     _required_mode = PvBoostMode.SMART
-    _coordinator_field = "pv_smart_finish_draft"
+    _draft_field = "smart_finish"
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, "pv_smart_boost_finish")

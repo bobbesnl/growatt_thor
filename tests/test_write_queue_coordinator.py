@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import unittest
+from datetime import time
 
 from tests.support import (
     build_queue_coordinator as _build_coordinator,
@@ -13,6 +14,7 @@ from tests.support import (
 )
 
 coordinator_module = load_package_module("coordinator")
+pv_linkage = load_package_module("charging.pv_linkage")
 write_queue_module = load_package_module("runtime.write_results")
 
 
@@ -1032,11 +1034,11 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_paired_auto_charge_edits_emit_one_final_schedule(self):
         coordinator = _build_coordinator(asyncio.get_running_loop())
-        coordinator.auto_charge_start_time_pending = coordinator_module.time(
+        coordinator.auto_charge_start_time_pending = time(
             1,
             0,
         )
-        coordinator.auto_charge_stop_time_pending = coordinator_module.time(
+        coordinator.auto_charge_stop_time_pending = time(
             5,
             0,
         )
@@ -1053,11 +1055,11 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
             delay=0.02,
         )
         await asyncio.sleep(0.005)
-        coordinator.auto_charge_start_time_pending = coordinator_module.time(
+        coordinator.auto_charge_start_time_pending = time(
             2,
             0,
         )
-        coordinator.auto_charge_stop_time_pending = coordinator_module.time(
+        coordinator.auto_charge_stop_time_pending = time(
             6,
             0,
         )
@@ -1108,24 +1110,24 @@ class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_only_the_applied_pv_draft_can_be_marked_clean(self):
         coordinator = _build_coordinator(asyncio.get_running_loop())
-        coordinator.pv_boost_mode_draft = coordinator_module.PvBoostMode.MANUAL
-        coordinator.pv_manual_start_draft = coordinator_module.time(1, 0)
-        coordinator.pv_manual_end_draft = coordinator_module.time(2, 0)
-        coordinator.pv_smart_finish_draft = None
-        coordinator.pv_smart_target_energy_draft = None
-        coordinator.pv_linkage_draft_dirty = True
+        coordinator.pv_draft.boost_mode = pv_linkage.PvBoostMode.MANUAL
+        coordinator.pv_draft.manual_start = time(1, 0)
+        coordinator.pv_draft.manual_end = time(2, 0)
+        coordinator.pv_draft.smart_finish = None
+        coordinator.pv_draft.smart_target_energy_kwh = None
+        coordinator.pv_draft.dirty = True
 
         older_draft = coordinator_module.PvLinkageDraft(
-            coordinator_module.PvBoostMode.MANUAL,
-            manual_start=coordinator_module.time(0, 0),
-            manual_end=coordinator_module.time(2, 0),
+            pv_linkage.PvBoostMode.MANUAL,
+            manual_start=time(0, 0),
+            manual_end=time(2, 0),
         )
         self.assertFalse(coordinator.mark_pv_linkage_draft_applied(older_draft))
-        self.assertTrue(coordinator.pv_linkage_draft_dirty)
+        self.assertTrue(coordinator.pv_draft.dirty)
 
-        current_draft = coordinator.pv_linkage_draft()
+        current_draft = coordinator.pv_draft.snapshot()
         self.assertTrue(coordinator.mark_pv_linkage_draft_applied(current_draft))
-        self.assertFalse(coordinator.pv_linkage_draft_dirty)
+        self.assertFalse(coordinator.pv_draft.dirty)
 
     async def test_partial_outcome_is_never_logged_as_success(self):
         coordinator = _build_coordinator(asyncio.get_running_loop())

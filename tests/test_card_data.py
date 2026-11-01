@@ -9,6 +9,7 @@ ROOT = PACKAGE_PATH
 NAME = "thor_card_test_target"
 package = register_package(NAME)
 module = load_package_module(f"{NAME}.presentation.card_data", ROOT / "presentation/card_data.py")
+PvLinkageDraftState = load_package_module("charging.pv_draft").PvLinkageDraftState
 
 
 def packet(samples):
@@ -80,6 +81,7 @@ class CardDataTest(unittest.TestCase):
             energy=3000,
             max_current=None,
             effective_meter_gap_seconds=lambda: 180,
+            pv_draft=PvLinkageDraftState(),
             external_meter=types.SimpleNamespace(
                 poll_interval=30,
                 health="healthy",
@@ -275,6 +277,7 @@ class CardDataTest(unittest.TestCase):
             transaction_is_active=False,
             energy=None,
             effective_meter_gap_seconds=lambda: 180,
+            pv_draft=PvLinkageDraftState(),
             external_meter=types.SimpleNamespace(
                 poll_interval=30,
                 health="not_reported",
@@ -313,6 +316,7 @@ class CardDataTest(unittest.TestCase):
             energy=None,
             max_current=None,
             effective_meter_gap_seconds=lambda: 180,
+            pv_draft=PvLinkageDraftState(),
             external_meter=types.SimpleNamespace(
                 poll_interval=30,
                 health="healthy",
@@ -349,6 +353,7 @@ class CardDataTest(unittest.TestCase):
             transaction_is_active=False,
             energy=None,
             effective_meter_gap_seconds=lambda: 180,
+            pv_draft=PvLinkageDraftState(),
             external_meter=types.SimpleNamespace(
                 poll_interval=30,
                 health="healthy",
