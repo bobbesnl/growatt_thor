@@ -152,7 +152,7 @@ def _parse_sample(sample: Any) -> MeterSample:
 
 
 def meter_time_zone(
-    configuration_values: Mapping, installation_zone: str | None
+    configuration_values: Mapping[str, object], installation_zone: str | None
 ) -> str | tzinfo | None:
     """Use the reported fixed device clock only when its DST adjustment is off."""
     daylight = getattr(configuration_values.get("G_DaylightSavingTime"), "raw_value", None)

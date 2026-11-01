@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 from functools import wraps
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, NotRequired, Protocol, TypedDict, cast
 
 import websockets.exceptions
 from ocpp.messages import unpack
@@ -19,6 +19,7 @@ from ocpp.v16.enums import (
     RemoteStartStopStatus,
 )
 from websockets.server import serve
+from websockets.typing import Subprotocol
 
 from ..charging.control_capabilities import CHARGER_MODE_PLUG_AND_CHARGE
 from ..coerce import enum_value
@@ -57,11 +58,18 @@ from .logging import OcppMetadataLogger
 from .requests import REQUEST_SKIPPED, SerializedOcppRequestGate
 
 if TYPE_CHECKING:
-    from websockets.legacy.server import WebSocketServer
+    from homeassistant.core import HomeAssistant
+    from websockets.legacy.server import WebSocketServer, WebSocketServerProtocol
 
     from ..coordinator import GrowattCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class OcppHandlerGuard[HandlerResult](Protocol):
+    def __call__[**P](
+        self, handler: Callable[P, Awaitable[HandlerResult]]
+    ) -> Callable[P, Awaitable[HandlerResult]]: ...
 
 
 def guarded_ocpp_handler[HandlerResult](
@@ -70,23 +78,27 @@ def guarded_ocpp_handler[HandlerResult](
     fallback: Callable[[GrowattChargePoint], HandlerResult],
     stale_fallback: Callable[[GrowattChargePoint], HandlerResult] | None = None,
     sensitive: bool = False,
-) -> Callable[[Callable[..., Awaitable[HandlerResult]]], Callable[..., Awaitable[HandlerResult]]]:
+) -> OcppHandlerGuard[HandlerResult]:
     """Guard inbound socket ownership and retain each action's fallback reply."""
 
-    def decorate(handler) -> Callable[..., Awaitable[HandlerResult]]:
+    def decorate[**P](
+        handler: Callable[P, Awaitable[HandlerResult]],
+    ) -> Callable[P, Awaitable[HandlerResult]]:
         @wraps(handler)
-        async def guarded(self, *args, **kwargs) -> HandlerResult:
+        async def guarded(self: GrowattChargePoint, *args: Any, **kwargs: Any) -> HandlerResult:
             if not self._connection_may_update_coordinator(name):
                 return (stale_fallback or fallback)(self)
             try:
-                return await handler(self, *args, **kwargs)
+                return await cast(Callable[..., Awaitable[HandlerResult]], handler)(
+                    self, *args, **kwargs
+                )
             except Exception:
                 # Authorization/transaction exceptions may contain RFID identifiers.
                 # Retain their existing payload-free logging contract.
                 _LOGGER.error("Error in %s handler", name, exc_info=not sensitive)
                 return fallback(self)
 
-        return guarded
+        return cast(Callable[P, Awaitable[HandlerResult]], guarded)
 
     return decorate
 
@@ -121,12 +133,23 @@ def _preload_ocpp_schemas() -> None:
         _LOGGER.warning("OCPP schema pre-load failed (non-fatal): %s", exc)
 
 
+class TransactionResult(TypedDict):
+    status: str
+    reason: NotRequired[str]
+
+
 class GrowattChargePoint(OcppChargePoint):
     """
     Growatt THOR OCPP 1.6 Charge Point with guarded handlers and connection recovery
     """
 
-    def __init__(self, cp_id, websocket, coordinator: GrowattCoordinator, hass) -> None:
+    def __init__(
+        self,
+        cp_id: str,
+        websocket: WebSocketServerProtocol,
+        coordinator: GrowattCoordinator,
+        hass: HomeAssistant,
+    ) -> None:
         super().__init__(cp_id, websocket, logger=OcppMetadataLogger(_LOGGER, {}))
 
         self.coordinator = coordinator
@@ -175,11 +198,11 @@ class GrowattChargePoint(OcppChargePoint):
 
     async def _run_serialized_request(
         self,
-        operation_name,
-        operation,
+        operation_name: str,
+        operation: Callable[[], Awaitable[object]],
         *,
-        skip_if_writes_pending=False,
-        timeout_makes_outcome_uncertain=False,
+        skip_if_writes_pending: bool = False,
+        timeout_makes_outcome_uncertain: bool = False,
     ) -> object:
         """Run one integration-initiated OCPP operation at a time.
 
@@ -207,13 +230,13 @@ class GrowattChargePoint(OcppChargePoint):
             )
         return result
 
-    def _mark_activity(self, action) -> None:
+    def _mark_activity(self, action: str) -> None:
         """Record an inbound message for the connection watchdog."""
         self._activity.mark(self.hass.loop.time())
         if self._is_current_connection():
             self.coordinator.mark_connection_activity(action)
 
-    async def route_message(self, raw_msg) -> None:
+    async def route_message(self, raw_msg: str | bytes) -> None:
         """Track every inbound OCPP frame before routing it."""
         if not self._connection_may_update_coordinator("inbound OCPP frame"):
             return
@@ -280,7 +303,7 @@ class GrowattChargePoint(OcppChargePoint):
             status=RegistrationStatus.accepted,
         ),
     )
-    async def on_boot_notification(self, **payload) -> call_result.BootNotification:
+    async def on_boot_notification(self, **payload: Any) -> call_result.BootNotification:
         _LOGGER.info("BootNotification payload: %s", payload)
         self.coordinator.record_boot_notification(payload)
         self._schedule_post_connect_init()
@@ -295,7 +318,7 @@ class GrowattChargePoint(OcppChargePoint):
         "Heartbeat",
         fallback=lambda self: call_result.Heartbeat(current_time=self.coordinator.now()),
     )
-    async def on_heartbeat(self, **payload) -> call_result.Heartbeat:
+    async def on_heartbeat(self, **payload: Any) -> call_result.Heartbeat:
         self._schedule_post_connect_init()
         return call_result.Heartbeat(current_time=self.coordinator.now())
 
@@ -335,7 +358,7 @@ class GrowattChargePoint(OcppChargePoint):
             id_tag_info={"status": AuthorizationStatus.invalid}
         ),
     )
-    async def on_authorize(self, id_tag, **kwargs) -> call_result.Authorize:
+    async def on_authorize(self, id_tag: str, **kwargs: Any) -> call_result.Authorize:
         status = self.coordinator.authorization.decide(id_tag, "Authorize", self.coordinator.now())
         _LOGGER.info("Local Authorize decision: %s", status)
         return call_result.Authorize(id_tag_info={"status": status})
@@ -349,7 +372,7 @@ class GrowattChargePoint(OcppChargePoint):
         ),
     )
     async def on_start_transaction(
-        self, connector_id, id_tag, meter_start, **kwargs
+        self, connector_id: int, id_tag: str, meter_start: float, **kwargs: Any
     ) -> call_result.StartTransaction:
         # Even a denied start is a reported transaction. Allocate and retain
         # its identity so subsequent meter/stop messages remain correlatable.
@@ -391,7 +414,7 @@ class GrowattChargePoint(OcppChargePoint):
         "StopTransaction", sensitive=True, fallback=lambda self: call_result.StopTransaction()
     )
     async def on_stop_transaction(
-        self, transaction_id, meter_stop, reason=None, **kwargs
+        self, transaction_id: int, meter_stop: float, reason: str | None = None, **kwargs: Any
     ) -> call_result.StopTransaction:
         self.coordinator.stop_transaction(
             reason,
@@ -410,7 +433,7 @@ class GrowattChargePoint(OcppChargePoint):
         "StatusNotification", fallback=lambda self: call_result.StatusNotification()
     )
     async def on_status_notification(
-        self, connector_id, status, error_code=None, **kwargs
+        self, connector_id: int, status: str, error_code: str | None = None, **kwargs: Any
     ) -> call_result.StatusNotification:
         self.coordinator.record_status_notification(
             connector_id,
@@ -422,7 +445,9 @@ class GrowattChargePoint(OcppChargePoint):
 
     @on("MeterValues")
     @guarded_ocpp_handler("MeterValues", fallback=lambda self: call_result.MeterValues())
-    async def on_meter_values(self, connector_id, meter_value, **kwargs) -> call_result.MeterValues:
+    async def on_meter_values(
+        self, connector_id: int, meter_value: list[dict[str, Any]], **kwargs: Any
+    ) -> call_result.MeterValues:
         transaction_id = kwargs.get("transaction_id")
         self.coordinator.process_meter_values(
             meter_value,
@@ -440,7 +465,7 @@ class GrowattChargePoint(OcppChargePoint):
         stale_fallback=lambda self: call_result.DataTransfer(status=DataTransferStatus.rejected),
     )
     async def on_data_transfer(
-        self, vendor_id, message_id=None, data=None, **kwargs
+        self, vendor_id: str, message_id: str | None = None, data: object = None, **kwargs: Any
     ) -> call_result.DataTransfer:
         _LOGGER.debug(
             "DataTransfer received: vendor=%s messageId=%s data=%s",
@@ -465,7 +490,9 @@ class GrowattChargePoint(OcppChargePoint):
 
     # Active triggers
 
-    def _normalize_configuration_list(self, payload, field_name, call_name) -> list[object]:
+    def _normalize_configuration_list(
+        self, payload: object, field_name: str, call_name: str
+    ) -> list[object]:
         if payload is None:
             _LOGGER.warning("%s returned no %s payload", call_name, field_name)
             return []
@@ -484,7 +511,7 @@ class GrowattChargePoint(OcppChargePoint):
         )
         return []
 
-    async def trigger_status(self, *, skip_if_writes_pending=False) -> bool:
+    async def trigger_status(self, *, skip_if_writes_pending: bool = False) -> bool:
         try:
             _LOGGER.info("Triggering StatusNotification")
             result = await self._run_serialized_request(
@@ -517,7 +544,7 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.warning("Failed to trigger BootNotification: %s", exc)
             return False
 
-    async def trigger_external_meterval(self, *, skip_if_writes_pending=False) -> bool:
+    async def trigger_external_meterval(self, *, skip_if_writes_pending: bool = False) -> bool:
         _LOGGER.info("Triggering Growatt get_external_meterval")
         try:
 
@@ -590,7 +617,7 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.warning("Failed to trigger external meter values: %s", exc)
             return False
 
-    async def trigger_get_configuration(self, *, skip_if_writes_pending=False) -> bool:
+    async def trigger_get_configuration(self, *, skip_if_writes_pending: bool = False) -> bool:
         """Read both configuration groups as one serialized operation."""
         try:
             result = await self._run_serialized_request(
@@ -805,7 +832,7 @@ class GrowattChargePoint(OcppChargePoint):
 
     # Remote Start/Stop Transaction
 
-    async def remote_start_transaction(self, connector_id: int, id_tag: str) -> dict:
+    async def remote_start_transaction(self, connector_id: int, id_tag: str) -> TransactionResult:
         authorization = self.coordinator.authorization
         try:
             if not authorization.begin_ha_remote_start(id_tag):
@@ -841,7 +868,7 @@ class GrowattChargePoint(OcppChargePoint):
             _LOGGER.error("Failed to send remote start transaction")
             return {"status": "Rejected"}
 
-    async def remote_stop_transaction(self, transaction_id: int) -> dict:
+    async def remote_stop_transaction(self, transaction_id: int) -> TransactionResult:
         try:
             _LOGGER.info("RemoteStopTransaction: transaction_id=%d", transaction_id)
             result = await self._run_serialized_request(
@@ -864,7 +891,9 @@ class GrowattChargePoint(OcppChargePoint):
 # WebSocket server
 
 
-async def _close_websocket(websocket, code: int, reason: str, cp_id: str, *, context: str) -> None:
+async def _close_websocket(
+    websocket: WebSocketServerProtocol, code: int, reason: str, cp_id: str, *, context: str
+) -> None:
     """Bound a close handshake and abort its transport only after a timeout."""
     try:
         await asyncio.wait_for(
@@ -880,7 +909,12 @@ async def _close_websocket(websocket, code: int, reason: str, cp_id: str, *, con
         _LOGGER.debug("Failed to close %s connection for %s: %s", context, cp_id, exc)
 
 
-async def _on_connect(websocket, path, coordinator, hass) -> None:
+async def _on_connect(
+    websocket: WebSocketServerProtocol,
+    path: str,
+    coordinator: GrowattCoordinator,
+    hass: HomeAssistant,
+) -> None:
     watchdog_task = None
     cp = None
     try:
@@ -922,10 +956,10 @@ async def _on_connect(websocket, path, coordinator, hass) -> None:
             # then becomes effective before its socket is asked to close.
             hass.async_create_background_task(
                 _close_websocket(
-                    active_charge_point._websocket,
+                    cast(GrowattChargePoint, active_charge_point)._websocket,
                     1000,
                     "Superseded by a newer connection",
-                    active_charge_point._cp_id,
+                    cast(GrowattChargePoint, active_charge_point)._cp_id,
                     context="superseded",
                 ),
                 name=f"growatt_thor_close_superseded_{cp_id}",
@@ -971,7 +1005,9 @@ async def _on_connect(websocket, path, coordinator, hass) -> None:
             pass
 
 
-async def start_ocpp_server(host, port, coordinator, hass) -> WebSocketServer:
+async def start_ocpp_server(
+    host: str, port: int, coordinator: GrowattCoordinator, hass: HomeAssistant
+) -> WebSocketServer:
     try:
         _LOGGER.info("Starting OCPP server on %s:%s", host, port)
 
@@ -981,7 +1017,7 @@ async def start_ocpp_server(host, port, coordinator, hass) -> WebSocketServer:
             lambda ws, path: _on_connect(ws, path, coordinator, hass),
             host,
             port,
-            subprotocols=[OCPP_SUBPROTOCOL],
+            subprotocols=[Subprotocol(OCPP_SUBPROTOCOL)],
             # THOR uses OCPP messages for keepalive; the activity watchdog
             # detects stale sockets without websocket-level ping futures.
             ping_interval=None,

@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -474,7 +474,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             status=self.status,
         )
 
-    def set_charge_point(self, cp_id):
+    def set_charge_point(self, cp_id: str) -> None:
         """Set charge point ID and notify sensors."""
         if persist := self.runtime_data.get(PERSIST_CHARGER_IDENTITY):
             persist(cp_id)
@@ -765,7 +765,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.async_set_updated_data(True)
         return True
 
-    def mark_connection_activity(self, action):
+    def mark_connection_activity(self, action: str) -> None:
         """Record the latest inbound OCPP message."""
         timestamp = self.now()
         was_connected = self.connected
@@ -778,7 +778,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
             self.last_heartbeat_at = timestamp
         self.async_set_updated_data(True)
 
-    def pause_polling_until(self, until):
+    def pause_polling_until(self, until: float) -> None:
         """Pause this entry's external meter poll until a monotonic time."""
         current = self.runtime_data.get(SKIP_POLLING_UNTIL, 0)
         self.runtime_data[SKIP_POLLING_UNTIL] = max(current, until)
@@ -801,7 +801,7 @@ class GrowattCoordinator(DataUpdateCoordinator):
         self.currents = dict(zero_phases)
         return True
 
-    def set_disconnected(self):
+    def set_disconnected(self) -> None:
         """Mark the active OCPP transport connection as disconnected."""
         was_connected = self.connected
         self.connected = False
@@ -856,18 +856,18 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
         self.async_set_updated_data(True)
 
-    def record_boot_notification(self, payload):
+    def record_boot_notification(self, payload: dict[str, Any]) -> None:
         """Retain the latest BootNotification request."""
         self.boot_notification = create_ocpp_snapshot(self.now(), payload)
         self.async_set_updated_data(True)
 
     def record_status_notification(
         self,
-        connector_id,
-        status,
-        error_code=None,
-        **payload,
-    ):
+        connector_id: int,
+        status: str,
+        error_code: str | None = None,
+        **payload: Any,
+    ) -> None:
         """Retain the latest StatusNotification request and update its state."""
         request = {
             "connector_id": connector_id,
@@ -959,13 +959,13 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def start_transaction(
         self,
-        transaction_id,
-        id_tag=None,
+        transaction_id: int,
+        id_tag: str | None = None,
         *,
-        connector_id=None,
-        meter_start=None,
-        **payload,
-    ):
+        connector_id: int | None = None,
+        meter_start: float | None = None,
+        **payload: Any,
+    ) -> None:
         """Delegate this transition to the session lifecycle."""
         return self.sessions.start_transaction(
             transaction_id,
@@ -977,12 +977,12 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def stop_transaction(
         self,
-        reason=None,
+        reason: str | None = None,
         *,
-        transaction_id=None,
-        meter_stop=None,
-        **payload,
-    ):
+        transaction_id: int | None = None,
+        meter_stop: float | None = None,
+        **payload: Any,
+    ) -> None:
         """Delegate this transition to the session lifecycle."""
         return self.sessions.stop_transaction(
             reason, transaction_id=transaction_id, meter_stop=meter_stop, **payload
@@ -992,11 +992,11 @@ class GrowattCoordinator(DataUpdateCoordinator):
 
     def process_meter_values(
         self,
-        meter_values,
+        meter_values: list[dict[str, Any]],
         *,
-        connector_id=None,
-        transaction_id=None,
-    ):
+        connector_id: int | None = None,
+        transaction_id: int | None = None,
+    ) -> None:
         """Retain all MeterValues samples and update known live sensors."""
         if not self._accept_meter_transaction(transaction_id):
             return
