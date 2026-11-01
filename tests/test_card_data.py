@@ -3,7 +3,7 @@
 import types
 import unittest
 
-from tests.support import PACKAGE_PATH, load_package_module, register_package
+from tests.support import PACKAGE_PATH, build_coordinator, load_package_module, register_package
 
 ROOT = PACKAGE_PATH
 NAME = "thor_card_test_target"
@@ -148,11 +148,14 @@ class CardDataTest(unittest.TestCase):
             charge_point_id="THOR-ONE",
             id_tag="fallback-tag",
             energy=2450,
-            _active_power_curve=[
-                ["2026-09-14T08:01:00Z", 7100],
-                ["2026-09-14T08:02:00Z", 7200],
-                ["bad", -1],
-            ],
+            sessions=types.SimpleNamespace(
+                active_power_curve=[
+                    ["2026-09-14T08:01:00Z", 7100],
+                    ["2026-09-14T08:02:00Z", 7200],
+                    ["bad", -1],
+                ],
+                telemetry=None,
+            ),
             dashboard_sessions=history,
         )
 
@@ -218,7 +221,7 @@ class CardDataTest(unittest.TestCase):
             charge_point_id="THOR-ONE",
             id_tag=None,
             energy=None,
-            _active_power_curve=[],
+            sessions=types.SimpleNamespace(active_power_curve=[], telemetry=None),
         )
 
         active = module.dashboard_active_session(coordinator)
@@ -416,6 +419,35 @@ class CardDataTest(unittest.TestCase):
 
     def test_empty_packet(self):
         self.assertIsNone(module.dashboard_meter_values(None)["power_w"])
+
+
+class ActiveSessionDashboardTest(unittest.IsolatedAsyncioTestCase):
+    async def test_meter_observations_reach_the_active_dashboard_curve(self):
+        clock = ["2026-11-01T12:00:00Z"]
+        coordinator = build_coordinator()
+        coordinator.hass.async_create_task = lambda coroutine: coroutine.close()
+        coordinator.now = lambda: clock[0]
+        coordinator.start_transaction(42, connector_id=1)
+
+        clock[0] = "2026-11-01T12:01:00Z"
+        coordinator.process_meter_values(
+            [
+                {
+                    "timestamp": clock[0],
+                    "sampled_value": [
+                        {"value": "7200", "measurand": "Power.Active.Import", "unit": "W"}
+                    ],
+                }
+            ],
+            transaction_id=42,
+            connector_id=1,
+        )
+
+        active = module.dashboard_active_session(coordinator)
+
+        self.assertTrue(active["active"])
+        self.assertIn([clock[0], 7200.0], active["power_curve"])
+        self.assertEqual(active["power_curve"], coordinator.sessions.active_power_curve)
 
 
 class LivePowerStatusTest(unittest.TestCase):

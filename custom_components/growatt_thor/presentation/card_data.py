@@ -107,7 +107,8 @@ def dashboard_active_session(coordinator):
     accounting = getattr(coordinator, "site_accounting", None)
     metered_kwh = sum(accounting.buckets.values()) if accounting is not None else None
     fallback_kwh = getattr(accounting, "power_fallback_kwh", 0.0) if accounting is not None else 0.0
-    telemetry = getattr(getattr(coordinator, "sessions", None), "telemetry", None)
+    sessions = getattr(coordinator, "sessions", None)
+    telemetry = sessions.telemetry if sessions is not None else None
     return {
         "session_id": build_session_id(
             source=SOURCE_HOME_ASSISTANT,
@@ -154,7 +155,7 @@ def dashboard_active_session(coordinator):
         ),
         "authorized_alias": _text(transaction.get("id_tag_alias")),
         "power_curve": _dashboard_power_curve(
-            getattr(coordinator, "_active_power_curve", None),
+            sessions.active_power_curve if sessions is not None else None,
             event_times=(event.get("at") for event in events),
         ),
         **(telemetry.metadata() if telemetry is not None else {}),

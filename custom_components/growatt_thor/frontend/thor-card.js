@@ -1787,7 +1787,7 @@ input[type='checkbox'] {
   </dialog>`}var $b=`:host {
   display: contents;
 }
-dialog {
+dialog.card {
   padding: 0;
 }
 .dialog-head {
