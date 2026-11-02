@@ -82,6 +82,11 @@ Install the dependencies so those cases are not silently skipped. Ruff checks Py
 
 pytest is only the runner: the suites are written with `unittest` and still run
 with `python -m unittest discover -s tests -q`. Add new tests in the same style.
+[`tests/test_properties.py`](../tests/test_properties.py) uses Hypothesis to
+check rules for generated inputs: site accounting books every kWh exactly once,
+and the value and time parsers never raise on arbitrary input, never round and
+never guess across daylight-saving changes. A failure prints the smallest
+failing input; add it as an example-based regression test with the fix.
 A targeted run can use `python -m pytest tests/test_session_outbox.py -v`. CI
 measures line and branch coverage; run `python -m pytest --cov` for the same
 report locally.

@@ -9,3 +9,4 @@ frontend/preview/screenshots/
 .pytest_cache/
 .coverage
 coverage.xml
+.hypothesis/
