@@ -1,5 +1,4 @@
 import editorCss from './editor.css';
-import { tokenStyles } from '../shared/styles';
 import { LitElement, html, unsafeCSS } from 'lit';
 import { statusEntities } from '../shared/model';
 import { sessionTranslate } from './locales';
@@ -7,7 +6,7 @@ import type { Hass, SessionCardConfig } from '../shared/types';
 
 export class ThorSessionEditor extends LitElement {
   static properties = { hass: { attribute: false }, _config: { state: true } };
-  static styles = [tokenStyles, unsafeCSS(editorCss)];
+  static styles = [unsafeCSS(editorCss)];
   hass?: Hass;
   private _config: SessionCardConfig = { type: 'custom:growatt-thor-session-card' };
 

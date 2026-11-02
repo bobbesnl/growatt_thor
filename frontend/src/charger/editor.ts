@@ -1,4 +1,3 @@
-import { tokenStyles } from '../shared/styles';
 import { LitElement, unsafeCSS } from 'lit';
 import editorCss from './editor.css';
 import { renderEditor, type EditorChange } from './editor.template';
@@ -8,7 +7,7 @@ import type { CardConfig, Hass } from '../shared/types';
 
 export class ThorCardEditor extends LitElement {
   static properties = { hass: { attribute: false }, config: { state: true } };
-  static styles = [tokenStyles, unsafeCSS(editorCss)];
+  static styles = [unsafeCSS(editorCss)];
   hass?: Hass;
   config: CardConfig = { type: 'custom:growatt-thor-card' };
   setConfig(config: CardConfig) {
