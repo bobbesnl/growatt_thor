@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import parse_qsl
 
+from ..coerce import enum_value
+
 _VOLTAGE_FIELDS = {
     "u-voltage": "L1",
     "v-voltage": "L2",
@@ -38,8 +40,7 @@ class ExternalMeterSnapshot:
 
 def _normalized_token(value: object) -> str:
     """Normalize OCPP enum and string values for fault matching."""
-    if hasattr(value, "value"):
-        value = value.value
+    value = enum_value(value)
     return "".join(character for character in str(value or "").casefold() if character.isalnum())
 
 

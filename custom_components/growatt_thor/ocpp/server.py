@@ -251,10 +251,8 @@ class GrowattChargePoint(OcppChargePoint):
             message_action = getattr(message, "action", None)
             if message_action is None:
                 action = type(message).__name__
-            elif hasattr(message_action, "value"):
-                action = str(message_action.value)
             else:
-                action = str(message_action)
+                action = str(enum_value(message_action, stringify_fallback=True))
         except Exception:
             # Leave validation and protocol error replies to the OCPP router.
             action = "InvalidOCPPMessage"

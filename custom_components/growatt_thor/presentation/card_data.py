@@ -11,11 +11,11 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Iterable, Mapping
-from math import isfinite
 from typing import Any, cast
 
 from ..charging.control_capabilities import selected_working_mode
 from ..charging.limits import charging_power_identity, maximum_charging_current
+from ..coerce import optional_float, optional_text
 from ..configuration.values import ConfigurationScalar, configuration_entity_state
 from ..energy.live_allocation import live_charging_sources
 from ..energy.meter_observations import ChargingMeterObservation
@@ -51,20 +51,12 @@ def live_dashboard_meter_values(coordinator: LiveMeterOwner) -> ChargingMeterObs
 
 
 def _number(value: object) -> float | None:
-    try:
-        result = float(cast(Any, value))
-    except (ValueError, TypeError):
-        return None
-    return result if isfinite(result) and result >= 0 else None
+    return optional_float(value, minimum=0)
 
 
 def _signed_number(value: object) -> float | None:
     """Return a finite signed number, preserving grid import/export direction."""
-    try:
-        result = float(cast(Any, value))
-    except (ValueError, TypeError):
-        return None
-    return result if isfinite(result) else None
+    return optional_float(value)
 
 
 def _mapping(value: object) -> Mapping[str, Any]:
@@ -72,7 +64,7 @@ def _mapping(value: object) -> Mapping[str, Any]:
 
 
 def _text(value: object) -> str | None:
-    return None if value in (None, "") else str(value)
+    return optional_text(value)
 
 
 def _dashboard_power_curve(value: object, *, event_times: Iterable[object] = ()) -> list[list[Any]]:
