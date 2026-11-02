@@ -123,7 +123,7 @@ filtering, sorting, pagination and selection.
 The chart's `ResizeObserver` updates time-label density; ECharts suppresses
 remaining overlapping labels. Preserve zoom and legend state across redraws.
 The event list covers the full selected session regardless of chart zoom and
-shares event labels with the wide chart through `events.template.ts`.
+shares event labels, reasons and marker colors with the wide chart through the pure `event-model.ts`.
 
 For UI changes, exercise narrow and wide cards, both themes, multiple languages,
 missing data and accepted/rejected/network-error scenarios in the simulator.

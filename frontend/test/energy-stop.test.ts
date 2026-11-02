@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { sessionEventReason } from '../src/sessions/events.template';
+import { sessionEventReason } from '../src/sessions/event-model';
 
 test('Protection stops use localized reasons in chart and mobile timeline', () => {
   assert.equal(sessionEventReason('energy_guard_battery', 'de'), 'Batterieentladung');

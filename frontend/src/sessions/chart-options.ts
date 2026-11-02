@@ -1,4 +1,4 @@
-import { sessionEventLabel, sessionEventColors, sessionEventReason } from './events.template';
+import { sessionEventLabel, sessionEventColors, sessionEventReason } from './event-model';
 import { formatSessionChartTick, type SessionEventMarker, type SessionChartBreak } from './model';
 import type { chartPalette } from '../shared/palette';
 
