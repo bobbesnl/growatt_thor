@@ -201,32 +201,18 @@ def build_unified_session(
     if not has_ocpp and not has_growatt:
         return None
 
-    if has_ocpp and has_growatt:
-        correlation_status = CORRELATION_MATCHED
-    elif has_ocpp:
-        correlation_status = CORRELATION_OCPP_ONLY
-    else:
-        correlation_status = CORRELATION_GROWATT_ONLY
+    correlation_status = _correlation_status(has_ocpp, has_growatt)
 
-    meter_start = _optional_float(start_request.get("meter_start"))
-    meter_stop = _optional_float(stop_request.get("meter_stop"))
-    meter_delta = None
-    if meter_start is not None and meter_stop is not None:
-        meter_delta = meter_stop - meter_start
-
-    latest_meter_energy = _latest_meter_energy_wh(
+    metering = _correlated_metering(
+        record,
+        start_request,
+        stop_request,
         meter_values,
         transaction_id,
-        _optional_text(start_snapshot.get("received_at")),
-        _optional_text(stop_snapshot.get("received_at")),
+        start_snapshot,
+        stop_snapshot,
         time_zone,
     )
-    growatt_energy = (
-        _optional_float(getattr(record, "energy_wh", None)) if record is not None else None
-    )
-    comparison_energy = meter_delta
-    if comparison_energy is None:
-        comparison_energy = latest_meter_energy
 
     record_transaction_id = (
         _optional_text(getattr(record, "transaction_id", None)) if record is not None else None
@@ -235,17 +221,9 @@ def build_unified_session(
     if connector_id is None and record is not None:
         connector_id = _optional_text(getattr(record, "connector_id", None))
 
-    session_source = SOURCE_HOME_ASSISTANT if has_ocpp else SOURCE_EXTERNAL_OR_UNKNOWN
-    if has_ocpp:
-        session_started_at = _optional_text(start_request.get("timestamp")) or _optional_text(
-            start_snapshot.get("received_at")
-        )
-        session_ended_at = _optional_text(stop_request.get("timestamp")) or _optional_text(
-            stop_snapshot.get("received_at")
-        )
-    else:
-        session_started_at = _optional_text(getattr(record, "start_time", None))
-        session_ended_at = _optional_text(getattr(record, "end_time", None))
+    session_source, session_started_at, session_ended_at = _session_bounds(
+        has_ocpp, record, start_request, start_snapshot, stop_request, stop_snapshot
+    )
     session_id = build_session_id(
         source=session_source,
         source_instance_id=source_instance_id,
@@ -280,18 +258,77 @@ def build_unified_session(
         "timing": _session_timing(
             record, start_request, start_snapshot, stop_request, stop_snapshot, transaction
         ),
-        "metering": _session_metering(
-            comparison_energy,
-            growatt_energy,
-            latest_meter_energy,
-            meter_delta,
-            meter_start,
-            meter_stop,
-        ),
+        "metering": metering,
         "billing": _session_billing(record),
         "modes": _session_modes(record),
         "stop_reason": _optional_text(stop_request.get("reason")),
     }
+
+
+def _correlation_status(has_ocpp: bool, has_growatt: bool) -> str:
+    if has_ocpp and has_growatt:
+        return CORRELATION_MATCHED
+    elif has_ocpp:
+        return CORRELATION_OCPP_ONLY
+    else:
+        return CORRELATION_GROWATT_ONLY
+
+
+def _correlated_metering(
+    record: object,
+    start_request: Mapping[str, Any],
+    stop_request: Mapping[str, Any],
+    meter_values: Mapping[str, Any] | None,
+    transaction_id: str | None,
+    start_snapshot: Mapping[str, Any],
+    stop_snapshot: Mapping[str, Any],
+    time_zone: str | tzinfo | None,
+) -> dict[str, Any]:
+    meter_start = _optional_float(start_request.get("meter_start"))
+    meter_stop = _optional_float(stop_request.get("meter_stop"))
+    meter_delta = None
+    if meter_start is not None and meter_stop is not None:
+        meter_delta = meter_stop - meter_start
+
+    latest_meter_energy = _latest_meter_energy_wh(
+        meter_values,
+        transaction_id,
+        _optional_text(start_snapshot.get("received_at")),
+        _optional_text(stop_snapshot.get("received_at")),
+        time_zone,
+    )
+    growatt_energy = (
+        _optional_float(getattr(record, "energy_wh", None)) if record is not None else None
+    )
+    comparison_energy = meter_delta
+    if comparison_energy is None:
+        comparison_energy = latest_meter_energy
+
+    return _session_metering(
+        comparison_energy, growatt_energy, latest_meter_energy, meter_delta, meter_start, meter_stop
+    )
+
+
+def _session_bounds(
+    has_ocpp: bool,
+    record: object,
+    start_request: Mapping[str, Any],
+    start_snapshot: Mapping[str, Any],
+    stop_request: Mapping[str, Any],
+    stop_snapshot: Mapping[str, Any],
+) -> tuple[str, str | None, str | None]:
+    session_source = SOURCE_HOME_ASSISTANT if has_ocpp else SOURCE_EXTERNAL_OR_UNKNOWN
+    if has_ocpp:
+        session_started_at = _optional_text(start_request.get("timestamp")) or _optional_text(
+            start_snapshot.get("received_at")
+        )
+        session_ended_at = _optional_text(stop_request.get("timestamp")) or _optional_text(
+            stop_snapshot.get("received_at")
+        )
+    else:
+        session_started_at = _optional_text(getattr(record, "start_time", None))
+        session_ended_at = _optional_text(getattr(record, "end_time", None))
+    return session_source, session_started_at, session_ended_at
 
 
 def _session_correlation(
