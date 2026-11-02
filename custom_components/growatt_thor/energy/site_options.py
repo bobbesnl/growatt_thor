@@ -8,6 +8,7 @@ from ..const import CONF_SITE_GRID_SOURCE
 from .currency import normalized_price_unit
 from .options import (
     CONF_BATTERY_POWER_ENTITY,
+    CONF_BATTERY_POWER_SIGN,
     CONF_FIXED_PRICE,
     CONF_GRID_ENTITY,
     CONF_GRID_SIGN,
@@ -18,7 +19,7 @@ from .options import (
     SITE_GRID_SOURCES,
 )
 from .site_inputs import GRID_SIGNS, AccountingProfile
-from .sources import duplicate_source_fields, is_power_sensor
+from .sources import BATTERY_POWER_SIGNS, duplicate_source_fields, is_power_sensor
 from .stop_guard_policy import (
     AUTO_STOP_MODES,
     CONF_AUTO_STOP_MODE,
@@ -111,4 +112,44 @@ def validate_site_options(
                 errors[CONF_FIXED_PRICE] = "invalid_fixed_price"
         except (ValueError, TypeError):
             errors[CONF_FIXED_PRICE] = "invalid_fixed_price"
+    return errors
+
+
+def validate_energy_source_options(
+    battery_entity: str | None,
+    battery_sign: str,
+    current: Mapping[str, Any],
+    states: StateLookup,
+) -> dict[str, str]:
+    """Validate an optional battery source against the saved site roles."""
+    errors: dict[str, str] = {}
+    if battery_entity and not is_power_sensor(
+        battery_entity,
+        states.get(battery_entity),
+    ):
+        errors[CONF_BATTERY_POWER_ENTITY] = "invalid_power_sensor"
+    if battery_entity and battery_sign not in BATTERY_POWER_SIGNS:
+        errors[CONF_BATTERY_POWER_SIGN] = "invalid_battery_power_sign"
+
+    if battery_entity:
+        assignments = {
+            CONF_BATTERY_POWER_ENTITY: battery_entity,
+            CONF_SOLAR_ENTITY: current.get(CONF_SOLAR_ENTITY),
+            CONF_HOUSE_ENTITY: current.get(CONF_HOUSE_ENTITY),
+            CONF_GRID_ENTITY: current.get(CONF_GRID_ENTITY)
+            if current.get(CONF_SITE_GRID_SOURCE) == "ha_sensor"
+            else None,
+        }
+        if current.get(
+            CONF_SITE_PROFILE, "disabled"
+        ) != "disabled" and CONF_BATTERY_POWER_ENTITY in duplicate_source_fields(assignments):
+            errors[CONF_BATTERY_POWER_ENTITY] = "duplicate_power_source"
+    elif profile_requires_battery(current.get(CONF_SITE_PROFILE)):
+        errors[CONF_BATTERY_POWER_ENTITY] = "profile_requires_battery"
+    elif current.get(CONF_AUTO_STOP_MODE) in (
+        "battery",
+        "battery_or_grid",
+    ):
+        errors[CONF_BATTERY_POWER_ENTITY] = "auto_stop_requires_battery"
+
     return errors

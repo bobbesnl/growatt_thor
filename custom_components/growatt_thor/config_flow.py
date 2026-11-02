@@ -57,12 +57,10 @@ from .energy.options import (
     SITE_GRID_SOURCES,
 )
 from .energy.site_inputs import GRID_SIGNS, AccountingProfile
-from .energy.site_options import profile_requires_battery, validate_site_options
+from .energy.site_options import validate_energy_source_options, validate_site_options
 from .energy.sources import (
     BATTERY_POSITIVE_DISCHARGE,
     BATTERY_POWER_SIGNS,
-    duplicate_source_fields,
-    is_power_sensor,
 )
 from .energy.stop_guard_policy import (
     AUTO_STOP_MODES,
@@ -433,36 +431,9 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 BATTERY_POSITIVE_DISCHARGE,
             )
             states = getattr(self.hass, "states", {})
-            if battery_entity and not is_power_sensor(
-                battery_entity,
-                states.get(battery_entity),
-            ):
-                errors[CONF_BATTERY_POWER_ENTITY] = "invalid_power_sensor"
-            if battery_entity and battery_sign not in BATTERY_POWER_SIGNS:
-                errors[CONF_BATTERY_POWER_SIGN] = "invalid_battery_power_sign"
-
-            if battery_entity:
-                assignments = {
-                    CONF_BATTERY_POWER_ENTITY: battery_entity,
-                    CONF_SOLAR_ENTITY: self.config_entry.data.get(CONF_SOLAR_ENTITY),
-                    CONF_HOUSE_ENTITY: self.config_entry.data.get(CONF_HOUSE_ENTITY),
-                    CONF_GRID_ENTITY: self.config_entry.data.get(CONF_GRID_ENTITY)
-                    if self.config_entry.data.get(CONF_SITE_GRID_SOURCE) == "ha_sensor"
-                    else None,
-                }
-                if self.config_entry.data.get(
-                    CONF_SITE_PROFILE, "disabled"
-                ) != "disabled" and CONF_BATTERY_POWER_ENTITY in duplicate_source_fields(
-                    assignments
-                ):
-                    errors[CONF_BATTERY_POWER_ENTITY] = "duplicate_power_source"
-            elif profile_requires_battery(self.config_entry.data.get(CONF_SITE_PROFILE)):
-                errors[CONF_BATTERY_POWER_ENTITY] = "profile_requires_battery"
-            elif self.config_entry.data.get(CONF_AUTO_STOP_MODE) in (
-                "battery",
-                "battery_or_grid",
-            ):
-                errors[CONF_BATTERY_POWER_ENTITY] = "auto_stop_requires_battery"
+            errors = validate_energy_source_options(
+                battery_entity, battery_sign, self.config_entry.data, states
+            )
 
             if not errors:
                 updated_data = dict(self.config_entry.data)
