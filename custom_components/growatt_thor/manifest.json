@@ -18,7 +18,8 @@
     "custom_components.growatt_thor"
   ],
   "requirements": [
-    "ocpp>=2.0.0,<3"
+    "ocpp>=2.0.0,<3",
+    "websockets>=13.1"
   ],
   "version": "2.0.0-alpha.3"
 }

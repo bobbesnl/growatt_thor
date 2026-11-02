@@ -3,5 +3,5 @@
 pytest-homeassistant-custom-component==0.13.190
 home-assistant-frontend==20241127.4
 ocpp==2.0.0
-# Home Assistant core does not install websockets itself; see docs/CONTRIBUTING.md.
+# The test harness skips manifest requirements, so install them explicitly.
 websockets==13.1

@@ -114,8 +114,9 @@ Use Python 3.12 and `requirements-min.txt` for the oldest stack. When a new Home
 Assistant release is out, update the `pytest-homeassistant-custom-component` and
 `home-assistant-frontend` pins in `requirements-latest.txt` together; the
 frontend version is the one in Home Assistant's `components/frontend/manifest.json`.
-Home Assistant core does not install `websockets` itself, while the OCPP server
-imports it, so both requirement files install it explicitly.
+The test harness does not install manifest requirements, so both files list
+`ocpp` and `websockets` explicitly. Home Assistant core does not ship
+`websockets` itself; the manifest declares it for that reason.
 
 To run the same Python and formatting checks before every commit, install the
 hooks once inside the development venv. They call the tools from the venv and
@@ -200,6 +201,11 @@ Translation checks cover all eight languages and preserve format placeholders. `
 - **`ocpp>=2.0.0,<3`** in `manifest.json` and `tests/requirements-auth.txt`. A new
   major version of the library is adopted deliberately, not by an unattended
   upgrade.
+- **`websockets>=13.1`** in `manifest.json`, the lowest version Home Assistant
+  2024.12 allows. It has no upper bound so it cannot conflict with Home
+  Assistant's own constraint. The server still uses the deprecated
+  `websockets.legacy` API, which the CI matrix exercises up to the newest
+  release.
 - **Deprecations.** Entities, services, service fields and options are removed
   at the earliest one minor release after they were deprecated. The release
   that deprecates them says so in `CHANGELOG.md` and, where users must act,
