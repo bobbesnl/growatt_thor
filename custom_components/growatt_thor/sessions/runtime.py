@@ -370,32 +370,10 @@ class SessionLifecycle:
             "reason": reason,
             **payload,
         }
-        self.observe_context(notify=False)
-        completed = dict(coordinator.active_transaction or {})
-        completed["stop"] = create_ocpp_snapshot(coordinator.now(), request)
-        if self.event_tracker is not None:
-            self.event_tracker.stop(completed["stop"]["received_at"], reason=reason)
-            completed["events"] = list(self.event_tracker.events)
-        effective_minutes = None
-        normalized_transaction_id = (
-            str(stopped_transaction_id) if stopped_transaction_id is not None else None
+        completed, normalized_transaction_id, effective_minutes = (
+            self._snapshot_stopped_transaction(request, stopped_transaction_id, reason)
         )
-        if coordinator.effective_charging.transaction_id == normalized_transaction_id:
-            effective_minutes = coordinator.effective_charging.effective_minutes
-        completed["effective_charging_duration_minutes"] = effective_minutes
-        completed["power_curve"] = list(self.active_power_curve)
-        completed.update(self.telemetry.snapshot())
-        completed.update(self.telemetry.metadata())
-        if coordinator.site_accounting is not None:
-            start_wh = coordinator.site_accounting.meter_start_wh
-            try:
-                stop_wh = float(meter_stop) if meter_stop is not None else None
-            except (TypeError, ValueError):
-                stop_wh = None
-            if start_wh is not None and stop_wh is not None and stop_wh >= start_wh:
-                coordinator.site_accounting.reconcile((stop_wh - start_wh) / 1000)
-            coordinator.last_site_accounting = coordinator.site_accounting
-            coordinator.site_accounting = None
+        self._complete_site_accounting(meter_stop)
         self.active_power_curve = []
         self.telemetry = SessionTelemetry()
         self.event_tracker = None
@@ -435,6 +413,44 @@ class SessionLifecycle:
             coordinator.hass.async_create_task(
                 hooks.transaction_stopped(transaction_id=stopped_transaction_id, reason=reason)
             )
+
+    def _snapshot_stopped_transaction(
+        self,
+        request: dict[str, Any],
+        stopped_transaction_id: int | str | None,
+        reason: str | None,
+    ) -> tuple[dict[str, Any], str | None, float | None]:
+        coordinator = self.coordinator
+        self.observe_context(notify=False)
+        completed = dict(coordinator.active_transaction or {})
+        completed["stop"] = create_ocpp_snapshot(coordinator.now(), request)
+        if self.event_tracker is not None:
+            self.event_tracker.stop(completed["stop"]["received_at"], reason=reason)
+            completed["events"] = list(self.event_tracker.events)
+        effective_minutes = None
+        normalized_transaction_id = (
+            str(stopped_transaction_id) if stopped_transaction_id is not None else None
+        )
+        if coordinator.effective_charging.transaction_id == normalized_transaction_id:
+            effective_minutes = coordinator.effective_charging.effective_minutes
+        completed["effective_charging_duration_minutes"] = effective_minutes
+        completed["power_curve"] = list(self.active_power_curve)
+        completed.update(self.telemetry.snapshot())
+        completed.update(self.telemetry.metadata())
+        return completed, normalized_transaction_id, effective_minutes
+
+    def _complete_site_accounting(self, meter_stop: float | None) -> None:
+        coordinator = self.coordinator
+        if coordinator.site_accounting is not None:
+            start_wh = coordinator.site_accounting.meter_start_wh
+            try:
+                stop_wh = float(meter_stop) if meter_stop is not None else None
+            except (TypeError, ValueError):
+                stop_wh = None
+            if start_wh is not None and stop_wh is not None and stop_wh >= start_wh:
+                coordinator.site_accounting.reconcile((stop_wh - start_wh) / 1000)
+            coordinator.last_site_accounting = coordinator.site_accounting
+            coordinator.site_accounting = None
 
     def record_stop_requested(self, *, reason: str = "remote_stop") -> None:
         """Record a stop intent at the point it is handed to OCPP."""
