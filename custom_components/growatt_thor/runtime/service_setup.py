@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import cast
 
@@ -45,6 +46,30 @@ def async_register_services(hass: HomeAssistant) -> None:
         return
 
     operations = IntegrationServiceOperations(hass.async_create_task)
+    handle_refresh = _refresh_handler(hass)
+    handle_export_sessions = _export_sessions_handler(hass, operations)
+    registrations: tuple[
+        tuple[str, Callable[[ServiceCall], Awaitable[None]], Callable[[], vol.Schema]], ...
+    ] = (
+        (
+            "refresh",
+            handle_refresh,
+            lambda: vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string}),
+        ),
+        (
+            "export_sessions",
+            handle_export_sessions,
+            lambda: vol.Schema(
+                {vol.Required("date_from"): cv.string, vol.Required("date_to"): cv.string}
+            ),
+        ),
+    )
+    for name, handler, schema in registrations:
+        if not hass.services.has_service(DOMAIN, name):
+            hass.services.async_register(DOMAIN, name, handler, schema=schema())
+
+
+def _refresh_handler(hass: HomeAssistant) -> Callable[[ServiceCall], Awaitable[None]]:
     # Refreshes are single-flight per charger: concurrent calls for the same
     # entry share one physical read sequence, while different chargers never
     # wait for, or join, each other's refresh.
@@ -98,6 +123,12 @@ def async_register_services(hass: HomeAssistant) -> None:
             raise_charger_disconnected()
         _LOGGER.info("Manual refresh completed successfully")
 
+    return handle_refresh
+
+
+def _export_sessions_handler(
+    hass: HomeAssistant, operations: IntegrationServiceOperations
+) -> Callable[[ServiceCall], Awaitable[None]]:
     async def handle_export_sessions(call: ServiceCall) -> None:
         """Export one date range without racing the same destination file."""
         date_from_str = call.data.get("date_from")
@@ -153,26 +184,4 @@ def async_register_services(hass: HomeAssistant) -> None:
             _LOGGER.error("Session export failed: %s", exc, exc_info=True)
             raise_communication_error("session_export_failed")
 
-    if not hass.services.has_service(DOMAIN, "refresh"):
-        hass.services.async_register(
-            DOMAIN,
-            "refresh",
-            handle_refresh,
-            schema=vol.Schema(
-                {
-                    vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
-                }
-            ),
-        )
-    if not hass.services.has_service(DOMAIN, "export_sessions"):
-        hass.services.async_register(
-            DOMAIN,
-            "export_sessions",
-            handle_export_sessions,
-            schema=vol.Schema(
-                {
-                    vol.Required("date_from"): cv.string,
-                    vol.Required("date_to"): cv.string,
-                }
-            ),
-        )
+    return handle_export_sessions

@@ -59,9 +59,10 @@ class IntegrationServiceWiringTest(unittest.TestCase):
                 self.assertNotIn("async_remove", attributes)
 
     def test_handlers_translate_refresh_and_export_failures(self):
-        register = _function(self.registration, "async_register_services")
         nested = {
-            node.name: node for node in register.body if isinstance(node, ast.AsyncFunctionDef)
+            node.name: node
+            for node in ast.walk(self.registration)
+            if isinstance(node, ast.AsyncFunctionDef)
         }
         refresh_source = ast.unparse(nested["handle_refresh"])
         export_source = ast.unparse(nested["handle_export_sessions"])
