@@ -1,12 +1,14 @@
 # THOR runtime architecture
 
-[Documentation](../README.md#documentation) · [Start reading the code](CONTRIBUTING.md)
+[Documentation](../README.md#documentation) · [Start reading the code](CONTRIBUTING.md) · [Runtime flows](runtime-flows.md) · [Invariants](invariants.md) · [Decision records](adr/README.md)
 
-The integration owns one runtime and coordinator per config entry. Existing HA
-entity identities, service names and configuration keys remain stable. Statistics
-move to per-entry storage with a one-time legacy migration; charging-target
-storage keeps its existing per-entry keys. The OCPP queue remains the only owner
-of outbound charger writes for each charger.
+The integration runs one runtime per config entry: a coordinator, a local OCPP
+server and a write queue for one charger. The write queue is the only owner of
+outbound charger writes for that charger. Statistics live in per-entry storage
+(older installations are migrated once); charging targets use their own
+per-entry storage keys. Rules that must not change by accident are collected in
+the [invariants](invariants.md); the reasons behind them are recorded as
+[decision records](adr/README.md).
 
 ## Layers at a glance
 
@@ -86,8 +88,8 @@ write and a completed session move through these layers.
 ## Responsibilities
 
 Python domain packages live below `custom_components/growatt_thor/`. HA platform
-entrypoints (`sensor.py`, `button.py`, `config_flow.py`, etc.), the coordinator and
-shared constants remain at the integration root so HA can discover them.
+entry points (`sensor.py`, `button.py`, `config_flow.py`, etc.), the coordinator
+and shared constants stay at the integration root so HA can discover them.
 
 | Package | Responsibility |
 | --- | --- |
@@ -100,67 +102,92 @@ shared constants remain at the integration root so HA can discover them.
 | `energy/` | Shared observations, energy sources, site accounting and automatic Stop |
 | `presentation/` | Bounded card projection and frontend resource registration |
 
-The TypeScript source mirrors feature boundaries in `frontend/src/`: `charger/`,
-`targets/`, `authorization/`, `pv/`, `sessions/`, `energy/` and `shared/`.
-`index.ts` is the production entrypoint. Each feature keeps its component,
-template, styles and model together; pure calculations remain separate from
-Lit lifecycle and HA calls. See [frontend development](../frontend/README.md#frontend-structure) for the source map.
+The TypeScript source mirrors these feature boundaries in `frontend/src/`:
+`charger/`, `targets/`, `authorization/`, `pv/`, `sessions/`, `energy/` and
+`shared/`. `index.ts` is the production entry point. Each feature keeps its
+component, template, styles and model together; pure calculations stay separate
+from Lit lifecycle and HA calls. See
+[frontend development](../frontend/README.md#frontend-structure) for the source map.
 
-Session flow thresholds live in `sessions/constants.py`; platform configuration keys live in `configuration/keys.py`. Connection timing and close codes remain in `ocpp/connection.py`, while shared configuration-write spacing is defined in `const.py`. These constants preserve the existing values and wire spelling.
+### Where to find shared building blocks
 
-`ocpp/status.py` owns canonical status groups and normalizes both OCPP wire values and translated entity spellings before transaction and telemetry checks. `coerce.py` contains shared enum unwrapping.
+| Topic | Location |
+| --- | --- |
+| Session flow thresholds | `sessions/constants.py` |
+| Platform configuration keys | `configuration/keys.py` |
+| Connection timing and close codes | `ocpp/connection.py` |
+| Configuration-write spacing | `const.py` |
+| OCPP status groups and normalization | `ocpp/status.py` (accepts both OCPP wire values and translated entity spellings) |
+| Enum unwrapping, optional numbers and text | `coerce.py` |
+| UTC parsing and installation time zone | `timestamps.py`; display normalization in `sessions/display_times.py` |
+| Entity naming and charger/meter device metadata | `entity.py` |
+| Simple sensor definitions | `sensor_descriptions.py` (`ThorSensorDescription`: value, availability, attributes, unit, device) |
+| Persisted site/battery option keys | `energy/options.py` |
+| Site and battery option validation | `energy/site_options.py` |
+| Sensor discovery for option forms | `source_discovery.py` |
+| Start/Stop rules and charging capabilities | `charging/start_stop_rules.py`, `charging/control_capabilities.py` |
 
-`entity.py` owns shared entity naming and charger/meter device metadata. Platform entities retain their existing unique-ID expressions and defer HA attachment to the entity lifecycle; write guards read the coordinator's shared control-policy method.
+### Energy
 
-`energy/allocation.py` separates interval observations, available solar supply and quality classification from the ordered allocation of EV energy. Its private immutable input record carries only values from the same interval; directed measurements still take priority.
+`energy/allocation.py` separates interval observations, available solar supply
+and quality classification from the ordered allocation of EV energy. Its
+immutable input record carries only values from one interval; directed
+measurements take priority. The package also contains the session accumulator
+(`session_accumulator.py`), site inputs (`site_inputs.py`), site observations
+(`site_observations.py`) and the stop guard as policy and runtime
+(`stop_guard_policy.py`, `stop_guard.py`). Live source allocation for the card is
+in `live_allocation.py` and uses the coordinator's public meter-gap policy.
+Energy code does not import discovery or presentation.
 
-Generic UTC helpers live in `timestamps.py`; session display normalization lives in `sessions/display_times.py`. Energy code separates allocation mathematics (`allocation.py`), the session accumulator (`session_accumulator.py`), site inputs (`site_inputs.py`), observations (`site_observations.py`) and stop policy/runtime (`stop_guard_policy.py` / `stop_guard.py`). Charging capabilities and Start/Stop rules live in `charging/control_capabilities.py` and `charging/start_stop_rules.py`. Persisted site/battery option keys are declared in `energy/options.py`.
+### Presentation and configuration forms
 
-Simple sensor behavior is declared in `sensor_descriptions.py` through `ThorSensorDescription`: values, availability, extra attributes, units and device ownership. `sensor.py` retains lifecycle projection and thin compatibility constructors alongside the stateful status, fault, command and accounting sensors. Characterization snapshots cover IDs and visible states across unknown, reported, disconnected and failed-coordinator cases.
+`presentation/` builds the bounded card data. The battery payload and dashboard
+entity map live in `presentation/battery.py` and `presentation/entity_map.py`.
+Card projections read explicit protocols from `presentation/contracts.py`.
 
-Site and optional battery-source validation live in the pure `energy/site_options.py`, including conflicting roles and required battery sources; `config_flow.py::build_site_accounting_schema` assembles the HA form from policy, power-source and tariff field builders. Field order, suggested values and filtered source selectors remain unchanged. Saved sections update the running coordinator through `async_apply_options`, preserving the existing config-entry data contract and entry-scoped polling/guard ownership.
+`config_flow.py::build_site_accounting_schema` assembles the site-accounting form
+from policy, power-source and tariff field builders. Saved sections update the
+running coordinator through `async_apply_options`; the config-entry data format
+stays the same.
 
-Live energy-source allocation lives in `energy/live_allocation.py`, using the public meter-gap policy on the coordinator. Presentation owns the battery payload and dashboard entity-map builder in `presentation/battery.py` and `presentation/entity_map.py`. Sensor discovery for options forms lives beside the flow in `source_discovery.py`. Energy normalization does not import discovery or presentation.
+## State ownership
 
-## State and typing
+The coordinator composes the owners below and keeps public observations,
+storage and OCPP meter processing itself. It declares optional state such as
+`dashboard_command` and `last_energy_stop` with a `None` default, so "no command
+yet" stays distinct from a reported outcome.
 
-`ocpp/external_meter_state.py::ExternalMeterState` owns external-meter observations, fault matching, poll timeouts, health and PV readiness. Sensors, diagnostics, site observations and control guards read `coordinator.external_meter` directly; coordinator methods still publish updates at the same transition boundaries. `charging/pv_draft.py::PvLinkageDraftState` owns the local PV draft, snapshots and initialization from readback. PV entities and dashboard projections read `coordinator.pv_draft` directly. Draft updates, Apply results and clean-state reconciliation retain coordinator methods so notification order stays explicit.
+| Owner | State it holds |
+| --- | --- |
+| `runtime/entry.py::EntryRuntime` | Resources of one config entry. Setup publishes the same object on `entry.runtime_data`, the coordinator and the entry-scoped dispatch registry; stable mapping keys are in `runtime/keys.py`. Release clears only the runtime still registered to that entry. |
+| `runtime/charger_write_queue.py::ChargerWriteQueue` | Pending `ChargerWriteItem`s, the processor task, monotonic expiry and spacing, completion and shutdown. It talks to the coordinator only through the `WriteQueueOwner` protocol. |
+| `sessions/runtime.py::SessionLifecycle` | Session curves, event tracking, restored-session state, pending effective durations, record deduplication, pending completions and the immutable `LastSessionState`. Storage uses its snapshot/restore methods. |
+| `ocpp/external_meter_state.py::ExternalMeterState` | External-meter observations, fault matching, poll timeouts, health and PV readiness. |
+| `charging/pv_draft.py::PvLinkageDraftState` | The local PV draft, snapshots and initialization from readback. |
+| `targets/runtime.py::ChargingTargetRuntime` | Target storage, lock, busy state and schedule timer for one entry. |
+| `runtime/polling.py::ExternalMeterPoller` | External-meter polling state. |
+| `sessions/outbox.py::SessionOutbox` | Completed rows awaiting CSV delivery. |
 
-`runtime/entry.py::EntryRuntime` declares the resources owned by one config entry. Setup publishes the same object on `entry.runtime_data`, the coordinator and the entry-scoped dispatch registry. Platforms read `entry.runtime_data.coordinator`; connection readers can use `coordinator.charge_point`. The mapping interface retains missing-key, callback and identity semantics for queue/dispatch ownership, with stable keys in `runtime/keys.py`. Release clears only the runtime still registered to that entry.
+Platforms read `entry.runtime_data.coordinator`; connection readers use
+`coordinator.charge_point`. Sensors, diagnostics and guards read the owners
+directly (`coordinator.external_meter`, `coordinator.pv_draft`,
+`coordinator.sessions.last_session`). Coordinator methods publish updates at the
+transition boundaries, so notification order stays explicit.
 
-`targets/services.py` keeps dispatch entry-scoped and declares service schemas and response support in a registration table. Shared target schema fragments are built separately; schema evaluation and registration retain their original order.
+The coordinator declares `transaction_hooks: TransactionHooks | None`. Session
+start/stop observations call this contract; the target runtime implements it,
+and unload cancels its timer and clears the hooks.
 
-`targets/requests.py` builds request records and bounded request history. `targets/charger_ops.py` contains the existing readiness checks and charger operations; these still run inside the target runtime's queue callbacks. `TargetState` and `AccountingProfile` enumerate the existing persisted strings without changing their spelling.
-
-`ChargingTargetRuntime` owns one entry's target storage, lock, busy state and
-schedule timer. Its bound methods implement the unchanged target service
-contract. The coordinator declares `transaction_hooks: TransactionHooks | None`; session start/stop observations call this contract, and unload cancels the timer and clears it. The pilot flag is declared on the coordinator and retains its existing lifetime.
-`SessionOutbox` owns delivery state with typed persistence callbacks and validates
-session identities before accepting rows. `ChargingMeterObservation` declares
-the normalized telemetry shape while malformed or missing packets stay unknown.
-
-In the frontend, `SessionDetailStore` owns historical-detail requests and a
-bounded cache. It deduplicates concurrent loads, waits for an explicit retry
-after errors and invalidates pending replies when the configured entry changes
-or the card disconnects. Live/inline curves bypass historical detail. Known HA
-attributes have explicit types; unrelated attributes are `unknown`, and entity
-lookups can be absent. The TypeScript compiler checks these boundaries in strict
-mode. Python typing is incremental; persisted target dictionaries remain a
-validated serialization boundary rather than a fully typed state machine. The strict Python scope in `pyproject.toml` covers coercion/time helpers, configuration, energy, charging, runtime, OCPP, target models/builders and all session modules, the coordinator and all six HA platforms. Card projections use explicit read protocols from `presentation/contracts.py`, and compile-only owner checks in `tests/typing/owner_contracts.py` verify that the concrete coordinator still satisfies them. A minimal HA coordinator stub prevents an unresolved framework base from hiding missing owner attributes. Integration setup/config flows, target execution, diagnostics and the remaining presentation helpers stay outside this explicit scope; their expansion is a separate step.
+Narrow protocols in `sessions/contracts.py`, `energy/contracts.py`,
+`charging/contracts.py` and `configuration/contracts.py` declare what a module
+needs from the coordinator, so domain code does not import it.
 
 Use classes for state with a lifecycle or invariants. Keep transformations,
-validation and calculations as typed functions or data models. Package initializers
-stay free of runtime side effects. Domain code must not depend on HA platform
-entities or frontend projections to perform charger commands.
+validation and calculations as typed functions or data models. Package
+initializers have no runtime side effects. Domain code must not depend on HA
+platform entities or frontend projections to perform charger commands.
 
-The coordinator declares `dashboard_command` and `last_energy_stop` as optional state initialized to `None`. Card projections read them directly; absence of a command or stop notice remains distinct from a reported outcome.
-
-The coordinator retains public observations, storage and OCPP meter processing.
-`ChargerWriteQueue` owns pending typed `ChargerWriteItem` entries, the processor
-task, monotonic expiry/spacing, completion and shutdown. The coordinator delegates
-its existing queue/cancel/pending API to that owner. A narrow owner protocol
-supplies connection observations, polling pauses, configuration readback and
-result publication; the queue does not import the coordinator. `SessionLifecycle` owns session curves, event tracking, restored-session state, pending effective durations, record deduplication and the immutable `LastSessionState`. Last-session sensors read `coordinator.sessions.last_session` directly, preserving their entity identities and visible values. Storage uses public lifecycle snapshot/restore methods, preserving its existing keys and record limits. Narrow protocols in `sessions/contracts.py`, `energy/contracts.py` and `charging/contracts.py` declare observations and capabilities without importing the coordinator.
+## Data flow
 
 ```mermaid
 flowchart LR
@@ -175,83 +202,94 @@ flowchart LR
   History --> View
   Guard --> Stop[Stop command]
   Button[HA Stop button] --> Stop
-  Stop --> Queue[Existing OCPP queue]
+  Stop --> Queue[OCPP write queue]
   Targets[Native target runtime] --> Queue
 ```
 
-Meter processing separates transaction admission, site accounting, effective duration, live-sample projections and curve recording. `configuration/values.py` declares live configuration projections and the pure paired-time parser. Session correlation separates source matching, energy comparison and source-specific session bounds from the final diagnostic projection. Record matching avoids building presentation records for correlation-only checks; lifecycle helpers keep deduplication, record timing, correlation, event merging, last-session updates, accounting and CSV outbox publication separate. Stop completion separates the retained transaction/telemetry snapshot from site-accounting reconciliation, before clearing live observations and notifying hooks. Compound PV Apply owns its progress in one operation object, preserving queue ownership and partial/uncertain outcomes.
+Meter processing separates transaction admission, site accounting, effective
+duration, live-sample projections and curve recording. Session correlation
+separates source matching, energy comparison and source-specific session bounds
+from the final diagnostic projection; correlation-only checks do not build
+presentation records. The lifecycle keeps deduplication, record timing,
+correlation, event merging, last-session updates, accounting and outbox
+publication as separate steps. A stop first snapshots the transaction and
+telemetry, then reconciles site accounting, then clears live observations and
+notifies hooks. PV Apply tracks its progress in one operation object and reports
+partial or uncertain outcomes.
 
-Entry setup keeps claim/failure cleanup around explicit coordinator, server and background-task stages. `runtime/polling.py::ExternalMeterPoller` owns polling state. HA service registration lives in `runtime/service_setup.py`, with a registration table and separate refresh/export handler factories; the existing `runtime/services.py` stays independent of HA and owns single-flight refresh/export operations. `sessions/dashboard.py` shares retained-history refresh while preserving the callers' timezone and retention settings.
+Entry setup runs in explicit stages (coordinator, server, background tasks) with
+cleanup on failure. `runtime/service_setup.py` registers HA services from a table;
+`runtime/services.py` contains the HA-independent single-flight refresh/export
+operations. `targets/services.py` registers the target services, also
+entry-scoped, with their schemas and response support. `sessions/dashboard.py`
+shares the retained-history refresh between its callers.
 
-## Safety and compatibility invariants
+## Inbound OCPP and diagnostics
 
-- An accepted command does not prove a transaction started, stopped or moved
-  energy. Queue status, charger observations and energy flow remain distinct.
-- Stop cancels an unsent Start before considering a physical Stop. A Stop is
-  tied to the observed transaction; a later transaction invalidates it.
-- The automatic guard reads shared observations and calls the Stop command.
-  It imports neither dashboard projection nor accounting runtime and never
-  requires a registered button. It cannot automatically restart charging.
-- Target services retain their public names and charging-target storage key.
-  Wallbox-native energy/time limits and HA-owned repeat scheduling stay separate.
-- Unit/sign normalization is shared. Automatic controls require recent source
-  reports; display and accounting accept available, unchanged HA sensor states.
-  THOR meter freshness is checked in both cases. Missing and unavailable values
-  are not zero.
-- The view contract is bounded: at most 20 recent rows, 24 events and 96 curve
-  points per session, with a 12 KiB target. Historical detail is loaded on demand.
-  Pagination covers those recent rows, not the full archive.
-
-Start and Stop buttons delegate to `StartChargingCommand` and `StopChargingCommand` in `charging/commands.py`. These boundaries own revalidation, queue submission and command-state reporting; delayed status triggers resolve the current connection after the shared two-second delay.
-
-Inbound OCPP actions share `guarded_ocpp_handler`, preserving each action's fallback and the separate rejected reply for superseded DataTransfer sockets. Start rechecks socket ownership after allocating its transaction ID. Handler exceptions carry tracebacks except for authorization/transaction actions, whose existing payload-free logging protects RFID identifiers. Configuration groups share a fetch helper while applying operational keys before the informational request; a separate logging helper retains redacted configuration details and unknown-key reporting inside the request’s error boundary; socket closes share the bounded close helper without moving ownership release.
-
-Diagnostics are assembled by section builders in `diagnostics.py`. They preserve the unloaded-entry shape, configuration redaction and the existing OCPP/session redaction boundaries; snapshots cover unloaded, empty, active and completed entries.
-
-Broad exception handlers document the boundary they protect: OCPP fallback replies, terminal command results, independent polling cycles, durable session delivery or resource cleanup. Keep specific transport and uncertain-outcome handling ahead of those fallbacks. The `BaseException` handlers perform cleanup or restore retryable state even on cancellation, then re-raise; they do not convert cancellation into a normal result. Preserve the existing payload-free logging at RFID-sensitive boundaries when changing error handling.
+Inbound actions share `guarded_ocpp_handler`, which checks socket ownership and
+returns each action's fallback reply on failure. Configuration groups are fetched
+by one helper; a separate logging helper redacts configuration values and reports
+unknown keys. Socket closes share one bounded close helper. Diagnostics are built
+by section builders in `diagnostics.py` with redaction at the configuration, OCPP
+and session boundaries. The rules for these paths are in the
+[invariants](invariants.md#ocpp-handlers-and-logging).
 
 ## Charger write queue
 
-Each runtime creates one `runtime/charger_write_queue.py::ChargerWriteQueue`.
-Admission validates the command before `_new_write_item` captures monotonic expiry and creates its completion handle. `_replace_pending_intent` resolves only unsent matching entries before the new item is inserted with the existing priority order.
-The processor delegates connection waiting, rate-limit waiting, active execution and failure classification to `_await_connection`, `_await_rate_limit`, `_execute` and `_classify_failure`. A wait always returns to queue selection before removal, preserving replacement and priority behavior. Socket rebinding and the active marker retain their existing exception boundary; cancellation resolves the active command as uncertain and still propagates to shutdown.
+Each runtime creates one `ChargerWriteQueue`
+([ADR 0001](adr/0001-single-charger-write-owner.md)). Admission validates the
+command before `_new_write_item` captures monotonic expiry and creates its
+completion handle. `_replace_pending_intent` resolves only unsent entries with the
+same dedupe key before the new item is inserted in priority order.
+
+The processor delegates to `_await_connection`, `_await_rate_limit`, `_execute`
+and `_classify_failure`. After any wait it returns to queue selection before
+removing an item, so replacement and priority apply to waiting work too. Socket
+rebinding and the active marker share one exception boundary; cancellation
+resolves the active command as uncertain and still propagates to shutdown.
+
 The shared connection-change event wakes both the queue and configuration
 readback; the queue's idle event lets readback wait without owning the write
 processor. Intent replacement and cancellation touch only pending entries.
 Connection-bound commands are rebound to the current socket immediately before
-execution, and uncertain commands are never automatically replayed.
+execution, and uncertain commands are never replayed automatically
+([ADR 0002](adr/0002-no-automatic-replay-of-uncertain-commands.md)).
 
-Shutdown first closes queue admission and cancels active work, then resolves
-pending entries as unsent. Active work stays uncertain because it may already
-have reached OCPP. Every handle gets one terminal result, including late work
-during unload. Result models, policies and transport exceptions live in
-`runtime/write_results.py`.
+Result models, policies and transport exceptions live in
+`runtime/write_results.py`. Shutdown semantics are listed in the
+[invariants](invariants.md#commands-and-transactions).
 
-`ConfigurationDefinition` in `configuration/values.py` also owns entity options, normalized aliases and optional state parsers. The existing options/alias mappings remain ordered compatibility views; operational/informational request ordering and diagnostic serialization stay unchanged.
+## Configuration values and writes
 
-## Configuration write compatibility
+`ConfigurationDefinition` in `configuration/values.py` describes each Growatt key:
+entity options, normalized aliases and optional state parsers. Ordered
+options/alias mappings are derived from it. The module also declares the live
+configuration projections and the parser for paired times. Operational keys are
+requested before informational ones.
 
-`GrowattConfigurationWriteMixin` owns transport and acknowledgement primitives without adding entity attributes. `GrowattConfigurationControlMixin` adds the mode-aware pending-state projection used by newer controls. Its validation, encoding, accepted-state and optimistic-restore hooks let platform entities retain their existing policies. The only outgoing write owner remains `ChargerWriteQueue`; the mixin is called inside that queue's callbacks.
+Configuration entities write through the mixins in `configuration/controls.py`
+and `number.py`, always inside write-queue callbacks. Their per-entity rollback
+and readback behavior is deliberate and listed in
+[configuration write behavior per entity](invariants.md#configuration-write-behavior-per-entity).
 
-The existing differences are intentional during consolidation:
+## Session history
 
-| Entity | State and rollback behavior to preserve |
-| --- | --- |
-| Max current | Optimistic current; restore the last reported value only for the owning generation on rejection, unsent completion or unexpected failure; retain the requested value after uncertainty. Recheck model limits before sending. |
-| Load balancing limit | Same rollback protection; publish the acknowledged configuration and schedule readback before updating the numeric observation. |
-| Electricity price | Optimistic price with generation-safe rollback; retain the exact requested numeric value while encoding the two-decimal full-day tariff on the wire. |
-| Load balancing switch | Pending state comes from write tracking; acknowledge and schedule readback before updating the enabled observation. Unexpected failures propagate to the queue. |
-| LCD switch | Pending write tracking remains visible; update the LCD observation before the reported configuration, notify on rejection, and preserve the existing transport-only exception boundary. |
-| Working mode | An entity intent token protects selections across different configuration keys. Keep its own readback waiter and clear only the matching selection; uncertainty schedules that waiter's immediate readback. |
-| Auto Charge times | Two fields share the existing debounce and one queued snapshot. Restore pending fields only for an unsent owning generation; rejection and unexpected execution failure do not add a new rollback. The original HA calls return before the deferred command completes. |
-
-Characterization tests exercise all seven actual entities through the production queue across accepted, reboot-required, rejected, uncertain, unexpected, superseded and cancelled outcomes. Their notification order, wire payloads, public errors and final observations are retained in fixtures.
-
-Session history writes and retention remain in `sessions/csv.py`. `history_store.py` owns the single reentrant lock, atomic replacements and recovery journal; reads, writes, pruning and exports all use that same lock. `history_rows.py` owns stable headers and row normalization, `archive_summary.py` retains cumulative/entry-scoped totals, `history_views.py` builds bounded dashboard/detail projections, and `exports.py` owns CSV export plus short-lived downloads. The import graph runs from I/O to row/summary/view helpers without compatibility re-export modules. `runtime/session_history.py` attaches HA events and the unchanged 30-second capture interval to session telemetry.
+`sessions/csv.py` writes history rows and enforces retention. `history_store.py`
+owns the single reentrant lock, atomic replacements and the recovery journal;
+reads, writes, pruning and exports all use that lock. `history_rows.py` owns
+stable headers and row normalization, `archive_summary.py` keeps cumulative and
+entry-scoped totals, `history_views.py` builds bounded dashboard/detail
+projections, and `exports.py` owns CSV export and short-lived downloads.
+`runtime/session_history.py` attaches HA events and the 30-second capture interval
+to session telemetry.
 
 ## Time boundaries
 
-`timestamps.py` shares ISO parsing and installation-zone lookup. Explicit parser options preserve legacy differences: aware-only site observations, naive duration values, local-calendar CSV filtering and stripped curve timestamps. `coerce.py` provides optional number/text conversion; wrappers retain each boundary's finiteness, sign, size and error rules.
+See [ADR 0004](adr/0004-utc-at-presentation-boundary.md) for the reasoning.
+`timestamps.py` shares ISO parsing and installation-zone lookup. Explicit parser
+options cover the remaining differences between callers: aware-only site
+observations, naive duration values, local-calendar CSV filtering and stripped
+curve timestamps.
 
 Application timestamps sent to the cards, session-detail WebSocket and CSV
 exports are UTC ISO strings with `Z`. The frontend formats list dates, chart
@@ -259,22 +297,23 @@ axes, events and target notices in `hass.config.time_zone`; target input uses
 that same installation zone regardless of the browser's zone. The timestamp
 sensors for the last session also expose UTC strings.
 
-Growatt wire values, raw diagnostics and retained source CSV times remain as
+Growatt wire values, raw diagnostics and stored source CSV times stay as
 reported. UTC presentation is computed after session identity/correlation, so
-existing CSV rows, deduplication keys and session IDs are not rewritten. Existing
-naive local times are interpreted in HA's configured installation zone. A missing
-or ambiguous instant is shown as unknown; spring gaps and autumn folds never get
-a guessed offset. Export date filters still use installation-local calendar days.
+CSV rows, deduplication keys and session IDs are not rewritten. Naive local times
+are interpreted in HA's configured installation zone. A missing or ambiguous
+instant is shown as unknown; spring gaps and autumn folds never get a guessed
+offset. Export date filters use installation-local calendar days.
 
 Absolute one-time starts carry explicit offsets. Daily schedules keep their
-requested local clock plus zone, including the existing DST recurrence policy;
-Growatt reservation requests are encoded in device-local time at the wire
-boundary. The target dialog rejects nonexistent/ambiguous input times. Services
-can represent an autumn occurrence explicitly using an ISO timestamp with its
-offset. Newly completed session durations use resolved elapsed UTC instants.
+requested local clock plus zone, including the DST recurrence policy; Growatt
+reservation requests are encoded in device-local time at the wire boundary. The
+target dialog rejects nonexistent/ambiguous input times. Services can represent
+an autumn occurrence explicitly using an ISO timestamp with its offset. Session
+durations use resolved elapsed UTC instants.
 
 ## Persistent completion
 
+See [ADR 0006](adr/0006-checkpointed-session-outbox.md) for the reasoning.
 The coordinator checkpoint includes totals, the last 50 applied record identities,
 active-session state, accounting state and completed rows awaiting delivery.
 Up to ten completed OCPP snapshots retain identifiers, bounded events/curves and
@@ -289,33 +328,65 @@ contains the resulting rows and archive summary; recovery writes that result
 again rather than reapplying additions. Explicit session IDs deduplicate replay;
 a bounded set of 1,000 recent delivery identities also survives detail pruning.
 This protects recent completion retries, not arbitrary replay of an unlimited
-old stream. Legacy rows without an explicit identity keep their original
-migration semantics. Backups must include HA storage, CSV, summary and any
-pending journal together.
+old stream. Rows without an explicit identity keep their original migration
+semantics. Backups must include HA storage, CSV, summary and any pending journal
+together.
+
+## Typing
+
+TypeScript runs in strict mode. Known HA attributes have explicit types;
+unrelated attributes are `unknown`, and entity lookups can be absent. In the
+frontend, `SessionDetailStore` owns historical-detail requests and a bounded
+cache: it deduplicates concurrent loads, waits for an explicit retry after errors
+and invalidates pending replies when the configured entry changes or the card
+disconnects. Live/inline curves bypass historical detail.
+
+Python is checked with mypy in strict mode for the scope listed in
+`pyproject.toml`: coercion and time helpers, configuration, energy, charging,
+runtime, OCPP, target models and builders, all session modules, the coordinator
+and all six HA platforms. Integration setup, config flows, target execution,
+diagnostics and the remaining presentation helpers are not in this scope yet.
+Persisted target dictionaries remain a validated serialization boundary rather
+than a typed state machine.
+
+- Compile-only checks in `tests/typing/owner_contracts.py` verify that the
+  concrete coordinator satisfies the owner protocols. A minimal HA coordinator
+  stub keeps an unresolved framework base from hiding missing attributes; the
+  typed base is selected only for static checking.
+- HA platform stubs describe entity properties and the coordinator generic, so
+  the adapters are checked without importing HA at development time. Local
+  library stubs describe the `ocpp` subclass, routing and payload boundaries;
+  OCPP schema validation still owns wire validation.
+- Number acceptance and working-mode acceptance use separate hooks with required
+  domain values; the shared transport helper keeps the raw acknowledgement.
+- Charging commands declare transaction transport, completion callback and PV
+  service capabilities. RFID validation narrows identifiers only after validation
+  succeeds.
+- Queue clock/task host, completion callbacks and refresh transports are typed;
+  task factories preserve result types, and framework error helpers are declared
+  as always raising.
+- Restored opaque transaction identifiers stay valid observations next to integer
+  OCPP IDs; typing does not coerce them.
 
 ## Validation
 
 Python regression tests cover queues, ownership, targets, upgrades, source
 allocation, session recovery, interrupted retention, replay and Stop execution
-without entities. Frontend checks cover formatting, types, view-model behavior
-and all integration locales. Generated assets are committed and must rebuild
-without a diff. CI runs both suites.
+without entities. Contract fixtures in `tests/fixtures/` pin entity values,
+configuration writes, session storage, diagnostics and OCPP fallbacks; see
+[`tests/fixtures/README.md`](../tests/fixtures/README.md). Frontend checks cover
+formatting, types, view-model behavior and all integration locales. Generated
+assets are committed and must rebuild without a diff. CI runs both suites.
 
 The preview uses simulated data and never contacts a charger. Unit tests and
-preview checks do not replace testing on HA or real hardware. Existing target
-capture evidence remains limited to the firmware named in the reverse-engineering
-notes; budget enforcement remains experimental.
+preview checks do not replace testing on HA or real hardware. Target capture
+evidence is limited to the firmware named in the reverse-engineering notes;
+budget enforcement remains experimental.
 
-The three legacy Number controls execute writes through `ConfigurationNumberWriteMixin`. Number validation and encoding consume domain values; mode-aware control setters pass an already encoded wire string directly to the configuration mixin. Working-mode encoding returns a key/value pair through its explicitly named helper. Accepted Number hooks require the domain value explicitly. The load-limit hook retains its historical ordering: reported configuration, scheduled refresh, then mirror notification. Contract fixtures are checked against the pre-refactoring implementations; see `tests/fixtures/README.md`.
+## Safety and compatibility invariants
 
-Charging commands declare transaction transport, completion callback and PV service capabilities. RFID validation narrows identifiers only after the existing validation succeeds; diagnostics retain their identifier-free shape.
+Moved to [invariants](invariants.md).
 
-Runtime checks include the queue clock/task host, typed completion callbacks and refresh transports. Task factories preserve result types; framework error helpers declare that they always raise. Queue ordering, lifetime policies and completion ownership remain unchanged.
+## Configuration write compatibility
 
-The OCPP handler guard preserves each handler signature through its decorators. Local library stubs describe subclass, routing and payload-container boundaries; OCPP schema validation still owns wire validation. Compile-only checks connect the concrete charge point to configuration, transaction, PV Apply and refresh transports.
-
-The session lifecycle and telemetry are checked strictly, including pending completion records, observation callbacks and restore paths. Restored opaque transaction identifiers remain valid observations alongside integer OCPP IDs; typing does not coerce or replace them.
-
-The coordinator declares its observation fields and scheduled tasks explicitly. Its typed HA base is selected only for static checking, so runtime inheritance and test stand-ins remain unchanged.
-
-HA platform stubs describe the entity properties and coordinator generic used by these adapters without importing HA at development time. Number acceptance and working-mode acceptance use separate required-domain hooks; the shared transport helper retains raw configuration acknowledgement. This preserves the established per-entity write ordering while making each domain callback checkable.
+Moved to [configuration write behavior per entity](invariants.md#configuration-write-behavior-per-entity).

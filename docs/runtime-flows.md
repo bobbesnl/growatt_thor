@@ -111,7 +111,7 @@ not stop charging.
 
 The example is the maximum current. Other configuration entities differ in
 their rollback and readback details; see
-[configuration write compatibility](architecture.md#configuration-write-compatibility).
+[configuration write behavior per entity](invariants.md#configuration-write-behavior-per-entity).
 
 ```mermaid
 sequenceDiagram

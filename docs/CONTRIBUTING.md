@@ -11,8 +11,9 @@ An **entity** is HA's view/control of a value. The **coordinator** owns shared
 observations and the command queue; it is not proof that a requested change
 has happened on the device.
 
-Read [architecture reference](architecture.md) for layers, glossary, package responsibilities and invariants,
-and [runtime flows](runtime-flows.md) for Start, Stop, configuration writes and session completion.
+Read [architecture reference](architecture.md) for layers, glossary and package responsibilities,
+[runtime flows](runtime-flows.md) for Start, Stop, configuration writes and session completion,
+and [invariants](invariants.md) with their [decision records](adr/README.md) before changing behavior.
 Then follow one of these paths rather than reading the whole coordinator first:
 
 | To understand…                 | Read in this order                                                                                                                                                                                                                                                                                       | Relevant tests                                                                                                     |
@@ -123,7 +124,7 @@ Translation checks cover all eight languages and preserve format placeholders. `
 
 - Preserve existing behavior in structural refactorings. Identify behavior changes separately instead of silently including them in a cleanup.
 - Keep entity unique IDs and existing entity-ID schemes, service names, config-entry keys, storage keys, persisted strings and translation keys byte-identical. Use the existing contract fixtures to check these boundaries.
-- Before changing the write queue, Start/Stop, targets or OCPP handlers, read the [safety and compatibility invariants](architecture.md#safety-and-compatibility-invariants) and [automation resilience guide](automation-resilience.md). Keep the queue as the sole owner of outgoing charger writes.
+- Before changing the write queue, Start/Stop, targets or OCPP handlers, read the [safety and compatibility invariants](invariants.md) and [automation resilience guide](automation-resilience.md). Keep the queue as the sole owner of outgoing charger writes.
 - Use the [architecture map](architecture.md#responsibilities) to choose module owners. Keep domain imports acyclic and import the coordinator only for type checking where a capability protocol suffices.
 - When moving a module, migrate its real callers and tests. Retain a thin re-export only while callers still need the old path; do not add tests whose sole purpose is keeping an unused shim alive.
 - Preserve comments explaining races, firmware limits, clocks, uncertainty and rollback. Keep error-response and cancellation boundaries intact, including payload-free logging for RFID-sensitive handlers.
