@@ -38,6 +38,7 @@ from .configuration.values import (
     configuration_entity_state,
 )
 from .configuration.writes import ConfigurationWriteStatus
+from .const import CONFIGURATION_WRITE_SPACING_SECONDS
 from .entity import ThorEntity
 from .runtime.action_errors import (
     async_require_command_completion,
@@ -328,7 +329,7 @@ class WorkingModeSelect(GrowattConfigurationWriteMixin, ThorEntity, SelectEntity
         option: str,
         intent: int,
         *,
-        delay: float = 20.0,
+        delay: float = CONFIGURATION_WRITE_SPACING_SECONDS,
     ) -> None:
         """Confirm the effective mode through the shared, coalesced readback."""
         try:

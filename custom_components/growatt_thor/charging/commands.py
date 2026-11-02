@@ -320,7 +320,3 @@ class StartChargingCommand:
         except Exception as exc:
             # A failed follow-up read must not escape this background task.
             _LOGGER.error("Failed to trigger status after start: %s", exc, exc_info=True)
-
-
-# Compatibility for older internal imports.
-_command_state = command_state

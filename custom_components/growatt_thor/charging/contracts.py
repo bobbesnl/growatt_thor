@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping, MutableMapping
 from typing import TYPE_CHECKING, Any, Protocol
 
+from ..const import CONFIGURATION_WRITE_SPACING_SECONDS
+
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
@@ -68,7 +70,9 @@ class PvApplyOwner(Protocol):
 
     def record_pv_linkage_apply_result(self, result: PvLinkageApplyResult) -> None: ...
 
-    def schedule_configuration_refresh(self, *, delay: float = 20.0) -> object: ...
+    def schedule_configuration_refresh(
+        self, *, delay: float = CONFIGURATION_WRITE_SPACING_SECONDS
+    ) -> object: ...
 
     def mark_pv_linkage_draft_applied(self, expected_draft: PvLinkageDraft) -> bool: ...
 

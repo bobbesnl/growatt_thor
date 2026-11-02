@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import MutableMapping
 from typing import TYPE_CHECKING, Any, Protocol
 
+from ..const import CONFIGURATION_WRITE_SPACING_SECONDS
+
 if TYPE_CHECKING:
     from ..charging.control_capabilities import ChargingControl
     from ..runtime.write_results import ChargerCommandHandle
@@ -43,6 +45,8 @@ class ConfigurationWriteOwner(Protocol):
         result: str | None = None,
     ) -> bool: ...
 
-    def schedule_configuration_refresh(self, *, delay: float = 20.0) -> object: ...
+    def schedule_configuration_refresh(
+        self, *, delay: float = CONFIGURATION_WRITE_SPACING_SECONDS
+    ) -> object: ...
 
     async def queue_write(self, *args: Any, **kwargs: Any) -> ChargerCommandHandle: ...
