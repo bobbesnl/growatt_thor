@@ -482,60 +482,14 @@ class SessionLifecycle:
                 self.last_session = replace(self.last_session, record_key=dedup_key)
                 self.applied_session_record_keys.append(dedup_key)
 
-            start_str = record.start_time
-            end_str = record.end_time
-            zone = session_time_zone(coordinator)
-            started_at = utc_instant(start_str, zone)
-            ended_at = utc_instant(end_str, zone)
-            duration_minutes = (
-                round((ended_at - started_at).total_seconds() / 60, 1)
-                if started_at is not None and ended_at is not None and ended_at >= started_at
-                else None
+            duration_minutes, zone = self._record_timing(record)
+            session, matched, effective_minutes = self._correlate_record(
+                record, snapshot, completed_transaction
             )
-            session = build_unified_session(
-                completed_transaction,
-                meter_values=coordinator.last_meter_values,
-                session_records=(snapshot,),
-                charge_point_id=coordinator.charge_point_id,
-                source_instance_id=coordinator.source_instance_id,
-                time_zone=session_time_zone(coordinator),
-            )
-            matched = (
-                session is not None and session["correlation"]["status"] == CORRELATION_MATCHED
-            )
-            effective_minutes = (
-                self.pending_effective_charging_minutes.pop(
-                    str(record.transaction_id),
-                    None,
-                )
-                if matched
-                else None
-            )
-            # A late vendor record may belong to a different transaction.
-            # Keep its own identity; attaching the latest OCPP metadata would invent
-            # an RFID identifier, event history or accounting allocation for it.
-            if not matched:
-                session = build_unified_session(
-                    None,
-                    session_records=(snapshot,),
-                    charge_point_id=coordinator.charge_point_id,
-                    source_instance_id=coordinator.source_instance_id,
-                    time_zone=session_time_zone(coordinator),
-                )
             identity = cast(dict[str, Any], session)["identity"]
-            start_request = ((completed_transaction or {}).get("start") or {}).get("request") or {}
-            authorized_identifier = start_request.get("id_tag") if matched else None
-            events = merge_growatt_record_events(
-                (completed_transaction or {}).get("events", []) if matched else [],
-                plug_time=record.plug_time,
-                start_time=record.start_time,
-                end_time=record.end_time,
-                unplug_time=record.unplug_time,
-                time_zone=zone,
+            authorized_identifier, events = self._merge_record_events(
+                record, completed_transaction, matched, zone, identity
             )
-            if matched and isinstance(completed_transaction, dict):
-                completed_transaction["session_id"] = identity["session_id"]
-                completed_transaction["events"] = list(events)
 
             self._apply_last_session(record, identity, duration_minutes, effective_minutes)
 
@@ -551,28 +505,17 @@ class SessionLifecycle:
                 coordinator.total_energy_charged,
             )
 
-            # CSV logging via __init__.py helper
-            append_fn = coordinator.runtime_data.get(APPEND_SESSION_TO_CSV)
-            if append_fn:
-                session_row = self._session_row(
-                    record,
-                    completed_transaction,
-                    matched=matched,
-                    zone=zone,
-                    duration_minutes=duration_minutes,
-                    effective_minutes=effective_minutes,
-                    authorized_identifier=authorized_identifier,
-                    events=events,
-                    accounting=accounting,
-                )
-                self.outbox.enqueue(session_row)
-                coordinator.hass.async_create_task(self.async_flush_pending())
-                if (
-                    accounting is not None
-                    and coordinator.last_site_accounting is not None
-                    and coordinator.last_site_accounting.transaction_id == accounting.transaction_id
-                ):
-                    coordinator.last_site_accounting = None
+            self._store_record_row(
+                record,
+                completed_transaction,
+                matched=matched,
+                zone=zone,
+                duration_minutes=duration_minutes,
+                effective_minutes=effective_minutes,
+                authorized_identifier=authorized_identifier,
+                events=events,
+                accounting=accounting,
+            )
 
             if pending_completion is not None:
                 self.pending_completions.remove(pending_completion)
@@ -585,6 +528,120 @@ class SessionLifecycle:
                 record.message_id,
                 exc,
             )
+
+    def _store_record_row(
+        self,
+        record: GrowattSessionRecord,
+        completed_transaction: dict[str, Any] | None,
+        *,
+        matched: bool,
+        zone: str | tzinfo | None,
+        duration_minutes: float | None,
+        effective_minutes: float | None,
+        authorized_identifier: str | None,
+        events: list[dict[str, str]],
+        accounting: SessionAccumulator | None,
+    ) -> None:
+        coordinator = self.coordinator
+        # CSV logging via __init__.py helper
+        append_fn = coordinator.runtime_data.get(APPEND_SESSION_TO_CSV)
+        if append_fn:
+            session_row = self._session_row(
+                record,
+                completed_transaction,
+                matched=matched,
+                zone=zone,
+                duration_minutes=duration_minutes,
+                effective_minutes=effective_minutes,
+                authorized_identifier=authorized_identifier,
+                events=events,
+                accounting=accounting,
+            )
+            self.outbox.enqueue(session_row)
+            coordinator.hass.async_create_task(self.async_flush_pending())
+            if (
+                accounting is not None
+                and coordinator.last_site_accounting is not None
+                and coordinator.last_site_accounting.transaction_id == accounting.transaction_id
+            ):
+                coordinator.last_site_accounting = None
+
+    def _record_timing(
+        self, record: GrowattSessionRecord
+    ) -> tuple[float | None, str | tzinfo | None]:
+        coordinator = self.coordinator
+        start_str = record.start_time
+        end_str = record.end_time
+        zone = session_time_zone(coordinator)
+        started_at = utc_instant(start_str, zone)
+        ended_at = utc_instant(end_str, zone)
+        duration_minutes = (
+            round((ended_at - started_at).total_seconds() / 60, 1)
+            if started_at is not None and ended_at is not None and ended_at >= started_at
+            else None
+        )
+        return duration_minutes, zone
+
+    def _correlate_record(
+        self,
+        record: GrowattSessionRecord,
+        snapshot: dict[str, Any],
+        completed_transaction: dict[str, Any] | None,
+    ) -> tuple[dict[str, Any] | None, bool, float | None]:
+        coordinator = self.coordinator
+        session = build_unified_session(
+            completed_transaction,
+            meter_values=coordinator.last_meter_values,
+            session_records=(snapshot,),
+            charge_point_id=coordinator.charge_point_id,
+            source_instance_id=coordinator.source_instance_id,
+            time_zone=session_time_zone(coordinator),
+        )
+        matched = session is not None and session["correlation"]["status"] == CORRELATION_MATCHED
+        effective_minutes = (
+            self.pending_effective_charging_minutes.pop(
+                str(record.transaction_id),
+                None,
+            )
+            if matched
+            else None
+        )
+        # A late vendor record may belong to a different transaction.
+        # Keep its own identity; attaching the latest OCPP metadata would invent
+        # an RFID identifier, event history or accounting allocation for it.
+        if not matched:
+            session = build_unified_session(
+                None,
+                session_records=(snapshot,),
+                charge_point_id=coordinator.charge_point_id,
+                source_instance_id=coordinator.source_instance_id,
+                time_zone=session_time_zone(coordinator),
+            )
+        return session, matched, effective_minutes
+
+    def _merge_record_events(
+        self,
+        record: GrowattSessionRecord,
+        completed_transaction: dict[str, Any] | None,
+        matched: bool,
+        zone: str | tzinfo | None,
+        identity: dict[str, Any],
+    ) -> tuple[str | None, list[dict[str, str]]]:
+        start_request = ((completed_transaction or {}).get("start") or {}).get("request") or {}
+        authorized_identifier = start_request.get("id_tag") if matched else None
+        events = merge_growatt_record_events(
+            (completed_transaction or {}).get("events", []) if matched else [],
+            plug_time=record.plug_time,
+            start_time=record.start_time,
+            end_time=record.end_time,
+            unplug_time=record.unplug_time,
+            time_zone=zone,
+        )
+        if matched and isinstance(completed_transaction, dict):
+            completed_transaction["session_id"] = identity["session_id"]
+            completed_transaction["events"] = list(events)
+
+        return authorized_identifier, events
 
     def _match_pending_completion(
         self, snapshot: dict[str, Any]
