@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Fixed
 
 - Start the integration again on Home Assistant versions before 2026.8. The External Meter device update no longer uses a registry lookup that only exists in newer versions.
+- Show a field error instead of an unknown error when a very large polling interval is entered.
 
 ### Changed
 

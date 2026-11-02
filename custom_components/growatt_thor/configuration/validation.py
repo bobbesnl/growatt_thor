@@ -158,7 +158,9 @@ def validate_poll_interval(value: object, *, minimum: int) -> int:
             value,
             minimum=minimum,
         )
-    if numeric % 1 != 0:
+    # Without an upper bound, ``numeric % 1`` can exceed the decimal context
+    # precision and raise; comparing with the integral value cannot.
+    if numeric != numeric.to_integral_value():
         raise NumericValidationError(
             NumericValidationReason.STEP_MISMATCH,
             value,

@@ -110,6 +110,17 @@ class NumericValidationTest(unittest.TestCase):
                 with self.assertRaises(validation.NumericValidationError):
                     validation.validate_poll_interval(value, minimum=5)
 
+    def test_poll_interval_handles_values_beyond_decimal_precision(self):
+        # The interval has no upper bound. Huge values must neither raise a
+        # decimal error nor be rounded: 1e28 has more digits than the default
+        # decimal context, which made a remainder check fail.
+        self.assertEqual(validation.validate_poll_interval(1e28, minimum=5), 10**28)
+        self.assertEqual(validation.validate_poll_interval("1e40", minimum=5), 10**40)
+        with self.assertRaises(validation.NumericValidationError):
+            validation.validate_poll_interval("1e40.5", minimum=5)
+        with self.assertRaises(validation.NumericValidationError):
+            validation.validate_poll_interval("10000000000000000000000000000.5", minimum=5)
+
 
 class ExportDateRangeValidationTest(unittest.TestCase):
     """Keep malformed and reversed date ranges out of the executor job."""
