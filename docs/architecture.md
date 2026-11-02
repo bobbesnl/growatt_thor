@@ -12,36 +12,39 @@ the [invariants](invariants.md); the reasons behind them are recorded as
 
 ## Layers at a glance
 
-The code is easiest to read as four layers. Each layer may call the layer below
-it; information from the charger flows back up as observations.
+The code is easiest to read as four layers. Each layer may call the layers to
+its right; information from the charger flows back as observations.
 
 ```mermaid
-flowchart TB
+flowchart LR
   subgraph HA["Home Assistant adapters"]
+    direction TB
     Platforms["Entity platforms<br/>sensor.py, number.py, switch.py, select.py, time.py, button.py"]
     Flows["config_flow.py, diagnostics.py"]
     Services["runtime/service_setup.py, targets/services.py, sessions/websocket.py"]
     Card["presentation/ and frontend/src/"]
   end
   subgraph Owners["Runtime owners (one set per config entry)"]
+    direction TB
     Coordinator["coordinator.py: GrowattCoordinator"]
-    Queue["runtime/charger_write_queue.py: ChargerWriteQueue"]
     Lifecycle["sessions/runtime.py: SessionLifecycle"]
     Targets["targets/runtime.py: ChargingTargetRuntime"]
     Commands["charging/commands.py: Start/Stop commands"]
+    Queue["runtime/charger_write_queue.py: ChargerWriteQueue"]
   end
   subgraph Domain["Domain rules and models"]
+    direction TB
     Rules["energy/, configuration/, targets/model.py, charging rules,<br/>session models, history, timestamps.py, coerce.py"]
   end
   subgraph Adapter["OCPP adapter"]
+    direction TB
     Server["ocpp/server.py: GrowattChargePoint"]
     Support["ocpp/connection.py, requests.py, meter_samples.py, external_meter.py"]
   end
   HA --> Owners
   Owners --> Domain
-  Owners --> Adapter
-  Adapter -- "observations" --> Coordinator
   Queue -- "the only outbound charger writes" --> Server
+  Server -- "observations" --> Coordinator
 ```
 
 - **Home Assistant adapters** translate between HA concepts (entities, services,
