@@ -118,6 +118,18 @@ Translation checks cover all eight languages and preserve format placeholders. `
   [reverse-engineering notes](../reverse_engineering/README.md). Mark hypotheses as
   hypotheses and redact identifiers/credentials from examples.
 
+## Refactoring contracts
+
+- Preserve existing behavior in structural refactorings. Identify behavior changes separately instead of silently including them in a cleanup.
+- Keep entity unique IDs and existing entity-ID schemes, service names, config-entry keys, storage keys, persisted strings and translation keys byte-identical. Use the existing contract fixtures to check these boundaries.
+- Before changing the write queue, Start/Stop, targets or OCPP handlers, read the [safety and compatibility invariants](architecture.md#safety-and-compatibility-invariants) and [automation resilience guide](automation-resilience.md). Keep the queue as the sole owner of outgoing charger writes.
+- Use the [architecture map](architecture.md#responsibilities) to choose module owners. Keep domain imports acyclic and import the coordinator only for type checking where a capability protocol suffices.
+- When moving a module, migrate its real callers and tests. Retain a thin re-export only while callers still need the old path; do not add tests whose sole purpose is keeping an unused shim alive.
+- Preserve comments explaining races, firmware limits, clocks, uncertainty and rollback. Keep error-response and cancellation boundaries intact, including payload-free logging for RFID-sensitive handlers.
+- Make each refactoring task an independently revertible commit. Run the [local checks](#local-checks), including both test suites, mypy, Ruff and the frontend build, before committing it. Capture characterization fixtures before an extraction and check observable behavior rather than copying the new implementation into tests.
+- For frontend changes, include changed generated assets in the same commit as their sources. See the [build output list](../frontend/README.md#build-outputs-and-asset-provenance); do not edit bundles manually.
+- Update the architecture, contributor guide or frontend guide in the same commit when module names or responsibilities change. Keep local work plans and review reports out of commits unless explicitly requested.
+
 ## Where documentation belongs
 
 Keep `README.md` and `CHANGELOG.md` at the repository root. User guides,
