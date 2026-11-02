@@ -46,6 +46,14 @@ def async_register_target_services(hass: HomeAssistant) -> None:
 
         return handle
 
+    registrations = _target_service_registrations()
+    for name, schema, response_options in registrations:
+        hass.services.async_register(
+            DOMAIN, name, dispatch(name), schema=schema(), **response_options
+        )
+
+
+def _target_schemas() -> tuple[dict[Any, Any], dict[Any, Any], dict[Any, Any]]:
     target_schema = {
         vol.Optional("entry_id"): str,
         vol.Required("kind"): vol.In(["duration", "energy", "budget"]),
@@ -64,78 +72,71 @@ def async_register_target_services(hass: HomeAssistant) -> None:
         vol.Optional("entry_id"): str,
         vol.Optional("replace_request_id"): str,
     }
-    hass.services.async_register(
-        DOMAIN,
-        SERVICES[0],
-        dispatch(SERVICES[0]),
-        schema=vol.Schema(
-            {
-                **target_schema,
-                vol.Optional("start", default="now"): vol.In(["now", "once", "recurring"]),
-            }
+    return target_schema, confirmed_target_schema, prepared_target_schema
+
+
+def _target_service_registrations() -> tuple[
+    tuple[str, Callable[[], vol.Schema], dict[str, Any]], ...
+]:
+    target_schema, confirmed_target_schema, prepared_target_schema = _target_schemas()
+    return (
+        (
+            SERVICES[0],
+            lambda: vol.Schema(
+                {
+                    **target_schema,
+                    vol.Optional("start", default="now"): vol.In(["now", "once", "recurring"]),
+                }
+            ),
+            {"supports_response": SupportsResponse.ONLY},
         ),
-        supports_response=SupportsResponse.ONLY,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICES[1],
-        dispatch(SERVICES[1]),
-        schema=vol.Schema(confirmed_target_schema),
-        supports_response=SupportsResponse.ONLY,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICES[2],
-        dispatch(SERVICES[2]),
-        schema=vol.Schema(
-            {
-                vol.Optional("entry_id"): str,
-                vol.Required("confirm_native_target_reset"): vol.All(bool, vol.In([True])),
-            }
+        (
+            SERVICES[1],
+            lambda: vol.Schema(confirmed_target_schema),
+            {"supports_response": SupportsResponse.ONLY},
         ),
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICES[3],
-        dispatch(SERVICES[3]),
-        schema=vol.Schema(prepared_target_schema),
-        supports_response=SupportsResponse.ONLY,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICES[4],
-        dispatch(SERVICES[4]),
-        schema=vol.Schema({vol.Optional("entry_id"): str}),
-        supports_response=SupportsResponse.ONLY,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICES[5],
-        dispatch(SERVICES[5]),
-        schema=vol.Schema(prepared_target_schema),
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICES[6],
-        dispatch(SERVICES[6]),
-        schema=vol.Schema(
-            {
-                **prepared_target_schema,
-                vol.Required("entry_id"): str,
-                vol.Required("start_at"): str,
-                vol.Optional("recurrence", default="once"): vol.In(["once", "daily"]),
-            }
+        (
+            SERVICES[2],
+            lambda: vol.Schema(
+                {
+                    vol.Optional("entry_id"): str,
+                    vol.Required("confirm_native_target_reset"): vol.All(bool, vol.In([True])),
+                }
+            ),
+            {},
         ),
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICES[7],
-        dispatch(SERVICES[7]),
-        schema=vol.Schema(
-            {
-                vol.Optional("entry_id"): str,
-                vol.Required("request_id"): str,
-                vol.Required("confirm_cancel"): vol.All(bool, vol.In([True])),
-            }
+        (
+            SERVICES[3],
+            lambda: vol.Schema(prepared_target_schema),
+            {"supports_response": SupportsResponse.ONLY},
+        ),
+        (
+            SERVICES[4],
+            lambda: vol.Schema({vol.Optional("entry_id"): str}),
+            {"supports_response": SupportsResponse.ONLY},
+        ),
+        (SERVICES[5], lambda: vol.Schema(prepared_target_schema), {}),
+        (
+            SERVICES[6],
+            lambda: vol.Schema(
+                {
+                    **prepared_target_schema,
+                    vol.Required("entry_id"): str,
+                    vol.Required("start_at"): str,
+                    vol.Optional("recurrence", default="once"): vol.In(["once", "daily"]),
+                }
+            ),
+            {},
+        ),
+        (
+            SERVICES[7],
+            lambda: vol.Schema(
+                {
+                    vol.Optional("entry_id"): str,
+                    vol.Required("request_id"): str,
+                    vol.Required("confirm_cancel"): vol.All(bool, vol.In([True])),
+                }
+            ),
+            {},
         ),
     )

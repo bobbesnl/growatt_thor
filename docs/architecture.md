@@ -51,6 +51,8 @@ Live energy-source allocation lives in `energy/live_allocation.py`, using the pu
 
 `runtime/entry.py::EntryRuntime` declares the resources owned by one config entry. Setup publishes the same object on `entry.runtime_data`, the coordinator and the entry-scoped dispatch registry. Platforms read `entry.runtime_data.coordinator`; connection readers can use `coordinator.charge_point`. The mapping interface retains missing-key, callback and identity semantics for queue/dispatch ownership, with stable keys in `runtime/keys.py`. Release clears only the runtime still registered to that entry.
 
+`targets/services.py` keeps dispatch entry-scoped and declares service schemas and response support in a registration table. Shared target schema fragments are built separately; schema evaluation and registration retain their original order.
+
 `targets/requests.py` builds request records and bounded request history. `targets/charger_ops.py` contains the existing readiness checks and charger operations; these still run inside the target runtime's queue callbacks. `TargetState` and `AccountingProfile` enumerate the existing persisted strings without changing their spelling.
 
 `ChargingTargetRuntime` owns one entry's target storage, lock, busy state and
