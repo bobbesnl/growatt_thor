@@ -130,6 +130,10 @@ Translation checks cover all eight languages and preserve format placeholders. `
 - For frontend changes, include changed generated assets in the same commit as their sources. See the [build output list](../frontend/README.md#build-outputs-and-asset-provenance); do not edit bundles manually.
 - Update the architecture, contributor guide or frontend guide in the same commit when module names or responsibilities change. Keep local work plans and review reports out of commits unless explicitly requested.
 
+### Reading diagnostic logs
+
+Log wording and logger names can change during structural work. Inbound OCPP handler failures now use `Error in <action> handler`; authorization and transaction failures retain payload-free logging. Configuration debug messages use coordinator attribute names and parsed values, for example `Config: max_current = 16.0`. External-meter polling logs come from `custom_components.growatt_thor.runtime.polling`. The routine `Session appended to CSV` success message was removed; delivery failures still report that the checkpoint is retained for retry. Check the current implementation when matching logs rather than treating those messages as a stable API.
+
 ## Where documentation belongs
 
 Keep `README.md` and `CHANGELOG.md` at the repository root. User guides,

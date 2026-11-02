@@ -11,6 +11,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Fixed
 
 - Prevent artificial gaps in session charts when Home Assistant sensors report measurements within the same second.
+- Restore live session charts and correct extra spacing in the charging-target dialog.
+- Keep the chosen zoom level when updating a session chart.
+
+### Changed
+
+- Match form controls and scrollbars to dark cards.
+- Simplify internal code and strengthen checks to make future changes easier to maintain.
+- Standardize diagnostic logs for charger errors, setting changes and polling, and remove the routine CSV success message.
 
 ## 2.0.0-alpha.2 — 2026-10-30
 
