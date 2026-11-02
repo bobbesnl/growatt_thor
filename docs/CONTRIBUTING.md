@@ -86,6 +86,32 @@ A targeted run can use `python -m pytest tests/test_session_outbox.py -v`. CI
 measures line and branch coverage; run `python -m pytest --cov` for the same
 report locally.
 
+#### Tests against a real Home Assistant
+
+[`tests_ha/`](../tests_ha) sets up the integration in a real Home Assistant core
+with `pytest-homeassistant-custom-component`: the config and options flows,
+setup, unload and reload with the OCPP server on a local port, entity platforms
+and services. The unit suites replace `homeassistant` with stand-ins, so this
+suite needs its own environment. CI runs it twice:
+
+| Stack | Python | Home Assistant | ocpp | websockets |
+| --- | --- | --- | --- | --- |
+| `min` | 3.12 | 2024.12.0, the declared minimum | 2.0.0 | 13.1 |
+| `latest` | 3.14 | current release | newest 2.x | newest allowed |
+
+```sh
+python3.14 -m venv .local/ha-latest-venv
+.local/ha-latest-venv/bin/pip install -r tests_ha/requirements-latest.txt
+.local/ha-latest-venv/bin/python -m pytest -c tests_ha/pytest.ini --rootdir=. tests_ha
+```
+
+Use Python 3.12 and `requirements-min.txt` for the oldest stack. When a new Home
+Assistant release is out, update the `pytest-homeassistant-custom-component` and
+`home-assistant-frontend` pins in `requirements-latest.txt` together; the
+frontend version is the one in Home Assistant's `components/frontend/manifest.json`.
+Home Assistant core does not install `websockets` itself, while the OCPP server
+imports it, so both requirement files install it explicitly.
+
 To run the same Python and formatting checks before every commit, install the
 hooks once inside the development venv. They call the tools from the venv and
 `node_modules`, so their versions match CI:

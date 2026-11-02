@@ -17,7 +17,7 @@ rules:
     comment: Not every form field has a data_description yet.
   config-flow-test-coverage:
     status: todo
-    comment: Flows are tested with HA stand-ins, not against a real Home Assistant.
+    comment: Real Home Assistant tests cover the user step and the general options step; the other options steps are tested with stand-ins only.
   dependency-transparency: done
   docs-actions: done
   docs-conditions:

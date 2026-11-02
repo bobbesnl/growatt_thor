@@ -1,0 +1,7 @@
+# Newest stack: the current Home Assistant release on Python 3.14 with the newest
+# ocpp 2.x and websockets versions it allows. Update the two pins together.
+pytest-homeassistant-custom-component==0.13.375
+home-assistant-frontend==20260930.5
+ocpp>=2.0.0,<3
+# Home Assistant core does not install websockets itself; see docs/CONTRIBUTING.md.
+websockets>=15.0.1
