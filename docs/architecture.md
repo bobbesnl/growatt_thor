@@ -59,6 +59,12 @@ flowchart LR
   Inbound messages become coordinator observations; outbound requests are sent
   only from inside write-queue callbacks.
 
+[`tests/test_layer_boundaries.py`](../tests/test_layer_boundaries.py) checks
+this direction statically: platform modules and card projections are imported
+only by HA adapters, Home Assistant and the `ocpp` library are imported at runtime
+only by an explicit list of modules, the coordinator is imported at runtime only
+by entry setup, and the runtime import graph has no cycles.
+
 The [runtime flows](runtime-flows.md) show how a Start, a Stop, a configuration
 write and a completed session move through these layers.
 

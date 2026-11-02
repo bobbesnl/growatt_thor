@@ -19,3 +19,5 @@ jobs:
       - run: ruff format --check .
       - run: python -m mypy
       - run: python -m unittest discover -s tests -q
+      - name: Size budgets (warning only)
+        run: python scripts/check_size_budgets.py

@@ -82,6 +82,30 @@ Install the dependencies so those cases are not silently skipped. Ruff checks Py
 A targeted
 backend run can use `python -m unittest discover -s tests -p 'test_session_outbox.py' -v`.
 
+To run the same Python and formatting checks before every commit, install the
+hooks once inside the development venv. They call the tools from the venv and
+`node_modules`, so their versions match CI:
+
+```sh
+python -m pip install pre-commit
+pre-commit install
+pre-commit run --all-files
+```
+
+### Layer boundaries and size budgets
+
+[`tests/test_layer_boundaries.py`](../tests/test_layer_boundaries.py) enforces the
+[layer direction](architecture.md#layers-at-a-glance) without importing the
+integration. Its allowlists record which modules may import Home Assistant or the
+`ocpp` library at runtime and which modules may import runtime owners. When code
+moves, shrink the lists; an addition needs a reason in the commit message.
+
+`python scripts/check_size_budgets.py` lists Python and TypeScript files above
+600 lines and Python functions above 60 lines (limits in `pyproject.toml`). CI
+reports them as warnings and in the job summary. New code should stay within the
+budget; the existing overruns are candidates for later extraction, not a reason
+to split code in an unrelated change.
+
 ```sh
 npm ci
 npm run check

@@ -36,6 +36,8 @@ files = [
     "custom_components/growatt_thor/presentation/battery.py",
     "custom_components/growatt_thor/presentation/contracts.py",
     "tests/typing/owner_contracts.py",
+    "tests/test_layer_boundaries.py",
+    "scripts/",
     "custom_components/growatt_thor/targets/model.py",
     "custom_components/growatt_thor/targets/requests.py",
 ]
@@ -43,3 +45,10 @@ files = [
 [[tool.mypy.overrides]]
 module = ["homeassistant.*", "voluptuous", "voluptuous.*", "voluptuous_serialize", "ocpp.*"]
 ignore_missing_imports = true
+
+# Read by scripts/check_size_budgets.py. CI reports overruns as warnings.
+[tool.growatt_thor.size_budgets]
+max_file_lines = 600
+max_function_lines = 60
+python = ["custom_components"]
+typescript = ["frontend/src"]
