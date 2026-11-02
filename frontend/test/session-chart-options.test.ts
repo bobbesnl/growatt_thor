@@ -130,3 +130,27 @@ test('event adapter handles direct and batched zoom without accepting incomplete
   assert.deepEqual(legends, [{ Power: false, PV: true }]);
   assert.deepEqual(breaks, [['1000:2000', true]]);
 });
+
+test('empty zoom batches retain the valid range on the event itself', () => {
+  const events = new Map<string, (event: unknown) => void>();
+  const zooms: { start: number; end: number }[] = [];
+  bindSessionChartEvents(
+    { on: (name, callback) => events.set(name, callback) },
+    {
+      legend: () => {},
+      axisBreak: () => {},
+      zoom: (range) => zooms.push(range),
+    },
+  );
+  const zoom = events.get('datazoom')!;
+  zoom({ batch: [], start: 30, end: 70 });
+  zoom({ batch: [undefined], start: 40, end: 80 });
+  zoom({ batch: [], start: 20 });
+  zoom({ batch: [], start: NaN, end: 90 });
+  zoom({ batch: [{ start: 50, end: 60 }], start: 0, end: 100 });
+  assert.deepEqual(zooms, [
+    { start: 30, end: 70 },
+    { start: 40, end: 80 },
+    { start: 50, end: 60 },
+  ]);
+});

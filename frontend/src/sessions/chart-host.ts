@@ -65,7 +65,8 @@ export function bindSessionChartEvents(chart: ChartEvents, handlers: ChartEventH
   });
   chart.on('datazoom', (event) => {
     const data = record(event);
-    const range = record(Array.isArray(data.batch) ? data.batch[0] : event);
+    // ECharts can send an empty batch while keeping the range on the event.
+    const range = record((Array.isArray(data.batch) && data.batch[0]) || event);
     if (
       typeof range.start === 'number' &&
       Number.isFinite(range.start) &&
