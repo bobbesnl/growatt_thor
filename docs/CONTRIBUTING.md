@@ -11,8 +11,9 @@ An **entity** is HA's view/control of a value. The **coordinator** owns shared
 observations and the command queue; it is not proof that a requested change
 has happened on the device.
 
-Read [architecture reference](architecture.md) for package responsibilities and invariants,
-then follow one of these paths rather than reading the whole coordinator first:
+Read [architecture reference](architecture.md) for layers, glossary, package responsibilities and invariants,
+and [runtime flows](runtime-flows.md) for Start, Stop, configuration writes and session completion.
+Then follow one of these paths rather than reading the whole coordinator first:
 
 | To understand…                 | Read in this order                                                                                                                                                                                                                                                                                       | Relevant tests                                                                                                     |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |

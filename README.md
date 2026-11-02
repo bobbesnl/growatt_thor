@@ -69,7 +69,8 @@ explanations. Start with installation, then follow the task you want to complete
 | Topic                                                            | Guide                                                            |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
 | Reading paths, glossary, local checks and comment conventions    | [Contributing](docs/CONTRIBUTING.md)                             |
-| Package boundaries, state ownership and persistence invariants   | [Architecture](docs/architecture.md)                             |
+| Layers, glossary, package boundaries and persistence invariants  | [Architecture](docs/architecture.md)                             |
+| Start, Stop, configuration writes and session completion step by step | [Runtime flows](docs/runtime-flows.md) |
 | Command outcomes, timeouts and reconnect scenarios               | [Automation resilience](docs/automation-resilience.md)           |
 | How source allocation and costs work, including their limits | [Site energy accounting](docs/site-energy-accounting.md)         |
 | Frontend layout, simulator, generated assets and translations    | [Frontend development](frontend/README.md)                       |

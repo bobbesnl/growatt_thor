@@ -8,6 +8,81 @@ move to per-entry storage with a one-time legacy migration; charging-target
 storage keeps its existing per-entry keys. The OCPP queue remains the only owner
 of outbound charger writes for each charger.
 
+## Layers at a glance
+
+The code is easiest to read as four layers. Each layer may call the layer below
+it; information from the charger flows back up as observations.
+
+```mermaid
+flowchart TB
+  subgraph HA["Home Assistant adapters"]
+    Platforms["Entity platforms<br/>sensor.py, number.py, switch.py, select.py, time.py, button.py"]
+    Flows["config_flow.py, diagnostics.py"]
+    Services["runtime/service_setup.py, targets/services.py, sessions/websocket.py"]
+    Card["presentation/ and frontend/src/"]
+  end
+  subgraph Owners["Runtime owners (one set per config entry)"]
+    Coordinator["coordinator.py: GrowattCoordinator"]
+    Queue["runtime/charger_write_queue.py: ChargerWriteQueue"]
+    Lifecycle["sessions/runtime.py: SessionLifecycle"]
+    Targets["targets/runtime.py: ChargingTargetRuntime"]
+    Commands["charging/commands.py: Start/Stop commands"]
+  end
+  subgraph Domain["Domain rules and models"]
+    Rules["energy/, configuration/, targets/model.py, charging rules,<br/>session models, history, timestamps.py, coerce.py"]
+  end
+  subgraph Adapter["OCPP adapter"]
+    Server["ocpp/server.py: GrowattChargePoint"]
+    Support["ocpp/connection.py, requests.py, meter_samples.py, external_meter.py"]
+  end
+  HA --> Owners
+  Owners --> Domain
+  Owners --> Adapter
+  Adapter -- "observations" --> Coordinator
+  Queue -- "the only outbound charger writes" --> Server
+```
+
+- **Home Assistant adapters** translate between HA concepts (entities, services,
+  config flows, WebSocket commands, the card) and the runtime owners. They hold no
+  charger state of their own beyond a pending user intent.
+- **Runtime owners** hold the mutable state of one config entry: the coordinator
+  and the objects it composes. They decide when something happens and in which
+  order.
+- **Domain rules and models** calculate, validate and normalize. Most of these
+  modules have no Home Assistant or OCPP dependency and are tested directly.
+- **The OCPP adapter** speaks OCPP 1.6 and the Growatt `DataTransfer` extensions.
+  Inbound messages become coordinator observations; outbound requests are sent
+  only from inside write-queue callbacks.
+
+The [runtime flows](runtime-flows.md) show how a Start, a Stop, a configuration
+write and a completed session move through these layers.
+
+## Glossary
+
+| Term | Meaning in this code base |
+| --- | --- |
+| Config entry | One configured charger in HA. Each entry owns its own coordinator, OCPP server, write queue and storage. |
+| Charge point | The connected THOR as seen through one WebSocket (`GrowattChargePoint`). A reconnect creates a new charge point object; only the current one may update the coordinator. |
+| Coordinator | `GrowattCoordinator`: per-entry composition root holding observations and delegating to the owners below. Not a proof that the charger applied anything. |
+| Observation | A value the charger or a configured HA sensor reported, with its own freshness. Missing or stale observations stay unknown and are never replaced by zero. |
+| Command / intent | A requested change, such as Start or 16 A. It becomes a write-queue item with a policy, an optional dedupe key and a revalidation check. |
+| Write queue | `ChargerWriteQueue`: the single owner of outbound charger writes per entry. It orders, spaces, expires, replaces and revalidates commands. |
+| Command result | Terminal outcome of one queued command: `confirmed`, `failed`, `skipped`, `expired` or `uncertain`. `uncertain` means the request may have reached the charger and is never replayed automatically. |
+| Generation | Version number of a configuration intent. Only the current generation may update the visible pending value or roll it back. |
+| Reported / pending value | Reported: the last value the charger returned. Pending: the latest requested value still waiting for its outcome. |
+| Readback | A `GetConfiguration` request after writes, coalesced into one task, that reconciles pending values with the charger. |
+| Transaction | An OCPP transaction between `StartTransaction` and `StopTransaction`, identified by the integration-allocated transaction ID. |
+| Growatt session record | The vendor `DataTransfer` messages `frozenrecord` and `currentrecord` with energy, cost and times of a charging session. |
+| Session | The completed charging session shown in history. It combines the OCPP transaction, a matching Growatt record and accounting under one session identity. |
+| Correlation | Matching a Growatt record to the completed OCPP transaction it belongs to, using identifiers, times and energy. |
+| Pending completion | A stopped transaction snapshot (at most ten) retained until its Growatt record arrives. |
+| Outbox / checkpoint | The durable hand-off of completed session rows: HA storage is saved before and after each CSV append, so delivery can be retried after a crash. |
+| Native target | An energy, duration or (experimental) budget limit that the wallbox enforces itself. A one-time start can be a wallbox reservation; only the daily repeat schedule is stored and run by HA. |
+| Site accounting | Allocation of charged energy to grid, PV and battery sources from site observations, with an explicit booking rule. |
+| Stop guard | Optional rule that stops the current transaction through the normal Stop command when battery discharge or grid import persists. It never restarts charging. |
+| PV Linkage draft | Local, unsent PV settings in HA. Apply writes them as one compound operation through the queue. |
+| Projection | A bounded, read-only view for the card or diagnostics (`presentation/`), derived from observations without changing them. |
+
 ## Responsibilities
 
 Python domain packages live below `custom_components/growatt_thor/`. HA platform
