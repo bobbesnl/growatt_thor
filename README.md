@@ -195,7 +195,7 @@ Use Python 3.12 and install the complete test requirements before running the su
 python3.12 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r tests/requirements-auth.txt
-python -m unittest discover -s tests -q
+python -m pytest
 ```
 
 The Python GitHub Actions workflow runs the same suite on pushes and pull requests.

@@ -1,6 +1,9 @@
-# Test dependencies for OCPP, validation and form serialization (no HA required).
+# Test dependencies for OCPP, validation, form serialization and the pytest
+# runner with coverage (no HA required).
 ocpp>=2.0.0,<3
 websockets>=12,<14
 voluptuous>=0.13
 voluptuous-serialize>=2.6.0
 mypy==2.4.1
+pytest==9.2.0
+pytest-cov==7.1.0

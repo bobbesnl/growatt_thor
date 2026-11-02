@@ -46,6 +46,19 @@ files = [
 module = ["homeassistant.*", "voluptuous", "voluptuous.*", "voluptuous_serialize", "ocpp.*"]
 ignore_missing_imports = true
 
+[tool.pytest.ini_options]
+# pytest is the runner; the suites stay unittest-style and also run with
+# `python -m unittest discover -s tests`.
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["custom_components/growatt_thor"]
+branch = true
+
+[tool.coverage.report]
+skip_covered = true
+
 # Read by scripts/check_size_budgets.py. CI reports overruns as warnings.
 [tool.growatt_thor.size_budgets]
 max_file_lines = 600

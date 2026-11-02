@@ -71,16 +71,20 @@ python -m pip install -r tests/requirements-auth.txt ruff==0.17.3
 ruff check .
 ruff format --check .
 python -m mypy
-python -m unittest discover -s tests -q
+python -m pytest
 ```
 
 Despite its historical name, `requirements-auth.txt` supplies the OCPP and schema
-dependencies used by several regression suites and the pinned mypy checker. Many tests load focused modules
+dependencies used by several regression suites, the pinned mypy checker and the
+pytest runner. Many tests load focused modules
 with small HA fakes; they exercise contracts without launching Home Assistant. Shared fixtures live in `tests/support`: `install_ha_stubs`, `load_package_module`, `FakeHass`, `MemoryStore` and `build_coordinator`. The loader skips protocol-dependent cases when optional test dependencies are unavailable and avoids running integration setup for focused modules. Keep explicit test namespaces only where module-global patches require isolation; extend shared fixtures instead of copying bootstrap or storage code.
 Install the dependencies so those cases are not silently skipped. Ruff checks Python style and import hygiene with a 100-character line length and Python 3.12 syntax; `ruff format custom_components tests` applies the formatter. Enum and type-alias modernizations remain excluded because their runtime representation can change. Tests import shared fixtures through `tests.support` rather than importing another test module. `python -m unittest tests.test_time_contract` is supported as an isolated run.
 
-A targeted
-backend run can use `python -m unittest discover -s tests -p 'test_session_outbox.py' -v`.
+pytest is only the runner: the suites are written with `unittest` and still run
+with `python -m unittest discover -s tests -q`. Add new tests in the same style.
+A targeted run can use `python -m pytest tests/test_session_outbox.py -v`. CI
+measures line and branch coverage; run `python -m pytest --cov` for the same
+report locally.
 
 To run the same Python and formatting checks before every commit, install the
 hooks once inside the development venv. They call the tools from the venv and

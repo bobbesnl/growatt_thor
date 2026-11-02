@@ -18,6 +18,8 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: python -m mypy
-      - run: python -m unittest discover -s tests -q
+      - name: Tests with coverage
+        run: |
+          python -m pytest --cov --cov-report=term --cov-report=markdown-append:"$GITHUB_STEP_SUMMARY"
       - name: Size budgets (warning only)
         run: python scripts/check_size_budgets.py
