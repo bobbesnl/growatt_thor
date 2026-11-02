@@ -1,0 +1,114 @@
+# Home Assistant Integration Quality Scale checklist:
+# https://developers.home-assistant.io/docs/core/integration-quality-scale/
+# hassfest validates this file only for core integrations. It follows the core
+# schema (every rule listed; "exempt" needs a comment) and is a living
+# checklist for this custom integration. Update it in the change that affects
+# a rule.
+rules:
+  # Bronze
+  action-setup: done
+  appropriate-polling:
+    status: done
+    comment: Charger data is pushed over OCPP; only the external meter is polled, at a user-configurable interval.
+  brands: done
+  common-modules: done
+  config-flow:
+    status: todo
+    comment: Not every form field has a data_description yet.
+  config-flow-test-coverage:
+    status: todo
+    comment: Flows are tested with HA stand-ins, not against a real Home Assistant.
+  dependency-transparency: done
+  docs-actions: done
+  docs-conditions:
+    status: exempt
+    comment: The integration provides no conditions.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions:
+    status: todo
+    comment: The installation guide has no removal section.
+  docs-triggers:
+    status: exempt
+    comment: The integration provides no triggers.
+  entity-event-setup: done
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data:
+    status: todo
+    comment: Runtime state is also indexed in hass.data[DOMAIN] to enforce single ownership of a charger across entries.
+  test-before-configure:
+    status: exempt
+    comment: The charger connects to the integration's OCPP server, so there is no device to reach while configuring; the flow checks the listening port instead.
+  test-before-setup: done
+  unique-config-entry: done
+
+  # Silver
+  action-exceptions: done
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable:
+    status: todo
+    comment: Disconnects are logged; check the rule's once-per-outage logging for reconnects and external-meter outages.
+  parallel-updates:
+    status: todo
+    comment: Charger writes are serialized by the write queue, but the platforms do not declare PARALLEL_UPDATES.
+  reauthentication-flow:
+    status: exempt
+    comment: The local OCPP connection uses no credentials.
+  test-coverage:
+    status: todo
+    comment: Coverage is not measured yet.
+
+  # Gold
+  devices: done
+  diagnostics: done
+  discovery:
+    status: exempt
+    comment: The charger is configured with the server address and connects on its own; it cannot be discovered.
+  discovery-update-info:
+    status: exempt
+    comment: No discovery.
+  docs-data-update:
+    status: todo
+    comment: Push and polling behavior is described only per setting.
+  docs-examples: done
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases: done
+  dynamic-devices:
+    status: exempt
+    comment: Each config entry owns one charger and its fixed sub-devices.
+  entity-category: done
+  entity-device-class: done
+  entity-disabled-by-default: done
+  entity-translations: done
+  exception-translations:
+    status: todo
+    comment: Charging-target services still raise HomeAssistantError with untranslated reason keys.
+  icon-translations:
+    status: todo
+    comment: There is no icons.json.
+  reconfiguration-flow:
+    status: todo
+    comment: Settings change through the options flow.
+  repair-issues:
+    status: todo
+    comment: No repair issues are raised yet.
+  stale-devices:
+    status: todo
+    comment: Check whether the external meter device should be removed when the meter is no longer configured.
+
+  # Platinum
+  async-dependency: done
+  inject-websession:
+    status: exempt
+    comment: The integration makes no HTTP requests; it runs an OCPP WebSocket server.
+  strict-typing:
+    status: todo
+    comment: Strict mypy covers most modules; config_flow, diagnostics and entry setup are not yet in scope.

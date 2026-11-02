@@ -6,7 +6,7 @@ Read the [known firmware limitations](troubleshooting.md#known-firmware-limitati
 
 ## Before you start
 
-- Home Assistant (2024.4.1 or newer recommended)
+- Home Assistant 2024.12.0 or newer
 - HACS (Home Assistant Community Store) installed (minimum v1.34.0 but most latest version is recommended)
 - Working Growatt THOR EV Charger setup --> Fully configured to work with your (hybrid) inverter and with a working network connectivity to Growatt cloud (Shinephone app)
 - Network access between Home Assistant server and the charger

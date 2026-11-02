@@ -156,6 +156,24 @@ Translation checks cover all eight languages and preserve format placeholders. `
 - For frontend changes, include changed generated assets in the same commit as their sources. See the [build output list](../frontend/README.md#build-outputs-and-asset-provenance); do not edit bundles manually.
 - Update the architecture, contributor guide or frontend guide in the same commit when module names or responsibilities change. Keep local work plans and review reports out of commits unless explicitly requested.
 
+### Supported versions and deprecations
+
+- **Home Assistant 2024.12.0** is the minimum, declared in `hacs.json`. The
+  options flow relies on `OptionsFlow.config_entry`, which Home Assistant sets
+  itself from that release on. Raise the minimum only in a release that needs a
+  newer API, and update `hacs.json` and the installation guide together.
+- **`ocpp>=2.0.0,<3`** in `manifest.json` and `tests/requirements-auth.txt`. A new
+  major version of the library is adopted deliberately, not by an unattended
+  upgrade.
+- **Deprecations.** Entities, services, service fields and options are removed
+  at the earliest one minor release after they were deprecated. The release
+  that deprecates them says so in `CHANGELOG.md` and, where users must act,
+  raises a repair issue. Stable identifiers are never reused for a different
+  meaning.
+- [`quality_scale.yaml`](../custom_components/growatt_thor/quality_scale.yaml)
+  tracks the Home Assistant Integration Quality Scale rules. Update a rule's
+  status in the change that affects it.
+
 ### Reading diagnostic logs
 
 Log wording and logger names can change during structural work. Inbound OCPP handler failures now use `Error in <action> handler`; authorization and transaction failures retain payload-free logging. Configuration debug messages use coordinator attribute names and parsed values, for example `Config: max_current = 16.0`. External-meter polling logs come from `custom_components.growatt_thor.runtime.polling`. The routine `Session appended to CSV` success message was removed; delivery failures still report that the checkpoint is retained for retry. Check the current implementation when matching logs rather than treating those messages as a stable API.
