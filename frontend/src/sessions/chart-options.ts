@@ -215,7 +215,7 @@ export function buildSessionChartOption(
         zigzagMinSpan: 4,
         zigzagMaxSpan: 10,
         itemStyle: {
-          color: dark ? 'rgba(24,33,29,.88)' : 'rgba(255,255,255,.9)',
+          color: palette.breakArea,
           borderColor: palette.muted,
           borderWidth: 1,
           opacity: 0.9,

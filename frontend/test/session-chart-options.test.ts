@@ -90,11 +90,13 @@ test('event labels retain fade state and mobile and reduced-motion behavior', ()
   const model = fixture();
   const option = buildSessionChartOption(model, chartPalette(false), 900);
   assert.equal(option.series[0].markLine?.data[0].label.opacity, 0);
+  assert.equal(option.xAxis.breakArea.itemStyle.color, 'rgba(255,255,255,.9)');
   assert.equal(buildSessionEventMarkLine(model, 1)?.data[0].label.opacity, 1);
   assert.equal(option.series[1].markLine, undefined);
   const mobile = { ...model, compact: true, eventLayerVisible: false, reducedMotion: true };
   const compact = buildSessionChartOption(mobile, chartPalette(true), 390);
   assert.equal(compact.animation, false);
+  assert.equal(compact.xAxis.breakArea.itemStyle.color, 'rgba(24,33,29,.88)');
   assert.equal(compact.grid.top, 24);
   assert.equal(compact.series[0].markLine, undefined);
   assert.equal(compact.legend.data.includes('Events'), false);

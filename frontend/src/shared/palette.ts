@@ -30,6 +30,7 @@ const light = {
   'chart-shadow-line': '#9ba89f',
   'chart-shadow-area': '#dce4da',
   'chart-area': 'rgba(139,197,63,.20)',
+  'chart-break-area': 'rgba(255,255,255,.9)',
 } as const;
 const dark: Record<keyof typeof light, string> = {
   ink: '#eff4ed',
@@ -62,6 +63,7 @@ const dark: Record<keyof typeof light, string> = {
   'chart-shadow-line': '#738078',
   'chart-shadow-area': '#3b4840',
   'chart-area': 'rgba(139,197,63,.16)',
+  'chart-break-area': 'rgba(24,33,29,.88)',
 };
 
 function themePalette(isDark: boolean): Record<keyof typeof light, string> {
@@ -97,5 +99,6 @@ export function chartPalette(isDark: boolean) {
     panel: tokens.panel,
     surface: tokens.surface,
     area: tokens['chart-area'],
+    breakArea: tokens['chart-break-area'],
   };
 }
