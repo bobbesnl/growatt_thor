@@ -670,32 +670,7 @@ class GrowattChargePoint(OcppChargePoint):
 
             all_config_keys = config_keys_1 + config_keys_2
             all_unknown_keys = normalize_unknown_configuration_keys(unknown_keys_1 + unknown_keys_2)
-            _LOGGER.info(
-                "Total received: %d keys (%d unknown)",
-                len(all_config_keys),
-                len(all_unknown_keys),
-            )
-
-            for item in all_config_keys:
-                if not isinstance(item, dict):
-                    _LOGGER.debug(
-                        "Skipping unexpected configuration item type: %s",
-                        type(item).__name__,
-                    )
-                    continue
-
-                key = item.get("key")
-                value = item.get("value")
-                readonly = item.get("readonly")
-                _LOGGER.debug(
-                    "Config key: %s = %s (readonly=%s)",
-                    key,
-                    redact_configuration_value(key, value),
-                    readonly,
-                )
-
-            if all_unknown_keys:
-                _LOGGER.info("Unknown keys: %s", ", ".join(str(k) for k in all_unknown_keys))
+            self._log_configuration_values(all_config_keys, all_unknown_keys)
 
             if all_config_keys or all_unknown_keys:
                 # The first group was already applied above; process only the
@@ -723,6 +698,36 @@ class GrowattChargePoint(OcppChargePoint):
         except Exception as exc:
             _LOGGER.warning("Failed to trigger GetConfiguration: %s", exc)
             return False
+
+    def _log_configuration_values(
+        self, all_config_keys: Sequence[object], all_unknown_keys: Sequence[str]
+    ) -> None:
+        _LOGGER.info(
+            "Total received: %d keys (%d unknown)",
+            len(all_config_keys),
+            len(all_unknown_keys),
+        )
+
+        for item in all_config_keys:
+            if not isinstance(item, dict):
+                _LOGGER.debug(
+                    "Skipping unexpected configuration item type: %s",
+                    type(item).__name__,
+                )
+                continue
+
+            key = item.get("key")
+            value = item.get("value")
+            readonly = item.get("readonly")
+            _LOGGER.debug(
+                "Config key: %s = %s (readonly=%s)",
+                key,
+                redact_configuration_value(key, value),
+                readonly,
+            )
+
+        if all_unknown_keys:
+            _LOGGER.info("Unknown keys: %s", ", ".join(str(k) for k in all_unknown_keys))
 
     # ChangeConfiguration
 
