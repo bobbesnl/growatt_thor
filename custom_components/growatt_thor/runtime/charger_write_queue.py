@@ -158,6 +158,73 @@ class ChargerWriteQueue:
         if (configuration_key is None) != (configuration_generation is None):
             raise ValueError("Configuration key and generation must be queued together")
 
+        write_item, handle = self._new_write_item(
+            write_func,
+            args,
+            kwargs,
+            dedupe_key=dedupe_key,
+            priority=priority,
+            rate_limited=rate_limited,
+            command_name=command_name,
+            requires_connection=requires_connection,
+            configuration_key=configuration_key,
+            configuration_generation=configuration_generation,
+            policy=policy,
+            revalidate=revalidate,
+            on_unsent=on_unsent,
+        )
+
+        if self._closing:
+            # A late background callback can race integration unload.  Return
+            # a normal, already resolved handle instead of creating an orphan
+            # Future or silently accepting work that can never execute.
+            self._finish_unsent_write(
+                write_item,
+                ChargerWriteResult.skipped("integration_unloaded"),
+            )
+            return handle
+
+        self._replace_pending_intent(dedupe_key)
+
+        if priority:
+            insert_at = next(
+                (index for index, item in enumerate(self._pending) if not item.priority),
+                len(self._pending),
+            )
+            self._pending.insert(insert_at, write_item)
+        else:
+            self._pending.append(write_item)
+
+        _LOGGER.debug(
+            "Queued %s [%s]. Queue size: %d",
+            write_item.command_name,
+            write_item.command_id,
+            len(self._pending),
+        )
+        self.idle.clear()
+        self._changed.set()
+
+        if self.task is None or self.task.done():
+            self.task = self.owner.hass.async_create_task(self._process_write_queue())
+        return handle
+
+    def _new_write_item(
+        self,
+        write_func: Callable[..., Awaitable[Any]],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        *,
+        dedupe_key: object | None,
+        priority: bool,
+        rate_limited: bool,
+        command_name: str | None,
+        requires_connection: bool,
+        configuration_key: str | None,
+        configuration_generation: int | None,
+        policy: ChargerWriteQueuePolicy,
+        revalidate: Callable[[], str | None] | None,
+        on_unsent: Callable[[ChargerWriteResult], None] | None,
+    ) -> tuple[ChargerWriteItem, ChargerCommandHandle]:
         # Queue lifetimes use the monotonic loop clock: correcting the wall clock
         # must not extend an old intent. UTC timestamps below are for diagnostics.
         enqueued_at = self.owner.hass.loop.time()
@@ -183,16 +250,9 @@ class ChargerWriteQueue:
             completion=handle._completion,
         )
 
-        if self._closing:
-            # A late background callback can race integration unload.  Return
-            # a normal, already resolved handle instead of creating an orphan
-            # Future or silently accepting work that can never execute.
-            self._finish_unsent_write(
-                write_item,
-                ChargerWriteResult.skipped("integration_unloaded"),
-            )
-            return handle
+        return write_item, handle
 
+    def _replace_pending_intent(self, dedupe_key: object | None) -> None:
         if dedupe_key is not None:
             retained_items: deque[ChargerWriteItem] = deque()
             for item in self._pending:
@@ -207,28 +267,6 @@ class ChargerWriteQueue:
                 else:
                     retained_items.append(item)
             self._pending = retained_items
-
-        if priority:
-            insert_at = next(
-                (index for index, item in enumerate(self._pending) if not item.priority),
-                len(self._pending),
-            )
-            self._pending.insert(insert_at, write_item)
-        else:
-            self._pending.append(write_item)
-
-        _LOGGER.debug(
-            "Queued %s [%s]. Queue size: %d",
-            write_item.command_name,
-            write_item.command_id,
-            len(self._pending),
-        )
-        self.idle.clear()
-        self._changed.set()
-
-        if self.task is None or self.task.done():
-            self.task = self.owner.hass.async_create_task(self._process_write_queue())
-        return handle
 
     async def _process_write_queue(self) -> None:
         """Process writes without losing them across a charger reconnect."""
