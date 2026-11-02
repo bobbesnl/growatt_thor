@@ -262,6 +262,7 @@ class ConfigurationNumberWriteMixin(GrowattConfigurationWriteMixin):
             self.coordinator.schedule_configuration_refresh(delay=0)
             return ChargerWriteResult.uncertain(str(exc))
         except Exception:
+            # Restore only the owning optimistic value and return a terminal failure to the queue.
             _LOGGER.exception("Failed to set %s", self._config_key)
             self._restore_optimistic(generation, previous=previous)
             return ChargerWriteResult.failed("unexpected_error")

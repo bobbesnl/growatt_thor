@@ -181,6 +181,7 @@ class StopChargingCommand:
             command_state(self.coordinator, "stop", "uncertain")
             return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
+            # Convert unexpected command failures to the existing terminal write result.
             command_state(self.coordinator, "stop", "error")
             _LOGGER.error("Failed to stop charging: %s", exc, exc_info=True)
             return ChargerWriteResult.failed("unexpected_error")
@@ -197,6 +198,7 @@ class StopChargingCommand:
             await charge_point.trigger_status()
             self.coordinator.async_set_updated_data(True)
         except Exception as exc:
+            # A failed follow-up read must not escape this background task.
             _LOGGER.error("Failed to trigger status after stop: %s", exc, exc_info=True)
 
 
@@ -299,6 +301,7 @@ class StartChargingCommand:
             command_state(self.coordinator, "start", "uncertain")
             return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
+            # Convert unexpected command failures to the existing terminal write result.
             command_state(self.coordinator, "start", "error")
             _LOGGER.error("Failed to start charging: %s", exc, exc_info=True)
             return ChargerWriteResult.failed("unexpected_error")
@@ -315,6 +318,7 @@ class StartChargingCommand:
             await charge_point.trigger_status()
             self.coordinator.async_set_updated_data(True)
         except Exception as exc:
+            # A failed follow-up read must not escape this background task.
             _LOGGER.error("Failed to trigger status after start: %s", exc, exc_info=True)
 
 

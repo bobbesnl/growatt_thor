@@ -46,6 +46,7 @@ def async_setup_session_history(
             hass, capture, timedelta(seconds=SESSION_HISTORY_CAPTURE_INTERVAL_SECONDS)
         )
     except BaseException:
+        # Remove the listener if timer setup fails, including interruption, then propagate.
         unsubscribe()
         raise
 

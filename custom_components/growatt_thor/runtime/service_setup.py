@@ -181,6 +181,7 @@ def _export_sessions_handler(
         try:
             await operations.async_export(target_key, _export_and_notify)
         except Exception as exc:
+            # Translate export failures into the existing HA action error for the caller.
             _LOGGER.error("Session export failed: %s", exc, exc_info=True)
             raise_communication_error("session_export_failed")
 

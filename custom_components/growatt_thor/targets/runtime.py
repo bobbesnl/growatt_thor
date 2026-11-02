@@ -604,6 +604,7 @@ class ChargingTargetRuntime:
         try:
             await self.enqueue(execute_cancel, request["request_id"])
         except Exception:  # noqa: BLE001
+            # Release the busy flag and persist a sanitized queue failure for the caller.
             self._busy = False
             await self.persist({**request, "state": TargetState.QUEUE_FAILED})
             raise HomeAssistantError("target_queue_failed") from None

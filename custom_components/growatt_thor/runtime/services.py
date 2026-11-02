@@ -84,6 +84,7 @@ class IntegrationServiceOperations:
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                # Retain the failed refresh step for callers; cancellation propagates above.
                 raise ManualRefreshFailed(step) from exc
             if not completed:
                 # The request gate returns False when a user write appeared

@@ -117,4 +117,5 @@ class ExternalMeterPoller:
                     _LOGGER.debug("External meter poll skipped: charger not connected")
 
             except Exception as exc:
+                # Keep later poll cycles running after read failure; cancellation propagates.
                 _LOGGER.error("Smart poll crashed: %s", exc, exc_info=True)

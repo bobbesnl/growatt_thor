@@ -285,6 +285,7 @@ class WorkingModeSelect(GrowattConfigurationWriteMixin, ThorEntity, SelectEntity
                 self.coordinator.schedule_configuration_refresh(delay=0)
             return ChargerWriteResult.uncertain(str(exc))
         except Exception:
+            # Clear this intent's pending selection before the queue classifies the failure.
             self._clear_pending_option(option, intent)
             raise
         response = self._acknowledge_configuration_response(key, generation, result)

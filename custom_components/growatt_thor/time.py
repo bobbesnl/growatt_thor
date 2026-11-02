@@ -242,6 +242,7 @@ class BaseAutoChargeTime(GrowattConfigurationWriteMixin, ThorEntity, TimeEntity)
             self.coordinator.schedule_configuration_refresh(delay=0)
             return ChargerWriteResult.uncertain(str(exc))
         except Exception as exc:
+            # Return the existing terminal failure for unexpected schedule-write errors.
             _LOGGER.error("Failed to auto-apply schedule: %s", exc, exc_info=True)
             return ChargerWriteResult.failed("unexpected_error")
 

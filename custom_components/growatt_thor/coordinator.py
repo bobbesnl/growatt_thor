@@ -1333,6 +1333,7 @@ class GrowattCoordinator(_CoordinatorBase):
                 _LOGGER.warning("Failed to parse config key=%s value=%s: %s", key, raw, exc)
                 continue
             except Exception as exc:
+                # A failed projection must not discard the remaining configuration keys.
                 _LOGGER.error(
                     "Unexpected error processing config key=%s: %s",
                     key,

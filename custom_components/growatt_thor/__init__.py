@@ -241,6 +241,7 @@ async def _check_existing_connection(hass, coordinator):
             await charge_point.trigger_get_configuration()
             await charge_point.trigger_external_meterval()
         except Exception as exc:
+            # Startup read failures must not escape the background connection check.
             _LOGGER.debug("Could not fetch current data at startup: %s", exc)
 
 
@@ -314,6 +315,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ThorConfigEntry) -> bool
         server, bind_address, port = await _start_server(hass, entry, coordinator, runtime_data)
         poll_interval_schedule = runtime_data[POLL_INTERVAL_SCHEDULE]
     except BaseException:
+        # Release the claim even on setup cancellation, then propagate the interruption.
         # A failed setup must release its claim or every future retry would be
         # mistaken for an entry that is already loaded.  No server-owned tasks
         # exist yet when this path runs successfully through the cleanup
@@ -336,6 +338,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ThorConfigEntry) -> bool
         _migrate_external_meter_device(hass, entry)
     except Exception:
         startup_check_task.cancel()
+        # Release startup tasks, server and entry ownership before propagating setup failure.
         with suppress(asyncio.CancelledError):
             await startup_check_task
         server.close()

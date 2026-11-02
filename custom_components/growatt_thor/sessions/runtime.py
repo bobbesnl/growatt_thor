@@ -125,6 +125,7 @@ class SessionLifecycle:
         try:
             await self.outbox.flush(coordinator.async_save_storage, append_fn)
         except Exception:
+            # Leave failed deliveries in the durable outbox for a later retry.
             _LOGGER.exception("Session delivery deferred; checkpoint retained for retry")
 
     def active_session_state(self) -> ActiveSessionState | None:

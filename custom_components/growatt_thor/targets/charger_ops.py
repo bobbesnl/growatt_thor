@@ -114,6 +114,7 @@ class TargetChargerOperations:
                 suppress=False,
             )
         except Exception:
+            # Revoke the one-shot authorization grant before propagating any start failure.
             authorization.cancel_ha_remote_start()
             raise
         status = _response_status(result)

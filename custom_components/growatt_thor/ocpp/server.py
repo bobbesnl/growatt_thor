@@ -93,6 +93,7 @@ def guarded_ocpp_handler[HandlerResult](
                     self, *args, **kwargs
                 )
             except Exception:
+                # Inbound handlers must return their OCPP fallback even after unexpected failures.
                 # Authorization/transaction exceptions may contain RFID identifiers.
                 # Retain their existing payload-free logging contract.
                 _LOGGER.error("Error in %s handler", name, exc_info=not sensitive)
@@ -111,6 +112,7 @@ def _preload_ocpp_schemas() -> None:
         version = importlib.metadata.version("ocpp")
         _LOGGER.info("ocpp library version: %s", version)
     except Exception as exc:
+        # Optional package-version diagnostics must not block server startup.
         _LOGGER.warning("Could not determine ocpp library version: %s", exc)
 
     try:
@@ -125,11 +127,13 @@ def _preload_ocpp_schemas() -> None:
                     get_validator(message_type, action.value, "1.6")
                     count += 1
                 except Exception:
+                    # Skip unavailable validators so the remaining schemas can still preload.
                     pass
 
         _LOGGER.info("OCPP validator cache pre-loaded (%d validators)", count)
 
     except Exception as exc:
+        # Schema preloading is optional; its failure must not prevent server startup.
         _LOGGER.warning("OCPP schema pre-load failed (non-fatal): %s", exc)
 
 
@@ -252,6 +256,7 @@ class GrowattChargePoint(OcppChargePoint):
             else:
                 action = str(message_action)
         except Exception:
+            # Leave validation and protocol error replies to the OCPP router.
             action = "InvalidOCPPMessage"
 
         self._mark_activity(action)
@@ -346,6 +351,7 @@ class GrowattChargePoint(OcppChargePoint):
                 await self.trigger_boot_notification()
 
         except Exception as exc:
+            # Report initialization failure without escaping this background task.
             _LOGGER.warning("Post-connect init failed: %s", exc)
 
     # Transactions
@@ -526,6 +532,7 @@ class GrowattChargePoint(OcppChargePoint):
             )
             return result is not REQUEST_SKIPPED
         except Exception as exc:
+            # Report an unsuccessful status read through the existing boolean request contract.
             _LOGGER.warning("Failed to trigger StatusNotification: %s", exc)
             return False
 
@@ -541,6 +548,7 @@ class GrowattChargePoint(OcppChargePoint):
             )
             return True
         except Exception as exc:
+            # Report an unsuccessful boot read through the existing boolean request contract.
             _LOGGER.warning("Failed to trigger BootNotification: %s", exc)
             return False
 
@@ -562,10 +570,12 @@ class GrowattChargePoint(OcppChargePoint):
                         asyncio.shield(task), timeout=CONFIGURATION_REFRESH_WAIT_SECONDS
                     )
                 except BaseException:
+                    # Cancel/drain the shielded request on error or cancellation, then propagate.
                     task.cancel()
                     try:
                         await task
                     except (asyncio.CancelledError, Exception):
+                        # Draining must not replace the original request failure or cancellation.
                         pass
                     raise
 
@@ -614,6 +624,7 @@ class GrowattChargePoint(OcppChargePoint):
             return False
 
         except Exception as exc:
+            # Unexpected read failures return False after timeout and connection handling.
             _LOGGER.warning("Failed to trigger external meter values: %s", exc)
             return False
 
@@ -696,6 +707,7 @@ class GrowattChargePoint(OcppChargePoint):
             # shared reconnect semantics.
             raise
         except Exception as exc:
+            # Keep the existing failed-read result after handling timeout and transport loss.
             _LOGGER.warning("Failed to trigger GetConfiguration: %s", exc)
             return False
 
@@ -782,6 +794,7 @@ class GrowattChargePoint(OcppChargePoint):
             # ordinary charger rejection here.
             raise
         except Exception as exc:
+            # Preserve the rejection fallback; unsent and uncertain outcomes propagate above.
             _LOGGER.error(
                 "Failed to change configuration %s=%s: %s",
                 key,
@@ -826,6 +839,7 @@ class GrowattChargePoint(OcppChargePoint):
         except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain):
             raise
         except Exception as exc:
+            # Preserve the rejection fallback; unsent and uncertain outcomes propagate above.
             _LOGGER.error(
                 "Failed DataTransfer control %s/%s: %s",
                 vendor_id,
@@ -869,6 +883,7 @@ class GrowattChargePoint(OcppChargePoint):
             # StartTransaction is not incorrectly denied by local RFID policy.
             raise
         except Exception:
+            # Revoke the local grant on unexpected failure without logging RFID payloads.
             authorization.cancel_ha_remote_start()
             _LOGGER.error("Failed to send remote start transaction")
             return {"status": "Rejected"}
@@ -889,6 +904,7 @@ class GrowattChargePoint(OcppChargePoint):
         except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain):
             raise
         except Exception as exc:
+            # Preserve the rejection fallback; unsent and uncertain outcomes propagate above.
             _LOGGER.error("Failed to stop transaction: %s", exc, exc_info=True)
             return {"status": "Rejected"}
 
@@ -911,6 +927,7 @@ async def _close_websocket(
         if transport is not None:
             transport.close()
     except Exception as exc:
+        # A failed socket close must not disrupt the caller's connection cleanup.
         _LOGGER.debug("Failed to close %s connection for %s: %s", context, cp_id, exc)
 
 
@@ -981,6 +998,7 @@ async def _on_connect(
         ):
             _LOGGER.debug("Connection closed normally during startup - THOR disconnected")
         except Exception as exc:
+            # Log connection-loop failures before the ownership-aware disconnect cleanup.
             _LOGGER.error("Error in connection handler: %s", exc, exc_info=True)
         finally:
             if watchdog_task is not None:
@@ -1000,13 +1018,16 @@ async def _on_connect(
             try:
                 await asyncio.wait_for(websocket.close(), timeout=WEBSOCKET_CLOSE_TIMEOUT_SECONDS)
             except (TimeoutError, Exception):
+                # Socket-close failure must not escape the completed disconnect cleanup.
                 pass
 
     except Exception as exc:
+        # Contain setup failures within this connection handler and attempt to close its socket.
         _LOGGER.error("Error in connection handler: %s", exc, exc_info=True)
         try:
             await websocket.close()
         except Exception:
+            # A secondary close failure must not escape this connection failure boundary.
             pass
 
 
@@ -1029,5 +1050,6 @@ async def start_ocpp_server(
             ping_timeout=None,
         )
     except Exception as exc:
+        # Log server-start failures, then propagate them to entry-setup cleanup.
         _LOGGER.error("Failed to start OCPP server: %s", exc, exc_info=True)
         raise

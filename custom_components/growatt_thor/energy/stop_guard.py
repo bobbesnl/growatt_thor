@@ -223,5 +223,6 @@ class EnergyStopGuard:
             except asyncio.CancelledError:
                 raise
             except Exception:
+                # Keep the stop guard running after failure; cancellation propagates above.
                 _LOGGER.exception("Automatic charging stop failed; manual stop remains available")
             await asyncio.sleep(POLL_SECONDS)

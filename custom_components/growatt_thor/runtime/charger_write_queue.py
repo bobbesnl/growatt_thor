@@ -456,6 +456,7 @@ class ChargerWriteQueue:
             await self._classify_failure(write_item, err)
             raise
         except Exception as err:
+            # Classify every execution failure so command waiters receive a terminal result.
             await self._classify_failure(write_item, err)
         finally:
             self._active = None
@@ -679,6 +680,7 @@ class ChargerWriteQueue:
                 raise ValueError("Write revalidation must return a non-empty reason or None")
             return reason
         except Exception:
+            # A failing guard must block the write rather than authorize it.
             _LOGGER.exception(
                 "Write revalidation failed for %s",
                 write_item.command_name,
@@ -720,6 +722,7 @@ class ChargerWriteQueue:
             try:
                 on_unsent(result)
             except Exception:
+                # A failing entity cleanup must not prevent completion of this or later commands.
                 _LOGGER.exception(
                     "Unsent write cleanup failed for %s",
                     write_item.command_name,

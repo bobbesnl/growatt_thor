@@ -133,6 +133,8 @@ Inbound OCPP actions share `guarded_ocpp_handler`, preserving each action's fall
 
 Diagnostics are assembled by section builders in `diagnostics.py`. They preserve the unloaded-entry shape, configuration redaction and the existing OCPP/session redaction boundaries; snapshots cover unloaded, empty, active and completed entries.
 
+Broad exception handlers document the boundary they protect: OCPP fallback replies, terminal command results, independent polling cycles, durable session delivery or resource cleanup. Keep specific transport and uncertain-outcome handling ahead of those fallbacks. The `BaseException` handlers perform cleanup or restore retryable state even on cancellation, then re-raise; they do not convert cancellation into a normal result. Preserve the existing payload-free logging at RFID-sensitive boundaries when changing error handling.
+
 ## Charger write queue
 
 Each runtime creates one `runtime/charger_write_queue.py::ChargerWriteQueue`.
