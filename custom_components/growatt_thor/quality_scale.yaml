@@ -61,7 +61,7 @@ rules:
     comment: The local OCPP connection uses no credentials.
   test-coverage:
     status: todo
-    comment: Coverage is not measured yet.
+    comment: CI measures about 84 percent line and branch coverage for the unit suites; the rule asks for more than 95 percent.
 
   # Gold
   devices: done
