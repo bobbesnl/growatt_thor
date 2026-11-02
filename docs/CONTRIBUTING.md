@@ -91,7 +91,12 @@ report locally.
 [`tests_ha/`](../tests_ha) sets up the integration in a real Home Assistant core
 with `pytest-homeassistant-custom-component`: the config and options flows,
 setup, unload and reload with the OCPP server on a local port, entity platforms
-and services. The unit suites replace `homeassistant` with stand-ins, so this
+and services. [`tests_ha/simulator.py`](../tests_ha/simulator.py) is an OCPP 1.6
+charge point that connects over a real WebSocket; the end-to-end scenarios use it
+for a full Start/MeterValues/Stop session, a rejected Remote Start, a reconnect
+during a transaction and a second charger that must not take over the entry.
+The simulator answers only the messages these scenarios need; it is no
+substitute for testing with a THOR. The unit suites replace `homeassistant` with stand-ins, so this
 suite needs its own environment. CI runs it twice:
 
 | Stack | Python | Home Assistant | ocpp | websockets |
