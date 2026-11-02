@@ -127,6 +127,8 @@ Start and Stop buttons delegate to `StartChargingCommand` and `StopChargingComma
 
 Inbound OCPP actions share `guarded_ocpp_handler`, preserving each action's fallback and the separate rejected reply for superseded DataTransfer sockets. Start rechecks socket ownership after allocating its transaction ID. Handler exceptions carry tracebacks except for authorization/transaction actions, whose existing payload-free logging protects RFID identifiers. Configuration groups share a fetch helper while applying operational keys before the informational request; socket closes share the bounded close helper without moving ownership release.
 
+Diagnostics are assembled by section builders in `diagnostics.py`. They preserve the unloaded-entry shape, configuration redaction and the existing OCPP/session redaction boundaries; snapshots cover unloaded, empty, active and completed entries.
+
 ## Charger write queue
 
 Each runtime creates one `runtime/charger_write_queue.py::ChargerWriteQueue`.

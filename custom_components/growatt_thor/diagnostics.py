@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -22,6 +22,9 @@ from .sessions.correlation import build_unified_session
 from .sessions.display_times import session_time_zone
 from .sessions.records import session_record_diagnostics
 
+if TYPE_CHECKING:
+    from .coordinator import GrowattCoordinator
+
 
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant,
@@ -31,50 +34,187 @@ async def async_get_config_entry_diagnostics(
     runtime_data = entry_runtime_data(hass.data.get(DOMAIN, {}), entry.entry_id)
     coordinator = runtime_data.get(COORDINATOR) if runtime_data else None
     if coordinator is None:
-        return {
-            "ocpp": {
-                "boot_notification": None,
-                "last_status_notification": None,
-                "last_meter_values": None,
-                "transactions": {
-                    "active": None,
-                    "last_completed": None,
-                },
-            },
-            "configuration": {},
-            "configuration_writes": {},
-            "commands": {
-                "last_result": None,
-            },
-            "compound_writes": {
-                "pv_linkage": None,
-            },
-            "unknown_configuration_keys": [],
-            "growatt": {
-                "last_charger_fault": None,
-                "external_meter": {
-                    "health": "not_reported",
-                    "last_updated_at": None,
-                    "consecutive_timeouts": 0,
-                    "fault_connector_id": None,
-                    "fault_error_code": None,
-                    "fault_info": None,
-                },
-                "session_records": {
-                    "current": None,
-                    "frozen": None,
-                },
-            },
-            "sessions": {
-                "active": None,
-                "last_completed": None,
-            },
-        }
+        return _unloaded_diagnostics()
 
     session_records = (
         coordinator.last_current_record,
         coordinator.last_frozen_record,
     )
+    configuration_writes = _configuration_writes_section(coordinator)
+
+    active_transaction = (
+        dict(coordinator.active_transaction) if coordinator.active_transaction is not None else None
+    )
+    if active_transaction is not None:
+        active_transaction["effective_charging_duration_minutes"] = (
+            coordinator.effective_charging.effective_minutes
+        )
+
+    return {
+        "local_authorization": coordinator.authorization.diagnostics(),
+        "connection": _connection_section(coordinator),
+        "ocpp": _ocpp_section(coordinator, active_transaction),
+        "growatt": _growatt_section(coordinator),
+        "sessions": _sessions_section(coordinator, active_transaction, session_records),
+        "configuration": serialize_configuration_values(
+            coordinator.configuration_values,
+            redact=True,
+        ),
+        "configuration_writes": configuration_writes,
+        "commands": _commands_section(coordinator),
+        "compound_writes": _compound_writes_section(coordinator),
+        "unknown_configuration_keys": list(coordinator.unknown_configuration_keys),
+        "requested_configuration_keys": {
+            "operational": list(OPERATIONAL_CONFIGURATION_KEYS),
+            "informational": list(INFORMATIONAL_CONFIGURATION_KEYS),
+        },
+    }
+
+
+def _unloaded_diagnostics() -> dict[str, Any]:
+    return {
+        "ocpp": {
+            "boot_notification": None,
+            "last_status_notification": None,
+            "last_meter_values": None,
+            "transactions": {
+                "active": None,
+                "last_completed": None,
+            },
+        },
+        "configuration": {},
+        "configuration_writes": {},
+        "commands": {
+            "last_result": None,
+        },
+        "compound_writes": {
+            "pv_linkage": None,
+        },
+        "unknown_configuration_keys": [],
+        "growatt": {
+            "last_charger_fault": None,
+            "external_meter": {
+                "health": "not_reported",
+                "last_updated_at": None,
+                "consecutive_timeouts": 0,
+                "fault_connector_id": None,
+                "fault_error_code": None,
+                "fault_info": None,
+            },
+            "session_records": {
+                "current": None,
+                "frozen": None,
+            },
+        },
+        "sessions": {
+            "active": None,
+            "last_completed": None,
+        },
+    }
+
+
+def _connection_section(coordinator: GrowattCoordinator) -> dict[str, Any]:
+    return {
+        "connected": coordinator.connected,
+        "status": coordinator.status,
+        "connection_started_at": coordinator.connection_started_at,
+        "last_message_at": coordinator.last_message_at,
+        "last_message_action": coordinator.last_message_action,
+        "last_heartbeat_at": coordinator.last_heartbeat_at,
+    }
+
+
+def _ocpp_section(
+    coordinator: GrowattCoordinator, active_transaction: dict[str, Any] | None
+) -> dict[str, Any]:
+    return redact_ocpp_data(
+        {
+            "boot_notification": coordinator.boot_notification,
+            "last_status_notification": coordinator.last_status_notification,
+            "last_meter_values": coordinator.last_meter_values,
+            "transactions": {
+                "active": active_transaction,
+                "last_completed": coordinator.last_completed_transaction,
+            },
+        }
+    )
+
+
+def _growatt_section(coordinator: GrowattCoordinator) -> dict[str, Any]:
+    return {
+        "charging_target_request": coordinator.charging_target_request,
+        "last_charger_fault": (
+            coordinator.last_charger_fault.as_dict()
+            if coordinator.last_charger_fault is not None
+            else None
+        ),
+        "external_meter": {
+            "health": coordinator.external_meter.health,
+            "last_updated_at": coordinator.external_meter.last_updated_at,
+            "consecutive_timeouts": coordinator.external_meter.consecutive_timeouts,
+            "fault_connector_id": coordinator.external_meter.fault_connector_id,
+            "fault_error_code": coordinator.external_meter.fault_error_code,
+            "fault_info": coordinator.external_meter.fault_info,
+        },
+        "session_records": {
+            "current": session_record_diagnostics(coordinator.last_current_record),
+            "frozen": session_record_diagnostics(coordinator.last_frozen_record),
+        },
+    }
+
+
+def _sessions_section(
+    coordinator: GrowattCoordinator,
+    active_transaction: dict[str, Any] | None,
+    session_records: tuple[Any, Any],
+) -> dict[str, Any]:
+    return redact_ocpp_data(
+        {
+            "active": (
+                build_unified_session(
+                    active_transaction,
+                    meter_values=coordinator.last_meter_values,
+                    session_records=session_records,
+                    charge_point_id=coordinator.charge_point_id,
+                    source_instance_id=coordinator.source_instance_id,
+                    time_zone=session_time_zone(coordinator),
+                )
+                if coordinator.active_transaction is not None
+                else None
+            ),
+            "last_completed": build_unified_session(
+                coordinator.last_completed_transaction,
+                meter_values=coordinator.last_meter_values,
+                session_records=session_records,
+                charge_point_id=coordinator.charge_point_id,
+                source_instance_id=coordinator.source_instance_id,
+                time_zone=session_time_zone(coordinator),
+            ),
+        }
+    )
+
+
+def _commands_section(coordinator: GrowattCoordinator) -> dict[str, Any]:
+    return {
+        "last_result": (
+            coordinator.last_command_result.as_dict()
+            if coordinator.last_command_result is not None
+            else None
+        ),
+    }
+
+
+def _compound_writes_section(coordinator: GrowattCoordinator) -> dict[str, Any]:
+    return {
+        "pv_linkage": (
+            coordinator.pv_draft.apply_result.as_dict()
+            if coordinator.pv_draft.apply_result is not None
+            else None
+        ),
+    }
+
+
+def _configuration_writes_section(coordinator: GrowattCoordinator) -> dict[str, Any]:
     configuration_writes = serialize_configuration_writes(
         coordinator.configuration_writes,
     )
@@ -87,102 +227,4 @@ async def async_get_config_entry_diagnostics(
             key,
             write["reported_raw_value"],
         )
-
-    active_transaction = (
-        dict(coordinator.active_transaction) if coordinator.active_transaction is not None else None
-    )
-    if active_transaction is not None:
-        active_transaction["effective_charging_duration_minutes"] = (
-            coordinator.effective_charging.effective_minutes
-        )
-
-    return {
-        "local_authorization": coordinator.authorization.diagnostics(),
-        "connection": {
-            "connected": coordinator.connected,
-            "status": coordinator.status,
-            "connection_started_at": coordinator.connection_started_at,
-            "last_message_at": coordinator.last_message_at,
-            "last_message_action": coordinator.last_message_action,
-            "last_heartbeat_at": coordinator.last_heartbeat_at,
-        },
-        "ocpp": redact_ocpp_data(
-            {
-                "boot_notification": coordinator.boot_notification,
-                "last_status_notification": coordinator.last_status_notification,
-                "last_meter_values": coordinator.last_meter_values,
-                "transactions": {
-                    "active": active_transaction,
-                    "last_completed": coordinator.last_completed_transaction,
-                },
-            }
-        ),
-        "growatt": {
-            "charging_target_request": coordinator.charging_target_request,
-            "last_charger_fault": (
-                coordinator.last_charger_fault.as_dict()
-                if coordinator.last_charger_fault is not None
-                else None
-            ),
-            "external_meter": {
-                "health": coordinator.external_meter.health,
-                "last_updated_at": coordinator.external_meter.last_updated_at,
-                "consecutive_timeouts": coordinator.external_meter.consecutive_timeouts,
-                "fault_connector_id": coordinator.external_meter.fault_connector_id,
-                "fault_error_code": coordinator.external_meter.fault_error_code,
-                "fault_info": coordinator.external_meter.fault_info,
-            },
-            "session_records": {
-                "current": session_record_diagnostics(coordinator.last_current_record),
-                "frozen": session_record_diagnostics(coordinator.last_frozen_record),
-            },
-        },
-        "sessions": redact_ocpp_data(
-            {
-                "active": (
-                    build_unified_session(
-                        active_transaction,
-                        meter_values=coordinator.last_meter_values,
-                        session_records=session_records,
-                        charge_point_id=coordinator.charge_point_id,
-                        source_instance_id=coordinator.source_instance_id,
-                        time_zone=session_time_zone(coordinator),
-                    )
-                    if coordinator.active_transaction is not None
-                    else None
-                ),
-                "last_completed": build_unified_session(
-                    coordinator.last_completed_transaction,
-                    meter_values=coordinator.last_meter_values,
-                    session_records=session_records,
-                    charge_point_id=coordinator.charge_point_id,
-                    source_instance_id=coordinator.source_instance_id,
-                    time_zone=session_time_zone(coordinator),
-                ),
-            }
-        ),
-        "configuration": serialize_configuration_values(
-            coordinator.configuration_values,
-            redact=True,
-        ),
-        "configuration_writes": configuration_writes,
-        "commands": {
-            "last_result": (
-                coordinator.last_command_result.as_dict()
-                if coordinator.last_command_result is not None
-                else None
-            ),
-        },
-        "compound_writes": {
-            "pv_linkage": (
-                coordinator.pv_draft.apply_result.as_dict()
-                if coordinator.pv_draft.apply_result is not None
-                else None
-            ),
-        },
-        "unknown_configuration_keys": list(coordinator.unknown_configuration_keys),
-        "requested_configuration_keys": {
-            "operational": list(OPERATIONAL_CONFIGURATION_KEYS),
-            "informational": list(INFORMATIONAL_CONFIGURATION_KEYS),
-        },
-    }
+    return configuration_writes

@@ -1,0 +1,797 @@
+[
+  {
+    "ocpp": {
+      "boot_notification": null,
+      "last_status_notification": null,
+      "last_meter_values": null,
+      "transactions": {
+        "active": null,
+        "last_completed": null
+      }
+    },
+    "configuration": {},
+    "configuration_writes": {},
+    "commands": {
+      "last_result": null
+    },
+    "compound_writes": {
+      "pv_linkage": null
+    },
+    "unknown_configuration_keys": [],
+    "growatt": {
+      "last_charger_fault": null,
+      "external_meter": {
+        "health": "not_reported",
+        "last_updated_at": null,
+        "consecutive_timeouts": 0,
+        "fault_connector_id": null,
+        "fault_error_code": null,
+        "fault_info": null
+      },
+      "session_records": {
+        "current": null,
+        "frozen": null
+      }
+    },
+    "sessions": {
+      "active": null,
+      "last_completed": null
+    }
+  },
+  {
+    "local_authorization": {
+      "restricted": false,
+      "configuration_valid": true,
+      "allowed_tag_count": 0,
+      "ha_remote_start_allowed": true,
+      "ha_remote_start_pending": false,
+      "last_decision": null
+    },
+    "connection": {
+      "connected": true,
+      "status": null,
+      "connection_started_at": null,
+      "last_message_at": null,
+      "last_message_action": null,
+      "last_heartbeat_at": null
+    },
+    "ocpp": {
+      "boot_notification": null,
+      "last_status_notification": null,
+      "last_meter_values": null,
+      "transactions": {
+        "active": null,
+        "last_completed": null
+      }
+    },
+    "growatt": {
+      "charging_target_request": null,
+      "last_charger_fault": null,
+      "external_meter": {
+        "health": "not_reported",
+        "last_updated_at": null,
+        "consecutive_timeouts": 0,
+        "fault_connector_id": null,
+        "fault_error_code": null,
+        "fault_info": null
+      },
+      "session_records": {
+        "current": null,
+        "frozen": null
+      }
+    },
+    "sessions": {
+      "active": null,
+      "last_completed": null
+    },
+    "configuration": {},
+    "configuration_writes": {},
+    "commands": {
+      "last_result": null
+    },
+    "compound_writes": {
+      "pv_linkage": null
+    },
+    "unknown_configuration_keys": [],
+    "requested_configuration_keys": {
+      "operational": [
+        "G_MaxCurrent",
+        "G_ExternalLimitPower",
+        "G_ExternalLimitPowerEnable",
+        "G_ChargerMode",
+        "G_ServerURL",
+        "G_AutoChargeTime",
+        "G_LCDCloseEnable",
+        "HeartbeatInterval",
+        "MeterValueSampleInterval",
+        "MeterValuesSampledData",
+        "UnlockConnectorOnEVSideDisconnect",
+        "ElectricityMeterOnline",
+        "G_WebSocketPingInterval",
+        "G_TimeSharingPrice",
+        "G_SolarMode",
+        "G_WorkingMode",
+        "G_PeriodTime"
+      ],
+      "informational": [
+        "G_ChargerID",
+        "G_ChargerRate",
+        "G_ChargerLanguage",
+        "G_ChargerNetIP",
+        "G_ChargerNetDNS",
+        "G_ChargerNetMask",
+        "G_ChargerNetMac",
+        "G_ChargerNetGateway",
+        "G_NetworkMode",
+        "G_WifiSSID",
+        "G_MaxTemperature",
+        "G_RCDProtection",
+        "G_PowerMeterAddr",
+        "G_PowerMeterType",
+        "G_ExternalSamplingCurWring",
+        "G_TimeZone",
+        "G_DaylightSavingTime",
+        "G_SolarLimitPower",
+        "G_SolarBoost",
+        "G_SolarThresholdCurr",
+        "G_PeakValleyEnable",
+        "G_OffPeakTime",
+        "G_OffPeakEnable",
+        "G_OffPeakCurr",
+        "G_MeterValueInterval",
+        "G_LowPowerReserveEnable",
+        "G_FullContinueChargeEnable",
+        "G_RandDelayChargeTime"
+      ]
+    }
+  },
+  {
+    "local_authorization": {
+      "restricted": false,
+      "configuration_valid": true,
+      "allowed_tag_count": 0,
+      "ha_remote_start_allowed": true,
+      "ha_remote_start_pending": false,
+      "last_decision": null
+    },
+    "connection": {
+      "connected": true,
+      "status": "Charging",
+      "connection_started_at": null,
+      "last_message_at": null,
+      "last_message_action": null,
+      "last_heartbeat_at": null
+    },
+    "ocpp": {
+      "boot_notification": null,
+      "last_status_notification": null,
+      "last_meter_values": {
+        "received_at": "2026-10-30T12:00:00Z",
+        "connector_id": 1,
+        "transaction_id": 42,
+        "meter_values": [
+          {
+            "timestamp": "2026-10-30T12:00:00Z",
+            "sampled_values": [
+              {
+                "value": "1500",
+                "numeric_value": 1500.0,
+                "measurand": "Energy.Active.Import.Register",
+                "unit": "Wh",
+                "phase": null,
+                "context": null,
+                "location": null,
+                "format": null,
+                "raw": {
+                  "value": "1500",
+                  "measurand": "Energy.Active.Import.Register",
+                  "unit": "Wh"
+                }
+              },
+              {
+                "value": "3000",
+                "numeric_value": 3000.0,
+                "measurand": "Power.Active.Import",
+                "unit": "W",
+                "phase": null,
+                "context": null,
+                "location": null,
+                "format": null,
+                "raw": {
+                  "value": "3000",
+                  "measurand": "Power.Active.Import",
+                  "unit": "W"
+                }
+              }
+            ],
+            "raw": {
+              "timestamp": "2026-10-30T12:00:00Z",
+              "sampled_value": [
+                {
+                  "value": "1500",
+                  "measurand": "Energy.Active.Import.Register",
+                  "unit": "Wh"
+                },
+                {
+                  "value": "3000",
+                  "measurand": "Power.Active.Import",
+                  "unit": "W"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "transactions": {
+        "active": {
+          "id_tag_alias": null,
+          "start": {
+            "received_at": "2026-10-30T12:00:00Z",
+            "request": {
+              "connector_id": 1,
+              "id_tag": "<redacted>",
+              "meter_start": 1000
+            },
+            "response": {
+              "transaction_id": 42
+            }
+          },
+          "events": [
+            {
+              "type": "transaction_started",
+              "at": "2026-10-30T12:00:00Z",
+              "source": "ocpp",
+              "certainty": "observed"
+            },
+            {
+              "type": "energy_flow_started",
+              "at": "2026-10-30T12:00:00Z",
+              "source": "meter",
+              "certainty": "derived"
+            }
+          ],
+          "effective_charging_duration_minutes": null
+        },
+        "last_completed": null
+      }
+    },
+    "growatt": {
+      "charging_target_request": null,
+      "last_charger_fault": null,
+      "external_meter": {
+        "health": "not_reported",
+        "last_updated_at": null,
+        "consecutive_timeouts": 0,
+        "fault_connector_id": null,
+        "fault_error_code": null,
+        "fault_info": null
+      },
+      "session_records": {
+        "current": null,
+        "frozen": null
+      }
+    },
+    "sessions": {
+      "active": {
+        "correlation": {
+          "status": "ocpp_only",
+          "transaction_id_match": null,
+          "sources": [
+            "ocpp"
+          ]
+        },
+        "identity": {
+          "session_id": "ha-efd24359349d2193",
+          "session_source": "home_assistant",
+          "transaction_scope": "home_assistant",
+          "ocpp_transaction_id": "42",
+          "growatt_transaction_id": null,
+          "connector_id": "1",
+          "growatt_record_id": null
+        },
+        "timing": {
+          "effective_charging_duration_minutes": null,
+          "ocpp": {
+            "start_timestamp": null,
+            "start_received_at": "2026-10-30T12:00:00Z",
+            "stop_timestamp": null,
+            "stop_received_at": null
+          },
+          "growatt": {
+            "plug_time": null,
+            "start_time": null,
+            "end_time": null,
+            "unplug_time": null,
+            "duration_minutes": null
+          }
+        },
+        "metering": {
+          "ocpp_meter_start_wh": 1000.0,
+          "ocpp_meter_stop_wh": null,
+          "ocpp_meter_delta_wh": null,
+          "latest_meter_value_wh": 1500.0,
+          "growatt_energy_wh": null,
+          "energy_delta_wh": null
+        },
+        "billing": {
+          "growatt_cost": null
+        },
+        "modes": {
+          "growatt_charge_mode": null,
+          "growatt_work_mode": null
+        },
+        "stop_reason": null
+      },
+      "last_completed": null
+    },
+    "configuration": {
+      "FutureKey": {
+        "key": "FutureKey",
+        "value": "<redacted>",
+        "raw_value": "<redacted>",
+        "readonly": null,
+        "known": false,
+        "type": "string",
+        "unit": null,
+        "enum_label": null,
+        "writable": false,
+        "sensitivity": "unknown",
+        "description": null
+      },
+      "G_ChargerNetIP": {
+        "key": "G_ChargerNetIP",
+        "value": "<redacted>",
+        "raw_value": "<redacted>",
+        "readonly": null,
+        "known": true,
+        "type": "string",
+        "unit": null,
+        "enum_label": null,
+        "writable": false,
+        "sensitivity": "private",
+        "description": "Charger network address"
+      },
+      "G_MaxCurrent": {
+        "key": "G_MaxCurrent",
+        "value": 16.0,
+        "raw_value": "16",
+        "readonly": null,
+        "known": true,
+        "type": "float",
+        "unit": "A",
+        "enum_label": null,
+        "writable": true,
+        "sensitivity": "public",
+        "description": "Maximum charging current per phase"
+      }
+    },
+    "configuration_writes": {},
+    "commands": {
+      "last_result": null
+    },
+    "compound_writes": {
+      "pv_linkage": null
+    },
+    "unknown_configuration_keys": [
+      "FutureKey"
+    ],
+    "requested_configuration_keys": {
+      "operational": [
+        "G_MaxCurrent",
+        "G_ExternalLimitPower",
+        "G_ExternalLimitPowerEnable",
+        "G_ChargerMode",
+        "G_ServerURL",
+        "G_AutoChargeTime",
+        "G_LCDCloseEnable",
+        "HeartbeatInterval",
+        "MeterValueSampleInterval",
+        "MeterValuesSampledData",
+        "UnlockConnectorOnEVSideDisconnect",
+        "ElectricityMeterOnline",
+        "G_WebSocketPingInterval",
+        "G_TimeSharingPrice",
+        "G_SolarMode",
+        "G_WorkingMode",
+        "G_PeriodTime"
+      ],
+      "informational": [
+        "G_ChargerID",
+        "G_ChargerRate",
+        "G_ChargerLanguage",
+        "G_ChargerNetIP",
+        "G_ChargerNetDNS",
+        "G_ChargerNetMask",
+        "G_ChargerNetMac",
+        "G_ChargerNetGateway",
+        "G_NetworkMode",
+        "G_WifiSSID",
+        "G_MaxTemperature",
+        "G_RCDProtection",
+        "G_PowerMeterAddr",
+        "G_PowerMeterType",
+        "G_ExternalSamplingCurWring",
+        "G_TimeZone",
+        "G_DaylightSavingTime",
+        "G_SolarLimitPower",
+        "G_SolarBoost",
+        "G_SolarThresholdCurr",
+        "G_PeakValleyEnable",
+        "G_OffPeakTime",
+        "G_OffPeakEnable",
+        "G_OffPeakCurr",
+        "G_MeterValueInterval",
+        "G_LowPowerReserveEnable",
+        "G_FullContinueChargeEnable",
+        "G_RandDelayChargeTime"
+      ]
+    }
+  },
+  {
+    "local_authorization": {
+      "restricted": false,
+      "configuration_valid": true,
+      "allowed_tag_count": 0,
+      "ha_remote_start_allowed": true,
+      "ha_remote_start_pending": false,
+      "last_decision": null
+    },
+    "connection": {
+      "connected": true,
+      "status": "Idle",
+      "connection_started_at": null,
+      "last_message_at": null,
+      "last_message_action": null,
+      "last_heartbeat_at": null
+    },
+    "ocpp": {
+      "boot_notification": null,
+      "last_status_notification": null,
+      "last_meter_values": {
+        "received_at": "2026-10-30T12:00:00Z",
+        "connector_id": 1,
+        "transaction_id": 42,
+        "meter_values": [
+          {
+            "timestamp": "2026-10-30T12:00:00Z",
+            "sampled_values": [
+              {
+                "value": "1500",
+                "numeric_value": 1500.0,
+                "measurand": "Energy.Active.Import.Register",
+                "unit": "Wh",
+                "phase": null,
+                "context": null,
+                "location": null,
+                "format": null,
+                "raw": {
+                  "value": "1500",
+                  "measurand": "Energy.Active.Import.Register",
+                  "unit": "Wh"
+                }
+              },
+              {
+                "value": "3000",
+                "numeric_value": 3000.0,
+                "measurand": "Power.Active.Import",
+                "unit": "W",
+                "phase": null,
+                "context": null,
+                "location": null,
+                "format": null,
+                "raw": {
+                  "value": "3000",
+                  "measurand": "Power.Active.Import",
+                  "unit": "W"
+                }
+              }
+            ],
+            "raw": {
+              "timestamp": "2026-10-30T12:00:00Z",
+              "sampled_value": [
+                {
+                  "value": "1500",
+                  "measurand": "Energy.Active.Import.Register",
+                  "unit": "Wh"
+                },
+                {
+                  "value": "3000",
+                  "measurand": "Power.Active.Import",
+                  "unit": "W"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "transactions": {
+        "active": null,
+        "last_completed": {
+          "id_tag_alias": null,
+          "start": {
+            "received_at": "2026-10-30T12:00:00Z",
+            "request": {
+              "connector_id": 1,
+              "id_tag": "<redacted>",
+              "meter_start": 1000
+            },
+            "response": {
+              "transaction_id": 42
+            }
+          },
+          "events": [
+            {
+              "type": "transaction_started",
+              "at": "2026-10-30T12:00:00Z",
+              "source": "ocpp",
+              "certainty": "observed"
+            },
+            {
+              "type": "energy_flow_started",
+              "at": "2026-10-30T12:00:00Z",
+              "source": "meter",
+              "certainty": "derived"
+            },
+            {
+              "type": "energy_flow_stopped",
+              "at": "2026-10-30T12:02:00Z",
+              "source": "meter",
+              "certainty": "derived"
+            },
+            {
+              "type": "transaction_stopped",
+              "at": "2026-10-30T12:02:00Z",
+              "source": "ocpp",
+              "certainty": "observed",
+              "reason": "Remote"
+            }
+          ],
+          "stop": {
+            "received_at": "2026-10-30T12:02:00Z",
+            "request": {
+              "transaction_id": 42,
+              "meter_stop": 1500,
+              "reason": "Remote"
+            }
+          },
+          "effective_charging_duration_minutes": null,
+          "power_curve": [
+            [
+              "2026-10-30T12:00:00Z",
+              3000.0
+            ]
+          ],
+          "configured_current_limit_curve_a": [
+            [
+              "2026-10-30T12:00:00Z",
+              16.0
+            ],
+            [
+              "2026-10-30T12:02:00Z",
+              16.0
+            ]
+          ]
+        }
+      }
+    },
+    "growatt": {
+      "charging_target_request": null,
+      "last_charger_fault": null,
+      "external_meter": {
+        "health": "not_reported",
+        "last_updated_at": null,
+        "consecutive_timeouts": 0,
+        "fault_connector_id": null,
+        "fault_error_code": null,
+        "fault_info": null
+      },
+      "session_records": {
+        "current": {
+          "received_at": "2026-10-30T12:02:00Z",
+          "record": {
+            "message_id": "currentrecord",
+            "raw_payload": "<redacted>",
+            "fields": {
+              "transactionId": [
+                "42"
+              ],
+              "starttime": [
+                "2026-10-30 12:00:00"
+              ],
+              "endtime": [
+                "2026-10-30 12:02:00"
+              ],
+              "costenergy": [
+                "500"
+              ],
+              "costmoney": [
+                "12"
+              ],
+              "chargemode": [
+                "3"
+              ],
+              "workmode": [
+                "3"
+              ]
+            },
+            "normalized": {
+              "record_id": "",
+              "connector_id": "",
+              "transaction_id": "42",
+              "charge_mode": "3",
+              "work_mode": "3",
+              "plug_time": "",
+              "unplug_time": "",
+              "start_time": "2026-10-30 12:00:00",
+              "end_time": "2026-10-30 12:02:00",
+              "energy_wh": 500.0,
+              "energy_kwh": 0.5,
+              "cost_minor": 12.0,
+              "cost": 0.12,
+              "duration_minutes": 2.0
+            },
+            "parse_errors": [],
+            "unknown_fields": []
+          }
+        },
+        "frozen": null
+      }
+    },
+    "sessions": {
+      "active": null,
+      "last_completed": {
+        "correlation": {
+          "status": "matched",
+          "transaction_id_match": true,
+          "sources": [
+            "ocpp",
+            "currentrecord"
+          ]
+        },
+        "identity": {
+          "session_id": "ha-efd24359349d2193",
+          "session_source": "home_assistant",
+          "transaction_scope": "home_assistant",
+          "ocpp_transaction_id": "42",
+          "growatt_transaction_id": "42",
+          "connector_id": "1",
+          "growatt_record_id": null
+        },
+        "timing": {
+          "effective_charging_duration_minutes": null,
+          "ocpp": {
+            "start_timestamp": null,
+            "start_received_at": "2026-10-30T12:00:00Z",
+            "stop_timestamp": null,
+            "stop_received_at": "2026-10-30T12:02:00Z"
+          },
+          "growatt": {
+            "plug_time": null,
+            "start_time": "2026-10-30 12:00:00",
+            "end_time": "2026-10-30 12:02:00",
+            "unplug_time": null,
+            "duration_minutes": 2.0
+          }
+        },
+        "metering": {
+          "ocpp_meter_start_wh": 1000.0,
+          "ocpp_meter_stop_wh": 1500.0,
+          "ocpp_meter_delta_wh": 500.0,
+          "latest_meter_value_wh": 1500.0,
+          "growatt_energy_wh": 500.0,
+          "energy_delta_wh": 0.0
+        },
+        "billing": {
+          "growatt_cost": 0.12
+        },
+        "modes": {
+          "growatt_charge_mode": "3",
+          "growatt_work_mode": "3"
+        },
+        "stop_reason": "Remote"
+      }
+    },
+    "configuration": {
+      "FutureKey": {
+        "key": "FutureKey",
+        "value": "<redacted>",
+        "raw_value": "<redacted>",
+        "readonly": null,
+        "known": false,
+        "type": "string",
+        "unit": null,
+        "enum_label": null,
+        "writable": false,
+        "sensitivity": "unknown",
+        "description": null
+      },
+      "G_ChargerNetIP": {
+        "key": "G_ChargerNetIP",
+        "value": "<redacted>",
+        "raw_value": "<redacted>",
+        "readonly": null,
+        "known": true,
+        "type": "string",
+        "unit": null,
+        "enum_label": null,
+        "writable": false,
+        "sensitivity": "private",
+        "description": "Charger network address"
+      },
+      "G_MaxCurrent": {
+        "key": "G_MaxCurrent",
+        "value": 16.0,
+        "raw_value": "16",
+        "readonly": null,
+        "known": true,
+        "type": "float",
+        "unit": "A",
+        "enum_label": null,
+        "writable": true,
+        "sensitivity": "public",
+        "description": "Maximum charging current per phase"
+      }
+    },
+    "configuration_writes": {},
+    "commands": {
+      "last_result": null
+    },
+    "compound_writes": {
+      "pv_linkage": null
+    },
+    "unknown_configuration_keys": [
+      "FutureKey"
+    ],
+    "requested_configuration_keys": {
+      "operational": [
+        "G_MaxCurrent",
+        "G_ExternalLimitPower",
+        "G_ExternalLimitPowerEnable",
+        "G_ChargerMode",
+        "G_ServerURL",
+        "G_AutoChargeTime",
+        "G_LCDCloseEnable",
+        "HeartbeatInterval",
+        "MeterValueSampleInterval",
+        "MeterValuesSampledData",
+        "UnlockConnectorOnEVSideDisconnect",
+        "ElectricityMeterOnline",
+        "G_WebSocketPingInterval",
+        "G_TimeSharingPrice",
+        "G_SolarMode",
+        "G_WorkingMode",
+        "G_PeriodTime"
+      ],
+      "informational": [
+        "G_ChargerID",
+        "G_ChargerRate",
+        "G_ChargerLanguage",
+        "G_ChargerNetIP",
+        "G_ChargerNetDNS",
+        "G_ChargerNetMask",
+        "G_ChargerNetMac",
+        "G_ChargerNetGateway",
+        "G_NetworkMode",
+        "G_WifiSSID",
+        "G_MaxTemperature",
+        "G_RCDProtection",
+        "G_PowerMeterAddr",
+        "G_PowerMeterType",
+        "G_ExternalSamplingCurWring",
+        "G_TimeZone",
+        "G_DaylightSavingTime",
+        "G_SolarLimitPower",
+        "G_SolarBoost",
+        "G_SolarThresholdCurr",
+        "G_PeakValleyEnable",
+        "G_OffPeakTime",
+        "G_OffPeakEnable",
+        "G_OffPeakCurr",
+        "G_MeterValueInterval",
+        "G_LowPowerReserveEnable",
+        "G_FullContinueChargeEnable",
+        "G_RandDelayChargeTime"
+      ]
+    }
+  }
+]
