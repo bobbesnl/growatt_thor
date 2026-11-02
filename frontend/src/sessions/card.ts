@@ -1,11 +1,10 @@
+import { renderSessionCard } from './card.template';
 import { deriveSessionChartModel } from './chart-model';
 import { tokenStyles } from '../shared/styles';
-import { renderSessionAccounting } from './accounting.template';
 import { cardInitialization } from '../shared/card-initialization';
 import { cardNoticeStyles, renderCardNotice } from '../shared/card-notice';
-import { sessionMetricViews, sessionGreenTotalView } from './metrics.template';
-import { LitElement, html, nothing, unsafeCSS } from 'lit';
-import { createRef, ref, type Ref } from 'lit/directives/ref.js';
+import { LitElement, unsafeCSS } from 'lit';
+import { createRef, type Ref } from 'lit/directives/ref.js';
 import * as echarts from 'echarts/core';
 import { LineChart } from 'echarts/charts';
 import {
@@ -20,18 +19,8 @@ import { AxisBreak } from 'echarts/features';
 import { CanvasRenderer } from 'echarts/renderers';
 import cssText from './card.css';
 import { resolveEntity, statusEntities } from '../shared/model';
-import {
-  formatSessionDate,
-  formatSessionNumber,
-  selectedSession,
-  sessionRows,
-  sessionPage,
-  type SessionSort,
-} from './model';
+import { selectedSession, sessionRows, sessionPage, type SessionSort } from './model';
 import { sessionTranslate } from './locales';
-import { renderSessionList } from './list.template';
-import { renderSessionIdentifier } from './identifier.template';
-import { renderSessionEvents } from './events.template';
 import { SessionDetailStore } from './detail-store';
 import { SessionChartHost, bindSessionChartEvents } from './chart-host';
 import { chartPalette } from '../shared/palette';
@@ -282,173 +271,41 @@ export class ThorSessionCard extends LitElement {
       this._config.rows || 10,
     );
     this._page = page.index;
-    const rows = page.items;
     const selected = this.selectedSession(data);
     const costEntityId = entity?.attributes.thor_card?.entities.last_session_cost;
     const currency =
       (costEntityId && this.hass?.states[costEntityId]?.attributes.unit_of_measurement) || '€';
-    const greenTotal = sessionGreenTotalView(data, language);
-    const fmt = (value: number | null) => formatSessionNumber(value, language);
-    const fmtDate = (value: string | null | undefined) =>
-      formatSessionDate(value, language, timeZone);
-    const head = (key: SessionSort, label: string, cls = '') =>
-      html`<th class=${cls}>
-        <button @click=${() => this.sort(key)}>
-          ${label}${this._sort === key ? (this._ascending ? ' ↑' : ' ↓') : ''}
-        </button>
-      </th>`;
-    return html`<ha-card class="card ${dark ? 'dark' : ''}"
-      ><header><h2>${this._config.name || t('title')}</h2></header>
-      <section class="kpis">
-        <div class="kpi">
-          <span>${t('energy')}</span><strong>${fmt(data.total_energy_kwh)} kWh</strong>
-        </div>
-        <div class="kpi green">
-          <span>${t('green')}</span><strong title=${greenTotal.title}>${greenTotal.text}</strong>
-        </div>
-        <div class="kpi">
-          <span>${t('chargerCost')}</span><strong>${fmt(data.total_cost)} ${currency}</strong>
-        </div>
-        <div class="kpi"><span>${t('sessions')}</span><strong>${data.total_count}</strong></div>
-      </section>
-      <div class="toolbar">
-        <input
-          class="search"
-          type="search"
-          .value=${this._query}
-          aria-label=${t('search')}
-          placeholder=${t('search')}
-          @input=${(e: InputEvent) => {
-            this.goToPage(0);
-            this._query = (e.target as HTMLInputElement).value;
-          }}
-        />
-      </div>
-      ${this._config.show_curve === false
-        ? nothing
-        : html`<section class="curve">
-            <div class="curve-title">
-              ${t('chart')} · ${fmtDate(selected?.start_time)}
-              ${selected?.active ? ` · ${t('active')}` : ''}
-            </div>
-            <div class="chart-area">
-              <div class="chart" role="img" aria-label=${t('chart')} ${ref(this._chartRef)}></div>
-              ${selected?.power_curve?.length
-                ? nothing
-                : html`<div class="no-curve">
-                    ${this._details.status(selected?.session_id) === 'loading'
-                      ? t('loadingCurve')
-                      : this._details.status(selected?.session_id) === 'error'
-                        ? t('curveLoadError')
-                        : selected?.active
-                          ? t('waitingCurve')
-                          : t('noCurve')}
-                  </div>`}
-            </div>
-            ${renderSessionEvents(selected?.events, language, dark, timeZone)}
-          </section>`}
-      ${selected ? renderSessionAccounting(selected, language, currency) : nothing}
-      <div class="table-wrap" ${ref(this._tableRef)}>
-        <table class="session-table">
-          <thead>
-            <tr>
-              ${head('start', t('start'))}${head('end', t('end'), 'optional')}${head(
-                'energy',
-                t('energy'),
-                'num',
-              )}${head('green', t('green'), 'num optional')}${head('cost', t('cost'), 'num')}${this
-                ._config.show_identifier === false
-                ? nothing
-                : head('identifier', t('identifier'))}
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.length
-              ? rows.map((row) => {
-                  const metrics = sessionMetricViews(row, language, currency);
-                  return html`<tr
-                    class=${[
-                      row.session_id === selected?.session_id ? 'selected' : '',
-                      row.active ? 'active-session' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    tabindex="0"
-                    aria-selected=${row.session_id === selected?.session_id}
-                    @click=${() => this.selectSession(row.session_id)}
-                    @keydown=${(event: KeyboardEvent) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        this.selectSession(row.session_id);
-                      }
-                    }}
-                  >
-                    <td>
-                      ${fmtDate(row.start_time)}
-                      ${row.session_id
-                        ? html`<small class="session-id">ID: ${row.session_id}</small>`
-                        : nothing}
-                      ${row.active
-                        ? html`<span class="active-badge">${t('active')}</span>`
-                        : nothing}
-                    </td>
-                    <td class="optional">${row.active ? t('active') : fmtDate(row.end_time)}</td>
-                    <td class="num">
-                      ${row.energy_source === 'power_fallback' ? '≈ ' : ''}${fmt(row.energy_kwh)}
-                      kWh
-                    </td>
-                    <td class="num optional">${metrics.green}</td>
-                    <td class="num">${metrics.cost}${metrics.costBasis}</td>
-                    ${this._config.show_identifier === false
-                      ? nothing
-                      : html`<td>${renderSessionIdentifier(row)}</td>`}
-                  </tr>`;
-                })
-              : html`<tr>
-                  <td class="empty" colspan="6">${t('noData')}</td>
-                </tr>`}
-          </tbody>
-        </table>
-        ${renderSessionList({
-          rows,
-          selectedId: selected?.session_id,
-          language,
-          timeZone,
-          currency,
-          showIdentifier: this._config.show_identifier !== false,
-          sort: this._sort,
-          ascending: this._ascending,
-          onSort: (key) => this.sort(key),
-          onSelect: (id) => this.selectSession(id),
-        })}
-      </div>
-      ${page.total
-        ? html`<nav class="table-pagination" aria-label=${t('page')}>
-            <span class="page-range">${page.from}–${page.to} / ${page.total}</span>
-            <div class="page-controls">
-              <button
-                type="button"
-                aria-label=${t('previousPage')}
-                title=${t('previousPage')}
-                ?disabled=${page.index === 0}
-                @click=${() => this.goToPage(page.index - 1, true)}
-              >
-                ‹
-              </button>
-              <span aria-live="polite">${t('page')} ${page.index + 1} / ${page.count}</span>
-              <button
-                type="button"
-                aria-label=${t('nextPage')}
-                title=${t('nextPage')}
-                ?disabled=${page.index >= page.count - 1}
-                @click=${() => this.goToPage(page.index + 1, true)}
-              >
-                ›
-              </button>
-            </div>
-          </nav>`
-        : nothing}</ha-card
-    >`;
+    return renderSessionCard(
+      {
+        name: this._config.name || t('title'),
+        dark,
+        language,
+        timeZone,
+        currency,
+        data,
+        page,
+        selected,
+        query: this._query,
+        sort: this._sort,
+        ascending: this._ascending,
+        showCurve: this._config.show_curve !== false,
+        showIdentifier: this._config.show_identifier !== false,
+        curveStatus: this._details.status(selected?.session_id),
+        chartRef: this._chartRef,
+        tableRef: this._tableRef,
+      },
+      {
+        search: (event) => {
+          this.goToPage(0);
+          this._query = (event.target as HTMLInputElement).value;
+        },
+        sort: (key) => this.sort(key),
+        selectSession: (id) => this.selectSession(id),
+        goToPage: (index, scrollToList) => {
+          void this.goToPage(index, scrollToList);
+        },
+      },
+    );
   }
 }
 if (!customElements.get('growatt-thor-session-card'))
