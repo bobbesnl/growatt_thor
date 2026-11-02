@@ -1,3 +1,4 @@
+import { deriveSessionChartModel } from './chart-model';
 import { tokenStyles } from '../shared/styles';
 import { renderSessionAccounting } from './accounting.template';
 import { cardInitialization } from '../shared/card-initialization';
@@ -22,12 +23,6 @@ import { resolveEntity, statusEntities } from '../shared/model';
 import {
   formatSessionDate,
   formatSessionNumber,
-  sessionChartBreaks,
-  sessionChartExtent,
-  sessionChartPoints,
-  sessionChartSpansDaysInZone,
-  sessionEventMarkers,
-  sessionContextPoints,
   selectedSession,
   sessionRows,
   sessionPage,
@@ -45,8 +40,6 @@ import {
   buildSessionEventMarkLine,
   SESSION_COMPACT_WIDTH_PX,
   CHART_ANIMATION_MS,
-  WATTS_PER_KILOWATT,
-  type SessionChartModel,
 } from './chart-options';
 import type {
   Hass,
@@ -201,124 +194,24 @@ export class ThorSessionCard extends LitElement {
       this._dataZoomRange = { start: 0, end: 100 };
       this._expandedBreaks.clear();
     }
-    const points = sessionChartPoints(session?.power_curve || []);
-    const measuredCurrents = sessionContextPoints(session?.measured_current_sum_curve_a);
-    const configuredCurrents = sessionContextPoints(session?.configured_current_limit_curve_a);
-    const pvSurplus = sessionContextPoints(session?.site_pv_surplus_curve_w, WATTS_PER_KILOWATT);
-    const houseLoad = sessionContextPoints(session?.site_house_load_curve_w, WATTS_PER_KILOWATT);
-    const batteryFlow = sessionContextPoints(
-      session?.site_battery_curve_w,
-      WATTS_PER_KILOWATT,
-      true,
-    );
-    if (
-      !points.length &&
-      !measuredCurrents.length &&
-      !configuredCurrents.length &&
-      !pvSurplus.length &&
-      !houseLoad.length &&
-      !batteryFlow.length
-    ) {
+    const derived = deriveSessionChartModel(session, {
+      legendSelected: this._legendSelected,
+      expandedBreaks: this._expandedBreaks,
+      zoomRange: this._dataZoomRange,
+      previousEventLabelFadeKey: this._eventLabelFadeKey,
+      language: this.hass?.language || this.hass?.locale?.language || 'en',
+      timeZone: this.hass?.config?.time_zone || 'UTC',
+      compact,
+      reducedMotion,
+      dark,
+    });
+    if (!derived) {
       this._chart?.clear();
       return;
     }
-    const timeZone = this.hass?.config?.time_zone || 'UTC';
-    const language = this.hass?.language || this.hass?.locale?.language || 'en';
-    const t = sessionTranslate(language);
-    const markers = sessionEventMarkers(session?.events);
-    const chartSeries = [measuredCurrents, configuredCurrents, pvSurplus, houseLoad, batteryFlow];
-    const chartBreaks = sessionChartBreaks(points, markers, ...chartSeries).map((axisBreak) => ({
-      ...axisBreak,
-      gap: '5%',
-      isExpanded: this._expandedBreaks.has(`${axisBreak.start}:${axisBreak.end}`),
-    }));
-    const chartSpansDays = sessionChartSpansDaysInZone(timeZone, points, markers, ...chartSeries);
-    const powerSeriesName = t('seriesPower');
-    const measuredCurrentSeriesName = t('seriesMeasuredCurrentSum');
-    const configuredCurrentSeriesName = t('seriesConfiguredCurrentLimit');
-    const pvSurplusSeriesName = t('seriesPvSurplus');
-    const houseLoadSeriesName = `${['site_balance', 'mixed'].includes(session?.site_house_load_source || '') ? '≈ ' : ''}${t('seriesHouseLoad')}`;
-    const batteryFlowSeriesName = t('seriesBatteryFlow');
-    const eventSeriesName = t('seriesEvents');
-    const powerVisible = this._legendSelected[powerSeriesName] !== false;
-    const pvSurplusVisible = this._legendSelected[pvSurplusSeriesName] !== false;
-    const houseLoadVisible = this._legendSelected[houseLoadSeriesName] !== false;
-    const batteryFlowVisible = this._legendSelected[batteryFlowSeriesName] !== false;
-    const measuredCurrentVisible = this._legendSelected[measuredCurrentSeriesName] !== false;
-    const configuredCurrentVisible = this._legendSelected[configuredCurrentSeriesName] !== false;
-    const powerAxisVisible =
-      (powerVisible && !!points.length) ||
-      (pvSurplusVisible && !!pvSurplus.length) ||
-      (houseLoadVisible && !!houseLoad.length) ||
-      (batteryFlowVisible && !!batteryFlow.length);
-    const currentAxisVisible =
-      (measuredCurrentVisible && !!measuredCurrents.length) ||
-      (configuredCurrentVisible && !!configuredCurrents.length);
-    const eventLayerVisible = !compact && this._legendSelected[eventSeriesName] !== false;
-    const extent = sessionChartExtent(
-      points,
-      markers,
-      measuredCurrents,
-      configuredCurrents,
-      pvSurplus,
-      houseLoad,
-      batteryFlow,
-    );
-    const eventHost =
-      powerVisible && points.length
-        ? 'power'
-        : pvSurplusVisible && pvSurplus.length
-          ? 'pv'
-          : houseLoadVisible && houseLoad.length
-            ? 'house'
-            : batteryFlowVisible && batteryFlow.length
-              ? 'battery'
-              : measuredCurrentVisible && measuredCurrents.length
-                ? 'measured-current'
-                : configuredCurrentVisible && configuredCurrents.length
-                  ? 'configured-current'
-                  : 'events';
-    const fadeKey = `${session?.session_id || 'unknown'}:${eventHost}:${markers
-      .map((marker) => `${marker.at}:${marker.events.map((event) => event.type).join(',')}`)
-      .join('|')}`;
-    const fadeEventLabels =
-      eventLayerVisible &&
-      !!markers.length &&
-      !reducedMotion &&
-      this._eventLabelFadeKey !== fadeKey;
-    if (!eventLayerVisible) this._eventLabelFadeKey = undefined;
-    else if (fadeEventLabels) this._eventLabelFadeKey = fadeKey;
-    const chartModel: SessionChartModel = {
-      points,
-      measuredCurrents,
-      configuredCurrents,
-      pvSurplus,
-      houseLoad,
-      batteryFlow,
-      markers,
-      eventHost,
-      eventLayerVisible,
-      reducedMotion,
-      fadeEventLabels,
-      dark,
-      compact,
-      language,
-      timeZone,
-      chartSpansDays,
-      powerAxisVisible,
-      currentAxisVisible,
-      extent,
-      chartBreaks,
-      legendSelected: this._legendSelected,
-      zoomRange: this._dataZoomRange,
-      powerSeriesName,
-      pvSurplusSeriesName,
-      houseLoadSeriesName,
-      batteryFlowSeriesName,
-      configuredCurrentSeriesName,
-      measuredCurrentSeriesName,
-      eventSeriesName,
-    };
+    const { model: chartModel, fadeKey, eventLabelFadeKey } = derived;
+    this._eventLabelFadeKey = eventLabelFadeKey;
+    const { fadeEventLabels, eventHost } = chartModel;
     chart.setOption(buildSessionChartOption(chartModel, chartPalette(dark), el.clientWidth), {
       notMerge: true,
     });

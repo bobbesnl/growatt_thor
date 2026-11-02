@@ -1,46 +1,13 @@
 import { sessionEventLabel, sessionEventColors, sessionEventReason } from './event-model';
-import { formatSessionChartTick, type SessionEventMarker, type SessionChartBreak } from './model';
+import { formatSessionChartTick } from './model';
+import type { SessionChartModel } from './chart-model';
 import type { chartPalette } from '../shared/palette';
 
 export const SESSION_COMPACT_WIDTH_PX = 600;
 export const CHART_ANIMATION_MS = 240;
-export const WATTS_PER_KILOWATT = 1000;
 const CHART_HORIZONTAL_SPACE_PX = 80;
 const MULTIDAY_TICK_WIDTH_PX = 140;
 const INTRADAY_TICK_WIDTH_PX = 110;
-
-type ContextPoints = [number, number | null][];
-export interface SessionChartModel {
-  points: [number, number][];
-  measuredCurrents: ContextPoints;
-  configuredCurrents: ContextPoints;
-  pvSurplus: ContextPoints;
-  houseLoad: ContextPoints;
-  batteryFlow: ContextPoints;
-  markers: SessionEventMarker[];
-  eventHost: string;
-  eventLayerVisible: boolean;
-  reducedMotion: boolean;
-  fadeEventLabels: boolean;
-  dark: boolean;
-  compact: boolean;
-  language: string;
-  timeZone: string;
-  chartSpansDays: boolean;
-  powerAxisVisible: boolean;
-  currentAxisVisible: boolean;
-  extent?: [number, number];
-  chartBreaks: (SessionChartBreak & { gap: string; isExpanded: boolean })[];
-  legendSelected: Record<string, boolean>;
-  zoomRange: { start: number; end: number };
-  powerSeriesName: string;
-  pvSurplusSeriesName: string;
-  houseLoadSeriesName: string;
-  batteryFlowSeriesName: string;
-  configuredCurrentSeriesName: string;
-  measuredCurrentSeriesName: string;
-  eventSeriesName: string;
-}
 
 export function buildSessionEventMarkLine(model: SessionChartModel, labelOpacity: number) {
   const { eventLayerVisible, reducedMotion, markers, language, timeZone, dark } = model;

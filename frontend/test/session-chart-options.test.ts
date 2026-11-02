@@ -1,10 +1,7 @@
+import type { SessionChartModel } from '../src/sessions/chart-model';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  buildSessionChartOption,
-  buildSessionEventMarkLine,
-  type SessionChartModel,
-} from '../src/sessions/chart-options';
+import { buildSessionChartOption, buildSessionEventMarkLine } from '../src/sessions/chart-options';
 import { chartPalette } from '../src/shared/palette';
 import { bindSessionChartEvents } from '../src/sessions/chart-host';
 
