@@ -1,5 +1,7 @@
 import logging
+from collections.abc import Mapping
 from html import escape
+from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -91,30 +93,9 @@ def _poll_interval_error(exc: NumericValidationError) -> str:
     return "invalid_poll_interval"
 
 
-def build_site_accounting_schema(current, states, currency) -> vol.Schema:
-    def power_selector(key: str, role: str) -> SelectSelector:
-        other_keys = {
-            CONF_BATTERY_POWER_ENTITY,
-            CONF_SOLAR_ENTITY,
-            CONF_HOUSE_ENTITY,
-        }
-        if current.get(CONF_SITE_GRID_SOURCE) == "ha_sensor":
-            other_keys.add(CONF_GRID_ENTITY)
-        excluded = {current.get(other) for other in other_keys - {key}} - {None, ""}
-        options = power_sensor_options(states, current.get(key), role=role, exclude=excluded)
-        # custom_value enables HA's searchable picker; server validation still
-        # rejects unknown entities, incompatible units and conflicting roles.
-        return SelectSelector(
-            SelectSelectorConfig(
-                options=[item for item in options if item["value"]],
-                mode="dropdown",
-                custom_value=True,
-            )
-        )
-
-    def source_field(key: str):
-        return vol.Optional(key, description={"suggested_value": current.get(key, "")})
-
+def build_site_accounting_schema(
+    current: Mapping[str, Any], states: object, currency: str
+) -> vol.Schema:
     price_key = (
         vol.Optional(
             CONF_FIXED_PRICE,
@@ -125,76 +106,127 @@ def build_site_accounting_schema(current, states, currency) -> vol.Schema:
     )
     return vol.Schema(
         {
-            vol.Required(
-                CONF_SITE_PROFILE,
-                default=current.get(CONF_SITE_PROFILE, "disabled"),
-            ): SelectSelector(
-                SelectSelectorConfig(
-                    options=list(AccountingProfile),
-                    translation_key=CONF_SITE_PROFILE,
-                    mode="dropdown",
-                )
-            ),
-            vol.Required(
-                CONF_AUTO_STOP_MODE,
-                default=current.get(CONF_AUTO_STOP_MODE, "off"),
-            ): SelectSelector(
-                SelectSelectorConfig(
-                    options=list(AUTO_STOP_MODES),
-                    translation_key=CONF_AUTO_STOP_MODE,
-                    mode="dropdown",
-                )
-            ),
-            vol.Required(
-                CONF_STOP_THRESHOLD,
-                default=current.get(CONF_STOP_THRESHOLD, STOP_THRESHOLD_W),
-            ): vol.All(
-                vol.Coerce(float),
-                vol.Range(min=STOP_THRESHOLD_RANGE[0], max=STOP_THRESHOLD_RANGE[1]),
-            ),
-            vol.Required(
-                CONF_STOP_HOLD,
-                default=current.get(CONF_STOP_HOLD, STOP_HOLD_SECONDS),
-            ): vol.All(
-                vol.Coerce(float), vol.Range(min=STOP_HOLD_RANGE[0], max=STOP_HOLD_RANGE[1])
-            ),
-            vol.Required(
-                CONF_SITE_GRID_SOURCE,
-                default=current.get(CONF_SITE_GRID_SOURCE, "none"),
-            ): SelectSelector(
-                SelectSelectorConfig(
-                    options=list(SITE_GRID_SOURCES),
-                    translation_key=CONF_SITE_GRID_SOURCE,
-                    mode="dropdown",
-                )
-            ),
-            source_field(CONF_GRID_ENTITY): power_selector(CONF_GRID_ENTITY, "grid"),
-            vol.Required(
-                CONF_GRID_SIGN,
-                default=current.get(CONF_GRID_SIGN, "positive_import"),
-            ): SelectSelector(
-                SelectSelectorConfig(
-                    options=list(GRID_SIGNS),
-                    translation_key=CONF_GRID_SIGN,
-                    mode="dropdown",
-                )
-            ),
-            source_field(CONF_SOLAR_ENTITY): power_selector(CONF_SOLAR_ENTITY, "solar"),
-            source_field(CONF_HOUSE_ENTITY): power_selector(CONF_HOUSE_ENTITY, "household"),
-            source_field(CONF_TARIFF_ENTITY): SelectSelector(
-                SelectSelectorConfig(
-                    options=tariff_sensor_options(
-                        states,
-                        currency,
-                        current.get(CONF_TARIFF_ENTITY),
-                    ),
-                    mode="dropdown",
-                    custom_value=True,
-                )
-            ),
-            price_key: float,
+            **_site_policy_fields(current),
+            **_site_power_fields(current, states),
+            **_site_tariff_fields(current, states, currency, price_key),
         }
     )
+
+
+def _site_power_selector(
+    current: Mapping[str, Any], states: object, key: str, role: str
+) -> SelectSelector:
+    other_keys = {
+        CONF_BATTERY_POWER_ENTITY,
+        CONF_SOLAR_ENTITY,
+        CONF_HOUSE_ENTITY,
+    }
+    if current.get(CONF_SITE_GRID_SOURCE) == "ha_sensor":
+        other_keys.add(CONF_GRID_ENTITY)
+    excluded = {current.get(other) for other in other_keys - {key}} - {None, ""}
+    options = power_sensor_options(states, current.get(key), role=role, exclude=excluded)
+    # custom_value enables HA's searchable picker; server validation still
+    # rejects unknown entities, incompatible units and conflicting roles.
+    return SelectSelector(
+        SelectSelectorConfig(
+            options=[item for item in options if item["value"]],
+            mode="dropdown",
+            custom_value=True,
+        )
+    )
+
+
+def _site_source_field(current: Mapping[str, Any], key: str) -> vol.Optional:
+    return vol.Optional(key, description={"suggested_value": current.get(key, "")})
+
+
+def _site_policy_fields(current: Mapping[str, Any]) -> dict[vol.Marker, Any]:
+    return {
+        vol.Required(
+            CONF_SITE_PROFILE,
+            default=current.get(CONF_SITE_PROFILE, "disabled"),
+        ): SelectSelector(
+            SelectSelectorConfig(
+                options=list(AccountingProfile),
+                translation_key=CONF_SITE_PROFILE,
+                mode="dropdown",
+            )
+        ),
+        vol.Required(
+            CONF_AUTO_STOP_MODE,
+            default=current.get(CONF_AUTO_STOP_MODE, "off"),
+        ): SelectSelector(
+            SelectSelectorConfig(
+                options=list(AUTO_STOP_MODES),
+                translation_key=CONF_AUTO_STOP_MODE,
+                mode="dropdown",
+            )
+        ),
+        vol.Required(
+            CONF_STOP_THRESHOLD,
+            default=current.get(CONF_STOP_THRESHOLD, STOP_THRESHOLD_W),
+        ): vol.All(
+            vol.Coerce(float),
+            vol.Range(min=STOP_THRESHOLD_RANGE[0], max=STOP_THRESHOLD_RANGE[1]),
+        ),
+        vol.Required(
+            CONF_STOP_HOLD,
+            default=current.get(CONF_STOP_HOLD, STOP_HOLD_SECONDS),
+        ): vol.All(vol.Coerce(float), vol.Range(min=STOP_HOLD_RANGE[0], max=STOP_HOLD_RANGE[1])),
+    }
+
+
+def _site_power_fields(current: Mapping[str, Any], states: object) -> dict[vol.Marker, Any]:
+    return {
+        vol.Required(
+            CONF_SITE_GRID_SOURCE,
+            default=current.get(CONF_SITE_GRID_SOURCE, "none"),
+        ): SelectSelector(
+            SelectSelectorConfig(
+                options=list(SITE_GRID_SOURCES),
+                translation_key=CONF_SITE_GRID_SOURCE,
+                mode="dropdown",
+            )
+        ),
+        _site_source_field(current, CONF_GRID_ENTITY): _site_power_selector(
+            current, states, CONF_GRID_ENTITY, "grid"
+        ),
+        vol.Required(
+            CONF_GRID_SIGN,
+            default=current.get(CONF_GRID_SIGN, "positive_import"),
+        ): SelectSelector(
+            SelectSelectorConfig(
+                options=list(GRID_SIGNS),
+                translation_key=CONF_GRID_SIGN,
+                mode="dropdown",
+            )
+        ),
+        _site_source_field(current, CONF_SOLAR_ENTITY): _site_power_selector(
+            current, states, CONF_SOLAR_ENTITY, "solar"
+        ),
+        _site_source_field(current, CONF_HOUSE_ENTITY): _site_power_selector(
+            current, states, CONF_HOUSE_ENTITY, "household"
+        ),
+    }
+
+
+def _site_tariff_fields(
+    current: Mapping[str, Any], states: object, currency: str, price_key: vol.Optional
+) -> dict[vol.Marker, Any]:
+    return {
+        _site_source_field(current, CONF_TARIFF_ENTITY): SelectSelector(
+            SelectSelectorConfig(
+                options=tariff_sensor_options(
+                    states,
+                    currency,
+                    current.get(CONF_TARIFF_ENTITY),
+                ),
+                mode="dropdown",
+                custom_value=True,
+            )
+        ),
+        price_key: float,
+    }
 
 
 class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
