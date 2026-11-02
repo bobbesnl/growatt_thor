@@ -37,6 +37,8 @@ Session flow thresholds live in `sessions/constants.py`; platform configuration 
 
 `entity.py` owns shared entity naming and charger/meter device metadata. Platform entities retain their existing unique-ID expressions and defer HA attachment to the entity lifecycle; write guards read the coordinator's shared control-policy method.
 
+`energy/allocation.py` separates interval observations, available solar supply and quality classification from the ordered allocation of EV energy. Its private immutable input record carries only values from the same interval; directed measurements still take priority.
+
 Generic UTC helpers live in `timestamps.py`; session display normalization lives in `sessions/display_times.py`. Energy code separates allocation mathematics (`allocation.py`), the session accumulator (`session_accumulator.py`), site inputs (`site_inputs.py`), observations (`site_observations.py`) and stop policy/runtime (`stop_guard_policy.py` / `stop_guard.py`). Charging capabilities and Start/Stop rules live in `charging/control_capabilities.py` and `charging/start_stop_rules.py`. Persisted site/battery option keys are declared in `energy/options.py`.
 
 Simple sensor behavior is declared in `sensor_descriptions.py` through `ThorSensorDescription`: values, availability, extra attributes, units and device ownership. `sensor.py` retains lifecycle projection and thin compatibility constructors alongside the stateful status, fault, command and accounting sensors. Characterization snapshots cover IDs and visible states across unknown, reported, disconnected and failed-coordinator cases.

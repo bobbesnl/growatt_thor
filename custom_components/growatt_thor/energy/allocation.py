@@ -117,6 +117,19 @@ class Allocation:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class _AllocationInputs:
+    direct_grid: float | None
+    direct_solar: float | None
+    grid: float | None
+    solar: float | None
+    household: float | None
+    battery: float | None
+    battery_charge: float | None
+    missing: tuple[str, ...]
+    measured: bool
+
+
 def allocate(
     delta: EVEnergyDelta,
     site: SiteObservations,
@@ -127,6 +140,69 @@ def allocate(
     if not isfinite(delta.kwh) or delta.kwh < 0 or delta.hours <= 0:
         raise ValueError("EV delta and interval must be positive and finite")
     remaining = delta.kwh
+    inputs = _allocation_inputs(delta, site, policy)
+    grid_kwh = solar_kwh = battery_kwh = 0.0
+
+    # Explicit directed measurements always win over a declared priority.
+    if inputs.direct_grid is not None:
+        grid_kwh = min(remaining, inputs.direct_grid)
+        remaining -= grid_kwh
+    if inputs.direct_solar is not None:
+        solar_kwh = min(remaining, inputs.direct_solar)
+        remaining -= solar_kwh
+
+    if policy.topology == "grid_only":
+        grid_kwh += remaining
+        remaining = 0.0
+    else:
+        available_solar = _available_solar(inputs, policy)
+        if (
+            policy.policy_id == "load_first"
+            and inputs.direct_solar is None
+            and available_solar is not None
+            and inputs.grid is not None
+        ):
+            solar_share = min(remaining, available_solar)
+            solar_kwh += solar_share
+            remaining -= solar_share
+        if inputs.direct_grid is None and inputs.grid is not None:
+            grid_share = min(remaining, inputs.grid)
+            grid_kwh += grid_share
+            remaining -= grid_share
+        if inputs.battery is not None and inputs.grid is not None:
+            battery_kwh = min(remaining, inputs.battery)
+            remaining -= battery_kwh
+        if (
+            policy.policy_id == "grid_first"
+            and inputs.direct_solar is None
+            and available_solar is not None
+            and inputs.grid is not None
+        ):
+            solar_share = min(remaining, available_solar)
+            solar_kwh += solar_share
+            remaining -= solar_share
+    unknown = max(0.0, remaining)
+    # Clamp floating arithmetic and keep the balance exact.
+    unknown = max(0.0, delta.kwh - grid_kwh - solar_kwh - battery_kwh)
+    coverage = max(0.0, min(1.0, (delta.kwh - unknown) / delta.kwh)) if delta.kwh else 1.0
+    quality = _allocation_quality(unknown, inputs, policy)
+    price = tariff.price_at(delta.end_at)
+    cost = grid_kwh * price if price is not None else None
+    return Allocation(
+        solar_kwh,
+        grid_kwh,
+        battery_kwh,
+        unknown,
+        cost,
+        DataQuality(quality, coverage, tuple(inputs.missing)),
+        policy.policy_id,
+        policy.policy_version,
+    )
+
+
+def _allocation_inputs(
+    delta: EVEnergyDelta, site: SiteObservations, policy: AccountingPolicy
+) -> _AllocationInputs:
     missing: list[str] = []
     measured = False
 
@@ -163,88 +239,52 @@ def allocate(
     if policy.topology == "pv_battery" and site.battery:
         value = site.battery.value_at(delta.end_at)
         battery_charge = max(0.0, -value) * delta.hours / 1000 if value is not None else None
-    grid_kwh = solar_kwh = battery_kwh = 0.0
+    return _AllocationInputs(
+        direct_grid=direct_grid,
+        direct_solar=direct_solar,
+        grid=grid,
+        solar=solar,
+        household=household,
+        battery=battery,
+        battery_charge=battery_charge,
+        missing=tuple(missing),
+        measured=measured,
+    )
 
-    # Explicit directed measurements always win over a declared priority.
-    if direct_grid is not None:
-        grid_kwh = min(remaining, direct_grid)
-        remaining -= grid_kwh
-    if direct_solar is not None:
-        solar_kwh = min(remaining, direct_solar)
-        remaining -= solar_kwh
 
-    if policy.topology == "grid_only":
-        grid_kwh += remaining
-        remaining = 0.0
+def _available_solar(inputs: _AllocationInputs, policy: AccountingPolicy) -> float | None:
+    if policy.policy_id == "load_first":
+        # The measured PV supply is booked to household and battery charge
+        # before EVSE. Thermal load follows EVSE and cannot reduce its share.
+        return (
+            max(0.0, inputs.solar - inputs.household - (inputs.battery_charge or 0.0))
+            if inputs.solar is not None
+            and inputs.household is not None
+            and (policy.topology != "pv_battery" or inputs.battery_charge is not None)
+            else None
+        )
     else:
-        if policy.policy_id == "load_first":
-            # The measured PV supply is booked to household and battery charge
-            # before EVSE. Thermal load follows EVSE and cannot reduce its share.
-            available_solar = (
-                max(0.0, solar - household - (battery_charge or 0.0))
-                if solar is not None
-                and household is not None
-                and (policy.topology != "pv_battery" or battery_charge is not None)
-                else None
-            )
-        else:
-            available_solar = (
-                max(0.0, solar - (household or 0.0) - (battery_charge or 0.0))
-                if solar is not None
-                and (policy.topology != "pv_battery" or battery_charge is not None)
-                else None
-            )
-        if (
-            policy.policy_id == "load_first"
-            and direct_solar is None
-            and available_solar is not None
-            and grid is not None
-        ):
-            solar_share = min(remaining, available_solar)
-            solar_kwh += solar_share
-            remaining -= solar_share
-        if direct_grid is None and grid is not None:
-            grid_share = min(remaining, grid)
-            grid_kwh += grid_share
-            remaining -= grid_share
-        if battery is not None and grid is not None:
-            battery_kwh = min(remaining, battery)
-            remaining -= battery_kwh
-        if (
-            policy.policy_id == "grid_first"
-            and direct_solar is None
-            and available_solar is not None
-            and grid is not None
-        ):
-            solar_share = min(remaining, available_solar)
-            solar_kwh += solar_share
-            remaining -= solar_share
-    unknown = max(0.0, remaining)
-    # Clamp floating arithmetic and keep the balance exact.
-    unknown = max(0.0, delta.kwh - grid_kwh - solar_kwh - battery_kwh)
-    coverage = max(0.0, min(1.0, (delta.kwh - unknown) / delta.kwh)) if delta.kwh else 1.0
-    quality: BucketQuality = (
+        return (
+            max(0.0, inputs.solar - (inputs.household or 0.0) - (inputs.battery_charge or 0.0))
+            if inputs.solar is not None
+            and (policy.topology != "pv_battery" or inputs.battery_charge is not None)
+            else None
+        )
+
+
+def _allocation_quality(
+    unknown: float, inputs: _AllocationInputs, policy: AccountingPolicy
+) -> BucketQuality:
+    return (
         "unknown"
         if unknown > TOLERANCE_KWH
         else (
             "measured"
-            if direct_grid is not None or direct_solar is not None
+            if inputs.direct_grid is not None or inputs.direct_solar is not None
             else "declared"
             if policy.policy_id == "load_first" or policy.topology == "grid_only"
             else "derived"
-            if measured
+            if inputs.measured
             else "unknown"
         )
-    )
-    price = tariff.price_at(delta.end_at)
-    cost = grid_kwh * price if price is not None else None
-    return Allocation(
-        solar_kwh,
-        grid_kwh,
-        battery_kwh,
-        unknown,
-        cost,
-        DataQuality(quality, coverage, tuple(missing)),
-        policy.policy_id,
-        policy.policy_version,
     )
