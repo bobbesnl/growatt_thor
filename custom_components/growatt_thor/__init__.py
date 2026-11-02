@@ -48,6 +48,7 @@ from .runtime.entity_migrations import (
     LEGACY_SESSION_DURATION_UNIT_MIGRATION,
     PENDING_EXTERNAL_METER_READBACK_MIGRATION,
     disable_redundant_external_meter_readbacks,
+    find_device_with_identifier,
     migrate_session_duration_unit,
 )
 from .runtime.keys import (
@@ -212,10 +213,10 @@ def _complete_external_meter_readback_migration(
 def _migrate_external_meter_device(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update legacy default metadata for the external meter device."""
     registry = dr.async_get(hass)
-    device = registry.async_get_device_by_identifier(
+    device = find_device_with_identifier(
+        dr.async_entries_for_config_entry(registry, entry.entry_id),
         # Keep the legacy identifier so the existing device is updated in place.
         (DOMAIN, entry.entry_id, "grid_connection"),
-        entry.entry_id,
     )
     if device is None:
         return

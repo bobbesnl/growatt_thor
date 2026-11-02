@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 
 from tests.support import PACKAGE_PATH, load_package_module, register_package
 
@@ -285,12 +286,23 @@ class EntityMigrationTest(unittest.TestCase):
 
     def test_external_meter_device_lookup_is_scoped_to_config_entry(self):
         source = INIT_PATH.read_text(encoding="utf-8")
-        self.assertIn("registry.async_get_device_by_identifier(", source)
-        self.assertIn(
-            '(DOMAIN, entry.entry_id, "grid_connection"),\n        entry.entry_id,',
-            source,
-        )
+        self.assertIn("dr.async_entries_for_config_entry(registry, entry.entry_id)", source)
+        self.assertIn('(DOMAIN, entry.entry_id, "grid_connection"),', source)
+        # async_get_device is deprecated since HA 2026.9; async_get_device_by_identifier
+        # only exists since HA 2026.8 and would break setup on older versions.
         self.assertNotIn("registry.async_get_device(", source)
+        self.assertNotIn("async_get_device_by_identifier", source)
+
+    def test_find_device_with_identifier_matches_only_the_given_identifier(self):
+        charger = SimpleNamespace(id="charger", identifiers={("growatt_thor", "entry")})
+        meter = SimpleNamespace(
+            id="meter", identifiers={("growatt_thor", "entry", "grid_connection")}
+        )
+        identifier = ("growatt_thor", "entry", "grid_connection")
+        self.assertIs(
+            entity_migrations.find_device_with_identifier([charger, meter], identifier), meter
+        )
+        self.assertIsNone(entity_migrations.find_device_with_identifier([charger], identifier))
 
 
 if __name__ == "__main__":

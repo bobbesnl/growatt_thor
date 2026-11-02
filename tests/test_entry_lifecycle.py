@@ -150,8 +150,7 @@ class _Coordinator:
 
 
 class _DeviceRegistry:
-    def async_get_device_by_identifier(self, identifier, config_entry_id):
-        return None
+    pass
 
 
 class _ConfigEntries:
@@ -223,7 +222,10 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
         integration.async_setup_session_history = lambda *args: lambda: None
         integration.GrowattCoordinator = _Coordinator
         integration.Store = _MemoryStore
-        integration.dr = SimpleNamespace(async_get=lambda hass: _DeviceRegistry())
+        integration.dr = SimpleNamespace(
+            async_get=lambda hass: _DeviceRegistry(),
+            async_entries_for_config_entry=lambda registry, entry_id: [],
+        )
         self.hass = _Hass(asyncio.get_running_loop())
         self.directory = TemporaryDirectory()
         self.hass.config = SimpleNamespace(path=lambda name: str(Path(self.directory.name) / name))

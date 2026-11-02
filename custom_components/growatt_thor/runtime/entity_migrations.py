@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from ..const import DOMAIN
 
 if TYPE_CHECKING:
+    from homeassistant.helpers.device_registry import DeviceEntry
     from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntryDisabler
 
 LEGACY_SESSION_DURATION_UNIT_MIGRATION = "_migrate_session_duration_unit"
@@ -16,6 +18,23 @@ REDUNDANT_EXTERNAL_METER_READBACK_SUFFIXES = (
     "external_meter_power_meter_type",
     "external_meter_power_meter_address",
 )
+
+
+def find_device_with_identifier(
+    devices: Iterable[DeviceEntry], identifier: tuple[str, ...]
+) -> DeviceEntry | None:
+    """Return the first device whose identifiers contain ``identifier``.
+
+    Pass the devices of one config entry from
+    ``device_registry.async_entries_for_config_entry``. That keeps the lookup
+    inside the entry without ``async_get_device`` (deprecated since Home
+    Assistant 2026.9) or ``async_get_device_by_identifier`` (only available
+    since 2026.8), so setup works on every supported Home Assistant version.
+    """
+    for device in devices:
+        if identifier in device.identifiers:
+            return device
+    return None
 
 
 def migrate_session_duration_unit(registry: EntityRegistry, entry_id: str) -> bool:

@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## Unreleased
 
+### Fixed
+
+- Start the integration again on Home Assistant versions before 2026.8. The External Meter device update no longer uses a registry lookup that only exists in newer versions.
+
 ## 2.0.0-alpha.3 — 2026-11-02
 
 ### Fixed
