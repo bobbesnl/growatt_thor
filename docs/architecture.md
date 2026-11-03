@@ -165,8 +165,8 @@ stays the same.
 
 ## State ownership
 
-The coordinator composes the owners below and keeps public observations,
-storage and OCPP meter processing itself. It declares optional state such as
+The coordinator is the composition root of one entry: it creates the owners
+below and keeps the public observations they read and write. It declares optional state such as
 `dashboard_command` and `last_energy_stop` with a `None` default, so "no command
 yet" stays distinct from a reported outcome.
 
@@ -176,7 +176,11 @@ yet" stays distinct from a reported outcome.
 | `runtime/charger_write_queue.py::ChargerWriteQueue` | Pending `ChargerWriteItem`s, the processor task, monotonic expiry and spacing, completion and shutdown. It talks to the coordinator only through the `WriteQueueOwner` protocol. |
 | `sessions/runtime.py::SessionLifecycle` | Session curves, event tracking, restored-session state, pending effective durations, record deduplication, pending completions and the immutable `LastSessionState`. Storage uses its snapshot/restore methods. |
 | `ocpp/external_meter_state.py::ExternalMeterState` | External-meter observations, fault matching, poll timeouts, health and PV readiness. |
-| `charging/pv_draft.py::PvLinkageDraftState` | The local PV draft, snapshots and initialization from readback. |
+| `charging/pv_draft.py::PvLinkageDraftState` | The local PV draft, snapshots, initialization from readback, edits and the dirty flag after Apply. |
+| `runtime/ocpp_ingest.py::OcppIngest` | No state of its own. Applies BootNotification, StatusNotification, MeterValues, GetConfiguration, fault and external-meter observations to coordinator state, including live-power resets and site accounting per sample. |
+| `configuration/write_tracker.py::ConfigurationWriteTracker` | Per-key generations and outcomes of configuration writes until readback confirms them (`coordinator.configuration_writes`). |
+| `configuration/readback.py::ConfigurationReadback` | The one coalesced GetConfiguration readback task after writes. |
+| `runtime/coordinator_storage.py` | Builds and restores the coordinator's storage payload; the coordinator keeps the store, legacy seeding and save timing. |
 | `targets/runtime.py::ChargingTargetRuntime` | Target storage, lock, busy state and schedule timer for one entry. |
 | `runtime/polling.py::ExternalMeterPoller` | External-meter polling state. |
 | `sessions/outbox.py::SessionOutbox` | Completed rows awaiting CSV delivery. |

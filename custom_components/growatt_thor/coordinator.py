@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 from datetime import UTC, datetime, time
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -15,59 +15,21 @@ from .charging.control_capabilities import (
     control_write_block_reason,
     transaction_state_is_active,
 )
-from .charging.faults import (
-    ChargerFault,
-    fault_from_data_transfer,
-    fault_from_status_notification,
-)
+from .charging.faults import ChargerFault
 from .charging.pv_draft import PvLinkageDraftState
-from .charging.pv_linkage import (
-    PvLinkageApplyResult,
-    PvLinkageDraft,
-    draft_matches_reported,
-)
-from .coerce import enum_value
-from .configuration.values import (
-    COORDINATOR_CONFIGURATION_PROJECTIONS,
-    ConfigurationValue,
-    configuration_entity_state,
-    configuration_value_from_item,
-    merge_configuration_values,
-    normalize_unknown_configuration_keys,
-    parse_auto_charge_time,
-)
-from .configuration.writes import (
-    ConfigurationWriteState,
-    ConfigurationWriteStatus,
-    acknowledge_configuration_write,
-    begin_configuration_write,
-    configuration_write_is_current,
-    confirm_configuration_writes,
-    mark_configuration_write,
-)
-from .const import (
-    CONF_LOCATION,
-    CONF_POLL_INTERVAL,
-    CONFIGURATION_WRITE_SPACING_SECONDS,
-)
+from .charging.pv_linkage import PvLinkageApplyResult, PvLinkageDraft
+from .configuration.readback import ConfigurationReadback
+from .configuration.values import ConfigurationValue, configuration_value_from_item
+from .configuration.write_tracker import ConfigurationWriteTracker
+from .configuration.writes import ConfigurationWriteState, ConfigurationWriteStatus
+from .const import CONF_LOCATION, CONF_POLL_INTERVAL, CONFIGURATION_WRITE_SPACING_SECONDS
 from .energy.options import CONF_BATTERY_POWER_ENTITY, CONF_BATTERY_POWER_SIGN
 from .energy.session_accumulator import SessionAccumulator
-from .energy.site_inputs import site_inputs
 from .energy.sources import BATTERY_POSITIVE_DISCHARGE
-from .ocpp.diagnostics import create_ocpp_snapshot
-from .ocpp.external_meter import (
-    parse_external_meter_data,
-)
 from .ocpp.external_meter_state import ExternalMeterState
-from .ocpp.meter_samples import (
-    DEFAULT_MEASURAND,
-    MeterValue,
-    charging_power_curve_point,
-    meter_time_zone,
-    parse_meter_values,
-)
-from .ocpp.status import ENERGY_SESSION_STATUSES, LIVE_POWER_STATUSES, normalize_ocpp_status
+from .ocpp.status import normalize_ocpp_status
 from .runtime.charger_write_queue import ChargerWriteQueue
+from .runtime.coordinator_storage import restore_storage_data, storage_data
 from .runtime.entry import EntryRuntime
 from .runtime.keys import (
     ACTIVE_CHARGE_POINT,
@@ -75,8 +37,8 @@ from .runtime.keys import (
     PERSIST_CHARGER_IDENTITY,
     REFRESH_DASHBOARD,
     SKIP_POLLING_UNTIL,
-    UPDATE_SESSION_EVENTS_IN_CSV,
 )
+from .runtime.ocpp_ingest import OcppIngest
 from .runtime.write_results import (
     DEFAULT_WRITE_POLICY,
     ChargerCommandHandle,
@@ -84,20 +46,15 @@ from .runtime.write_results import (
     ChargerWriteQueuePolicy,
     ChargerWriteResult,
 )
-from .sessions.active_state import ActiveSessionState, ActiveTransaction
+from .sessions.active_state import ActiveTransaction
 from .sessions.duration import EffectiveChargingTracker
-from .sessions.events import (
-    append_session_event,
-    session_event,
-)
 from .sessions.hooks import TransactionHooks
 from .sessions.records import GrowattSessionRecord
 from .sessions.runtime import SessionLifecycle
-from .sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
-from .sessions.state import LastSessionState, normalize_record_key
+
+# Re-exported for focused tests that build a coordinator from this module.
+from .sessions.state import LastSessionState as LastSessionState
 from .sessions.transaction_ids import TransactionIdAllocator
-from .timestamps import installation_time_zone
-from .timestamps import parse_utc as parse_at
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -112,21 +69,6 @@ _LOGGER = logging.getLogger(__name__)
 # once, to seed a config entry that has no storage file of its own yet.
 STORAGE_KEY = "growatt_thor_statistics"
 STORAGE_VERSION = 1
-
-# OCPP statuses in which the charger delivers energy. In every other status
-# the last MeterValues sample is stale, so live power and current go to 0.
-MIN_METER_GAP_SECONDS = 30.0
-METER_GAP_INTERVAL_MULTIPLIER = 3
-DEFAULT_METER_GAP_SECONDS = 180.0
-
-
-LIVE_SAMPLE_PROJECTIONS = {
-    DEFAULT_MEASURAND: ("energy", False),
-    "Power.Active.Import": ("phase_power", True),
-    "Current.Import": ("currents", True),
-    "Voltage": ("voltages", True),
-    "Temperature": ("temperature", False),
-}
 
 
 def storage_key_for_entry(source_instance_id: str | None) -> str:
@@ -154,6 +96,7 @@ class GrowattCoordinator(_CoordinatorBase):
         super().__init__(hass, _LOGGER, name="Growatt THOR Coordinator")
 
         self.sessions = SessionLifecycle(self)
+        self.ingest = OcppIngest(self)
         storage_key = storage_key_for_entry(source_instance_id)
         self._store = Store(hass, STORAGE_VERSION, storage_key)
         self._legacy_store = (
@@ -248,7 +191,9 @@ class GrowattCoordinator(_CoordinatorBase):
         # Last-known raw and normalized GetConfiguration values.
         self.configuration_values: dict[str, ConfigurationValue] = {}
         self.unknown_configuration_keys: tuple[str, ...] = ()
-        self.configuration_writes: dict[str, ConfigurationWriteState] = {}
+        self.configuration_write_tracker = ConfigurationWriteTracker(
+            now=lambda: self.now(), notify=lambda: self.async_set_updated_data(True)
+        )
         self.last_command_result: ChargerCommandResult | None = None
 
         self.dashboard_sessions: dict[str, Any] = {
@@ -265,7 +210,7 @@ class GrowattCoordinator(_CoordinatorBase):
         self._connection_changed = asyncio.Event()
         self.write_queue = ChargerWriteQueue(self, self._connection_changed)
         self._shutting_down = False
-        self._configuration_refresh_task: asyncio.Task[bool] | None = None
+        self.configuration_readback = ConfigurationReadback(self, self._connection_changed)
         self._auto_charge_schedule_task: asyncio.Task[None] | None = None
 
     # PERSISTENT STORAGE
@@ -284,66 +229,7 @@ class GrowattCoordinator(_CoordinatorBase):
                     "once from the shared legacy storage file"
                 )
         if data:
-            # Import restoration policy only when executor-loaded storage needs it.
-            from .energy.stop_guard_policy import restore_stop_report
-
-            self.last_energy_stop = restore_stop_report(data.get("last_energy_stop"))
-            self.sessions.outbox.restore(data.get("pending_session_rows"))
-            self.total_energy_charged = float(data.get("total_energy_charged", 0.0))
-            self._transaction_id_allocator.restore(data.get("next_transaction_id", 1))
-            self.sessions.last_session = LastSessionState.from_dict(data.get("last_session"))
-            stored_keys = data.get("applied_session_record_keys", [])
-            if isinstance(stored_keys, list):
-                for value in stored_keys[-50:]:
-                    record_key = normalize_record_key(value)
-                    if (
-                        record_key is not None
-                        and record_key not in self.sessions.applied_session_record_keys
-                    ):
-                        self.sessions.applied_session_record_keys.append(record_key)
-            if (
-                self.sessions.last_session.record_key is not None
-                and self.sessions.last_session.record_key
-                not in self.sessions.applied_session_record_keys
-            ):
-                self.sessions.applied_session_record_keys.append(
-                    self.sessions.last_session.record_key
-                )
-            self.last_charger_fault = ChargerFault.from_dict(data.get("last_charger_fault"))
-            self.effective_charging = EffectiveChargingTracker.from_dict(
-                data.get("active_effective_charging")
-            )
-            active_session = ActiveSessionState.from_dict(data.get("active_session"))
-            if active_session.transaction_id is None:
-                # Migration from stores written before the active dashboard
-                # row was persisted. The effective tracker still provides an
-                # honest transaction identity and last observed energy value.
-                active_session = ActiveSessionState(
-                    transaction_id=self.effective_charging.transaction_id,
-                    energy_wh=self.effective_charging.last_energy_wh,
-                )
-            self.sessions.restore_active_session_state(active_session)
-            self.site_accounting = SessionAccumulator.from_dict(data.get("active_site_accounting"))
-            self.last_site_accounting = SessionAccumulator.from_dict(
-                data.get("pending_site_accounting")
-            )
-            stored_totals = data.get("site_accounting_totals")
-            if isinstance(stored_totals, dict):
-                for key in self.site_accounting_totals:
-                    try:
-                        value = float(stored_totals.get(key, 0))
-                    except (TypeError, ValueError):
-                        continue
-                    if value == value and (value >= 0 or key == "effective_grid_cost"):
-                        self.site_accounting_totals[key] = value
-            pending_effective = data.get("pending_effective_charging_minutes")
-            if isinstance(pending_effective, dict):
-                for key, value in pending_effective.items():
-                    try:
-                        self.sessions.pending_effective_charging_minutes[str(key)] = float(value)
-                    except (TypeError, ValueError):
-                        continue
-            self.sessions.restore_completions(data.get("pending_completed_sessions"))
+            restore_storage_data(self, data)
             _LOGGER.info(
                 "Loaded from storage: total_energy_charged=%.3f kWh, "
                 "next_transaction_id=%d, last_session_transaction_id=%s",
@@ -369,33 +255,7 @@ class GrowattCoordinator(_CoordinatorBase):
 
     def _storage_data(self) -> dict[str, object]:
         """Build the current JSON-safe persistent payload."""
-        active_session = self.sessions.active_session_state()
-        return {
-            "pending_session_rows": self.sessions.outbox.snapshot(),
-            "pending_completed_sessions": self.sessions.pending_completions,
-            "last_energy_stop": self.last_energy_stop,
-            "total_energy_charged": self.total_energy_charged,
-            "next_transaction_id": self._transaction_id_allocator.next_transaction_id,
-            "last_session": self.sessions.last_session.as_dict(),
-            "applied_session_record_keys": [
-                list(key) for key in self.sessions.applied_session_record_keys
-            ],
-            "last_charger_fault": (
-                self.last_charger_fault.as_dict() if self.last_charger_fault is not None else None
-            ),
-            "active_effective_charging": self.effective_charging.as_dict(),
-            "active_session": (active_session.as_dict() if active_session is not None else None),
-            "active_site_accounting": (
-                self.site_accounting.as_dict() if self.site_accounting else None
-            ),
-            "pending_site_accounting": (
-                self.last_site_accounting.as_dict() if self.last_site_accounting else None
-            ),
-            "site_accounting_totals": dict(self.site_accounting_totals),
-            "pending_effective_charging_minutes": dict(
-                self.sessions.pending_effective_charging_minutes
-            ),
-        }
+        return storage_data(self)
 
     def schedule_storage_save(self) -> None:
         """Coalesce frequent MeterValues persistence into one delayed write."""
@@ -528,57 +388,23 @@ class GrowattCoordinator(_CoordinatorBase):
             self.sessions.observe_context()
         self.async_set_updated_data(True)
 
-    def begin_configuration_write(self, key: str, raw_value: str) -> int:
-        """Track a configuration write and return its per-key generation."""
-        self.configuration_writes = begin_configuration_write(
-            self.configuration_writes,
-            key=key,
-            raw_value=raw_value,
-            requested_at=self.now(),
-        )
-        self.async_set_updated_data(True)
-        return self.configuration_writes[key].generation
+    @property
+    def configuration_writes(self) -> dict[str, ConfigurationWriteState]:
+        """Per-key write state, owned by the configuration write tracker."""
+        return self.configuration_write_tracker.writes
 
-    def configuration_write_is_current(
-        self,
-        key: str,
-        generation: int,
-    ) -> bool:
-        """Return whether a callback still owns the latest intent for a key."""
-        return configuration_write_is_current(
-            self.configuration_writes,
-            key=key,
-            generation=generation,
-        )
+    def begin_configuration_write(self, key: str, raw_value: str) -> int:
+        return self.configuration_write_tracker.begin(key, raw_value)
+
+    def configuration_write_is_current(self, key: str, generation: int) -> bool:
+        return self.configuration_write_tracker.is_current(key, generation)
 
     def acknowledge_configuration_write(
-        self,
-        key: str,
-        *,
-        generation: int,
-        accepted: bool,
-        result: object,
+        self, key: str, *, generation: int, accepted: bool, result: object
     ) -> bool:
-        """Retain a current OCPP result; ignore a superseded response."""
-        # Example: 10 A was sent, then 16 A was requested before its reply.
-        # The 10 A acknowledgement is real, but cannot confirm the newer 16 A intent.
-        outcome_is_current = self.configuration_write_is_current(key, generation)
-        if not outcome_is_current:
-            _LOGGER.info(
-                "Ignoring superseded ChangeConfiguration result for %s (generation %d)",
-                key,
-                generation,
-            )
-        result_value = enum_value(result, stringify_fallback=True)
-        self.configuration_writes = acknowledge_configuration_write(
-            self.configuration_writes,
-            key=key,
-            generation=generation,
-            accepted=accepted,
-            result=result_value,
+        return self.configuration_write_tracker.acknowledge(
+            key, generation=generation, accepted=accepted, result=result
         )
-        self.async_set_updated_data(True)
-        return outcome_is_current
 
     def mark_configuration_write(
         self,
@@ -588,24 +414,9 @@ class GrowattCoordinator(_CoordinatorBase):
         generation: int,
         result: str | None = None,
     ) -> bool:
-        """Retain a current non-acknowledgement outcome."""
-        outcome_is_current = self.configuration_write_is_current(key, generation)
-        if not outcome_is_current:
-            _LOGGER.info(
-                "Ignoring superseded %s outcome for %s (generation %d)",
-                status.value,
-                key,
-                generation,
-            )
-        self.configuration_writes = mark_configuration_write(
-            self.configuration_writes,
-            key=key,
-            generation=generation,
-            status=status,
-            result=result,
+        return self.configuration_write_tracker.mark(
+            key, status, generation=generation, result=result
         )
-        self.async_set_updated_data(True)
-        return outcome_is_current
 
     async def async_apply_options(self, data: dict[str, Any], *, section: str) -> None:
         """Apply one saved options section without changing entry ownership or storage."""
@@ -643,24 +454,7 @@ class GrowattCoordinator(_CoordinatorBase):
     def schedule_configuration_refresh(
         self, *, delay: float = CONFIGURATION_WRITE_SPACING_SECONDS
     ) -> asyncio.Task[bool]:
-        """Coalesce post-write readbacks into one reconnect-safe task.
-
-        Historically each accepted write slept for exactly the same 20 seconds
-        as the queue rate limit.  The readback and the next write therefore woke
-        together and competed for the OCPP connection.  A single shared task
-        now waits until all queued writes have finished, then reads once from
-        whichever connection is current at that time.
-        """
-        if (
-            self._configuration_refresh_task is not None
-            and not self._configuration_refresh_task.done()
-        ):
-            return self._configuration_refresh_task
-
-        self._configuration_refresh_task = self.hass.async_create_task(
-            self._delayed_configuration_refresh(delay)
-        )
-        return self._configuration_refresh_task
+        return self.configuration_readback.schedule(delay=delay)
 
     def schedule_auto_charge_schedule_write(
         self,
@@ -700,67 +494,8 @@ class GrowattCoordinator(_CoordinatorBase):
         self._auto_charge_schedule_task = task
         return task
 
-    async def _delayed_configuration_refresh(self, delay: float) -> bool:
-        """Wait for a safe request window and refresh reported configuration."""
-        try:
-            if delay > 0:
-                await asyncio.sleep(delay)
-
-            while True:
-                await self.write_queue.idle.wait()
-
-                charge_point = self.runtime_data.get(ACTIVE_CHARGE_POINT)
-                if charge_point is None or not self.connected:
-                    self._connection_changed.clear()
-                    charge_point = self.runtime_data.get(ACTIVE_CHARGE_POINT)
-                    if charge_point is None or not self.connected:
-                        await self._connection_changed.wait()
-                    continue
-
-                # trigger_get_configuration repeats the pending-write check
-                # while holding the per-connection request lock.  If a write
-                # enters the queue in this small hand-off window, retry after
-                # the queue is idle rather than racing it.
-                completed = await charge_point.trigger_get_configuration(
-                    skip_if_writes_pending=True
-                )
-                if completed:
-                    return True
-                # A false result can represent a 30-second timeout, a stale
-                # connection, or a newly queued write.  Backing off avoids a
-                # tight retry loop while the websocket cleanup catches up.
-                await asyncio.sleep(1.0)
-        except asyncio.CancelledError:
-            return False
-        finally:
-            self._configuration_refresh_task = None
-
     def update_pv_linkage_draft(self, **changes: object) -> None:
-        """Update local compound-control fields without writing the charger."""
-        for attribute, value in changes.items():
-            if attribute not in {
-                "boost_mode",
-                "manual_start",
-                "manual_end",
-                "smart_finish",
-                "smart_target_energy_kwh",
-            }:
-                raise ValueError(f"Unsupported PV Linkage draft field: {attribute}")
-            setattr(self.pv_draft, attribute, value)
-        draft = self.pv_draft.snapshot()
-        reported_mode = configuration_entity_state(
-            "G_SolarBoost",
-            self.configuration_values.get("G_SolarBoost"),
-        )
-        period_value = self.configuration_values.get("G_PeriodTime")
-        self.pv_draft.dirty = not (
-            draft is not None
-            and draft_matches_reported(
-                draft,
-                reported_mode=(reported_mode if isinstance(reported_mode, str) else None),
-                reported_period=(period_value.raw_value if period_value is not None else None),
-            )
-        )
+        self.pv_draft.update(changes, self.configuration_values)
         self.async_set_updated_data(True)
 
     def record_pv_linkage_apply_result(
@@ -771,20 +506,9 @@ class GrowattCoordinator(_CoordinatorBase):
         self.pv_draft.apply_result = result
         self.async_set_updated_data(True)
 
-    def mark_pv_linkage_draft_applied(
-        self,
-        expected_draft: PvLinkageDraft,
-    ) -> bool:
-        """Clear only the exact draft whose complete Apply succeeded.
-
-        A user may edit the local draft while an older Apply is executing.  A
-        successful acknowledgement for that older snapshot must not erase the
-        newer unsent changes.
-        """
-        if self.pv_draft.snapshot() != expected_draft:
-            _LOGGER.info("Keeping newer PV Linkage draft dirty after an older Apply")
+    def mark_pv_linkage_draft_applied(self, expected_draft: PvLinkageDraft) -> bool:
+        if not self.pv_draft.mark_applied(expected_draft):
             return False
-        self.pv_draft.dirty = False
         self.async_set_updated_data(True)
         return True
 
@@ -806,24 +530,6 @@ class GrowattCoordinator(_CoordinatorBase):
         current = self.runtime_data.get(SKIP_POLLING_UNTIL, 0)
         self.runtime_data[SKIP_POLLING_UNTIL] = max(current, until)
 
-    def _reset_live_power(self) -> bool:
-        """Zero live power and current values that are no longer current.
-
-        The THOR sends MeterValues only while it charges.  When charging ends
-        with the cable still connected (SuspendedEV) no StopTransaction
-        follows, so without this reset the last sample stays visible until
-        the cable is unplugged.  Voltages are kept: the charger still sees
-        mains voltage.
-        """
-        zero_phases = {"L1": 0, "L2": 0, "L3": 0}
-        if self.power == 0 and self.phase_power == zero_phases and self.currents == zero_phases:
-            return False
-
-        self.power = 0
-        self.phase_power = dict(zero_phases)
-        self.currents = dict(zero_phases)
-        return True
-
     def set_disconnected(self) -> None:
         """Mark the active OCPP transport connection as disconnected."""
         was_connected = self.connected
@@ -831,7 +537,7 @@ class GrowattCoordinator(_CoordinatorBase):
         self._connection_changed.clear()
         if was_connected:
             _LOGGER.info("Charge point disconnected: %s", self.charge_point_id)
-        if self._reset_live_power():
+        if self.ingest.reset_live_power():
             _LOGGER.debug("Live power reset after disconnect")
         self.async_set_updated_data(True)
 
@@ -840,7 +546,7 @@ class GrowattCoordinator(_CoordinatorBase):
         self._shutting_down = True
         self.write_queue.begin_shutdown()
         tasks = (
-            self._configuration_refresh_task,
+            self.configuration_readback.task,
             self._auto_charge_schedule_task,
         )
         for task in tasks:
@@ -861,122 +567,56 @@ class GrowattCoordinator(_CoordinatorBase):
             await self.sessions.async_flush_pending()
             await self.async_save_storage()
 
+    # Inbound OCPP observations (see runtime/ocpp_ingest.py)
+
     def set_status(self, status: object) -> None:
-        """Set charger status and notify sensors."""
-        value = enum_value(status, stringify_fallback=True)
-
-        if self.status != value:
-            self.status = value
-            _LOGGER.debug("Status changed to: %s", value)
-
-        normalized = normalize_ocpp_status(value)
-        if (
-            normalized is not None
-            and normalized not in LIVE_POWER_STATUSES
-            and self._reset_live_power()
-        ):
-            _LOGGER.info("Status %s: live power reset to 0 W", value)
-
-        self.async_set_updated_data(True)
+        self.ingest.set_status(status)
 
     def record_boot_notification(self, payload: dict[str, Any]) -> None:
-        """Retain the latest BootNotification request."""
-        self.boot_notification = create_ocpp_snapshot(self.now(), payload)
-        self.async_set_updated_data(True)
+        self.ingest.record_boot_notification(payload)
 
     def record_status_notification(
-        self,
-        connector_id: int,
-        status: str,
-        error_code: str | None = None,
-        **payload: Any,
+        self, connector_id: int, status: str, error_code: str | None = None, **payload: Any
     ) -> None:
-        """Retain the latest StatusNotification request and update its state."""
-        request = {
-            "connector_id": connector_id,
-            "status": status,
-            "error_code": error_code,
-            **payload,
-        }
-        previous_status = normalize_ocpp_status(self.status)
-        self.last_status_notification = create_ocpp_snapshot(self.now(), request)
-        received_at = self.last_status_notification["received_at"]
-        normalized_status = normalize_ocpp_status(status)
-        target = self.active_transaction or self.last_completed_transaction
-        target_connector = (
-            target.get("start", {}).get("request", {}).get("connector_id")
-            if isinstance(target, dict)
-            else None
-        )
-        session_connector = (
-            connector_id is not None
-            and str(connector_id) != "0"
-            and (target_connector is None or str(target_connector) == str(connector_id))
-        )
-        if normalized_status in ENERGY_SESSION_STATUSES:
-            self.sessions.restored_active_session = False
-        elif normalized_status == "available":
-            self.sessions.discard_unconfirmed_restored_session()
-        if (
-            normalized_status == "preparing"
-            and session_connector
-            and previous_status in (None, "available", "idle")
-        ):
-            self.sessions.pending_plugged_event = session_event(
-                "plugged_in", received_at, "ocpp", "derived"
-            )
-        elif normalized_status == "available" and session_connector:
-            unplugged = session_event("unplugged", received_at, "ocpp", "derived")
-            target = self.active_transaction or self.last_completed_transaction
-            if isinstance(target, dict):
-                events = target.setdefault("events", [])
-                event_added = append_session_event(events, unplugged, unique_type=True)
-                session_id = target.get("session_id")
-                update_fn = self.runtime_data.get(UPDATE_SESSION_EVENTS_IN_CSV)
-                if event_added and session_id and update_fn:
-                    self.hass.async_create_task(update_fn(session_id, list(events)))
-            self.sessions.pending_plugged_event = None
-        # Connector 0 describes the whole station, not the active EV session.
-        # Use receipt time: this is when we observed the pause, not an inferred
-        # final power sample or the unknown time at which the car became full.
-        transaction = self.active_transaction
-        tracker = self.sessions.event_tracker
-        if transaction and tracker is not None and session_connector:
-            if tracker.observe_suspension(received_at, normalized_status):
-                self.schedule_storage_save()
-        if normalize_ocpp_status(status) == "faulted":
-            self.last_charger_fault = fault_from_status_notification(
-                self.now(),
-                connector_id,
-                error_code,
-                payload,
-            )
-            self._schedule_fault_storage_save()
-        info = payload.get("info")
-        self.external_meter.observe_status(connector_id, error_code, info)
-        self.set_status(status)
+        self.ingest.record_status_notification(connector_id, status, error_code, **payload)
 
-    def process_fault_message(
+    def process_fault_message(self, vendor_id: object, data: str) -> None:
+        self.ingest.process_fault_message(vendor_id, data)
+
+    def process_meter_values(
         self,
-        vendor_id: object,
-        data: str,
+        meter_values: list[dict[str, Any]],
+        *,
+        connector_id: int | None = None,
+        transaction_id: int | str | None = None,
     ) -> None:
-        """Retain and merge a Growatt DataTransfer/faultmessage event."""
-        self.last_charger_fault = fault_from_data_transfer(
-            self.now(),
-            vendor_id,
-            data,
-            self.last_charger_fault,
+        self.ingest.process_meter_values(
+            meter_values, connector_id=connector_id, transaction_id=transaction_id
         )
-        self._schedule_fault_storage_save()
-        self.async_set_updated_data(True)
+
+    def effective_meter_gap_seconds(self) -> float:
+        return self.ingest.effective_meter_gap_seconds()
+
+    def process_configuration(
+        self, configuration: Sequence[object], unknown_keys: Iterable[object] = ()
+    ) -> None:
+        self.ingest.process_configuration(configuration, unknown_keys)
+
+    def record_external_meter_poll_timeout(self) -> None:
+        self.ingest.record_external_meter_poll_timeout()
+
+    def reset_external_meter_poll_timeouts(self) -> None:
+        self.ingest.reset_external_meter_poll_timeouts()
+
+    def process_external_meter(self, data_str: str) -> bool:
+        return self.ingest.process_external_meter(data_str)
 
     @property
     def charger_is_faulted(self) -> bool:
         """Return whether the current OCPP charger status is Faulted."""
         return normalize_ocpp_status(self.status) == "faulted"
 
-    def _schedule_fault_storage_save(self) -> None:
+    def schedule_fault_storage_save(self) -> None:
         """Coalesce paired StatusNotification/faultmessage storage writes."""
         self._store.async_delay_save(self._storage_data, 1)
 
@@ -1011,395 +651,12 @@ class GrowattCoordinator(_CoordinatorBase):
             reason, transaction_id=transaction_id, meter_stop=meter_stop, **payload
         )
 
-    # MeterValues
-
-    def process_meter_values(
-        self,
-        meter_values: list[dict[str, Any]],
-        *,
-        connector_id: int | None = None,
-        transaction_id: int | str | None = None,
-    ) -> None:
-        """Retain all MeterValues samples and update known live sensors."""
-        if not self._accept_meter_transaction(transaction_id):
-            return
-        parsed_values = parse_meter_values(
-            meter_values,
-            time_zone=meter_time_zone(
-                self.configuration_values,
-                installation_time_zone(self.hass, None, preserve_empty=True),
-            ),
-        )
-        self.last_meter_values = {
-            "received_at": self.now(),
-            "connector_id": connector_id,
-            "transaction_id": transaction_id,
-            "meter_values": [entry.as_dict() for entry in parsed_values],
-        }
-        received_at = parse_at(self.last_meter_values["received_at"])
-        self._observe_site_accounting(parsed_values, received_at, transaction_id)
-        effective_transaction_id = self._observe_effective_charging(parsed_values, transaction_id)
-        self.sessions.observe_context()
-        for entry in parsed_values:
-            if self.sessions.observe_meter(entry, self.last_meter_values["received_at"]):
-                self.schedule_storage_save()
-
-        live_power = self._live_power_follows_samples()
-        updated = False
-        ignored_live_samples = False
-        for entry in parsed_values:
-            entry_updated, entry_ignored = self._apply_live_samples(entry, live_power=live_power)
-            updated = entry_updated or updated
-            ignored_live_samples = entry_ignored or ignored_live_samples
-            self._append_power_curve(entry, effective_transaction_id)
-
-        if self.phase_power:
-            total = sum(self.phase_power.values())
-            if self.power != total:
-                self.power = total
-                updated = True
-
-        if ignored_live_samples:
-            _LOGGER.debug(
-                "Ignoring live power and current from MeterValues while status is %s",
-                self.status,
-            )
-        _LOGGER.debug(
-            "Retained %d MeterValues entries%s",
-            len(parsed_values),
-            " and updated live sensors" if updated else "",
-        )
-        self.async_set_updated_data(True)
-
-    def _accept_meter_transaction(self, transaction_id: int | str | None) -> bool:
-        if transaction_id is not None:
-            active_id = self.transaction_id
-            if active_id is None:
-                # Reconnect recovery requires a charging observation; late
-                # telemetry alone cannot resurrect an ended transaction.
-                if normalize_ocpp_status(self.status) not in {
-                    "charging",
-                    "suspended_ev",
-                    "suspended_evse",
-                }:
-                    return False
-                self.transaction_id = transaction_id
-                self.schedule_storage_save()
-            elif str(transaction_id) != str(active_id):
-                _LOGGER.info("Ignoring MeterValues for inactive transaction %s", transaction_id)
-                return False
-        return True
-
-    def _observe_site_accounting(
-        self,
-        parsed_values: Sequence[MeterValue],
-        received_at: datetime | None,
-        transaction_id: int | str | None,
-    ) -> None:
-        if (
-            self.site_accounting is not None
-            and str(transaction_id or self.transaction_id) == self.site_accounting.transaction_id
-        ):
-            accounting_updated = False
-            for entry in parsed_values:
-                at = parse_at(entry.timestamp)
-                if at is None or received_at is None or at > received_at:
-                    continue
-                power_point = charging_power_curve_point(entry)
-                if power_point is not None:
-                    accounting_updated = (
-                        self.site_accounting.observe_power_fallback(power_point[1], at)
-                        or accounting_updated
-                    )
-                for sample in entry.samples:
-                    if (
-                        sample.measurand != DEFAULT_MEASURAND
-                        or sample.numeric_value is None
-                        or sample.phase is not None
-                    ):
-                        continue
-                    # A long telemetry gap cannot be priced/classified from
-                    # just the current site snapshot (including after upgrade).
-                    previous_at = self.site_accounting.last_meter_at
-                    max_gap = self.effective_meter_gap_seconds()
-                    current_interval = (
-                        previous_at is not None
-                        and 0 <= (at - previous_at).total_seconds() <= max_gap
-                        and 0 <= (received_at - at).total_seconds() <= max_gap
-                    )
-                    accounting_updated = (
-                        self.site_accounting.observe(
-                            meter_wh=sample.numeric_value,
-                            at=at,
-                            site_id=self.source_instance_id or "site",
-                            charger_id=self.charge_point_id or "charger",
-                            inputs=site_inputs(self, at, received_at=received_at)
-                            if current_interval
-                            else None,
-                            context=sample.context,
-                            unit=sample.unit,
-                        )
-                        or accounting_updated
-                    )
-            if accounting_updated:
-                self.hass.async_create_task(self.async_save_storage())
-
-    def _observe_effective_charging(
-        self, parsed_values: Sequence[MeterValue], transaction_id: int | str | None
-    ) -> int | str | None:
-        effective_transaction_id = (
-            transaction_id if transaction_id is not None else self.transaction_id
-        )
-        if effective_transaction_id is not None:
-            previous_transaction_id = self.effective_charging.transaction_id
-            self.effective_charging.start(effective_transaction_id)
-            effective_updated = previous_transaction_id != self.effective_charging.transaction_id
-            max_gap_seconds = self.effective_meter_gap_seconds()
-            for entry in parsed_values:
-                effective_updated = (
-                    self.effective_charging.observe(
-                        entry,
-                        max_gap_seconds=max_gap_seconds,
-                    )
-                    or effective_updated
-                )
-            if effective_updated:
-                self.schedule_storage_save()
-
-        return effective_transaction_id
-
-    def _apply_live_samples(self, entry: MeterValue, *, live_power: bool) -> tuple[bool, bool]:
-        updated = False
-        ignored_live_samples = False
-        for sample in entry.samples:
-            value = sample.numeric_value
-            if value is None:
-                _LOGGER.warning(
-                    "Failed to parse MeterValues sample value %r for %s",
-                    sample.raw_value,
-                    sample.measurand,
-                )
-                continue
-
-            if sample.measurand in ("Power.Active.Import", "Current.Import") and not live_power:
-                # Retained above in last_meter_values for diagnostics,
-                # but not shown as live: the charger reports that it is
-                # not delivering energy.
-                ignored_live_samples = True
-                continue
-
-            projection = LIVE_SAMPLE_PROJECTIONS.get(sample.measurand)
-            if projection is None:
-                continue
-            attribute, phased = projection
-            if sample.measurand == DEFAULT_MEASURAND and sample.context == "Transaction.Begin":
-                _LOGGER.debug("Skipping transaction-begin energy sample: %.3f Wh", value)
-                continue
-            if phased:
-                observations = getattr(self, attribute)
-                phase = sample.phase or "L1"
-                if observations.get(phase) != value:
-                    observations[phase] = value
-                    updated = True
-            elif getattr(self, attribute) != value:
-                setattr(self, attribute, value)
-                updated = True
-
-        return updated, ignored_live_samples
-
-    def _append_power_curve(
-        self, entry: MeterValue, effective_transaction_id: int | str | None
-    ) -> None:
-        if effective_transaction_id is not None:
-            point = charging_power_curve_point(entry)
-            if point is not None and (
-                not self.sessions.active_power_curve
-                or self.sessions.active_power_curve[-1][0] != point[0]
-            ):
-                self.sessions.active_power_curve.append(point)
-                if len(self.sessions.active_power_curve) > SESSION_CURVE_POINT_LIMIT * 2:
-                    self.sessions.active_power_curve = downsample_curve(
-                        self.sessions.active_power_curve,
-                        limit=SESSION_CURVE_POINT_LIMIT,
-                        event_times=(
-                            event.get("at")
-                            for event in (
-                                self.sessions.event_tracker.events
-                                if self.sessions.event_tracker is not None
-                                else ()
-                            )
-                        ),
-                    )
-                if self.sessions.event_tracker is not None:
-                    self.sessions.event_tracker.observe_power(point[0], point[1])
-                self.schedule_storage_save()
-
-    def _live_power_follows_samples(self) -> bool:
-        """Return whether MeterValues may update live power and current.
-
-        Live power and current follow samples only while the charger reports
-        Charging, or while no status is known yet.  In every other status the
-        charger is not delivering energy, so a sample that arrives late (for
-        example a MeterValues report after SuspendedEV) must not bring the
-        last charging power back.  When the vehicle draws again the THOR
-        reports Charging first, so valid measurements apply again at once.
-        """
-        normalized = normalize_ocpp_status(self.status)
-        return normalized is None or normalized in LIVE_POWER_STATUSES
-
-    def effective_meter_gap_seconds(self) -> float:
-        """Bound counted intervals using the charger-reported sample period."""
-        for key in ("G_MeterValueInterval", "MeterValueSampleInterval"):
-            value = self.configuration_values.get(key)
-            if value is None:
-                continue
-            try:
-                interval = float(cast(Any, value.parsed_value))
-            except (TypeError, ValueError):
-                continue
-            if interval > 0:
-                return max(MIN_METER_GAP_SECONDS, interval * METER_GAP_INTERVAL_MULTIPLIER)
-        return DEFAULT_METER_GAP_SECONDS
-
     def record_stop_requested(self, *, reason: str = "remote_stop") -> None:
         """Delegate this transition to the session lifecycle."""
         return self.sessions.record_stop_requested(reason=reason)
-
-    # GetConfiguration processing
-
-    def process_configuration(
-        self, configuration: Sequence[object], unknown_keys: Iterable[object] = ()
-    ) -> None:
-        """Validate configuration responses and safely reject malformed values."""
-        self.configuration_values, updated = merge_configuration_values(
-            self.configuration_values,
-            (item for item in configuration if isinstance(item, dict)),
-        )
-
-        normalized_unknown_keys = normalize_unknown_configuration_keys(unknown_keys)
-        if self.unknown_configuration_keys != normalized_unknown_keys:
-            self.unknown_configuration_keys = normalized_unknown_keys
-            updated = True
-
-        self.sessions.observe_context()
-
-        reported_values = {
-            str(item["key"]): (None if item.get("value") is None else str(item.get("value")))
-            for item in configuration
-            if isinstance(item, dict) and item.get("key")
-        }
-        confirmed_writes = confirm_configuration_writes(
-            self.configuration_writes,
-            reported_values,
-            readback_at=self.now(),
-        )
-        if confirmed_writes != self.configuration_writes:
-            self.configuration_writes = confirmed_writes
-            updated = True
-
-        if self.pv_draft.initialize(self.configuration_values):
-            updated = True
-
-        for item in configuration:
-            if not isinstance(item, dict):
-                continue
-            key: Any = item.get("key")
-            raw = item.get("value")
-
-            try:
-                if key == "G_AutoChargeTime":
-                    updated = self._apply_auto_charge_time(raw) or updated
-                    continue
-                projection = COORDINATOR_CONFIGURATION_PROJECTIONS.get(key)
-                if projection is None:
-                    continue
-                parser, attribute = projection
-                value = parser(raw, self.configuration_values.get(key))
-                if value is None and key in {
-                    "G_MaxCurrent",
-                    "G_ExternalLimitPower",
-                    "G_TimeSharingPrice",
-                }:
-                    if key == "G_TimeSharingPrice":
-                        _LOGGER.warning(
-                            "Could not parse G_TimeSharingPrice from raw value: %s", raw
-                        )
-                    continue
-                if getattr(self, attribute) != value:
-                    setattr(self, attribute, value)
-                    _LOGGER.debug("Config: %s = %s", attribute, value)
-                    updated = True
-
-            except (ValueError, TypeError) as exc:
-                _LOGGER.warning("Failed to parse config key=%s value=%s: %s", key, raw, exc)
-                continue
-            except Exception as exc:
-                # A failed projection must not discard the remaining configuration keys.
-                _LOGGER.error(
-                    "Unexpected error processing config key=%s: %s",
-                    key,
-                    exc,
-                    exc_info=True,
-                )
-                continue
-
-        if updated:
-            self.async_set_updated_data(True)
-
-    def _apply_auto_charge_time(self, raw: object) -> bool:
-        try:
-            schedule = parse_auto_charge_time(cast(Any, raw))
-        except ValueError as exc:
-            _LOGGER.warning("Failed to parse G_AutoChargeTime '%s': %s", raw, exc)
-            return False
-        if schedule is None:
-            return False
-        updated = False
-        for attribute, value in zip(
-            ("auto_charge_start_time", "auto_charge_stop_time"), schedule, strict=True
-        ):
-            if getattr(self, attribute) != value:
-                setattr(self, attribute, value)
-                setattr(self, attribute + "_pending", value)
-                _LOGGER.debug("Config: %s = %s", attribute, value)
-                updated = True
-        return updated
 
     # Growatt session records
 
     def process_session_record(self, record: GrowattSessionRecord) -> None:
         """Delegate this transition to the session lifecycle."""
         return self.sessions.process_session_record(record)
-
-    # Growatt external meter values
-
-    def record_external_meter_poll_timeout(self) -> None:
-        """Record one missed external-meter response and refresh HA state."""
-        self.external_meter.consecutive_timeouts += 1
-        self.async_set_updated_data(True)
-
-    def reset_external_meter_poll_timeouts(self) -> None:
-        """Clear communication timeouts after a valid meter response."""
-        if self.external_meter.consecutive_timeouts:
-            self.external_meter.consecutive_timeouts = 0
-
-    def process_external_meter(self, data_str: str) -> bool:
-        """Process external meter values from get_external_meterval DataTransfer."""
-        try:
-            snapshot = parse_external_meter_data(data_str)
-            self.external_meter.apply_snapshot(snapshot, self.now())
-            self.sessions.observe_context()
-            _LOGGER.debug(
-                "External meter snapshot: used=%s wring=%s power=%s voltages=%s currents=%s",
-                snapshot.used,
-                snapshot.wring,
-                snapshot.power,
-                snapshot.voltages,
-                snapshot.currents,
-            )
-            self.async_set_updated_data(True)
-            return True
-
-        except (ValueError, TypeError, KeyError) as exc:
-            _LOGGER.warning("Failed to process external meter data '%s': %s", data_str, exc)
-            return False

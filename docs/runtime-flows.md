@@ -153,7 +153,8 @@ sequenceDiagram
 
 Code: [`number.py`](../custom_components/growatt_thor/number.py),
 [`configuration/controls.py`](../custom_components/growatt_thor/configuration/controls.py),
-[`coordinator.py`](../custom_components/growatt_thor/coordinator.py).
+[`configuration/write_tracker.py`](../custom_components/growatt_thor/configuration/write_tracker.py),
+[`configuration/readback.py`](../custom_components/growatt_thor/configuration/readback.py).
 
 For the number entities, an uncertain write marks the generation as uncertain and
 requests the readback immediately instead of guessing the charger's value.

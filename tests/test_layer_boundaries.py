@@ -348,7 +348,7 @@ class LayerBoundaryTest(unittest.TestCase):
             {(edge.source, edge.target, edge.type_only) for edge in edges},
         )
         self.assertIn(
-            ("coordinator", "energy.stop_guard_policy", False),
+            ("runtime.coordinator_storage", "energy.stop_guard_policy", False),
             {(edge.source, edge.target, edge.type_only) for edge in edges},
         )
 

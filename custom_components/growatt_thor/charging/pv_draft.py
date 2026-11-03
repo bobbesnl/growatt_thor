@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import time
@@ -11,7 +12,13 @@ from .pv_linkage import (
     PvBoostMode,
     PvLinkageApplyResult,
     PvLinkageDraft,
+    draft_matches_reported,
     parse_manual_period,
+)
+
+_LOGGER = logging.getLogger(__name__)
+_DRAFT_FIELDS = frozenset(
+    {"boost_mode", "manual_start", "manual_end", "smart_finish", "smart_target_energy_kwh"}
 )
 
 
@@ -68,3 +75,41 @@ class PvLinkageDraftState:
                 updated = True
 
         return updated
+
+    def update(
+        self,
+        changes: Mapping[str, object],
+        configuration_values: Mapping[str, ConfigurationValue],
+    ) -> None:
+        """Update local compound-control fields without writing the charger."""
+        for attribute, value in changes.items():
+            if attribute not in _DRAFT_FIELDS:
+                raise ValueError(f"Unsupported PV Linkage draft field: {attribute}")
+            setattr(self, attribute, value)
+        draft = self.snapshot()
+        reported_mode = configuration_entity_state(
+            "G_SolarBoost",
+            configuration_values.get("G_SolarBoost"),
+        )
+        period_value = configuration_values.get("G_PeriodTime")
+        self.dirty = not (
+            draft is not None
+            and draft_matches_reported(
+                draft,
+                reported_mode=(reported_mode if isinstance(reported_mode, str) else None),
+                reported_period=(period_value.raw_value if period_value is not None else None),
+            )
+        )
+
+    def mark_applied(self, expected_draft: PvLinkageDraft) -> bool:
+        """Clear only the exact draft whose complete Apply succeeded.
+
+        A user may edit the local draft while an older Apply is executing.  A
+        successful acknowledgement for that older snapshot must not erase the
+        newer unsent changes.
+        """
+        if self.snapshot() != expected_draft:
+            _LOGGER.info("Keeping newer PV Linkage draft dirty after an older Apply")
+            return False
+        self.dirty = False
+        return True

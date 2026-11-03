@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping
 from typing import TYPE_CHECKING, Any, Protocol
 
 from ..const import CONFIGURATION_WRITE_SPACING_SECONDS
@@ -21,7 +21,9 @@ class ConfigurationTransport(Protocol):
 class ConfigurationWriteOwner(Protocol):
     connected: bool
     configuration_values: dict[str, ConfigurationValue]
-    configuration_writes: dict[str, ConfigurationWriteState]
+
+    @property
+    def configuration_writes(self) -> Mapping[str, ConfigurationWriteState]: ...
 
     @property
     def runtime_data(self) -> MutableMapping[str, Any]: ...
