@@ -214,15 +214,6 @@ class PublicActionWiringTest(unittest.TestCase):
     """Keep the immediate HA action guards connected to the shared helpers."""
 
     EXPECTED_HELPERS = {
-        (
-            "configuration/controls.py",
-            "GrowattConfigurationControlMixin",
-            "_async_write_configuration",
-        ): {
-            "async_require_command_completion",
-            "raise_write_blocked",
-            "raise_charger_disconnected",
-        },
         ("charging/commands.py", "StartChargingCommand", "async_request"): {
             "async_require_command_completion",
             "raise_write_blocked",
@@ -288,6 +279,11 @@ class PublicActionWiringTest(unittest.TestCase):
         ("switch.py", "LcdDisplaySwitch", "_set_value"): "async_request",
         ("select.py", "WorkingModeSelect", "async_select_option"): "async_request",
         ("time.py", "BaseAutoChargeTime", "async_set_value"): "require_charge_point",
+        (
+            "configuration/controls.py",
+            "GrowattConfigurationControlMixin",
+            "_async_write_configuration",
+        ): "async_request",
     }
 
     def test_composed_entity_actions_reach_the_writer_guards(self):

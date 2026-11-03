@@ -305,8 +305,9 @@ Configuration entities write inside write-queue callbacks.
 `configuration/writer.py` composes the flow: a per-entity `WritePolicy`
 supplies encoding, block reasons, optimistic and accepted state, rollback and
 the exception boundary, and `ConfigurationWriter` owns the order of the shared
-steps. Validation of HA input stays in the entity. Entities not yet moved to
-the writer use the mixins in `configuration/controls.py`. The per-entity
+steps. Validation of HA input stays in the entity. Mode-aware controls share
+one policy and the pending-state projection in `configuration/controls.py`.
+The per-entity
 rollback and readback behavior is deliberate and listed in
 [configuration write behavior per entity](invariants.md#configuration-write-behavior-per-entity).
 

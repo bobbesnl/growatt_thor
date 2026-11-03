@@ -93,11 +93,10 @@ boundaries. See the [refactoring contracts](CONTRIBUTING.md#refactoring-contract
 
 `ConfigurationWriter` in `configuration/writer.py` owns the order of the shared
 steps; each entity's `WritePolicy` supplies encoding, block reasons, optimistic
-and accepted state, rollback and the exception boundary. Entities not yet
-composed this way use `GrowattConfigurationWriteMixin` for transport and
-acknowledgement primitives; `GrowattConfigurationControlMixin` adds the
-mode-aware pending-state projection used by newer controls. All writes run
-inside write-queue callbacks. The differences below are intentional:
+and accepted state, rollback and the exception boundary. Mode-aware controls
+share `ConfigurationControlWritePolicy` and the pending-state projection of
+`GrowattConfigurationControlMixin` in `configuration/controls.py`. All writes
+run inside write-queue callbacks. The differences below are intentional:
 
 | Entity | State and rollback behavior |
 | --- | --- |
@@ -112,8 +111,8 @@ inside write-queue callbacks. The differences below are intentional:
 The three optimistic Number controls share `OptimisticNumberPolicy` in
 `number.py`. The entity validates the HA value; the policy encodes the domain
 value, and its exception boundary also covers acknowledgement and accepted
-state. Mode-aware control setters pass an already encoded wire string to the
-configuration mixin. The load-limit policy keeps its order: reported
+state. Mode-aware control setters pass an already encoded wire string; repeating the
+pending or reported value is a no-op before any block check. The load-limit policy keeps its order: reported
 configuration, scheduled refresh, then mirror notification.
 
 Characterization tests run all seven entities through the production queue for

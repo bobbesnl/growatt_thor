@@ -1,92 +1,55 @@
-"""Shared behavior for Growatt ChangeConfiguration entities."""
+"""Shared behavior for mode-aware Growatt ChangeConfiguration entities."""
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
-
-from ocpp.v16.enums import ConfigurationStatus
 
 from ..charging.control_capabilities import (
     CONTROL_DEFINITIONS,
     ChargingControl,
     control_is_applicable,
 )
-from ..runtime.action_errors import (
-    async_require_command_completion,
-    raise_charger_disconnected,
-    raise_write_blocked,
-)
-from ..runtime.keys import ACTIVE_CHARGE_POINT
-from ..runtime.write_results import (
-    CONFIGURATION_WRITE_POLICY,
-    ChargerConnectionUnavailable,
-    ChargerRequestOutcomeUncertain,
-    ChargerWriteResult,
-)
-from .contracts import ConfigurationTransport, ConfigurationWriteOwner
 from .values import ConfigurationValue, configuration_value_from_item
-from .writes import (
-    ConfigurationWriteStatus,
-    pending_configuration_value,
-)
+from .writer import ConfigurationWrite, ConfigurationWriter, WritePolicy
+from .writes import pending_configuration_value
+
+if TYPE_CHECKING:
+    from .contracts import ConfigurationWriteOwner
 
 _LOGGER = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True, slots=True)
-class ConfigurationWriteResponse:
-    """One charger acknowledgement, distinct from the current UI intent."""
+class ConfigurationControlWritePolicy(WritePolicy[str]):
+    """Write one mode-aware control's already encoded wire string.
 
-    result: object
-    accepted: bool
-    current: bool
+    Pending state comes from write tracking, so there is no optimistic value to
+    roll back; unexpected errors propagate to the queue.
+    """
 
+    def __init__(self, owner: ConfigurationWriteOwner, control: ChargingControl) -> None:
+        super().__init__(owner)
+        self.control = control
+        self.key = CONTROL_DEFINITIONS[control].configuration_key
 
-class GrowattConfigurationWriteMixin:
-    """Share queue-callback primitives without adding entity state attributes."""
+    @property
+    def label(self) -> str:
+        return self.key
 
-    coordinator: ConfigurationWriteOwner
+    def encode(self, value: str) -> tuple[str, str]:
+        return self.key, value
 
-    if TYPE_CHECKING:
+    def request_block_reason(self) -> str | None:
+        return self.owner.write_block_reason(self.control)
 
-        @property
-        def _configuration_key(self) -> str: ...
-
-    def _on_accepted(self, raw_value: str, *, key: str | None = None, value: object = None) -> None:
-        """Apply reported state only after the caller checked current intent."""
-        self.coordinator.update_configuration_value(key or self._configuration_key, raw_value)
-
-    def _restore_optimistic(self, generation: int, *, previous: object = None) -> None:
-        """Entities with optimistic local state retain their own rollback policy."""
-
-    async def _send_configuration(
-        self, charge_point: ConfigurationTransport, key: str, raw_value: str
-    ) -> object:
-        """Called only from the coordinator-owned write-queue callback."""
-        return await charge_point.change_configuration(key, raw_value)
-
-    def _acknowledge_configuration_response(
-        self, key: str, generation: int, result: object
-    ) -> ConfigurationWriteResponse:
-        accepted = result in {ConfigurationStatus.accepted, ConfigurationStatus.reboot_required}
-        current = self.coordinator.acknowledge_configuration_write(
-            key, generation=generation, accepted=accepted, result=result
-        )
-        return ConfigurationWriteResponse(result, accepted, current)
-
-    async def _configuration_exchange(
-        self, charge_point: ConfigurationTransport, key: str, raw_value: str, generation: int
-    ) -> ConfigurationWriteResponse:
-        """For callbacks whose existing error boundary includes acknowledgement."""
-        result = await self._send_configuration(charge_point, key, raw_value)
-        return self._acknowledge_configuration_response(key, generation, result)
+    def on_skipped(self, write: ConfigurationWrite[str], reason: str) -> None:
+        _LOGGER.warning("Skipping queued change for %s: %s", write.key, reason)
 
 
-class GrowattConfigurationControlMixin(GrowattConfigurationWriteMixin):
+class GrowattConfigurationControlMixin:
     """Write one mode-aware control with pending-state projection."""
 
+    coordinator: ConfigurationWriteOwner
     _control: ChargingControl
 
     @property
@@ -132,8 +95,12 @@ class GrowattConfigurationControlMixin(GrowattConfigurationWriteMixin):
         )
 
     @property
-    def _write_block_reason(self) -> str | None:
-        return self.coordinator.write_block_reason(self._control)
+    def _writer(self) -> ConfigurationWriter[str]:
+        # Writer and policy hold no state, so a fresh pair per call behaves
+        # like a retained one.
+        return ConfigurationWriter(
+            self.coordinator, ConfigurationControlWritePolicy(self.coordinator, self._control)
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, str]:
@@ -161,106 +128,4 @@ class GrowattConfigurationControlMixin(GrowattConfigurationWriteMixin):
         ):
             return
 
-        block_reason = self._write_block_reason
-        if block_reason is not None:
-            _LOGGER.warning(
-                "Cannot change %s: %s",
-                self._configuration_key,
-                block_reason,
-            )
-            # Entity methods are HA action handlers. Raising here makes a
-            # blocked automation visible in its trace instead of reporting a
-            # successful call for a command that was never queued.
-            raise_write_blocked(block_reason)
-        charge_point = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
-        if charge_point is None:
-            _LOGGER.warning(
-                "Cannot change %s: charger not connected",
-                self._configuration_key,
-            )
-            raise_charger_disconnected()
-
-        # Record the desired value while it is still waiting in the queue.  It
-        # remains separate from configuration_values, which always represents
-        # the last value reported or acknowledged by the THOR.
-        generation = self.coordinator.begin_configuration_write(
-            self._configuration_key,
-            raw_value,
-        )
-        handle = await self.coordinator.queue_write(
-            self._apply_configuration,
-            charge_point,
-            raw_value,
-            generation,
-            dedupe_key=self._configuration_key,
-            command_name=f"ChangeConfiguration({self._configuration_key})",
-            requires_connection=True,
-            configuration_key=self._configuration_key,
-            configuration_generation=generation,
-            policy=CONFIGURATION_WRITE_POLICY,
-        )
-        await async_require_command_completion(handle)
-
-    async def _apply_configuration(
-        self,
-        charge_point: ConfigurationTransport,
-        raw_value: str,
-        generation: int,
-    ) -> ChargerWriteResult:
-        block_reason = self._write_block_reason
-        if block_reason is not None:
-            _LOGGER.warning(
-                "Skipping queued change for %s: %s",
-                self._configuration_key,
-                block_reason,
-            )
-            self.coordinator.mark_configuration_write(
-                self._configuration_key,
-                ConfigurationWriteStatus.SKIPPED,
-                generation=generation,
-                result=block_reason,
-            )
-            return ChargerWriteResult.skipped(block_reason)
-
-        try:
-            result = await self._send_configuration(
-                charge_point, self._configuration_key, raw_value
-            )
-        except ChargerConnectionUnavailable:
-            # The queue can safely rebind and retry because no request reached
-            # the OCPP layer.
-            raise
-        except ChargerRequestOutcomeUncertain as exc:
-            self.coordinator.mark_configuration_write(
-                self._configuration_key,
-                ConfigurationWriteStatus.UNCERTAIN,
-                generation=generation,
-                result=str(exc),
-            )
-            self.coordinator.schedule_configuration_refresh(delay=0)
-            return ChargerWriteResult.uncertain(str(exc))
-
-        response = self._acknowledge_configuration_response(
-            self._configuration_key, generation, result
-        )
-        accepted, outcome_is_current = response.accepted, response.current
-        if accepted:
-            # The charger may accept an older request after a newer automation
-            # has already queued its replacement. Keep the accepted physical
-            # outcome for readback, but expose only the newest intent in HA.
-            if outcome_is_current:
-                self._on_accepted(raw_value)
-            if result == ConfigurationStatus.reboot_required:
-                _LOGGER.warning(
-                    "%s accepted but requires a charger reboot",
-                    self._configuration_key,
-                )
-            self.coordinator.schedule_configuration_refresh()
-            return ChargerWriteResult.success(result)
-
-        _LOGGER.error(
-            "%s change rejected by charger: %s",
-            self._configuration_key,
-            result,
-        )
-        return ChargerWriteResult.failed("charger_rejected", result)
+        await self._writer.async_request(raw_value)
