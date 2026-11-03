@@ -35,11 +35,11 @@ rules are recorded as [decision records](adr/README.md).
 
 ## Automatic stop and targets
 
-- The automatic guard reads shared observations and calls the Stop command. It
-  takes one charger snapshot per evaluation, so connection, status, transaction
-  and meter reading come from the same moment. It imports neither dashboard
-  projection nor accounting runtime, never requires a registered button and
-  cannot restart charging.
+- The automatic guard reads shared observations and calls the Stop command
+  through `ChargerControl`. It takes one charger snapshot per evaluation, so
+  connection, status, transaction and meter reading come from the same moment.
+  It imports neither dashboard projection nor accounting runtime, never requires
+  a registered button and cannot restart charging.
 - Target services keep their public names and the charging-target storage key.
   Wallbox-native energy/time limits and HA-owned repeat scheduling stay separate
   ([ADR 0003](adr/0003-native-charging-targets.md)).

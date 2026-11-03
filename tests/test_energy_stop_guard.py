@@ -321,7 +321,7 @@ class StopGuardRuntimeTest(unittest.TestCase):
             self.assertEqual(stop_reason, "energy_guard_battery")
             requested.append(auto_guard())
 
-        self.guard.stop_command = types.SimpleNamespace(async_request=press)
+        self.guard.charger = types.SimpleNamespace(async_stop=press)
         self.assertEqual(self.hass.data, {})
         moments = iter((AT, AT + timedelta(seconds=90), AT + timedelta(seconds=90)))
         clock = types.SimpleNamespace(now=lambda _tz: next(moments))

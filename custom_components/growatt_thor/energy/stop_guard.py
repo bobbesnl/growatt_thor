@@ -8,8 +8,8 @@ from datetime import UTC, datetime
 from math import isfinite
 from typing import TYPE_CHECKING
 
-from ..charging.commands import StopChargingCommand
 from ..charging.control_capabilities import selected_working_mode
+from ..charging.growatt_charger import GrowattOcppCharger
 from ..charging.snapshot import charger_snapshot
 from ..runtime.write_results import ChargerCommandResult, ChargerCommandStatus
 from .contracts import EnergyStopOwner
@@ -30,6 +30,8 @@ from .stop_guard_policy import (
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
+    from ..charging.control import ChargerControl
+
 _LOGGER = logging.getLogger(__name__)
 POLL_SECONDS = 10
 
@@ -41,7 +43,7 @@ class EnergyStopGuard:
         self.hass = hass
         self.coordinator = coordinator
         self.tracker = StopGuardTracker()
-        self.stop_command = StopChargingCommand(coordinator)
+        self.charger: ChargerControl = GrowattOcppCharger(coordinator)
         self.task: asyncio.Task[None] | None = None
         self._configure()
 
@@ -197,7 +199,7 @@ class EnergyStopGuard:
                     ) -> None:
                         self._stop_completed(tx, result)
 
-                    await self.stop_command.async_request(
+                    await self.charger.async_stop(
                         # The awaited request completes before this loop rebinds the ID.
                         auto_guard=lambda: self._still_eligible(transaction_id),  # noqa: B023
                         stop_reason=f"energy_guard_{reason}",

@@ -27,9 +27,8 @@ Then follow one of these paths rather than reading the whole coordinator first:
 
 ### Example: a Stop is an intent, then a protocol result, then an observation
 
-1. The button calls `ChargerControl.async_stop()`; `GrowattOcppCharger` passes it
-   to `StopChargingCommand.async_request()`. The optional stop guard calls the
-   command directly.
+1. The button or optional stop guard calls `ChargerControl.async_stop()`;
+   `GrowattOcppCharger` passes it to `StopChargingCommand.async_request()`.
    It first cancels an unsent Start if that is what the user is undoing.
 2. The command captures the active transaction identity and enters the shared
    queue. The queue revalidates delayed work before sending it.

@@ -73,13 +73,15 @@ matching `StartTransaction`.
 sequenceDiagram
   autonumber
   actor Source as Stop button or stop guard
+  participant Ctl as GrowattOcppCharger
   participant Cmd as StopChargingCommand
   participant Queue as ChargerWriteQueue
   participant CP as GrowattChargePoint
   participant THOR
   participant Life as SessionLifecycle
 
-  Source->>Cmd: async_request()
+  Source->>Ctl: async_stop()
+  Ctl->>Cmd: async_request()
   Cmd->>Queue: cancel unsent Start in the Start/Stop lane
   alt Start was cancelled and no transaction is active
     Cmd-->>Source: done, nothing to stop
