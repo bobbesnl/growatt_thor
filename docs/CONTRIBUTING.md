@@ -174,6 +174,12 @@ Translation checks cover all eight languages and preserve format placeholders. `
 - Use a class when it owns state or a lifecycle. Use typed functions/data models
   for validation and transformations. TypeScript is strict; Python typing is
   incremental, with dynamic data narrowed at storage and protocol boundaries.
+- Name methods by their role. OCPP handlers in the adapter are `on_<ocpp_action>`.
+  Owners that record a fact are `observe_<fact>`, for example
+  `coordinator.ingest.observe_meter_values()` or `coordinator.observe_connected()`.
+  Use cases that may await I/O are `async_<verb>`, and side-effect-free queries
+  are properties. Call the owner that does the work (`coordinator.ingest`,
+  `coordinator.sessions`) instead of adding forwarding methods to the coordinator.
 - Explain **why** a non-obvious rule exists: the race it prevents, the unit or
   clock involved, the source of truth, or the failure it preserves. Do not narrate
   obvious assignments. Put broad workflows in docs and the local invariant next

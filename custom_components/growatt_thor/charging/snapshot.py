@@ -130,6 +130,7 @@ class ChargerStateOwner(Protocol):
     @property
     def transaction_is_active(self) -> bool: ...
 
+    @property
     def effective_meter_gap_seconds(self) -> float: ...
 
 
@@ -145,5 +146,5 @@ def charger_snapshot(owner: ChargerStateOwner) -> ChargerSnapshot:
         transaction_id=owner.transaction_id,
         transaction_active=bool(owner.transaction_is_active),
         meter=MeterReading.from_packet(owner.last_meter_values),
-        meter_stale_after_s=owner.effective_meter_gap_seconds(),
+        meter_stale_after_s=owner.effective_meter_gap_seconds,
     )

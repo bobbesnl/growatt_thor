@@ -102,7 +102,7 @@ class CardDataTest(unittest.TestCase):
             transaction_is_active=True,
             energy=3000,
             max_current=None,
-            effective_meter_gap_seconds=lambda: 180,
+            effective_meter_gap_seconds=180,
             dashboard_command=None,
             last_energy_stop=None,
             pv_draft=PvLinkageDraftState(),
@@ -300,7 +300,7 @@ class CardDataTest(unittest.TestCase):
             configuration_values={},
             transaction_is_active=False,
             energy=None,
-            effective_meter_gap_seconds=lambda: 180,
+            effective_meter_gap_seconds=180,
             dashboard_command=None,
             last_energy_stop=None,
             now=lambda: "2026-11-01T12:00:00Z",
@@ -344,7 +344,7 @@ class CardDataTest(unittest.TestCase):
             transaction_is_active=False,
             energy=None,
             max_current=None,
-            effective_meter_gap_seconds=lambda: 180,
+            effective_meter_gap_seconds=180,
             dashboard_command=None,
             last_energy_stop=None,
             now=lambda: "2026-11-01T12:00:00Z",
@@ -384,7 +384,7 @@ class CardDataTest(unittest.TestCase):
             configuration_values={},
             transaction_is_active=False,
             energy=None,
-            effective_meter_gap_seconds=lambda: 180,
+            effective_meter_gap_seconds=180,
             dashboard_command=None,
             last_energy_stop=None,
             now=lambda: "2026-11-01T12:00:00Z",
@@ -482,10 +482,10 @@ class ActiveSessionDashboardTest(unittest.IsolatedAsyncioTestCase):
         coordinator = build_coordinator()
         coordinator.hass.async_create_task = lambda coroutine: coroutine.close()
         coordinator.now = lambda: clock[0]
-        coordinator.start_transaction(42, connector_id=1)
+        coordinator.sessions.start_transaction(42, connector_id=1)
 
         clock[0] = "2026-11-01T12:01:00Z"
-        coordinator.process_meter_values(
+        coordinator.ingest.observe_meter_values(
             [
                 {
                     "timestamp": clock[0],

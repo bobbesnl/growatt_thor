@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Iterable, Sequence
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, time
 from typing import TYPE_CHECKING, Any
 
@@ -49,7 +49,6 @@ from .runtime.write_results import (
 from .sessions.active_state import ActiveTransaction
 from .sessions.duration import EffectiveChargingTracker
 from .sessions.hooks import TransactionHooks
-from .sessions.records import GrowattSessionRecord
 from .sessions.runtime import SessionLifecycle
 
 # Re-exported for focused tests that build a coordinator from this module.
@@ -355,7 +354,7 @@ class GrowattCoordinator(_CoordinatorBase):
             status=self.status,
         )
 
-    def set_charge_point(self, cp_id: str) -> None:
+    def observe_connected(self, cp_id: str) -> None:
         """Set charge point ID and notify sensors."""
         if persist := self.runtime_data.get(PERSIST_CHARGER_IDENTITY):
             persist(cp_id)
@@ -512,7 +511,7 @@ class GrowattCoordinator(_CoordinatorBase):
         self.async_set_updated_data(True)
         return True
 
-    def mark_connection_activity(self, action: str) -> None:
+    def observe_message(self, action: str) -> None:
         """Record the latest inbound OCPP message."""
         timestamp = self.now()
         was_connected = self.connected
@@ -530,7 +529,7 @@ class GrowattCoordinator(_CoordinatorBase):
         current = self.runtime_data.get(SKIP_POLLING_UNTIL, 0)
         self.runtime_data[SKIP_POLLING_UNTIL] = max(current, until)
 
-    def set_disconnected(self) -> None:
+    def observe_disconnected(self) -> None:
         """Mark the active OCPP transport connection as disconnected."""
         was_connected = self.connected
         self.connected = False
@@ -567,49 +566,10 @@ class GrowattCoordinator(_CoordinatorBase):
             await self.sessions.async_flush_pending()
             await self.async_save_storage()
 
-    # Inbound OCPP observations (see runtime/ocpp_ingest.py)
-
-    def set_status(self, status: object) -> None:
-        self.ingest.set_status(status)
-
-    def record_boot_notification(self, payload: dict[str, Any]) -> None:
-        self.ingest.record_boot_notification(payload)
-
-    def record_status_notification(
-        self, connector_id: int, status: str, error_code: str | None = None, **payload: Any
-    ) -> None:
-        self.ingest.record_status_notification(connector_id, status, error_code, **payload)
-
-    def process_fault_message(self, vendor_id: object, data: str) -> None:
-        self.ingest.process_fault_message(vendor_id, data)
-
-    def process_meter_values(
-        self,
-        meter_values: list[dict[str, Any]],
-        *,
-        connector_id: int | None = None,
-        transaction_id: int | str | None = None,
-    ) -> None:
-        self.ingest.process_meter_values(
-            meter_values, connector_id=connector_id, transaction_id=transaction_id
-        )
-
+    @property
     def effective_meter_gap_seconds(self) -> float:
-        return self.ingest.effective_meter_gap_seconds()
-
-    def process_configuration(
-        self, configuration: Sequence[object], unknown_keys: Iterable[object] = ()
-    ) -> None:
-        self.ingest.process_configuration(configuration, unknown_keys)
-
-    def record_external_meter_poll_timeout(self) -> None:
-        self.ingest.record_external_meter_poll_timeout()
-
-    def reset_external_meter_poll_timeouts(self) -> None:
-        self.ingest.reset_external_meter_poll_timeouts()
-
-    def process_external_meter(self, data_str: str) -> bool:
-        return self.ingest.process_external_meter(data_str)
+        """Bound counted intervals using the charger-reported sample period."""
+        return self.ingest.effective_meter_gap_seconds
 
     @property
     def charger_is_faulted(self) -> bool:
@@ -620,43 +580,6 @@ class GrowattCoordinator(_CoordinatorBase):
         """Coalesce paired StatusNotification/faultmessage storage writes."""
         self._store.async_delay_save(self._storage_data, 1)
 
-    def start_transaction(
-        self,
-        transaction_id: int,
-        id_tag: str | None = None,
-        *,
-        connector_id: int | None = None,
-        meter_start: float | None = None,
-        **payload: Any,
-    ) -> None:
-        """Delegate this transition to the session lifecycle."""
-        return self.sessions.start_transaction(
-            transaction_id,
-            id_tag,
-            connector_id=connector_id,
-            meter_start=meter_start,
-            **payload,
-        )
-
-    def stop_transaction(
-        self,
-        reason: str | None = None,
-        *,
-        transaction_id: int | str | None = None,
-        meter_stop: float | None = None,
-        **payload: Any,
-    ) -> None:
-        """Delegate this transition to the session lifecycle."""
-        return self.sessions.stop_transaction(
-            reason, transaction_id=transaction_id, meter_stop=meter_stop, **payload
-        )
-
     def record_stop_requested(self, *, reason: str = "remote_stop") -> None:
         """Delegate this transition to the session lifecycle."""
         return self.sessions.record_stop_requested(reason=reason)
-
-    # Growatt session records
-
-    def process_session_record(self, record: GrowattSessionRecord) -> None:
-        """Delegate this transition to the session lifecycle."""
-        return self.sessions.process_session_record(record)

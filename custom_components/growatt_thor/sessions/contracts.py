@@ -29,6 +29,7 @@ class TelemetryOwner(SiteObservationOwner, SessionClock, Protocol):
     last_meter_values: dict[str, Any] | None
     status: str | None
 
+    @property
     def effective_meter_gap_seconds(self) -> float: ...
 
 
@@ -70,6 +71,7 @@ class SessionOwner(TelemetryOwner, Protocol):
 
     def async_set_updated_data(self, data: bool) -> None: ...
 
+    @property
     def effective_meter_gap_seconds(self) -> float: ...
 
     def now(self) -> str: ...

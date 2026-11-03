@@ -70,7 +70,7 @@ def coordinator(entry_id="entry_one"):
 
 
 def meter(c, **kwargs):
-    c.process_meter_values(
+    c.ingest.observe_meter_values(
         [
             {
                 "timestamp": c.now(),
@@ -96,14 +96,16 @@ def meter(c, **kwargs):
 class SessionTelemetryTest(unittest.TestCase):
     def test_restart_delayed_completion_csv_and_detail_preserve_all_context(self):
         c = coordinator()
-        c.start_transaction(100, connector_id=1, meter_start=0, timestamp="2026-10-28T12:00:00")
+        c.sessions.start_transaction(
+            100, connector_id=1, meter_start=0, timestamp="2026-10-28T12:00:00"
+        )
         identity = dashboard_active_session(c)["session_id"]
         c.at += timedelta(seconds=5)
         meter(c)
         c.at += timedelta(seconds=25)
         c.update_configuration_value("G_MaxCurrent", "8")
         c.at += timedelta(minutes=1)
-        c.record_status_notification(1, "SuspendedEV", "NoError")
+        c.ingest.observe_status_notification(1, "SuspendedEV", "NoError")
         c.sessions.observe_context()
         active = dashboard_active_session(c)
         self.assertEqual(set(CONTEXT_CURVES) - active.keys(), set())
@@ -124,8 +126,8 @@ class SessionTelemetryTest(unittest.TestCase):
         self.assertEqual(
             restarted.sessions.telemetry.snapshot()["site_battery_curve_w"][-1][1], None
         )
-        restarted.record_status_notification(1, "SuspendedEV", "NoError")
-        restarted.stop_transaction(
+        restarted.ingest.observe_status_notification(1, "SuspendedEV", "NoError")
+        restarted.sessions.stop_transaction(
             transaction_id=100,
             reason="Remote",
             meter_stop=1000,
@@ -176,14 +178,16 @@ class SessionTelemetryTest(unittest.TestCase):
         c = coordinator()
         meter(c)
         self.assertEqual(c.sessions.telemetry.snapshot(), {})
-        c.start_transaction(100, connector_id=1, timestamp=c.now())
+        c.sessions.start_transaction(100, connector_id=1, timestamp=c.now())
         c.at += timedelta(seconds=10)
         meter(c)
         before = c.sessions.telemetry.snapshot()["measured_current_sum_curve_a"]
-        c.process_meter_values([{"timestamp": c.now(), "sampledValue": []}], transaction_id=101)
+        c.ingest.observe_meter_values(
+            [{"timestamp": c.now(), "sampledValue": []}], transaction_id=101
+        )
         self.assertEqual(c.sessions.telemetry.snapshot()["measured_current_sum_curve_a"], before)
         c.at += timedelta(seconds=10)
-        c.process_meter_values(
+        c.ingest.observe_meter_values(
             [
                 {
                     "timestamp": c.now(),
@@ -200,7 +204,7 @@ class SessionTelemetryTest(unittest.TestCase):
             transaction_id=100,
         )
         self.assertIsNone(c.sessions.telemetry.snapshot()["measured_current_sum_curve_a"][-1][1])
-        c.process_meter_values(
+        c.ingest.observe_meter_values(
             [
                 {
                     "timestamp": "2026-10-28T10:10:00Z",
@@ -219,11 +223,11 @@ class SessionTelemetryTest(unittest.TestCase):
     ):
         c = coordinator()
         c.hass.states["sensor.house"].state = "unknown"
-        c.start_transaction(100, connector_id=1, timestamp=c.now())
+        c.sessions.start_transaction(100, connector_id=1, timestamp=c.now())
         self.assertNotIn("site_pv_surplus_curve_w", c.sessions.telemetry.snapshot())
         c.at += timedelta(seconds=30)
         c.hass.states["sensor.house"].state = "1200"
-        c.record_status_notification(1, "SuspendedEV", "NoError")
+        c.ingest.observe_status_notification(1, "SuspendedEV", "NoError")
         c.sessions.observe_context()
         self.assertEqual(c.sessions.telemetry.snapshot()["site_pv_surplus_curve_w"][-1][1], 3800)
         c.begin_configuration_write("G_MaxCurrent", "6")
@@ -249,7 +253,7 @@ class SessionTelemetryTest(unittest.TestCase):
         c.external_meter.power = 1200
         c.external_meter.last_updated_at = c.now()
         c.hass.states["sensor.battery"].state = "600"
-        c.start_transaction(100, connector_id=1, timestamp=c.now())
+        c.sessions.start_transaction(100, connector_id=1, timestamp=c.now())
         self.assertNotIn("site_house_load_curve_w", c.sessions.telemetry.snapshot())
         c.at += timedelta(seconds=5)
         meter(c)
@@ -278,7 +282,7 @@ class SessionTelemetryTest(unittest.TestCase):
         self,
     ):
         c = coordinator()
-        c.start_transaction(100, connector_id=1, timestamp=c.now())
+        c.sessions.start_transaction(100, connector_id=1, timestamp=c.now())
         for i in range(500):
             at = (AT + timedelta(seconds=i)).isoformat()
             for key in CONTEXT_CURVES:
@@ -305,7 +309,7 @@ class HistorySubscriptionsTest(unittest.IsolatedAsyncioTestCase):
         self,
     ):
         c = coordinator()
-        c.start_transaction(100, connector_id=1, timestamp=c.now())
+        c.sessions.start_transaction(100, connector_id=1, timestamp=c.now())
         callbacks = {}
         cancelled = []
         c.hass.bus = SimpleNamespace(

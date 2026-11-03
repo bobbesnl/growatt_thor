@@ -36,8 +36,8 @@ def live_charging_sources(
         and now is not None
         and power_w is not None
         and power_w >= 0
-        and 0 <= (now - sample_at).total_seconds() <= coordinator.effective_meter_gap_seconds()
-        and 0 <= (now - received_at).total_seconds() <= coordinator.effective_meter_gap_seconds()
+        and 0 <= (now - sample_at).total_seconds() <= coordinator.effective_meter_gap_seconds
+        and 0 <= (now - received_at).total_seconds() <= coordinator.effective_meter_gap_seconds
         and coordinator.transaction_is_active
     ):
         # Live sources have independent update schedules; evaluate them now,

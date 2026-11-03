@@ -54,7 +54,7 @@ sequenceDiagram
   Coord->>Coord: start_transaction(): session state, event tracking,<br/>transaction hooks
   CP-->>THOR: transactionId and idTagInfo
   THOR->>CP: MeterValues …
-  CP->>Coord: process_meter_values()
+  CP->>Coord: ingest.observe_meter_values()
 ```
 
 Code: [`charging/growatt_charger.py`](../custom_components/growatt_thor/charging/growatt_charger.py),

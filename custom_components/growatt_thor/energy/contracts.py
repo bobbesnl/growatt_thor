@@ -31,6 +31,7 @@ class LiveAllocationOwner(SiteObservationOwner, Protocol):
 
     def now(self) -> str: ...
 
+    @property
     def effective_meter_gap_seconds(self) -> float: ...
 
 

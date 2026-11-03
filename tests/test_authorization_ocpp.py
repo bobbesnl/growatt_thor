@@ -48,20 +48,23 @@ class Coordinator:
         self.next_id = 40
         self.active_transaction = None
         self.sessions = SimpleNamespace(
-            record_authorization_response=self.record_authorization_response
+            record_authorization_response=self.record_authorization_response,
+            start_transaction=self.start_transaction,
+            stop_transaction=self.stop_transaction,
         )
+        self.ingest = SimpleNamespace(observe_configuration=self.observe_configuration)
         self.stops = []
         self.configuration_batches = []
 
     def now(self):
         return "2026-09-04T10:00:00Z"
 
-    def set_charge_point(self, cp_id):
+    def observe_connected(self, cp_id):
         # Match the production coordinator: the retained identity survives a
         # socket replacement and lets _on_connect reject a different charger.
         self.charge_point_id = cp_id
 
-    def mark_connection_activity(self, action):
+    def observe_message(self, action):
         pass
 
     async def async_allocate_transaction_id(self):
@@ -77,7 +80,7 @@ class Coordinator:
     def stop_transaction(self, reason, **kwargs):
         self.stops.append(kwargs)
 
-    def process_configuration(self, configuration, unknown_keys=()):
+    def observe_configuration(self, configuration, unknown_keys=()):
         self.configuration_batches.append((list(configuration), tuple(unknown_keys)))
 
 
@@ -127,7 +130,7 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
                 def record(payload):
                     self.coordinator.boot_notification = payload
 
-                self.coordinator.record_boot_notification = record
+                self.coordinator.ingest.observe_boot_notification = record
                 cp = server.GrowattChargePoint(
                     "TEST-CHARGER", Websocket(), self.coordinator, self.hass
                 )
@@ -358,8 +361,8 @@ class AuthorizationWireTest(unittest.IsolatedAsyncioTestCase):
         )
 
         with patch.object(
-            self.coordinator,
-            "record_status_notification",
+            self.coordinator.ingest,
+            "observe_status_notification",
             create=True,
         ) as record_status:
             await self.cp.on_status_notification(

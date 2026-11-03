@@ -36,7 +36,7 @@ def owner(**values):
         "transaction_id": None,
         "transaction_is_active": False,
         "last_meter_values": None,
-        "effective_meter_gap_seconds": lambda: 180.0,
+        "effective_meter_gap_seconds": 180.0,
     }
     return SimpleNamespace(**(defaults | values))
 

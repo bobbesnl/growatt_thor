@@ -63,7 +63,7 @@ def configuration_snapshots():
     )
     snapshots = []
     for values in cases:
-        coordinator.process_configuration(
+        coordinator.ingest.observe_configuration(
             [{"key": key, "value": value} for key, value in values.items()]
         )
         snapshots.append(

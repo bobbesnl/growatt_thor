@@ -112,7 +112,7 @@ class LivePowerResetTest(unittest.TestCase):
         coordinator = _build_coordinator()
         _set_charging(coordinator)
 
-        coordinator.set_status("SuspendedEV")
+        coordinator.ingest.observe_status("SuspendedEV")
 
         self.assertEqual(coordinator.status, "SuspendedEV")
         self.assertEqual(coordinator.power, 0)
@@ -132,14 +132,14 @@ class LivePowerResetTest(unittest.TestCase):
             with self.subTest(status=status):
                 coordinator = _build_coordinator()
                 _set_charging(coordinator)
-                coordinator.set_status(status)
+                coordinator.ingest.observe_status(status)
                 self.assertEqual(coordinator.power, 0)
 
     def test_charging_status_keeps_power(self):
         coordinator = _build_coordinator()
         _set_charging(coordinator)
 
-        coordinator.set_status("Charging")
+        coordinator.ingest.observe_status("Charging")
 
         self.assertEqual(coordinator.power, 547.0)
         self.assertEqual(coordinator.currents["L1"], 2.4)
@@ -148,7 +148,7 @@ class LivePowerResetTest(unittest.TestCase):
         coordinator = _build_coordinator()
         _set_charging(coordinator)
 
-        coordinator.set_status("SomethingNew")
+        coordinator.ingest.observe_status("SomethingNew")
 
         self.assertEqual(coordinator.power, 547.0)
 
@@ -156,7 +156,7 @@ class LivePowerResetTest(unittest.TestCase):
         coordinator = _build_coordinator()
         _set_charging(coordinator)
 
-        coordinator.set_disconnected()
+        coordinator.observe_disconnected()
 
         self.assertFalse(coordinator.connected)
         self.assertEqual(coordinator.power, 0)
@@ -190,15 +190,15 @@ class DelayedMeterValuesTest(unittest.TestCase):
 
     def test_late_sample_after_suspended_ev_keeps_power_at_zero(self):
         coordinator = _build_coordinator()
-        coordinator.set_status("Charging")
-        coordinator.process_meter_values(_meter_values(971, 4.2))
+        coordinator.ingest.observe_status("Charging")
+        coordinator.ingest.observe_meter_values(_meter_values(971, 4.2))
         self.assertEqual(coordinator.power, 971)
 
-        coordinator.set_status("SuspendedEV")
+        coordinator.ingest.observe_status("SuspendedEV")
         self.assertEqual(coordinator.power, 0)
 
         # The THOR delivers a sample from the charging phase after the status.
-        coordinator.process_meter_values(_meter_values(971, 4.2))
+        coordinator.ingest.observe_meter_values(_meter_values(971, 4.2))
 
         self.assertEqual(coordinator.status, "SuspendedEV")
         self.assertEqual(coordinator.power, 0)
@@ -211,14 +211,16 @@ class DelayedMeterValuesTest(unittest.TestCase):
 
     def test_valid_samples_apply_again_when_charging_resumes(self):
         coordinator = _build_coordinator()
-        coordinator.set_status("Charging")
-        coordinator.process_meter_values(_meter_values(971, 4.2))
-        coordinator.set_status("SuspendedEV")
-        coordinator.process_meter_values(_meter_values(971, 4.2))
+        coordinator.ingest.observe_status("Charging")
+        coordinator.ingest.observe_meter_values(_meter_values(971, 4.2))
+        coordinator.ingest.observe_status("SuspendedEV")
+        coordinator.ingest.observe_meter_values(_meter_values(971, 4.2))
 
         # Warm-up: the vehicle draws again and the charger reports Charging.
-        coordinator.set_status("Charging")
-        coordinator.process_meter_values(_meter_values(106, 0.5, timestamp="2026-10-14T06:15:37Z"))
+        coordinator.ingest.observe_status("Charging")
+        coordinator.ingest.observe_meter_values(
+            _meter_values(106, 0.5, timestamp="2026-10-14T06:15:37Z")
+        )
 
         self.assertEqual(coordinator.power, 106)
         self.assertEqual(coordinator.currents["L1"], 0.5)
@@ -227,17 +229,17 @@ class DelayedMeterValuesTest(unittest.TestCase):
         coordinator = _build_coordinator()
         coordinator.status = None
 
-        coordinator.process_meter_values(_meter_values(547, 2.4))
+        coordinator.ingest.observe_meter_values(_meter_values(547, 2.4))
 
         self.assertEqual(coordinator.power, 547)
 
     def test_late_sample_after_finishing_is_ignored(self):
         coordinator = _build_coordinator()
-        coordinator.set_status("Charging")
-        coordinator.process_meter_values(_meter_values(971, 4.2))
-        coordinator.set_status("Finishing")
+        coordinator.ingest.observe_status("Charging")
+        coordinator.ingest.observe_meter_values(_meter_values(971, 4.2))
+        coordinator.ingest.observe_status("Finishing")
 
-        coordinator.process_meter_values(_meter_values(971, 4.2))
+        coordinator.ingest.observe_meter_values(_meter_values(971, 4.2))
 
         self.assertEqual(coordinator.power, 0)
 
@@ -285,31 +287,31 @@ class TransactionBindingTest(unittest.IsolatedAsyncioTestCase):
         c = _build_coordinator()
         c.hass.async_create_task = lambda coro: coro.close()
         c.schedule_storage_save = lambda: None
-        c.start_transaction(42, id_tag="private", meter_start=0)
+        c.sessions.start_transaction(42, id_tag="private", meter_start=0)
         return c
 
     async def test_foreign_and_duplicate_stops_preserve_session(self):
         c = self.make_coordinator()
         active = c.active_transaction
-        c.stop_transaction(transaction_id=41, meter_stop=100)
+        c.sessions.stop_transaction(transaction_id=41, meter_stop=100)
         self.assertIs(c.active_transaction, active)
         self.assertEqual(c.transaction_id, 42)
-        c.stop_transaction(transaction_id=42, meter_stop=200)
+        c.sessions.stop_transaction(transaction_id=42, meter_stop=200)
         completed = c.last_completed_transaction
-        c.stop_transaction(transaction_id=42, meter_stop=200)
-        c.stop_transaction(transaction_id=999, meter_stop=300)
+        c.sessions.stop_transaction(transaction_id=42, meter_stop=200)
+        c.sessions.stop_transaction(transaction_id=999, meter_stop=300)
         self.assertIs(c.last_completed_transaction, completed)
-        c.start_transaction(43, meter_start=200)
-        c.stop_transaction(transaction_id=42, meter_stop=200)
+        c.sessions.start_transaction(43, meter_start=200)
+        c.sessions.stop_transaction(transaction_id=42, meter_stop=200)
         self.assertEqual(c.transaction_id, 43)
 
     async def test_stale_meter_values_do_not_replace_or_resurrect_transaction(self):
         c = self.make_coordinator()
-        c.process_meter_values([], transaction_id=41)
+        c.ingest.observe_meter_values([], transaction_id=41)
         self.assertEqual(c.transaction_id, 42)
         self.assertIsNone(c.last_meter_values)
-        c.stop_transaction(transaction_id=42)
-        c.process_meter_values([], transaction_id=42)
+        c.sessions.stop_transaction(transaction_id=42)
+        c.ingest.observe_meter_values([], transaction_id=42)
         self.assertIsNone(c.transaction_id)
         self.assertFalse(c.transaction_is_active)
 
@@ -318,10 +320,10 @@ class TransactionBindingTest(unittest.IsolatedAsyncioTestCase):
         c.transaction_id = None
         c.active_transaction = None
         c.status = "Available"
-        c.process_meter_values([], transaction_id=42)
+        c.ingest.observe_meter_values([], transaction_id=42)
         self.assertIsNone(c.transaction_id)
         c.status = "Charging"
-        c.process_meter_values([], transaction_id=42)
+        c.ingest.observe_meter_values([], transaction_id=42)
         self.assertEqual(c.transaction_id, 42)
         self.assertEqual(c.last_meter_values["transaction_id"], 42)
 
@@ -350,7 +352,7 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
         c = self.make_coordinator()
         c.schedule_storage_save = lambda: None
         c.authorization.policy = c.authorization.policy.with_card("00RFID", "Original name")
-        c.start_transaction(1, id_tag="00RFID", meter_start=0)
+        c.sessions.start_transaction(1, id_tag="00RFID", meter_start=0)
         # A restart during charging must retain the name as it was at start.
         active = self.make_coordinator(c._storage_data())
         await active.async_load_storage()
@@ -358,7 +360,7 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
         active.authorization.policy = active.authorization.policy.with_card(
             "00RFID", "Renamed later"
         )
-        active.stop_transaction(transaction_id=1, meter_stop=5000)
+        active.sessions.stop_transaction(transaction_id=1, meter_stop=5000)
         # Another restart before the final vendor record must retain it too.
         completed = self.make_coordinator(active._storage_data())
         await completed.async_load_storage()
@@ -388,8 +390,8 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
     ):
         c = self.make_coordinator()
         c.schedule_storage_save = lambda: None
-        c.start_transaction(1, id_tag="private", meter_start=0)
-        c.stop_transaction(transaction_id=1, meter_stop=5000)
+        c.sessions.start_transaction(1, id_tag="private", meter_start=0)
+        c.sessions.stop_transaction(transaction_id=1, meter_stop=5000)
         record = self.record(1)
         c.sessions.process_session_record(record)
         rows = c.sessions.outbox.snapshot()
@@ -403,10 +405,10 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
     async def test_restart_between_stop_and_vendor_record_preserves_details(self):
         c = self.make_coordinator()
         c.schedule_storage_save = lambda: None
-        c.start_transaction(1, id_tag="RFID", meter_start=100)
+        c.sessions.start_transaction(1, id_tag="RFID", meter_start=100)
         c.sessions.active_power_curve = [["2026-10-01T10:01:00Z", 7000]]
         c.site_accounting = coordinator_module.SessionAccumulator("1", meter_start_wh=100)
-        c.stop_transaction(transaction_id=1, meter_stop=5100)
+        c.sessions.stop_transaction(transaction_id=1, meter_stop=5100)
         stored = c._storage_data()
         self.assertEqual(len(stored["pending_completed_sessions"]), 1)
         restored = self.make_coordinator(stored)
@@ -427,8 +429,8 @@ class SessionRecordReplayTest(unittest.IsolatedAsyncioTestCase):
         c = self.make_coordinator()
         c.schedule_storage_save = lambda: None
         for tx in range(12):
-            c.start_transaction(tx, id_tag=f"RFID-{tx}", meter_start=0)
-            c.stop_transaction(transaction_id=tx, meter_stop=5000)
+            c.sessions.start_transaction(tx, id_tag=f"RFID-{tx}", meter_start=0)
+            c.sessions.stop_transaction(transaction_id=tx, meter_stop=5000)
         restored = self.make_coordinator(c._storage_data())
         await restored.async_load_storage()
         self.assertEqual(len(restored.sessions.pending_completions), 10)

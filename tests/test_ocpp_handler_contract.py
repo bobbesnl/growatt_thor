@@ -26,7 +26,7 @@ async def handler_fallbacks():
     coordinator.hass.async_create_task = lambda coroutine: coroutine.close()
     cp = server.GrowattChargePoint("TEST", SimpleNamespace(), coordinator, coordinator.hass)
     cases = (
-        ("on_boot_notification", coordinator, "record_boot_notification", {}),
+        ("on_boot_notification", coordinator.ingest, "observe_boot_notification", {}),
         ("on_heartbeat", cp, "_schedule_post_connect_init", {}),
         ("on_authorize", coordinator.authorization, "decide", {"id_tag": "TEST-CARD"}),
         (
@@ -37,26 +37,26 @@ async def handler_fallbacks():
         ),
         (
             "on_stop_transaction",
-            coordinator,
+            coordinator.sessions,
             "stop_transaction",
             {"transaction_id": 42, "meter_stop": 0},
         ),
         (
             "on_status_notification",
-            coordinator,
-            "record_status_notification",
+            coordinator.ingest,
+            "observe_status_notification",
             {"connector_id": 1, "status": "Charging"},
         ),
         (
             "on_meter_values",
-            coordinator,
-            "process_meter_values",
+            coordinator.ingest,
+            "observe_meter_values",
             {"connector_id": 1, "meter_value": []},
         ),
         (
             "on_data_transfer",
-            coordinator,
-            "process_fault_message",
+            coordinator.ingest,
+            "observe_fault_message",
             {"vendor_id": "Growatt", "message_id": "faultmessage", "data": "fault"},
         ),
     )

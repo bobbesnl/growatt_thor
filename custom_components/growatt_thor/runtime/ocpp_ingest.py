@@ -87,7 +87,7 @@ class OcppIngest:
         self.coordinator.currents = dict(zero_phases)
         return True
 
-    def set_status(self, status: object) -> None:
+    def observe_status(self, status: object) -> None:
         """Set charger status and notify sensors."""
         value = enum_value(status, stringify_fallback=True)
 
@@ -105,12 +105,12 @@ class OcppIngest:
 
         self.coordinator.async_set_updated_data(True)
 
-    def record_boot_notification(self, payload: dict[str, Any]) -> None:
+    def observe_boot_notification(self, payload: dict[str, Any]) -> None:
         """Retain the latest BootNotification request."""
         self.coordinator.boot_notification = create_ocpp_snapshot(self.coordinator.now(), payload)
         self.coordinator.async_set_updated_data(True)
 
-    def record_status_notification(
+    def observe_status_notification(
         self,
         connector_id: int,
         status: str,
@@ -184,9 +184,9 @@ class OcppIngest:
             self.coordinator.schedule_fault_storage_save()
         info = payload.get("info")
         self.coordinator.external_meter.observe_status(connector_id, error_code, info)
-        self.set_status(status)
+        self.observe_status(status)
 
-    def process_fault_message(
+    def observe_fault_message(
         self,
         vendor_id: object,
         data: str,
@@ -201,7 +201,7 @@ class OcppIngest:
         self.coordinator.schedule_fault_storage_save()
         self.coordinator.async_set_updated_data(True)
 
-    def process_meter_values(
+    def observe_meter_values(
         self,
         meter_values: list[dict[str, Any]],
         *,
@@ -312,7 +312,7 @@ class OcppIngest:
                     # A long telemetry gap cannot be priced/classified from
                     # just the current site snapshot (including after upgrade).
                     previous_at = self.coordinator.site_accounting.last_meter_at
-                    max_gap = self.effective_meter_gap_seconds()
+                    max_gap = self.effective_meter_gap_seconds
                     current_interval = (
                         previous_at is not None
                         and 0 <= (at - previous_at).total_seconds() <= max_gap
@@ -347,7 +347,7 @@ class OcppIngest:
             effective_updated = (
                 previous_transaction_id != self.coordinator.effective_charging.transaction_id
             )
-            max_gap_seconds = self.effective_meter_gap_seconds()
+            max_gap_seconds = self.effective_meter_gap_seconds
             for entry in parsed_values:
                 effective_updated = (
                     self.coordinator.effective_charging.observe(
@@ -443,6 +443,7 @@ class OcppIngest:
         normalized = normalize_ocpp_status(self.coordinator.status)
         return normalized is None or normalized in LIVE_POWER_STATUSES
 
+    @property
     def effective_meter_gap_seconds(self) -> float:
         """Bound counted intervals using the charger-reported sample period."""
         for key in ("G_MeterValueInterval", "MeterValueSampleInterval"):
@@ -457,7 +458,7 @@ class OcppIngest:
                 return max(MIN_METER_GAP_SECONDS, interval * METER_GAP_INTERVAL_MULTIPLIER)
         return DEFAULT_METER_GAP_SECONDS
 
-    def process_configuration(
+    def observe_configuration(
         self, configuration: Sequence[object], unknown_keys: Iterable[object] = ()
     ) -> None:
         """Validate configuration responses and safely reject malformed values."""
@@ -549,17 +550,12 @@ class OcppIngest:
                 updated = True
         return updated
 
-    def record_external_meter_poll_timeout(self) -> None:
+    def observe_external_meter_timeout(self) -> None:
         """Record one missed external-meter response and refresh HA state."""
         self.coordinator.external_meter.consecutive_timeouts += 1
         self.coordinator.async_set_updated_data(True)
 
-    def reset_external_meter_poll_timeouts(self) -> None:
-        """Clear communication timeouts after a valid meter response."""
-        if self.coordinator.external_meter.consecutive_timeouts:
-            self.coordinator.external_meter.consecutive_timeouts = 0
-
-    def process_external_meter(self, data_str: str) -> bool:
+    def observe_external_meter_values(self, data_str: str) -> bool:
         """Process external meter values from get_external_meterval DataTransfer."""
         try:
             snapshot = parse_external_meter_data(data_str)

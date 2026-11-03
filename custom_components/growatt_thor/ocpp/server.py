@@ -177,7 +177,7 @@ class GrowattChargePoint(OcppChargePoint):
         # connection slot.  Other config entries keep their own slot.
         self.coordinator.runtime_data[ACTIVE_CHARGE_POINT] = self
 
-        self.coordinator.set_charge_point(cp_id)
+        self.coordinator.observe_connected(cp_id)
         _LOGGER.info("GrowattChargePoint initialised for %s", cp_id)
 
     def _is_current_connection(self) -> bool:
@@ -238,7 +238,7 @@ class GrowattChargePoint(OcppChargePoint):
         """Record an inbound message for the connection watchdog."""
         self._activity.mark(self.hass.loop.time())
         if self._is_current_connection():
-            self.coordinator.mark_connection_activity(action)
+            self.coordinator.observe_message(action)
 
     async def route_message(self, raw_msg: str | bytes) -> None:
         """Track every inbound OCPP frame before routing it."""
@@ -278,7 +278,7 @@ class GrowattChargePoint(OcppChargePoint):
                 self._cp_id,
                 idle_seconds,
             )
-            self.coordinator.set_disconnected()
+            self.coordinator.observe_disconnected()
 
             try:
                 await _close_websocket(
@@ -308,7 +308,7 @@ class GrowattChargePoint(OcppChargePoint):
     )
     async def on_boot_notification(self, **payload: Any) -> call_result.BootNotification:
         _LOGGER.info("BootNotification payload: %s", payload)
-        self.coordinator.record_boot_notification(payload)
+        self.coordinator.ingest.observe_boot_notification(payload)
         self._schedule_post_connect_init()
         return call_result.BootNotification(
             current_time=self.coordinator.now(),
@@ -399,7 +399,7 @@ class GrowattChargePoint(OcppChargePoint):
             # Plug & Charge is an explicit charger mode, not an RFID identity.
             card_policy_applies=str(self.coordinator.charger_mode) != CHARGER_MODE_PLUG_AND_CHARGE,
         )
-        self.coordinator.start_transaction(
+        self.coordinator.sessions.start_transaction(
             transaction_id,
             id_tag,
             connector_id=connector_id,
@@ -420,7 +420,7 @@ class GrowattChargePoint(OcppChargePoint):
     async def on_stop_transaction(
         self, transaction_id: int, meter_stop: float, reason: str | None = None, **kwargs: Any
     ) -> call_result.StopTransaction:
-        self.coordinator.stop_transaction(
+        self.coordinator.sessions.stop_transaction(
             reason,
             transaction_id=transaction_id,
             meter_stop=meter_stop,
@@ -439,7 +439,7 @@ class GrowattChargePoint(OcppChargePoint):
     async def on_status_notification(
         self, connector_id: int, status: str, error_code: str | None = None, **kwargs: Any
     ) -> call_result.StatusNotification:
-        self.coordinator.record_status_notification(
+        self.coordinator.ingest.observe_status_notification(
             connector_id,
             status,
             error_code,
@@ -453,7 +453,7 @@ class GrowattChargePoint(OcppChargePoint):
         self, connector_id: int, meter_value: list[dict[str, Any]], **kwargs: Any
     ) -> call_result.MeterValues:
         transaction_id = kwargs.get("transaction_id")
-        self.coordinator.process_meter_values(
+        self.coordinator.ingest.observe_meter_values(
             meter_value,
             connector_id=connector_id,
             transaction_id=transaction_id,
@@ -487,9 +487,9 @@ class GrowattChargePoint(OcppChargePoint):
                 message_id,
                 record.transaction_id,
             )
-            self.coordinator.process_session_record(record)
+            self.coordinator.sessions.process_session_record(record)
         elif isinstance(data, str) and message_id == "faultmessage":
-            self.coordinator.process_fault_message(vendor_id, data)
+            self.coordinator.ingest.observe_fault_message(vendor_id, data)
         return call_result.DataTransfer(status=DataTransferStatus.accepted)
 
     # Active triggers
@@ -589,17 +589,17 @@ class GrowattChargePoint(OcppChargePoint):
 
             if hasattr(result, "data") and isinstance(result.data, str):
                 _LOGGER.info("Received external meter values: %s", result.data)
-                if not self.coordinator.process_external_meter(result.data):
-                    self.coordinator.record_external_meter_poll_timeout()
+                if not self.coordinator.ingest.observe_external_meter_values(result.data):
+                    self.coordinator.ingest.observe_external_meter_timeout()
             else:
-                self.coordinator.record_external_meter_poll_timeout()
+                self.coordinator.ingest.observe_external_meter_timeout()
                 _LOGGER.warning("External meterval returned no usable data: %s", result)
             return True
 
         except TimeoutError:
             if not self._connection_may_update_coordinator("external meter timeout"):
                 return False
-            self.coordinator.record_external_meter_poll_timeout()
+            self.coordinator.ingest.observe_external_meter_timeout()
             count = self.coordinator.external_meter.consecutive_timeouts
 
             if count >= 2:
@@ -658,7 +658,7 @@ class GrowattChargePoint(OcppChargePoint):
             # diagnostics and has historically been more likely to time out on
             # a busy THOR.  A timeout there must not discard a valid first
             # response or leave charging controls unknown.
-            self.coordinator.process_configuration(
+            self.coordinator.ingest.observe_configuration(
                 config_keys_1,
                 unknown_keys_1,
             )
@@ -684,7 +684,7 @@ class GrowattChargePoint(OcppChargePoint):
             if all_config_keys or all_unknown_keys:
                 # The first group was already applied above; process only the
                 # new values while retaining the complete unknown-key view.
-                self.coordinator.process_configuration(
+                self.coordinator.ingest.observe_configuration(
                     config_keys_2,
                     all_unknown_keys,
                 )
@@ -1007,7 +1007,7 @@ async def _on_connect(
                     pass
 
             if release_active_charge_point(coordinator.runtime_data, cp):
-                coordinator.set_disconnected()
+                coordinator.observe_disconnected()
             else:
                 _LOGGER.debug(
                     "Ignoring disconnect cleanup for superseded connection: %s",

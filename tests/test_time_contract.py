@@ -48,7 +48,9 @@ class UtcTimeContractTest(unittest.TestCase):
                 "G_DaylightSavingTime": "00-00&00-00",
             }.items()
         }
-        c.start_transaction(51, connector_id=1, meter_start=0, timestamp="2026-10-27T13:01:23")
+        c.sessions.start_transaction(
+            51, connector_id=1, meter_start=0, timestamp="2026-10-27T13:01:23"
+        )
         active = dashboard_active_session(c)
         c.sessions.active_power_curve = [
             ["2026-10-27T11:01:23Z", 7300],
@@ -56,9 +58,9 @@ class UtcTimeContractTest(unittest.TestCase):
         ]
         c.sessions.event_tracker.observe_power("2026-10-27T11:01:23Z", 7300)
         c.now = lambda: "2026-10-27T13:54:13Z"
-        c.record_status_notification(1, "SuspendedEV", "NoError")
+        c.ingest.observe_status_notification(1, "SuspendedEV", "NoError")
         c.now = lambda: "2026-10-27T14:07:38Z"
-        c.stop_transaction(
+        c.sessions.stop_transaction(
             transaction_id=51,
             reason="Remote",
             meter_stop=20252,

@@ -23,11 +23,11 @@ async def session_snapshots():
     def capture():
         snapshots.append(json.loads(json.dumps(coordinator._storage_data())))
 
-    coordinator.record_status_notification(1, "Preparing", "NoError")
-    coordinator.start_transaction(42, "TEST-TAG", connector_id=1, meter_start=1000)
+    coordinator.ingest.observe_status_notification(1, "Preparing", "NoError")
+    coordinator.sessions.start_transaction(42, "TEST-TAG", connector_id=1, meter_start=1000)
     capture()
     clock[0] = "2026-10-30T12:01:00Z"
-    coordinator.process_meter_values(
+    coordinator.ingest.observe_meter_values(
         [
             {
                 "timestamp": clock[0],
@@ -42,19 +42,19 @@ async def session_snapshots():
     )
     capture()
     clock[0] = "2026-10-30T12:02:00Z"
-    coordinator.record_status_notification(1, "SuspendedEV", "NoError")
+    coordinator.ingest.observe_status_notification(1, "SuspendedEV", "NoError")
     capture()
-    coordinator.stop_transaction(transaction_id=42, meter_stop=1500, reason="Remote")
+    coordinator.sessions.stop_transaction(transaction_id=42, meter_stop=1500, reason="Remote")
     capture()
     payload = (
         "transactionId=42&starttime=2026-10-30 12:00:00&endtime=2026-10-30 12:02:00&"
         "plugtime=2026-10-30 12:00:00&costenergy=500&costmoney=12&chargemode=3&workmode=3"
     )
-    coordinator.process_session_record(
+    coordinator.sessions.process_session_record(
         records.parse_growatt_session_record("currentrecord", payload)
     )
     capture()
-    coordinator.process_session_record(
+    coordinator.sessions.process_session_record(
         records.parse_growatt_session_record("frozenrecord", payload)
     )
     capture()

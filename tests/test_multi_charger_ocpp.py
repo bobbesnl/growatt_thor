@@ -50,17 +50,18 @@ class Coordinator:
         self.has_pending_charger_writes = False
         self.charge_point_id = None
         self.statuses = []
+        self.ingest = SimpleNamespace(observe_status_notification=self.observe_status_notification)
 
     def now(self):
         return "2026-10-20T10:00:00Z"
 
-    def set_charge_point(self, cp_id):
+    def observe_connected(self, cp_id):
         self.charge_point_id = cp_id
 
-    def mark_connection_activity(self, action):
+    def observe_message(self, action):
         pass
 
-    def record_status_notification(self, connector_id, status, error_code=None, **kwargs):
+    def observe_status_notification(self, connector_id, status, error_code=None, **kwargs):
         self.statuses.append(status)
 
 

@@ -93,7 +93,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         self.guard = EnergyStopGuard(c.hass, c)
 
     def receive(self, timestamp="2026-10-02T16:52:49", energy=1050):
-        self.c.process_meter_values(
+        self.c.ingest.observe_meter_values(
             [
                 {
                     "timestamp": timestamp,
@@ -131,7 +131,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
                     "readonly": False,
                 }
             )
-        self.c.process_meter_values(
+        self.c.ingest.observe_meter_values(
             [
                 {
                     "timestamp": "2026-10-27T13:18:04",
@@ -188,7 +188,7 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         c.sessions = coordinator_module.SessionLifecycle(c)
         saved_notices = []
         c.schedule_storage_save = lambda: saved_notices.append(c.last_energy_stop)
-        c.start_transaction(28, connector_id=1, meter_start=1050)
+        c.sessions.start_transaction(28, connector_id=1, meter_start=1050)
         self.assertIsNone(c.last_energy_stop)
         self.assertEqual(saved_notices, [None])
         self.assertIsNone(dashboard_attributes(c)["energy_stop"])
@@ -208,15 +208,15 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         c.schedule_storage_save = lambda: saved.append(True)
         self.at += timedelta(minutes=5)
         for connector in (None, 0, "0", 2, "2"):
-            c.record_status_notification(connector, "SuspendedEV", "NoError")
+            c.ingest.observe_status_notification(connector, "SuspendedEV", "NoError")
         self.assertFalse(saved)
-        c.record_status_notification(1, "SuspendedEV", "NoError")
+        c.ingest.observe_status_notification(1, "SuspendedEV", "NoError")
         self.assertEqual(saved, [True])
         self.assertEqual(c.active_transaction["events"][-1]["reason"], "suspended_ev")
         self.assertEqual(c.active_transaction["events"][-1]["at"], self.at.isoformat())
         self.assertEqual(c.sessions.active_power_curve, curve)
         self.assertEqual(c.transaction_id, 27)
-        c.record_status_notification(1, "SuspendedEV", "NoError")
+        c.ingest.observe_status_notification(1, "SuspendedEV", "NoError")
         self.assertEqual(saved, [True])
 
     def test_only_session_connector_available_adds_unplugged_marker(self):
@@ -227,11 +227,11 @@ class MeterTimeIntegrationTest(unittest.TestCase):
         c.active_transaction["start"]["request"] = {"connector_id": "1"}
         c.active_transaction["events"] = []
         for connector in (None, 0, "0", 2, "2"):
-            c.record_status_notification(connector, "Available", "NoError")
+            c.ingest.observe_status_notification(connector, "Available", "NoError")
         self.assertEqual(c.active_transaction["events"], [])
-        c.record_status_notification(1, "Preparing", "NoError")
+        c.ingest.observe_status_notification(1, "Preparing", "NoError")
         self.assertEqual(c.active_transaction["events"], [])
-        c.record_status_notification(1, "Available", "NoError")
+        c.ingest.observe_status_notification(1, "Available", "NoError")
         self.assertEqual(c.active_transaction["events"][0]["type"], "unplugged")
 
     def test_local_sample_reaches_gauge_accounting_curve_and_stop_guard(self):

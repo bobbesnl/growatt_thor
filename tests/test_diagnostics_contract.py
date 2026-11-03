@@ -50,8 +50,8 @@ async def diagnostic_snapshots():
         }.items()
     }
     coordinator.unknown_configuration_keys = ("FutureKey",)
-    coordinator.start_transaction(42, "PRIVATE-RFID", connector_id=1, meter_start=1000)
-    coordinator.process_meter_values(
+    coordinator.sessions.start_transaction(42, "PRIVATE-RFID", connector_id=1, meter_start=1000)
+    coordinator.ingest.observe_meter_values(
         [
             {
                 "timestamp": coordinator.now(),
@@ -66,8 +66,8 @@ async def diagnostic_snapshots():
     )
     await capture()
     coordinator.now = lambda: "2026-10-30T12:02:00Z"
-    coordinator.stop_transaction(transaction_id=42, meter_stop=1500, reason="Remote")
-    coordinator.process_session_record(
+    coordinator.sessions.stop_transaction(transaction_id=42, meter_stop=1500, reason="Remote")
+    coordinator.sessions.process_session_record(
         records.parse_growatt_session_record(
             "currentrecord",
             "transactionId=42&starttime=2026-10-30 12:00:00&endtime=2026-10-30 12:02:00&"

@@ -142,10 +142,10 @@ class _Coordinator:
     async def async_shutdown(self):
         self.shutdown_calls += 1
 
-    def set_charge_point(self, cp_id):
+    def observe_connected(self, cp_id):
         self.charge_point_id = cp_id
 
-    def set_disconnected(self):
+    def observe_disconnected(self):
         self.connected = False
 
 
