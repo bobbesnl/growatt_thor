@@ -76,6 +76,8 @@ write and a completed session move through these layers.
 | Charge point | The connected THOR as seen through one WebSocket (`GrowattChargePoint`). A reconnect creates a new charge point object; only the current one may update the coordinator. |
 | Coordinator | `GrowattCoordinator`: per-entry composition root holding observations and delegating to the owners below. Not a proof that the charger applied anything. |
 | Observation | A value the charger or a configured HA sensor reported, with its own freshness. Missing or stale observations stay unknown and are never replaced by zero. |
+| Charger snapshot | `ChargerSnapshot`: an immutable view derived from the observations of one charger (connection, OCPP status, transaction, latest meter reading). Readers use it instead of combining coordinator attributes. |
+| Vehicle state | Derived summary in the style of IEC 61851: `disconnected` (A), `connected` (B), `charging` (C), `fault` (E/F) or `unknown`. The raw OCPP status stays available. |
 | Command / intent | A requested change, such as Start or 16 A. It becomes a write-queue item with a policy, an optional dedupe key and a revalidation check. |
 | Write queue | `ChargerWriteQueue`: the single owner of outbound charger writes per entry. It orders, spaces, expires, replaces and revalidates commands. |
 | Command result | Terminal outcome of one queued command: `confirmed`, `failed`, `skipped`, `expired` or `uncertain`. `uncertain` means the request may have reached the charger and is never replayed automatically. |
@@ -135,6 +137,7 @@ from Lit lifecycle and HA calls. See
 | Site and battery option validation | `energy/site_options.py` |
 | Sensor discovery for option forms | `source_discovery.py` |
 | Start/Stop rules and charging capabilities | `charging/start_stop_rules.py`, `charging/control_capabilities.py` |
+| Derived charger state (connection, status, vehicle state, latest meter reading) | `charging/snapshot.py` (`ChargerSnapshot`) |
 
 ### Energy
 
@@ -178,7 +181,14 @@ yet" stays distinct from a reported outcome.
 | `sessions/outbox.py::SessionOutbox` | Completed rows awaiting CSV delivery. |
 
 Platforms read `entry.runtime_data.coordinator`; connection readers use
-`coordinator.charge_point`. Sensors, diagnostics and guards read the owners
+`coordinator.charge_point`. Readers that need the charger's state call
+`charging/snapshot.py::charger_snapshot`: an immutable `ChargerSnapshot` of
+connection, raw and normalized OCPP status, transaction, the latest MeterValues
+reading with its sample and receipt times, and a derived IEC 61851-style
+`VehicleState`. The status sensor, connection-gated sensors and the card read it,
+so they cannot disagree about whether the charger is connected, faulted or
+charging. Retained per-measurand values (energy, phase values, temperature) stay
+coordinator attributes. Sensors, diagnostics and guards read the owners
 directly (`coordinator.external_meter`, `coordinator.pv_draft`,
 `coordinator.sessions.last_session`). Coordinator methods publish updates at the
 transition boundaries, so notification order stays explicit.

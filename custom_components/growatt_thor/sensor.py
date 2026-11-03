@@ -13,6 +13,7 @@ from homeassistant.const import (
 from homeassistant.helpers.entity import EntityCategory
 
 from .charging.faults import CHARGER_FAULT_OPTIONS
+from .charging.snapshot import charger_snapshot
 from .configuration.values import (
     ConfigurationValue,
     configuration_entity_state,
@@ -22,7 +23,7 @@ from .energy.options import CONF_SITE_PROFILE
 from .energy.site_inputs import coverage_percent
 from .entity import ThorEntity
 from .ocpp.diagnostics import boot_notification_field
-from .ocpp.status import OCPP_STATUS_OPTIONS, normalize_ocpp_status
+from .ocpp.status import OCPP_STATUS_OPTIONS
 from .presentation.card_data import dashboard_attributes
 from .presentation.entity_map import dashboard_entity_map
 from .runtime.write_results import COMMAND_COMPLETION_STATUSES
@@ -356,9 +357,8 @@ class StatusSensor(BaseSensor):
 
     @property
     def native_value(self) -> str | float | int | None:
-        if not self.coordinator.connected:
-            return "offline"
-        return normalize_ocpp_status(self.coordinator.status)
+        snapshot = charger_snapshot(self.coordinator)
+        return snapshot.status if snapshot.connected else "offline"
 
     @property
     def available(self) -> bool:
@@ -370,7 +370,7 @@ class StatusSensor(BaseSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {
-            "connected": self.coordinator.connected,
+            "connected": charger_snapshot(self.coordinator).connected,
             "connection_started_at": self.coordinator.connection_started_at,
             "last_message_at": self.coordinator.last_message_at,
             "last_message_action": self.coordinator.last_message_action,

@@ -21,6 +21,7 @@ from homeassistant.const import (
 )
 from homeassistant.helpers.entity import EntityCategory
 
+from .charging.snapshot import charger_snapshot
 from .configuration.keys import (
     KEY_CHARGER_MODE,
     KEY_CHARGER_NET_DNS,
@@ -400,6 +401,10 @@ CONFIGURATION_SENSOR_DESCRIPTIONS = (
 )
 
 
+def _connected(coordinator: GrowattCoordinator) -> bool:
+    return charger_snapshot(coordinator).connected
+
+
 def _energy_charged_value(coordinator: GrowattCoordinator, phase: str | None) -> SensorValue:
     # Unknown until the charger reports a value after start-up or a
     # reload. Reporting 0 here would look like a meter reset to this
@@ -707,7 +712,7 @@ SENSOR_DESCRIPTIONS = {
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:meter-electric-outline",
         device="meter",
-        available_fn=lambda coordinator, phase: coordinator.connected,
+        available_fn=lambda coordinator, phase: _connected(coordinator),
         attrs_fn=_external_meter_health_attributes,
     ),
     "GridPowerSensor": ThorSensorDescription(
@@ -720,7 +725,7 @@ SENSOR_DESCRIPTIONS = {
         native_unit_of_measurement=UnitOfPower.WATT,
         device="meter",
         available_fn=lambda coordinator, phase: (
-            coordinator.connected and (coordinator.external_meter.power is not None)
+            _connected(coordinator) and (coordinator.external_meter.power is not None)
         ),
     ),
     "GridVoltageSensor": ThorSensorDescription(
@@ -733,7 +738,7 @@ SENSOR_DESCRIPTIONS = {
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device="meter",
         available_fn=lambda coordinator, phase: (
-            coordinator.connected and (_grid_voltage_value(coordinator, phase) is not None)
+            _connected(coordinator) and (_grid_voltage_value(coordinator, phase) is not None)
         ),
     ),
     "GridCurrentSensor": ThorSensorDescription(
@@ -746,7 +751,7 @@ SENSOR_DESCRIPTIONS = {
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device="meter",
         available_fn=lambda coordinator, phase: (
-            coordinator.connected and (_grid_current_value(coordinator, phase) is not None)
+            _connected(coordinator) and (_grid_current_value(coordinator, phase) is not None)
         ),
     ),
 }

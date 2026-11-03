@@ -15,14 +15,16 @@ from typing import Any, cast
 
 from ..charging.control_capabilities import selected_working_mode
 from ..charging.limits import charging_power_identity, maximum_charging_current
+from ..charging.snapshot import ChargerSnapshot, ChargerStateOwner, charger_snapshot
 from ..coerce import optional_float, optional_text
 from ..configuration.values import ConfigurationScalar, configuration_entity_state
 from ..energy.live_allocation import live_charging_sources
 from ..energy.meter_observations import ChargingMeterObservation
-from ..energy.meter_observations import charging_meter_values as dashboard_meter_values
+from ..energy.meter_observations import (
+    charging_meter_values as dashboard_meter_values,  # noqa: F401  (card tests parse raw packets)
+)
 from ..ocpp.diagnostics import boot_notification_field
 from ..ocpp.meter_samples import meter_time_zone, normalize_meter_timestamp
-from ..ocpp.status import normalize_ocpp_status
 from ..sessions.display_times import session_times
 from ..sessions.events import normalize_session_events
 from ..sessions.identity import SOURCE_HOME_ASSISTANT, build_session_id
@@ -30,7 +32,7 @@ from ..sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 from ..sessions.telemetry import CONTEXT_CURVES, context_curves
 from ..timestamps import installation_time_zone, utc_timestamp
 from .battery import battery_power_attributes
-from .contracts import ActiveSessionOwner, DashboardOwner, LiveMeterOwner
+from .contracts import ActiveSessionOwner, DashboardOwner
 
 _LOGGER = logging.getLogger(__name__)
 DASHBOARD_SESSION_LIMIT = 20
@@ -40,14 +42,9 @@ CARD_ATTRIBUTE_TARGET_BYTES = 12 * 1024
 _SESSION_DETAIL_FIELDS = ("power_curve", "events", *CONTEXT_CURVES)
 
 
-def live_dashboard_meter_values(coordinator: LiveMeterOwner) -> ChargingMeterObservation:
+def live_dashboard_meter_values(coordinator: ChargerStateOwner) -> ChargingMeterObservation:
     """Keep the card consistent with live sensors without changing raw samples."""
-    result = dashboard_meter_values(coordinator.last_meter_values)
-    status = normalize_ocpp_status(coordinator.status)
-    if not coordinator.connected or (status is not None and status != "charging"):
-        result["power_w"] = 0
-        result["currents_a"] = [0, 0, 0]
-    return result
+    return charger_snapshot(coordinator).live_meter().as_observation()
 
 
 def _number(value: object) -> float | None:
@@ -257,16 +254,19 @@ def _enforce_card_attribute_budget(attributes: dict[str, Any]) -> dict[str, Any]
 
 
 def _pv_linkage_card_data(
-    coordinator: DashboardOwner, working_mode: str | None, grid_import_limit: ConfigurationScalar
+    coordinator: DashboardOwner,
+    charger: ChargerSnapshot,
+    working_mode: str | None,
+    grid_import_limit: ConfigurationScalar,
 ) -> dict[str, Any]:
     """Expose the safe configuration snapshot needed by the guided dialog."""
     draft = coordinator.pv_draft.snapshot()
     blocked_reason = None
-    if not bool(coordinator.connected):
+    if not charger.connected:
         blocked_reason = "charger_disconnected"
-    elif bool(coordinator.charger_is_faulted):
+    elif charger.faulted:
         blocked_reason = "charger_faulted"
-    elif bool(coordinator.transaction_is_active):
+    elif charger.transaction_active:
         blocked_reason = "active_transaction"
     elif not bool(coordinator.external_meter.ready_for_pv):
         blocked_reason = "external_meter_not_ready"
@@ -308,6 +308,7 @@ def _pv_linkage_card_data(
 
 def dashboard_attributes(coordinator: DashboardOwner) -> dict[str, Any]:
     """Expose only fields required by the bundled card on the status entity."""
+    charger = charger_snapshot(coordinator)
     snapshot = coordinator.last_meter_values or {}
     status = (coordinator.last_status_notification or {}).get("request", {})
     start = (coordinator.active_transaction or {}).get("start") or {}
@@ -318,7 +319,7 @@ def dashboard_attributes(coordinator: DashboardOwner) -> dict[str, Any]:
         coordinator.configuration_values.get("G_SolarLimitPower"),
     )
     working_mode = selected_working_mode(coordinator.configuration_values)
-    meter_display = live_dashboard_meter_values(coordinator)
+    meter_display = charger.live_meter().as_observation()
     charging_sources = live_charging_sources(coordinator, meter_display, snapshot)
     attributes = {
         "schema": 1,
@@ -349,7 +350,7 @@ def dashboard_attributes(coordinator: DashboardOwner) -> dict[str, Any]:
         "auth_mode": configuration_entity_state(
             "G_ChargerMode", coordinator.configuration_values.get("G_ChargerMode")
         ),
-        "transaction_active": coordinator.transaction_is_active,
+        "transaction_active": charger.transaction_active,
         "session_started_at": utc_timestamp(
             start.get("received_at"),
             installation_time_zone(coordinator.hass),
@@ -359,8 +360,8 @@ def dashboard_attributes(coordinator: DashboardOwner) -> dict[str, Any]:
             if _number(coordinator.energy) is not None
             else None
         ),
-        "meter_received_at": snapshot.get("received_at"),
-        "meter_stale_after": coordinator.effective_meter_gap_seconds(),
+        "meter_received_at": charger.meter.received_at,
+        "meter_stale_after": charger.meter_stale_after_s,
         **meter_display,
         "max_current_a": maximum_charging_current(model, firmware),
         **charging_power_identity(model, firmware),
@@ -385,6 +386,7 @@ def dashboard_attributes(coordinator: DashboardOwner) -> dict[str, Any]:
         },
         "pv_linkage": _pv_linkage_card_data(
             coordinator,
+            charger,
             working_mode,
             grid_import_limit,
         ),

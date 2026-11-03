@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol
 
+from ..charging.snapshot import ChargerStateOwner
 from ..energy.contracts import LiveAllocationOwner
 from ..sessions.contracts import SessionClock
 
@@ -19,12 +20,6 @@ class BatteryOwner(Protocol):
     hass: HomeAssistant
     battery_power_entity: str | None
     battery_power_sign: str
-
-
-class LiveMeterOwner(Protocol):
-    connected: bool
-    status: str | None
-    last_meter_values: dict[str, Any] | None
 
 
 class ActiveSessionView(Protocol):
@@ -53,7 +48,7 @@ class ActiveSessionOwner(SessionClock, Protocol):
 
 
 class DashboardOwner(
-    ActiveSessionOwner, LiveMeterOwner, LiveAllocationOwner, BatteryOwner, Protocol
+    ActiveSessionOwner, ChargerStateOwner, LiveAllocationOwner, BatteryOwner, Protocol
 ):
     boot_notification: dict[str, Any] | None
     last_status_notification: dict[str, Any] | None
