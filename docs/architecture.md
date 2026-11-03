@@ -185,11 +185,13 @@ Platforms read `entry.runtime_data.coordinator`; connection readers use
 `charging/snapshot.py::charger_snapshot`: an immutable `ChargerSnapshot` of
 connection, raw and normalized OCPP status, transaction, the latest MeterValues
 reading with its sample and receipt times, and a derived IEC 61851-style
-`VehicleState`. The status sensor, connection-gated sensors and the card read it,
-so they cannot disagree about whether the charger is connected, faulted or
-charging. Retained per-measurand values (energy, phase values, temperature) stay
-coordinator attributes. Sensors, diagnostics and guards read the owners
-directly (`coordinator.external_meter`, `coordinator.pv_draft`,
+`VehicleState`. The status sensor, connection-gated sensors, the card and the
+stop guard read it, so they cannot disagree about whether the charger is
+connected, faulted or charging. The stop guard builds one snapshot per
+evaluation and checks meter freshness against its sample and receipt times.
+Retained per-measurand values (energy, phase values, temperature) stay
+coordinator attributes. Sensors, diagnostics and guards read the owners directly
+(`coordinator.external_meter`, `coordinator.pv_draft`,
 `coordinator.sessions.last_session`). Coordinator methods publish updates at the
 transition boundaries, so notification order stays explicit.
 

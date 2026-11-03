@@ -10,10 +10,9 @@ from typing import TYPE_CHECKING
 
 from ..charging.commands import StopChargingCommand
 from ..charging.control_capabilities import selected_working_mode
-from ..ocpp.status import normalize_ocpp_status
+from ..charging.snapshot import charger_snapshot
 from ..runtime.write_results import ChargerCommandResult, ChargerCommandStatus
 from .contracts import EnergyStopOwner
-from .meter_observations import charging_meter_values
 from .site_observations import parse_at, read_site_observations
 from .stop_guard_policy import (
     AUTO_STOP_MODES,
@@ -99,19 +98,21 @@ class EnergyStopGuard:
 
     def _observation(self, at: datetime) -> StopObservation:
         coordinator = self.coordinator
-        transaction_id = coordinator.transaction_id
-        snapshot = coordinator.last_meter_values or {}
-        meter = charging_meter_values(snapshot)
-        received_at = parse_at(snapshot.get("received_at"))
-        sampled_at = parse_at(meter.get("sample_at"))
-        gap = coordinator.effective_meter_gap_seconds()
-        power = meter["power_w"]
+        # One snapshot per evaluation, so connection, status, transaction and
+        # meter reading are checked against the same moment.
+        charger = charger_snapshot(coordinator)
+        transaction_id = charger.transaction_id
+        meter = charger.meter
+        received_at = parse_at(meter.received_at)
+        sampled_at = parse_at(meter.sample_at)
+        gap = charger.meter_stale_after_s
+        power = meter.power_w
         meter_fresh = (
             received_at is not None
             and sampled_at is not None
             and 0 <= (at - received_at).total_seconds() <= gap
             and 0 <= (at - sampled_at).total_seconds() <= gap
-            and snapshot.get("transaction_id") == transaction_id
+            and meter.transaction_id == transaction_id
             and isinstance(power, (int, float))
             and power > 0
         )
@@ -120,9 +121,9 @@ class EnergyStopGuard:
             # Grid/battery supply is intentional outside solar-surplus-only mode.
             # Read the confirmed mode here so queued stops are checked as well.
             and selected_working_mode(coordinator.configuration_values) == "pv_linkage_plus"
-            and coordinator.connected
-            and coordinator.transaction_is_active
-            and normalize_ocpp_status(coordinator.status) == "charging"
+            and charger.connected
+            and charger.transaction_active
+            and charger.status == "charging"
             and transaction_id is not None
             and meter_fresh
         )
@@ -130,9 +131,7 @@ class EnergyStopGuard:
         battery = site.battery.value_at(at) if site and site.battery else None
         grid = site.grid.value_at(at) if site and site.grid else None
         solar = site.solar.value_at(at) if site and site.solar else None
-        return StopObservation(
-            transaction_id, bool(eligible), battery, grid, solar, meter.get("power_w")
-        )
+        return StopObservation(transaction_id, bool(eligible), battery, grid, solar, power)
 
     def _still_eligible(self, expected_transaction_id: int | str | None) -> str | None:
         """Recheck live sources before a queued automatic Stop reaches OCPP."""
