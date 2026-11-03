@@ -1,11 +1,18 @@
 """Narrow adapter for the extra connectorId captured in Growatt DataTransfer."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import Any, Protocol
 
 from ocpp.v16 import call
 
 from ..coerce import enum_value
 from .model import ChargingTarget
+
+
+class OcppCaller(Protocol):
+    async def call(self, payload: object, **kwargs: Any) -> Any: ...
 
 
 @dataclass
@@ -14,7 +21,7 @@ class DataTransfer(call.DataTransfer):
     connector_id: int = 1
 
 
-async def send_target(charge_point, target: ChargingTarget) -> str:
+async def send_target(charge_point: OcppCaller, target: ChargingTarget) -> str:
     payload = target.payload()
     result = await charge_point.call(
         DataTransfer(
@@ -32,4 +39,4 @@ async def send_target(charge_point, target: ChargingTarget) -> str:
     status = enum_value(status)
     if status not in {"Accepted", "Rejected", "UnknownMessageId", "UnknownVendorId"}:
         raise ValueError("invalid_target_response")
-    return status
+    return str(status)

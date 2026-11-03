@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from ..configuration.writes import ConfigurationWriteStatus
     from ..ocpp.external_meter_state import ExternalMeterState
     from ..runtime.write_results import ChargerCommandHandle
+    from ..targets.requests import TargetRecord
     from .pv_linkage import PvLinkageApplyResult, PvLinkageDraft
 
 
@@ -27,7 +28,7 @@ class CommandOwner(Protocol):
 
     status: str | None
     transaction_id: int | str | None
-    charging_target_request: dict[str, Any] | None
+    charging_target_request: TargetRecord | None
 
     @property
     def charger_is_faulted(self) -> bool: ...

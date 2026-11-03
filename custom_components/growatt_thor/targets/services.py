@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any
+from collections.abc import Awaitable, Callable, Mapping
+from typing import TYPE_CHECKING, Any, cast
 
 import voluptuous as vol
 from homeassistant.core import SupportsResponse
@@ -25,21 +25,22 @@ from .runtime import (
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant, ServiceCall
 
-TargetHandler = Callable[["ServiceCall"], Awaitable[dict[str, Any] | None]]
+TargetHandler = Callable[["ServiceCall"], Awaitable[Mapping[str, Any] | None]]
 
 
 def async_register_target_services(hass: HomeAssistant) -> None:
     """Keep action schemas available even when the config entry is unloaded."""
 
     def dispatch(name: str) -> TargetHandler:
-        async def handle(service: ServiceCall) -> dict[str, Any] | None:
+        async def handle(service: ServiceCall) -> Mapping[str, Any] | None:
             try:
                 runtime = resolve_entry_runtime(
                     hass.data.get(DOMAIN, {}), service.data.get("entry_id")
                 )
             except ValueError as exc:
                 raise HomeAssistantError(str(exc)) from exc
-            handler = runtime.get(TARGET_HANDLERS, {}).get(name)
+            handlers = cast(Mapping[str, TargetHandler], runtime.get(TARGET_HANDLERS, {}))
+            handler = handlers.get(name)
             if handler is None:
                 raise HomeAssistantError("growatt_thor_entry_not_loaded")
             return await handler(service)

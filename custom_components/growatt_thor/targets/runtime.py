@@ -5,21 +5,22 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from zoneinfo import ZoneInfo
 
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.storage import Store
 
 from ..const import DOMAIN
-from ..runtime.keys import ACTIVE_CHARGE_POINT, SKIP_POLLING_UNTIL, TARGET_HANDLERS, TARGET_RUNTIME
-from ..runtime.write_results import ChargerCommandStatus
+from ..runtime.keys import SKIP_POLLING_UNTIL, TARGET_HANDLERS, TARGET_RUNTIME
+from ..runtime.write_results import ChargerCommandResult, ChargerCommandStatus
 from ..timestamps import installation_time_zone
-from .charger_ops import TargetChargerOperations
+from .charger_ops import TargetChargerOperations, accepted_charge_point
 from .model import (
     ChargingTarget,
+    TargetPlan,
     TargetState,
     target_plan,
 )
@@ -28,6 +29,7 @@ from .requests import (
     TargetRecord,
     new_scheduled_request,
     new_target_request,
+    updated_record,
 )
 from .runner import run_reservation_sequence, run_target_sequence
 from .schedule import (
@@ -105,8 +107,10 @@ class ChargingTargetRuntime:
         self._scheduled_handle: asyncio.TimerHandle | None = None
 
     async def async_setup(self) -> None:
-        retained = await self._store.async_load()
-        self.coordinator.charging_target_request = retained if isinstance(retained, dict) else None
+        loaded = await self._store.async_load()
+        # The store holds only records this runtime saved, keyed as TargetRecord.
+        retained = cast("TargetRecord", loaded) if isinstance(loaded, dict) else None
+        self.coordinator.charging_target_request = retained
         self.coordinator.charging_target_pilot_enabled = True
         if (
             isinstance(retained, dict)
@@ -115,12 +119,12 @@ class ChargingTargetRuntime:
         ):
             start_at = stored_start_at(retained.get("scheduled_for"))
             if start_at is not None:
-                retained = {
-                    **retained,
-                    "local_time": start_at.astimezone(ZoneInfo(retained["time_zone"])).strftime(
+                retained = updated_record(
+                    retained,
+                    local_time=start_at.astimezone(ZoneInfo(retained["time_zone"])).strftime(
                         "%H:%M:%S"
                     ),
-                }
+                )
                 await self.persist(retained)
 
         self.coordinator.runtime_data[TARGET_HANDLERS] = {
@@ -143,11 +147,11 @@ class ChargingTargetRuntime:
                 await self.advance_daily(retained, TargetState.MISSED_WHILE_UNAVAILABLE)
             else:
                 await self.persist(
-                    {
-                        **retained,
-                        "state": TargetState.SCHEDULED_MISSED,
-                        "updated_at": self.coordinator.now(),
-                    }
+                    updated_record(
+                        retained,
+                        state=TargetState.SCHEDULED_MISSED,
+                        updated_at=self.coordinator.now(),
+                    )
                 )
         elif isinstance(retained, dict) and retained.get("state") in {
             TargetState.QUEUED,
@@ -162,23 +166,21 @@ class ChargingTargetRuntime:
             # HA may have stopped after sending but before saving the reply.
             # Replaying a native target could change the charger twice; retain doubt.
             await self.persist(
-                {
-                    **retained,
-                    "state": TargetState.OUTCOME_UNKNOWN,
-                    "updated_at": self.coordinator.now(),
-                }
+                updated_record(
+                    retained, state=TargetState.OUTCOME_UNKNOWN, updated_at=self.coordinator.now()
+                )
             )
 
-    async def enqueue(self, operation, request_id: str) -> None:
+    async def enqueue(self, operation: Callable[[], Awaitable[None]], request_id: str) -> None:
         """Release busy and reconcile requests the shared queue never executes."""
         started = False
 
-        async def execute():
+        async def execute() -> None:
             nonlocal started
             started = True
             await operation()
 
-        async def reconcile(result):
+        async def reconcile(result: ChargerCommandResult) -> None:
             async with self._lock:
                 request = self.coordinator.charging_target_request
                 if not isinstance(request, dict) or request.get("request_id") != request_id:
@@ -193,10 +195,10 @@ class ChargingTargetRuntime:
                 }:
                     state = TargetState.BLOCKED_BEFORE_TARGET
                 await self.persist(
-                    {**request, "state": state, "updated_at": self.coordinator.now()}
+                    updated_record(request, state=state, updated_at=self.coordinator.now())
                 )
 
-        def completed(result):
+        def completed(result: ChargerCommandResult) -> None:
             if not started:
                 self.hass.async_create_task(reconcile(result))
 
@@ -266,7 +268,7 @@ class ChargingTargetRuntime:
             self.coordinator.runtime_data.get(SKIP_POLLING_UNTIL, 0), pause_until
         )
 
-    async def preview(self, service: ServiceCall) -> dict[str, Any]:
+    async def preview(self, service: ServiceCall) -> TargetPlan:
         return target_plan(self.parse(service.data), service.data.get("start", "now"))
 
     async def start(self, service: ServiceCall, *, activation: str = "remote") -> TargetRecord:
@@ -280,7 +282,7 @@ class ChargingTargetRuntime:
             )
             if self._busy:
                 raise HomeAssistantError("target_request_or_transaction_busy")
-            cp = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
+            cp = self.charger.active_charge_point()
             if reason := self.charger.block_reason(cp, activation):
                 raise HomeAssistantError(reason)
             request = new_target_request(
@@ -298,7 +300,7 @@ class ChargingTargetRuntime:
 
         async def save(state: str) -> None:
             nonlocal request
-            request = {**request, "state": state, "updated_at": self.coordinator.now()}
+            request = updated_record(request, state=state, updated_at=self.coordinator.now())
             await self.persist(request)
             _LOGGER.info("Charging target %s: %s", request["request_id"], state)
 
@@ -312,10 +314,10 @@ class ChargingTargetRuntime:
                     target,
                     check=check,
                     save=save,
-                    send_target=lambda value: send_target(cp, value),
+                    send_target=lambda value: send_target(accepted_charge_point(cp), value),
                     start=None
                     if activation in {"plug", "rfid"}
-                    else lambda: self.charger.remote_start(cp),
+                    else lambda: self.charger.remote_start(accepted_charge_point(cp)),
                     pause_seconds=_TARGET_START_PAUSE_SECONDS,
                     waiting_state=(
                         TargetState.TARGET_ACCEPTED_WAITING_FOR_PLUG
@@ -340,7 +342,7 @@ class ChargingTargetRuntime:
             self._busy = False
             await save(TargetState.QUEUE_FAILED)
             raise HomeAssistantError("target_queue_failed") from None
-        return dict(request)
+        return request.copy()
 
     async def prepare_rfid(self, service: ServiceCall) -> TargetRecord:
         return await self.start(service, activation="rfid")
@@ -370,7 +372,7 @@ class ChargingTargetRuntime:
     async def advance_daily(self, request: TargetRecord, result: str) -> None:
         start_at = stored_start_at(request.get("scheduled_for"))
         if start_at is None:
-            await self.persist({**request, "state": TargetState.SCHEDULED_MISSED})
+            await self.persist(updated_record(request, state=TargetState.SCHEDULED_MISSED))
             return
         next_at = next_daily_start(
             start_at,
@@ -378,45 +380,46 @@ class ChargingTargetRuntime:
             time_zone=request["time_zone"],
             local_time=request.get("local_time"),
         )
-        updated = {
-            **request,
-            "state": TargetState.SCHEDULED,
-            "scheduled_for": iso_utc(next_at),
-            "last_run_at": iso_utc(self._now_utc()),
-            "last_run_state": result,
-            "updated_at": self.coordinator.now(),
-        }
+        updated = updated_record(
+            request,
+            state=TargetState.SCHEDULED,
+            scheduled_for=iso_utc(next_at),
+            last_run_at=iso_utc(self._now_utc()),
+            last_run_state=result,
+            updated_at=self.coordinator.now(),
+        )
         await self.persist(updated)
         self.arm_schedule(updated)
 
     async def execute_scheduled(self, request_id: str) -> None:
         self._scheduled_handle = None
         async with self._lock:
-            request = self.coordinator.charging_target_request
+            current = self.coordinator.charging_target_request
             if (
                 self._busy
-                or not isinstance(request, dict)
-                or request.get("request_id") != request_id
-                or request.get("state") != TargetState.SCHEDULED
+                or not isinstance(current, dict)
+                or current.get("request_id") != request_id
+                or current.get("state") != TargetState.SCHEDULED
             ):
                 return
+            request: TargetRecord = current
             self._busy = True
 
         target = ChargingTarget.parse(request["kind"], request["value"])
         recurrence = request.get("recurrence", "once")
         activation = "daily_start" if recurrence == "daily" else "reserved_start"
-        cp = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
+        cp = self.charger.active_charge_point()
         issued = time.monotonic()
         connection_started_at = self.coordinator.connection_started_at
 
         async def save(state: str) -> None:
             nonlocal request
-            request = {
-                **request,
-                "state": state,
-                "updated_at": self.coordinator.now(),
-                "connection_started_at": self.coordinator.connection_started_at,
-            }
+            request = updated_record(
+                request,
+                state=state,
+                updated_at=self.coordinator.now(),
+                connection_started_at=self.coordinator.connection_started_at,
+            )
             await self.persist(request)
             _LOGGER.info("Scheduled charging target %s: %s", request_id, state)
 
@@ -430,8 +433,8 @@ class ChargingTargetRuntime:
                     target,
                     check=check,
                     save=save,
-                    send_target=lambda value: send_target(cp, value),
-                    start=lambda: self.charger.remote_start(cp),
+                    send_target=lambda value: send_target(accepted_charge_point(cp), value),
+                    start=lambda: self.charger.remote_start(accepted_charge_point(cp)),
                     # Growatt sends both calls at the reservation boundary. We
                     # wait only for target acceptance, then start immediately.
                     pause_seconds=0,
@@ -477,7 +480,7 @@ class ChargingTargetRuntime:
             )
             if self._busy:
                 raise HomeAssistantError("target_request_or_transaction_busy")
-            cp = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
+            cp = self.charger.active_charge_point()
             activation = "reserve" if recurrence == "once" else "remote"
             if reason := self.charger.block_reason(cp, activation):
                 raise HomeAssistantError(reason)
@@ -504,7 +507,7 @@ class ChargingTargetRuntime:
 
         async def save(state: str) -> None:
             nonlocal request
-            request = {**request, "state": state, "updated_at": self.coordinator.now()}
+            request = updated_record(request, state=state, updated_at=self.coordinator.now())
             await self.persist(request)
             _LOGGER.info("Charging reservation %s: %s", request["request_id"], state)
 
@@ -518,8 +521,8 @@ class ChargingTargetRuntime:
                     target,
                     check=check,
                     save=save,
-                    send_target=lambda value: send_target(cp, value),
-                    reserve=lambda: self.charger.reserve(cp, request),
+                    send_target=lambda value: send_target(accepted_charge_point(cp), value),
+                    reserve=lambda: self.charger.reserve(accepted_charge_point(cp), request),
                     pause_seconds=_TARGET_RESERVATION_PAUSE_SECONDS,
                 )
                 if request.get("state") == TargetState.SCHEDULED and not self.arm_schedule(request):
@@ -536,67 +539,64 @@ class ChargingTargetRuntime:
 
     async def cancel_scheduled(self, service: ServiceCall) -> None:
         async with self._lock:
-            request = self.coordinator.charging_target_request
+            current = self.coordinator.charging_target_request
             if (
                 self._busy
-                or not isinstance(request, dict)
-                or request.get("request_id") != service.data["request_id"]
-                or request.get("state") != TargetState.SCHEDULED
+                or not isinstance(current, dict)
+                or current.get("request_id") != service.data["request_id"]
+                or current.get("state") != TargetState.SCHEDULED
             ):
                 raise HomeAssistantError("scheduled_target_not_cancellable")
+            request: TargetRecord = current
             self.cancel_timer()
             if request.get("recurrence") == "daily":
                 await self.persist(
-                    {
-                        **request,
-                        "state": TargetState.SCHEDULED_CANCELLED,
-                        "updated_at": self.coordinator.now(),
-                    }
+                    updated_record(
+                        request,
+                        state=TargetState.SCHEDULED_CANCELLED,
+                        updated_at=self.coordinator.now(),
+                    )
                 )
                 return
             reservation_id = request.get("reservation_id")
-            cp = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
+            cp = self.charger.active_charge_point()
             if (
                 not isinstance(reservation_id, int)
                 or not self.coordinator.connected
                 or cp is None
-                or self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT) is not cp
+                or self.charger.active_charge_point() is not cp
             ):
                 raise HomeAssistantError("reservation_cancel_unavailable")
-            request = {
-                **request,
-                "state": TargetState.CANCELLATION_QUEUED,
-                "updated_at": self.coordinator.now(),
-            }
+            request = updated_record(
+                request, state=TargetState.CANCELLATION_QUEUED, updated_at=self.coordinator.now()
+            )
             await self.persist(request)
             self._busy = True
 
         async def execute_cancel() -> None:
             nonlocal request
             try:
-                request = {
-                    **request,
-                    "state": TargetState.SENDING_CANCELLATION,
-                    "updated_at": self.coordinator.now(),
-                }
+                request = updated_record(
+                    request,
+                    state=TargetState.SENDING_CANCELLATION,
+                    updated_at=self.coordinator.now(),
+                )
                 await self.persist(request)
                 status = await self.charger.cancel_reservation(cp, reservation_id)
-                request = {
-                    **request,
-                    "state": (
+                request = updated_record(
+                    request,
+                    state=(
                         TargetState.SCHEDULED_CANCELLED
                         if status == "Accepted"
                         else TargetState.CANCELLATION_REJECTED_RESERVATION_MAY_REMAIN
                     ),
-                    "updated_at": self.coordinator.now(),
-                }
+                    updated_at=self.coordinator.now(),
+                )
                 await self.persist(request)
             except Exception:  # noqa: BLE001 - never leak OCPP payloads
-                request = {
-                    **request,
-                    "state": TargetState.OUTCOME_UNKNOWN,
-                    "updated_at": self.coordinator.now(),
-                }
+                request = updated_record(
+                    request, state=TargetState.OUTCOME_UNKNOWN, updated_at=self.coordinator.now()
+                )
                 await self.persist(request)
             finally:
                 self._busy = False
@@ -606,7 +606,7 @@ class ChargingTargetRuntime:
         except Exception:  # noqa: BLE001
             # Release the busy flag and persist a sanitized queue failure for the caller.
             self._busy = False
-            await self.persist({**request, "state": TargetState.QUEUE_FAILED})
+            await self.persist(updated_record(request, state=TargetState.QUEUE_FAILED))
             raise HomeAssistantError("target_queue_failed") from None
 
     async def status(self, service: ServiceCall) -> dict[str, TargetRecord | None]:
@@ -636,16 +636,18 @@ class ChargingTargetRuntime:
                 if request.get("last_run_state") != TargetState.START_ACCEPTED:
                     return
                 await self.persist(
-                    {
-                        **request,
-                        "last_run_state": TargetState.CHARGING,
-                        "updated_at": self.coordinator.now(),
-                    }
+                    updated_record(
+                        request,
+                        last_run_state=TargetState.CHARGING,
+                        updated_at=self.coordinator.now(),
+                    )
                 )
                 return
             if request.get("state") in {TargetState.START_ACCEPTED, *_WAITING_STATES}:
                 await self.persist(
-                    {**request, "state": TargetState.ACTIVE, "updated_at": self.coordinator.now()}
+                    updated_record(
+                        request, state=TargetState.ACTIVE, updated_at=self.coordinator.now()
+                    )
                 )
 
     async def transaction_stopped(self, *_args: object, **_kwargs: object) -> None:
@@ -657,20 +659,18 @@ class ChargingTargetRuntime:
                 if request.get("last_run_state") != TargetState.CHARGING:
                     return
                 await self.persist(
-                    {
-                        **request,
-                        "last_run_state": TargetState.COMPLETED,
-                        "updated_at": self.coordinator.now(),
-                    }
+                    updated_record(
+                        request,
+                        last_run_state=TargetState.COMPLETED,
+                        updated_at=self.coordinator.now(),
+                    )
                 )
                 return
             if request.get("state") == TargetState.ACTIVE:
                 await self.persist(
-                    {
-                        **request,
-                        "state": TargetState.COMPLETED,
-                        "updated_at": self.coordinator.now(),
-                    }
+                    updated_record(
+                        request, state=TargetState.COMPLETED, updated_at=self.coordinator.now()
+                    )
                 )
 
     def close(self) -> None:
@@ -692,7 +692,7 @@ async def async_setup_target_runtime(
     coordinator.runtime_data[TARGET_RUNTIME] = runtime
 
 
-def async_unload_target_runtime(hass: HomeAssistant, entry) -> None:
+def async_unload_target_runtime(hass: HomeAssistant, entry: ConfigEntry) -> None:
     entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
     runtime = entry_data.pop(TARGET_RUNTIME, None)
     if runtime is not None:

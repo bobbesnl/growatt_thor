@@ -91,8 +91,8 @@ class ChargingTarget:
     value: Decimal
 
     @classmethod
-    def parse(cls, kind: str, value: object) -> ChargingTarget:
-        if kind not in MESSAGE_IDS:
+    def parse(cls, kind: object, value: object) -> ChargingTarget:
+        if kind not in MESSAGE_IDS or not isinstance(kind, str):
             raise ValueError("unsupported_target_kind")
         text = str(value).strip().replace(",", ".")
         if not re.fullmatch(r"\d+(?:\.\d{1,2})?", text):

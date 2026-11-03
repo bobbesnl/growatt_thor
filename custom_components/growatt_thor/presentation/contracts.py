@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from ..energy.session_accumulator import SessionAccumulator
     from ..sessions.active_state import ActiveTransaction
     from ..sessions.telemetry import SessionTelemetry
+    from ..targets.requests import TargetRecord
 
 
 class BatteryOwner(Protocol):
@@ -54,7 +55,7 @@ class DashboardOwner(
     boot_notification: dict[str, Any] | None
     last_status_notification: dict[str, Any] | None
     charging_target_pilot_enabled: bool
-    charging_target_request: dict[str, Any] | None
+    charging_target_request: TargetRecord | None
     connection_started_at: str | None
     max_current: float | None
     pv_draft: PvLinkageDraftState

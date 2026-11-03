@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from ocpp.v16 import call as ocpp_call
 
 from ..charging.control_capabilities import selected_working_mode
-from ..configuration.values import configuration_entity_state
+from ..configuration.values import ConfigurationScalar, configuration_entity_state
 from ..ocpp.diagnostics import boot_notification_field
 from ..runtime.keys import ACTIVE_CHARGE_POINT
 from .model import CAPTURE_FIRMWARE
@@ -25,14 +25,29 @@ def _response_status(result: object) -> str | None:
     return status if isinstance(status, str) else None
 
 
+def accepted_charge_point(cp: GrowattChargePoint | None) -> GrowattChargePoint:
+    """Return the charge point that the operation check has already accepted.
+
+    The check rejects a missing or replaced charge point before any call, so
+    a missing one here ends the sequence like any other send failure.
+    """
+    if cp is None:
+        raise ValueError("charger_disconnected_or_replaced")
+    return cp
+
+
 @dataclass(slots=True)
 class TargetChargerOperations:
     coordinator: GrowattCoordinator
 
-    def charger_mode(self) -> str | None:
+    def charger_mode(self) -> ConfigurationScalar:
         return configuration_entity_state(
             "G_ChargerMode", self.coordinator.configuration_values.get("G_ChargerMode")
         )
+
+    def active_charge_point(self) -> GrowattChargePoint | None:
+        cp: GrowattChargePoint | None = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
+        return cp
 
     def remote_identifier_reason(self, cp: GrowattChargePoint) -> str | None:
         if not isinstance(cp.id, str) or not 1 <= len(cp.id) <= 20:
@@ -45,11 +60,7 @@ class TargetChargerOperations:
         return None
 
     def block_reason(self, cp: GrowattChargePoint | None, activation: str) -> str | None:
-        if (
-            not self.coordinator.connected
-            or cp is None
-            or self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT) is not cp
-        ):
+        if not self.coordinator.connected or cp is None or self.active_charge_point() is not cp:
             return "charger_disconnected_or_replaced"
         if self.coordinator.transaction_is_active:
             return "transaction_already_active"

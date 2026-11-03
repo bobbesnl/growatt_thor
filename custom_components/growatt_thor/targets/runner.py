@@ -17,7 +17,7 @@ async def run_target_sequence(
     start: Callable[[], Awaitable[str]] | None,
     pause_seconds: float,
     waiting_state: str = TargetState.TARGET_ACCEPTED_WAITING_FOR_RFID,
-    sleep=asyncio.sleep,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> None:
     """Never start after a failed/uncertain target write, and never retry.
 
@@ -65,7 +65,7 @@ async def run_reservation_sequence(
     send_target: Callable[[ChargingTarget], Awaitable[str]],
     reserve: Callable[[], Awaitable[str]],
     pause_seconds: float = 1,
-    sleep=asyncio.sleep,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> None:
     """Set a target and create exactly one charger-side reservation.
 

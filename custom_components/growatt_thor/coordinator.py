@@ -103,6 +103,7 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
     from .ocpp.server import GrowattChargePoint
+    from .targets.requests import TargetRecord
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -179,7 +180,7 @@ class GrowattCoordinator(_CoordinatorBase):
         self.last_message_action: str | None = None
         self.last_heartbeat_at: str | None = None
         self.transaction_id: int | str | None = None
-        self.charging_target_request: dict[str, Any] | None = None
+        self.charging_target_request: TargetRecord | None = None
         self.transaction_hooks: TransactionHooks | None = None
         self.charging_target_pilot_enabled = False
         self.id_tag: str | None = None
