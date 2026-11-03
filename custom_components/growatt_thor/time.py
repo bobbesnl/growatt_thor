@@ -4,15 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
-from .runtime.keys import ACTIVE_CHARGE_POINT
-
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+    from .configuration.contracts import ConfigurationTransport
     from .coordinator import GrowattCoordinator
-    from .ocpp.server import GrowattChargePoint
     from .runtime.entry import ThorConfigEntry
 
 import logging
@@ -27,18 +25,16 @@ from .charging.control_capabilities import (
     control_is_applicable,
 )
 from .charging.pv_linkage import PvBoostMode
-from .configuration.controls import GrowattConfigurationWriteMixin
-from .configuration.writes import ConfigurationWriteStatus
+from .configuration.writer import ConfigurationWrite, ConfigurationWriter, WritePolicy
 from .entity import ThorEntity
-from .runtime.action_errors import raise_charger_disconnected, raise_write_blocked
+from .runtime.action_errors import raise_write_blocked
 from .runtime.write_results import (
-    CONFIGURATION_WRITE_POLICY,
-    ChargerConnectionUnavailable,
-    ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+AUTO_CHARGE_TIME_KEY = "G_AutoChargeTime"
 
 
 async def async_setup_entry(
@@ -59,7 +55,78 @@ async def async_setup_entry(
     )
 
 
-class BaseAutoChargeTime(GrowattConfigurationWriteMixin, ThorEntity, TimeEntity):
+AutoChargeSchedule = tuple[time, time]
+
+
+class AutoChargeScheduleWritePolicy(WritePolicy[AutoChargeSchedule]):
+    """Write the paired start and stop times as one G_AutoChargeTime value.
+
+    Pending fields are restored only for an unsent write that still owns the
+    newest generation; rejection and unexpected execution failure do not roll
+    back.
+    """
+
+    # Return the existing terminal failure for unexpected schedule-write
+    # errors, including those after the acknowledgement.
+    guards_outcome = True
+    refreshes_on_apply = True
+
+    def __init__(self, entity: BaseAutoChargeTime) -> None:
+        super().__init__(entity.coordinator)
+        self.entity = entity
+        self.coordinator = entity.coordinator
+
+    @property
+    def label(self) -> str:
+        return str(self.entity.name)
+
+    def encode(self, value: AutoChargeSchedule) -> tuple[str, str]:
+        start_time, stop_time = value
+        return AUTO_CHARGE_TIME_KEY, (
+            f"{start_time.strftime('%H:%M')}-{stop_time.strftime('%H:%M')}"
+        )
+
+    def request_block_reason(self) -> str | None:
+        return self.coordinator.write_block_reason(ChargingControl.AUTO_CHARGE_SCHEDULE)
+
+    def on_skipped(self, write: ConfigurationWrite[AutoChargeSchedule], reason: str) -> None:
+        _LOGGER.warning("Skipping queued charging schedule change: %s", reason)
+
+    def on_unsent(self, write: ConfigurationWrite[AutoChargeSchedule]) -> None:
+        """Discard an unsent optimistic schedule owned by this generation."""
+        if not self.coordinator.configuration_write_is_current(write.key, write.generation):
+            return
+        self.coordinator.auto_charge_start_time_pending = self.coordinator.auto_charge_start_time
+        self.coordinator.auto_charge_stop_time_pending = self.coordinator.auto_charge_stop_time
+        self.coordinator.async_set_updated_data(True)
+
+    def apply_accepted(self, write: ConfigurationWrite[AutoChargeSchedule]) -> None:
+        super().apply_accepted(write)
+        self.coordinator.schedule_configuration_refresh()
+        self.coordinator.auto_charge_start_time, self.coordinator.auto_charge_stop_time = (
+            write.value
+        )
+        self.coordinator.async_set_updated_data(True)
+
+    def report_accepted(
+        self, write: ConfigurationWrite[AutoChargeSchedule], result: object
+    ) -> None:
+        if result == ConfigurationStatus.reboot_required:
+            _LOGGER.warning("Charging schedule applied (reboot required): %s", write.raw_value)
+        else:
+            _LOGGER.info("Auto-applied charging schedule: %s", write.raw_value)
+
+    def on_rejected(self, write: ConfigurationWrite[AutoChargeSchedule], result: object) -> None:
+        _LOGGER.error("Charging schedule rejected: %s", result)
+
+    def on_unexpected(
+        self, write: ConfigurationWrite[AutoChargeSchedule], exc: Exception
+    ) -> ChargerWriteResult | None:
+        _LOGGER.error("Failed to auto-apply schedule: %s", exc, exc_info=True)
+        return ChargerWriteResult.failed("unexpected_error")
+
+
+class BaseAutoChargeTime(ThorEntity, TimeEntity):
     """Base class for auto charge time entities (auto-apply via queue)."""
 
     coordinator: GrowattCoordinator
@@ -69,11 +136,11 @@ class BaseAutoChargeTime(GrowattConfigurationWriteMixin, ThorEntity, TimeEntity)
     _attr_icon = "mdi:clock-outline"
 
     _is_start: bool
-    _CONFIG_KEY = "G_AutoChargeTime"
 
     def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry, key: str) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_{key}"
+        self._writer = ConfigurationWriter(coordinator, AutoChargeScheduleWritePolicy(self))
 
     @property
     def available(self) -> bool:
@@ -89,37 +156,9 @@ class BaseAutoChargeTime(GrowattConfigurationWriteMixin, ThorEntity, TimeEntity)
             and self.native_value is not None
         )
 
-    @property
-    def _write_block_reason(self) -> str | None:
-        return self.coordinator.write_block_reason(ChargingControl.AUTO_CHARGE_SCHEDULE)
-
-    def _encode(self, value: tuple[time, time]) -> str:
-        start_time, stop_time = value
-        return f"{start_time.strftime('%H:%M')}-{stop_time.strftime('%H:%M')}"
-
-    def _restore_reported_schedule(self, generation: int) -> None:
-        self._restore_optimistic(generation)
-
-    def _restore_optimistic(self, generation: int, *, previous: object = None) -> None:
-        """Discard an unsent optimistic schedule owned by this generation."""
-        if not self.coordinator.configuration_write_is_current(
-            self._CONFIG_KEY,
-            generation,
-        ):
-            return
-        self.coordinator.auto_charge_start_time_pending = self.coordinator.auto_charge_start_time
-        self.coordinator.auto_charge_stop_time_pending = self.coordinator.auto_charge_stop_time
-        self.coordinator.async_set_updated_data(True)
-
     async def async_set_value(self, value: time) -> None:
         """Update time and auto-apply schedule via write queue."""
-        if (block_reason := self._write_block_reason) is not None:
-            _LOGGER.warning("Cannot change %s: %s", self.name, block_reason)
-            raise_write_blocked(block_reason)
-        charge_point = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
-        if not charge_point:
-            _LOGGER.warning("Cannot change %s: charger not connected", self.name)
-            raise_charger_disconnected()
+        charge_point = self._writer.require_charge_point()
 
         _LOGGER.info("%s changed to %s (auto-queuing)", self.name, value.strftime("%H:%M"))
 
@@ -143,108 +182,23 @@ class BaseAutoChargeTime(GrowattConfigurationWriteMixin, ThorEntity, TimeEntity)
                 lambda: self._queue_pending_schedule(charge_point)
             )
 
-    async def _queue_pending_schedule(self, charge_point: GrowattChargePoint) -> None:
+    async def _queue_pending_schedule(self, charge_point: ConfigurationTransport) -> None:
         """Queue one snapshot after the paired entity values have settled."""
         start_time = self.coordinator.auto_charge_start_time_pending
         stop_time = self.coordinator.auto_charge_stop_time_pending
         if start_time is None or stop_time is None:
             return
 
-        formatted_value = self._encode((start_time, stop_time))
-        _LOGGER.info("Auto-queueing schedule update: %s", formatted_value)
-
-        generation = self.coordinator.begin_configuration_write(
-            self._CONFIG_KEY,
-            formatted_value,
+        _LOGGER.info(
+            "Auto-queueing schedule update: %s-%s",
+            start_time.strftime("%H:%M"),
+            stop_time.strftime("%H:%M"),
         )
         # The originating HA calls have already returned before this debounce
         # callback runs, so there is no caller left to receive a completion
         # exception.  The queue still publishes its terminal Command ID and
         # result through the shared Last command result sensor.
-        await self.coordinator.queue_write(
-            self._apply_schedule,
-            charge_point,
-            formatted_value,
-            start_time,
-            stop_time,
-            generation,
-            dedupe_key=self._CONFIG_KEY,
-            command_name=f"ChangeConfiguration({self._CONFIG_KEY})",
-            requires_connection=True,
-            configuration_key=self._CONFIG_KEY,
-            configuration_generation=generation,
-            policy=CONFIGURATION_WRITE_POLICY,
-            on_unsent=lambda _result: self._restore_reported_schedule(generation),
-        )
-
-    async def _apply_schedule(
-        self,
-        charge_point: GrowattChargePoint,
-        formatted_value: str,
-        start_time: time,
-        stop_time: time,
-        generation: int,
-    ) -> ChargerWriteResult:
-        """Actually write schedule to the charger (runs inside write-queue)."""
-        if (block_reason := self._write_block_reason) is not None:
-            _LOGGER.warning(
-                "Skipping queued charging schedule change: %s",
-                block_reason,
-            )
-            self.coordinator.mark_configuration_write(
-                self._CONFIG_KEY,
-                ConfigurationWriteStatus.SKIPPED,
-                generation=generation,
-                result=block_reason,
-            )
-            return ChargerWriteResult.skipped(block_reason)
-        try:
-            response = await self._configuration_exchange(
-                charge_point, self._CONFIG_KEY, formatted_value, generation
-            )
-            result, accepted, outcome_is_current = (
-                response.result,
-                response.accepted,
-                response.current,
-            )
-            if accepted and outcome_is_current:
-                self._on_accepted(formatted_value, key=self._CONFIG_KEY)
-            if accepted:
-                self.coordinator.schedule_configuration_refresh()
-
-            if result == ConfigurationStatus.accepted:
-                if outcome_is_current:
-                    self.coordinator.auto_charge_start_time = start_time
-                    self.coordinator.auto_charge_stop_time = stop_time
-                    self.coordinator.async_set_updated_data(True)
-                _LOGGER.info("Auto-applied charging schedule: %s", formatted_value)
-            elif result == ConfigurationStatus.reboot_required:
-                if outcome_is_current:
-                    self.coordinator.auto_charge_start_time = start_time
-                    self.coordinator.auto_charge_stop_time = stop_time
-                    self.coordinator.async_set_updated_data(True)
-                _LOGGER.warning("Charging schedule applied (reboot required): %s", formatted_value)
-            else:
-                _LOGGER.error("Charging schedule rejected: %s", result)
-                return ChargerWriteResult.failed("charger_rejected", result)
-
-            return ChargerWriteResult.success(result)
-
-        except ChargerConnectionUnavailable:
-            raise
-        except ChargerRequestOutcomeUncertain as exc:
-            self.coordinator.mark_configuration_write(
-                self._CONFIG_KEY,
-                ConfigurationWriteStatus.UNCERTAIN,
-                generation=generation,
-                result=str(exc),
-            )
-            self.coordinator.schedule_configuration_refresh(delay=0)
-            return ChargerWriteResult.uncertain(str(exc))
-        except Exception as exc:
-            # Return the existing terminal failure for unexpected schedule-write errors.
-            _LOGGER.error("Failed to auto-apply schedule: %s", exc, exc_info=True)
-            return ChargerWriteResult.failed("unexpected_error")
+        await self._writer.async_enqueue(charge_point, (start_time, stop_time))
 
 
 class AutoChargeStartTime(BaseAutoChargeTime):

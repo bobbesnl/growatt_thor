@@ -63,8 +63,6 @@ class WritePolicy[ValueT]:
     readback after acceptance, and a transport-only exception boundary.
     """
 
-    #: Name used in request-time log messages.
-    label: str
     #: Coalesces queued writes; None uses the configuration key.
     dedupe_key: str | None = None
     #: True: unexpected errors after sending (acknowledgement, accepted state)
@@ -76,6 +74,11 @@ class WritePolicy[ValueT]:
 
     def __init__(self, owner: ConfigurationWriteOwner) -> None:
         self.owner = owner
+
+    @property
+    def label(self) -> str:
+        """Name used in request-time log messages."""
+        raise NotImplementedError
 
     def encode(self, value: ValueT) -> tuple[str, str]:
         """Return the configuration key and the OCPP wire string."""

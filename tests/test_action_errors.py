@@ -273,27 +273,25 @@ class PublicActionWiringTest(unittest.TestCase):
         ("select.py", "PvBoostDraftSelect", "async_select_option"): {
             "raise_write_blocked",
         },
-        ("time.py", "BaseAutoChargeTime", "async_set_value"): {
-            "raise_write_blocked",
-            "raise_charger_disconnected",
-        },
         ("time.py", "BasePvBoostTime", "async_set_value"): {
             "raise_write_blocked",
         },
     }
 
-    # Entity actions that reach the guards above through ConfigurationWriter.
-    WRITER_REQUESTS = (
-        ("number.py", "MaxCurrentNumber", "async_set_native_value"),
-        ("number.py", "LoadBalancingLimitNumber", "async_set_native_value"),
-        ("number.py", "ElectricityPriceNumber", "async_set_native_value"),
-        ("switch.py", "LoadBalancingEnableSwitch", "_set_value"),
-        ("switch.py", "LcdDisplaySwitch", "_set_value"),
-        ("select.py", "WorkingModeSelect", "async_select_option"),
-    )
+    # Entity actions that reach the guards above through ConfigurationWriter:
+    # each awaits ``async_request`` or calls ``require_charge_point`` on it.
+    WRITER_CALLS = {
+        ("number.py", "MaxCurrentNumber", "async_set_native_value"): "async_request",
+        ("number.py", "LoadBalancingLimitNumber", "async_set_native_value"): "async_request",
+        ("number.py", "ElectricityPriceNumber", "async_set_native_value"): "async_request",
+        ("switch.py", "LoadBalancingEnableSwitch", "_set_value"): "async_request",
+        ("switch.py", "LcdDisplaySwitch", "_set_value"): "async_request",
+        ("select.py", "WorkingModeSelect", "async_select_option"): "async_request",
+        ("time.py", "BaseAutoChargeTime", "async_set_value"): "require_charge_point",
+    }
 
-    def test_composed_entity_actions_await_the_writer_request(self):
-        for file_name, class_name, method_name in self.WRITER_REQUESTS:
+    def test_composed_entity_actions_reach_the_writer_guards(self):
+        for (file_name, class_name, method_name), writer_method in self.WRITER_CALLS.items():
             tree = ast.parse((PACKAGE_PATH / file_name).read_text(encoding="utf-8"))
             class_node = next(
                 node
@@ -305,22 +303,20 @@ class PublicActionWiringTest(unittest.TestCase):
                 for node in class_node.body
                 if isinstance(node, ast.AsyncFunctionDef) and node.name == method_name
             )
-            awaited = [
-                node.value.func
+            calls = [
+                node
                 for node in ast.walk(method)
-                if isinstance(node, ast.Await)
-                and isinstance(node.value, ast.Call)
-                and isinstance(node.value.func, ast.Attribute)
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == writer_method
+                and isinstance(node.func.value, ast.Attribute)
+                and node.func.value.attr == "_writer"
             ]
+            awaited = {id(node.value) for node in ast.walk(method) if isinstance(node, ast.Await)}
             with self.subTest(class_name=class_name, method_name=method_name):
-                self.assertIn(
-                    ("_writer", "async_request"),
-                    [
-                        (func.value.attr, func.attr)
-                        for func in awaited
-                        if isinstance(func.value, ast.Attribute)
-                    ],
-                )
+                self.assertTrue(calls)
+                if writer_method == "async_request":
+                    self.assertTrue(all(id(call) in awaited for call in calls))
 
     def test_public_action_guards_raise_instead_of_silently_returning(self):
         parsed_files = {}
