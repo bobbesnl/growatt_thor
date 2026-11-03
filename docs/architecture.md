@@ -362,13 +362,13 @@ cache: it deduplicates concurrent loads, waits for an explicit retry after error
 and invalidates pending replies when the configured entry changes or the card
 disconnects. Live/inline curves bypass historical detail.
 
-Python is checked with mypy in strict mode for the scope listed in
-`pyproject.toml`: coercion and time helpers, configuration, energy, charging,
-runtime, OCPP, target models and builders, all session modules, the coordinator
-and all six HA platforms. Integration setup, config flows, target execution,
-diagnostics and the remaining presentation helpers are not in this scope yet.
-Persisted target dictionaries remain a validated serialization boundary rather
-than a typed state machine.
+Python is checked with mypy in strict mode for the whole integration package.
+Values that cross storage, wire and service boundaries keep their dictionary
+form at runtime and are described by TypedDicts: session events
+(`SessionEvent`), the live transaction (`ActiveTransaction`) and the persisted
+charging-target record (`TargetRecord`). Config-entry data and form input stay
+`Mapping[str, Any]` at the Home Assistant boundary and are validated where they
+are read.
 
 - Compile-only checks in `tests/typing/owner_contracts.py` verify that the
   concrete coordinator satisfies the owner protocols. A minimal HA coordinator

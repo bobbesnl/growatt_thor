@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import MutableMapping
 from contextlib import suppress
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import homeassistant.helpers.config_validation as cv
 from homeassistant.config_entries import ConfigEntry
@@ -88,7 +89,9 @@ from .targets.services import (
 from .timestamps import installation_time_zone
 
 if TYPE_CHECKING:
-    from .runtime.entry import ThorConfigEntry
+    from websockets.legacy.server import WebSocketServer
+
+    from .runtime.entry import EntryRuntime, ThorConfigEntry
     from .sessions.events import SessionEvent
 
 
@@ -131,7 +134,7 @@ async def _legacy_seed_allowed(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return entry.entry_id in data.get("legacy_seed_entries", [])
 
 
-async def _owns_legacy_history(hass, entry):
+async def _owns_legacy_history(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Only an unambiguous pre-upgrade entry may inherit unlabelled totals."""
     data = await Store(hass, MIGRATION_STORAGE_VERSION, MIGRATION_STORAGE_KEY).async_load()
     return bool(data and data.get("legacy_seed_entries") == [entry.entry_id])
@@ -232,7 +235,7 @@ def _migrate_external_meter_device(hass: HomeAssistant, entry: ConfigEntry) -> N
         registry.async_update_device(device.id, **changes)
 
 
-async def _check_existing_connection(hass, coordinator):
+async def _check_existing_connection(hass: HomeAssistant, coordinator: GrowattCoordinator) -> None:
     """Check if THOR is already connected and fetch current data."""
     await asyncio.sleep(2)
 
@@ -247,15 +250,18 @@ async def _check_existing_connection(hass, coordinator):
             _LOGGER.debug("Could not fetch current data at startup: %s", exc)
 
 
-def _get_session_log_path(hass):
-    return hass.config.path(SESSION_LOG_FILE)
+def _get_session_log_path(hass: HomeAssistant) -> str:
+    path: str = hass.config.path(SESSION_LOG_FILE)
+    return path
 
 
-async def _append_session_to_csv(hass, coordinator, session: dict):
+async def _append_session_to_csv(
+    hass: HomeAssistant, coordinator: GrowattCoordinator | None, session: dict[str, Any]
+) -> None:
     """Append a completed session to the CSV log."""
     path = _get_session_log_path(hass)
 
-    def _write():
+    def _write() -> None:
         append_session_row(path, session)
 
     await hass.async_add_executor_job(_write)
@@ -264,8 +270,8 @@ async def _append_session_to_csv(hass, coordinator, session: dict):
 
 
 async def _update_session_events_in_csv(
-    hass,
-    coordinator,
+    hass: HomeAssistant,
+    coordinator: GrowattCoordinator | None,
     session_id: str,
     events: list[SessionEvent],
 ) -> None:
@@ -283,7 +289,7 @@ async def _update_session_events_in_csv(
         await async_refresh_dashboard(hass, coordinator, path)
 
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Register integration-level services independently from config entries."""
     async_register_services(hass)
     ensure_export_cleanup(hass)
@@ -352,7 +358,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ThorConfigEntry) -> bool
     return True
 
 
-async def _create_coordinator(hass, entry, runtime_data):
+async def _create_coordinator(
+    hass: HomeAssistant, entry: ThorConfigEntry, runtime_data: EntryRuntime
+) -> GrowattCoordinator:
     coordinator = GrowattCoordinator(
         hass,
         source_instance_id=entry.entry_id,
@@ -362,7 +370,7 @@ async def _create_coordinator(hass, entry, runtime_data):
     coordinator.runtime_data = runtime_data
     coordinator.charge_point_id = entry.data.get("charge_point_id")
 
-    def persist_charger_identity(cp_id):
+    def persist_charger_identity(cp_id: str) -> None:
         if entry.data.get("charge_point_id") != cp_id:
             hass.config_entries.async_update_entry(
                 entry, data={**entry.data, "charge_point_id": cp_id}
@@ -391,7 +399,7 @@ async def _create_coordinator(hass, entry, runtime_data):
     await coordinator.sessions.async_flush_pending()
     session_log_path = _get_session_log_path(hass)
 
-    async def refresh_dashboard():
+    async def refresh_dashboard() -> None:
         await async_refresh_dashboard(
             hass,
             coordinator,
@@ -406,7 +414,12 @@ async def _create_coordinator(hass, entry, runtime_data):
     return coordinator
 
 
-async def _start_server(hass, entry, coordinator, runtime_data):
+async def _start_server(
+    hass: HomeAssistant,
+    entry: ThorConfigEntry,
+    coordinator: GrowattCoordinator,
+    runtime_data: EntryRuntime,
+) -> tuple[WebSocketServer, str, int]:
     # Revalidate persisted entries as well as form submissions.  This
     # covers older or manually altered storage before opening a socket or
     # starting a poll loop with an unusable value.
@@ -439,7 +452,13 @@ async def _start_server(hass, entry, coordinator, runtime_data):
     return server, bind_address, port
 
 
-async def _start_background_tasks(hass, entry, coordinator, runtime_data, poll_interval_schedule):
+async def _start_background_tasks(
+    hass: HomeAssistant,
+    entry: ThorConfigEntry,
+    coordinator: GrowattCoordinator,
+    runtime_data: EntryRuntime,
+    poll_interval_schedule: PollIntervalSchedule,
+) -> None:
     poller = ExternalMeterPoller(runtime_data, poll_interval_schedule)
     runtime_data[POLLING_TASK] = hass.async_create_background_task(
         poller.run(),
@@ -457,7 +476,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ThorConfigEntry) -> boo
     """Unload Growatt THOR config entry."""
 
     domain_data = hass.data.get(DOMAIN, {})
-    runtime_data = entry_runtime_data(domain_data, entry.entry_id)
+    # Resources are stored under their mapping keys; each is typed by its owner.
+    runtime_data: MutableMapping[str, Any] | None = entry_runtime_data(domain_data, entry.entry_id)
     if runtime_data is None:
         # An entry without a loaded runtime has nothing to tear down, and it
         # must never touch the server or coordinator of another entry.

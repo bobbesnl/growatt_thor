@@ -1,7 +1,19 @@
 """Source-sensor discovery for Home Assistant options forms."""
 
+from __future__ import annotations
+
+from typing import TypedDict
+
 from .energy.currency import normalized_price_unit
 from .energy.sources import is_power_sensor, state_attributes
+
+
+class SelectOption(TypedDict):
+    """One choice in an options-form select selector."""
+
+    value: str
+    label: str
+
 
 _BATTERY_TERMS = {
     "battery": 100,
@@ -22,7 +34,7 @@ _BIDIRECTIONAL_TERMS = {
 }
 
 
-def _candidate_score(entity_id: str, state, role: str = "battery") -> int:
+def _candidate_score(entity_id: str, state: object, role: str = "battery") -> int:
     name = str(state_attributes(state).get("friendly_name") or "")
     text = f"{name} {entity_id}".casefold()
     if role != "battery":
@@ -38,7 +50,7 @@ def _candidate_score(entity_id: str, state, role: str = "battery") -> int:
     return score
 
 
-def _state_map(states) -> dict:
+def _state_map(states: object) -> dict[str, object]:
     """Normalize HA's StateMachine and mapping-shaped test doubles."""
     async_all = getattr(states, "async_all", None)
     if callable(async_all):
@@ -50,15 +62,15 @@ def _state_map(states) -> dict:
 
 
 def power_sensor_options(
-    states,
+    states: object,
     configured_entity: str | None = None,
     *,
     role: str = "battery",
     exclude: set[str] | None = None,
-) -> list[dict]:
+) -> list[SelectOption]:
     """Rank likely sources without inferring their physical role from a name."""
     state_map = _state_map(states)
-    candidates = []
+    candidates: list[tuple[int, str, str, SelectOption]] = []
     for entity_id, state in state_map.items():
         if entity_id in (exclude or set()) and entity_id != configured_entity:
             continue
@@ -92,11 +104,11 @@ def power_sensor_options(
 
 
 def tariff_sensor_options(
-    states, currency: str, configured_entity: str | None = None
-) -> list[dict]:
+    states: object, currency: str, configured_entity: str | None = None
+) -> list[SelectOption]:
     """Offer compatible prices, retaining an old selection so it can be repaired."""
 
-    candidates = []
+    candidates: list[SelectOption] = []
     for entity_id, state in _state_map(states).items():
         attrs = state_attributes(state)
         unit = attrs.get("unit_of_measurement")

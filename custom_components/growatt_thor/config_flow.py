@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
 from html import escape
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -83,6 +85,13 @@ from .runtime.write_results import (
 )
 from .source_discovery import power_sensor_options, tariff_sensor_options
 
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry, ConfigFlowResult
+
+    from .coordinator import GrowattCoordinator
+    from .ocpp.server import GrowattChargePoint
+    from .runtime.polling import PollIntervalSchedule
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -123,7 +132,9 @@ def _site_power_selector(
     }
     if current.get(CONF_SITE_GRID_SOURCE) == "ha_sensor":
         other_keys.add(CONF_GRID_ENTITY)
-    excluded = {current.get(other) for other in other_keys - {key}} - {None, ""}
+    excluded = {
+        value for other in other_keys - {key} if (value := current.get(other)) not in (None, "")
+    }
     options = power_sensor_options(states, current.get(key), role=role, exclude=excluded)
     # custom_value enables HA's searchable picker; server validation still
     # rejects unknown entities, incompatible units and conflicting roles.
@@ -234,13 +245,13 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = CONFIG_ENTRY_VERSION
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle initial setup."""
         # Every config entry has its own runtime, OCPP server and charger
         # (see runtime_ownership), so a second charger is a second entry.
         # Each entry's server listens on its own port, and the port decides
         # which entry a THOR connects to, so two entries cannot share one.
-        errors = {}
+        errors: dict[str, str] = {}
 
         if user_input is not None:
             normalized_input = dict(user_input)
@@ -320,7 +331,7 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def _configured_ports(self) -> set[int]:
         """Return the OCPP ports already used by existing config entries."""
-        ports = set()
+        ports: set[int] = set()
         for existing in self._async_current_entries():
             try:
                 ports.add(
@@ -334,7 +345,7 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(config_entry: ConfigEntry) -> GrowattThorOptionsFlow:
         """Get the options flow for this handler."""
         return GrowattThorOptionsFlow()
 
@@ -342,17 +353,19 @@ class GrowattThorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class GrowattThorOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Growatt THOR."""
 
-    def _entry_runtime_data(self):
+    def _entry_runtime_data(self) -> MutableMapping[str, object] | None:
         """Return the runtime of the entry being configured, if it is loaded."""
         return entry_runtime_data(
             self.hass.data.get(DOMAIN, {}),
             self.config_entry.entry_id,
         )
 
-    def _entry_coordinator(self):
-        return (self._entry_runtime_data() or {}).get(COORDINATOR)
+    def _entry_coordinator(self) -> GrowattCoordinator | None:
+        return cast(
+            "GrowattCoordinator | None", (self._entry_runtime_data() or {}).get(COORDINATOR)
+        )
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Show purpose-based options instead of action checkboxes."""
         return self.async_show_menu(
             step_id="init",
@@ -366,7 +379,9 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             ],
         )
 
-    async def async_step_general(self, user_input=None):
+    async def async_step_general(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Manage local polling and location settings."""
         errors = {}
 
@@ -399,12 +414,14 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 # Update this entry's running coordinator and poll loop live.
                 # Without a loaded runtime the saved entry data is enough.
                 runtime_data = self._entry_runtime_data() or {}
-                coordinator = runtime_data.get(COORDINATOR)
+                coordinator = cast("GrowattCoordinator | None", runtime_data.get(COORDINATOR))
                 if coordinator:
                     await coordinator.async_apply_options(updated_data, section="general")
                 if runtime_data:
                     runtime_data[POLL_INTERVAL] = poll_interval
-                schedule = runtime_data.get(POLL_INTERVAL_SCHEDULE)
+                schedule = cast(
+                    "PollIntervalSchedule | None", runtime_data.get(POLL_INTERVAL_SCHEDULE)
+                )
                 if schedule is not None:
                     # Wake the active sleep so the new cadence starts from
                     # this options save, without reloading the integration.
@@ -448,9 +465,11 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             },
         )
 
-    async def async_step_energy_sources(self, user_input=None):
+    async def async_step_energy_sources(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Configure optional display-only household energy observations."""
-        errors = {}
+        errors: dict[str, str] = {}
         configured_entity = self.config_entry.data.get(CONF_BATTERY_POWER_ENTITY, "")
         configured_sign = self.config_entry.data.get(
             CONF_BATTERY_POWER_SIGN, BATTERY_POSITIVE_DISCHARGE
@@ -493,14 +512,15 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             CONF_BATTERY_POWER_SIGN,
             configured_sign,
         )
-        excluded = set()
+        excluded: set[str] = set()
         if self.config_entry.data.get(CONF_SITE_PROFILE, "disabled") != "disabled":
             source_keys = [CONF_SOLAR_ENTITY, CONF_HOUSE_ENTITY]
             if self.config_entry.data.get(CONF_SITE_GRID_SOURCE) == "ha_sensor":
                 source_keys.append(CONF_GRID_ENTITY)
-            excluded = {self.config_entry.data.get(key) for key in source_keys} - {
-                None,
-                "",
+            excluded = {
+                value
+                for key in source_keys
+                if (value := self.config_entry.data.get(key)) not in (None, "")
             }
         return self.async_show_form(
             step_id="energy_sources",
@@ -539,10 +559,12 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             errors=errors,
         )
 
-    async def async_step_site_accounting(self, user_input=None):
+    async def async_step_site_accounting(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Configure read-only site bookkeeping; changes apply to future deltas."""
         current = dict(self.config_entry.data)
-        errors = {}
+        errors: dict[str, str] = {}
         if user_input is not None:
             errors = validate_site_options(
                 user_input,
@@ -602,10 +624,12 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             errors=errors,
         )
 
-    async def async_step_authorization(self, user_input=None):
+    async def async_step_authorization(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Change only local policy, without sending charger configuration writes."""
         policy = AuthorizationPolicy.from_config(self.config_entry.data.get(CONF_AUTHORIZATION))
-        errors = {}
+        errors: dict[str, str] = {}
         if user_input is not None:
             try:
                 updated = policy_from_input(policy, user_input)
@@ -646,7 +670,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             description_placeholders={"count": str(len(policy.id_tags))},
         )
 
-    def _save_authorization_policy(self, policy):
+    def _save_authorization_policy(self, policy: AuthorizationPolicy) -> None:
         self.hass.config_entries.async_update_entry(
             self.config_entry,
             data={**self.config_entry.data, CONF_AUTHORIZATION: policy.as_config()},
@@ -655,7 +679,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         if coordinator:
             coordinator.authorization.policy = policy
 
-    def _learning_identifier(self):
+    def _learning_identifier(self) -> str | None:
         coordinator = self._entry_coordinator()
         learning = getattr(self, "_rfid_learning", None)
         session = getattr(self, "_rfid_session", None)
@@ -671,9 +695,11 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             raise ValueError("rfid_learning_expired")
         return learning.identifier(session)
 
-    async def async_step_learn_rfid(self, user_input=None):
+    async def async_step_learn_rfid(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Capture only the next Authorize request on this entry's connection."""
-        errors = {}
+        errors: dict[str, str] = {}
         if getattr(self, "_rfid_session", None) is None:
             coordinator = self._entry_coordinator()
             if coordinator is None or not coordinator.connected:
@@ -697,7 +723,9 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             errors=errors,
         )
 
-    async def async_step_confirm_rfid(self, user_input=None):
+    async def async_step_confirm_rfid(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Add the captured identifier only after the user saves its name."""
         try:
             tag = self._learning_identifier()
@@ -706,7 +734,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
         if tag is None:
             return await self.async_step_learn_rfid()
         policy = AuthorizationPolicy.from_config(self.config_entry.data.get(CONF_AUTHORIZATION))
-        errors = {}
+        errors: dict[str, str] = {}
         alias = (user_input or {}).get("alias", policy.aliases.get(tag, ""))
         if user_input is not None:
             try:
@@ -718,9 +746,10 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
                 self._rfid_learning.cancel(self._rfid_session)
                 return self.async_create_entry(title="", data={})
         # Identifiers are exact wire values, but the description is Markdown.
-        display_tag = escape(tag, quote=False).translate(
-            str.maketrans({char: "\\" + char for char in "\\`*_{}[]()#+-.!|>"})
-        )
+        markdown_escapes: dict[str, str | int | None] = {
+            char: "\\" + char for char in "\\`*_{}[]()#+-.!|>"
+        }
+        display_tag = escape(tag, quote=False).translate(str.maketrans(markdown_escapes))
         return self.async_show_form(
             step_id="confirm_rfid",
             data_schema=vol.Schema({vol.Optional("alias", default=alias): str}),
@@ -728,7 +757,9 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             description_placeholders={"id_tag": display_tag},
         )
 
-    async def async_step_confirm_ap_mode(self, user_input=None):
+    async def async_step_confirm_ap_mode(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Confirm AP Mode."""
         if user_input is not None:
             if user_input.get("confirm"):
@@ -746,11 +777,11 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
             ),
         )
 
-    async def _activate_ap_mode(self):
+    async def _activate_ap_mode(self) -> None:
         """Activate AP Mode via OCPP DataTransfer."""
         runtime_data = self._entry_runtime_data() or {}
         charge_point = runtime_data.get(ACTIVE_CHARGE_POINT)
-        coordinator = runtime_data.get(COORDINATOR)
+        coordinator = cast("GrowattCoordinator | None", runtime_data.get(COORDINATOR))
 
         if not charge_point or not coordinator:
             _LOGGER.error("Cannot enable AP Mode: not connected")
@@ -758,7 +789,7 @@ class GrowattThorOptionsFlow(config_entries.OptionsFlow):
 
         _LOGGER.info("Activating AP Mode...")
 
-        async def _do_ap(current_charge_point):
+        async def _do_ap(current_charge_point: GrowattChargePoint) -> ChargerWriteResult:
             status = await current_charge_point.send_data_transfer(
                 vendor_id="Growatt",
                 message_id="appconfigmode",

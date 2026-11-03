@@ -16,14 +16,21 @@ from .runtime import (
     SERVICES,
 )
 from .runtime import (
-    async_setup_target_runtime as async_setup_target_services,  # noqa: F401 - setup entry point
+    async_setup_target_runtime as async_setup_target_services,
 )
 from .runtime import (
-    async_unload_target_runtime as async_unload_target_services,  # noqa: F401 - unload entry point
+    async_unload_target_runtime as async_unload_target_services,
 )
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant, ServiceCall
+
+# Entry setup and unload use the runtime functions under their service-facing names.
+__all__ = [
+    "async_register_target_services",
+    "async_setup_target_services",
+    "async_unload_target_services",
+]
 
 TargetHandler = Callable[["ServiceCall"], Awaitable[Mapping[str, Any] | None]]
 

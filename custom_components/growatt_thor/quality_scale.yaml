@@ -111,4 +111,4 @@ rules:
     comment: The integration makes no HTTP requests; it runs an OCPP WebSocket server.
   strict-typing:
     status: todo
-    comment: Strict mypy covers most modules; config_flow, diagnostics and entry setup are not yet in scope.
+    comment: Strict mypy covers the whole integration. Home Assistant and the ocpp library are checked through focused local stubs, not their own type information.

@@ -12,34 +12,13 @@ python_version = "3.12"
 mypy_path = "tests/typing_stubs"
 explicit_package_bases = true
 strict = true
-# Inspect dependency signatures while rolling out strict checks package by package.
+# Dependencies outside the checked files are analyzed for their signatures only.
 follow_imports = "silent"
 files = [
-    "custom_components/growatt_thor/coerce.py",
-    "custom_components/growatt_thor/coordinator.py",
-    "custom_components/growatt_thor/entity.py",
-    "custom_components/growatt_thor/sensor.py",
-    "custom_components/growatt_thor/sensor_descriptions.py",
-    "custom_components/growatt_thor/number.py",
-    "custom_components/growatt_thor/select.py",
-    "custom_components/growatt_thor/switch.py",
-    "custom_components/growatt_thor/time.py",
-    "custom_components/growatt_thor/button.py",
-    "custom_components/growatt_thor/charging/",
-    "custom_components/growatt_thor/runtime/",
-    "custom_components/growatt_thor/ocpp/",
-    "custom_components/growatt_thor/configuration/",
-    "custom_components/growatt_thor/energy/",
-    "custom_components/growatt_thor/timestamps.py",
-    "custom_components/growatt_thor/sessions/",
-    "custom_components/growatt_thor/presentation/card_data.py",
-    "custom_components/growatt_thor/presentation/battery.py",
-    "custom_components/growatt_thor/presentation/contracts.py",
+    "custom_components/growatt_thor/",
     "tests/typing/owner_contracts.py",
     "tests/test_layer_boundaries.py",
     "scripts/",
-    "custom_components/growatt_thor/targets/model.py",
-    "custom_components/growatt_thor/targets/requests.py",
 ]
 
 [[tool.mypy.overrides]]

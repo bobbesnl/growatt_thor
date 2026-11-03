@@ -1,11 +1,18 @@
 """Dashboard control IDs selected from the owning config entry's registry."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from homeassistant.helpers import entity_registry as er
 
 from ..const import DOMAIN
 
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
-def dashboard_entity_map(hass, entry_id) -> dict[str, str]:
+
+def dashboard_entity_map(hass: HomeAssistant, entry_id: str | None) -> dict[str, str]:
     prefix = f"{entry_id}_"
     wanted = {
         "start_charging",

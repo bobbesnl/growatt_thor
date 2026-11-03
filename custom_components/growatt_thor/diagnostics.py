@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -32,7 +32,9 @@ async def async_get_config_entry_diagnostics(
 ) -> dict[str, Any]:
     """Return redacted diagnostics for a config entry."""
     runtime_data = entry_runtime_data(hass.data.get(DOMAIN, {}), entry.entry_id)
-    coordinator = runtime_data.get(COORDINATOR) if runtime_data else None
+    coordinator = cast(
+        "GrowattCoordinator | None", runtime_data.get(COORDINATOR) if runtime_data else None
+    )
     if coordinator is None:
         return _unloaded_diagnostics()
 
@@ -42,7 +44,7 @@ async def async_get_config_entry_diagnostics(
     )
     configuration_writes = _configuration_writes_section(coordinator)
 
-    active_transaction = (
+    active_transaction: dict[str, Any] | None = (
         dict(coordinator.active_transaction) if coordinator.active_transaction is not None else None
     )
     if active_transaction is not None:
@@ -127,7 +129,7 @@ def _connection_section(coordinator: GrowattCoordinator) -> dict[str, Any]:
 def _ocpp_section(
     coordinator: GrowattCoordinator, active_transaction: dict[str, Any] | None
 ) -> dict[str, Any]:
-    return redact_ocpp_data(
+    redacted: dict[str, Any] = redact_ocpp_data(
         {
             "boot_notification": coordinator.boot_notification,
             "last_status_notification": coordinator.last_status_notification,
@@ -138,6 +140,7 @@ def _ocpp_section(
             },
         }
     )
+    return redacted
 
 
 def _growatt_section(coordinator: GrowattCoordinator) -> dict[str, Any]:
@@ -168,7 +171,7 @@ def _sessions_section(
     active_transaction: dict[str, Any] | None,
     session_records: tuple[Any, Any],
 ) -> dict[str, Any]:
-    return redact_ocpp_data(
+    redacted: dict[str, Any] = redact_ocpp_data(
         {
             "active": (
                 build_unified_session(
@@ -192,6 +195,7 @@ def _sessions_section(
             ),
         }
     )
+    return redacted
 
 
 def _commands_section(coordinator: GrowattCoordinator) -> dict[str, Any]:
