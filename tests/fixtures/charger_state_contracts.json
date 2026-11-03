@@ -1,0 +1,376 @@
+{
+  "available": {
+    "card": {
+      "currents_a": [
+        0,
+        0,
+        0
+      ],
+      "meter_received_at": null,
+      "meter_stale_after": 180.0,
+      "power_w": 0,
+      "sample_at": null,
+      "session_energy_kwh": null,
+      "transaction_active": false
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "external_meter_not_ready",
+    "status_sensor": {
+      "available": true,
+      "state": "available"
+    },
+    "transaction_is_active": false
+  },
+  "charging": {
+    "card": {
+      "currents_a": [
+        10.5,
+        10.4,
+        10.6
+      ],
+      "meter_received_at": "2026-10-27T10:00:00Z",
+      "meter_stale_after": 180.0,
+      "power_w": 7200.0,
+      "sample_at": "2026-10-27T10:00:00Z",
+      "session_energy_kwh": null,
+      "transaction_active": true
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "active_transaction",
+    "status_sensor": {
+      "available": true,
+      "state": "charging"
+    },
+    "transaction_is_active": true
+  },
+  "charging_enum_status": {
+    "card": {
+      "currents_a": [
+        10.5,
+        10.4,
+        10.6
+      ],
+      "meter_received_at": "2026-10-27T10:00:00Z",
+      "meter_stale_after": 180.0,
+      "power_w": 7200.0,
+      "sample_at": "2026-10-27T10:00:00Z",
+      "session_energy_kwh": null,
+      "transaction_active": true
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "active_transaction",
+    "status_sensor": {
+      "available": true,
+      "state": "charging"
+    },
+    "transaction_is_active": true
+  },
+  "charging_phase_power_only": {
+    "card": {
+      "currents_a": [
+        null,
+        null,
+        null
+      ],
+      "meter_received_at": "2026-10-27T10:00:00Z",
+      "meter_stale_after": 180.0,
+      "power_w": 7200.0,
+      "sample_at": "2026-10-27T10:00:00Z",
+      "session_energy_kwh": null,
+      "transaction_active": true
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "active_transaction",
+    "status_sensor": {
+      "available": true,
+      "state": "charging"
+    },
+    "transaction_is_active": true
+  },
+  "charging_socket_lost": {
+    "card": {
+      "currents_a": [
+        0,
+        0,
+        0
+      ],
+      "meter_received_at": "2026-10-27T10:00:00Z",
+      "meter_stale_after": 180.0,
+      "power_w": 0,
+      "sample_at": "2026-10-27T10:00:00Z",
+      "session_energy_kwh": null,
+      "transaction_active": true
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "charger_disconnected",
+    "status_sensor": {
+      "available": true,
+      "state": "offline"
+    },
+    "transaction_is_active": true
+  },
+  "connected_without_status": {
+    "card": {
+      "currents_a": [
+        null,
+        null,
+        null
+      ],
+      "meter_received_at": null,
+      "meter_stale_after": 180.0,
+      "power_w": null,
+      "sample_at": null,
+      "session_energy_kwh": null,
+      "transaction_active": false
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "external_meter_not_ready",
+    "status_sensor": {
+      "available": true,
+      "state": null
+    },
+    "transaction_is_active": false
+  },
+  "faulted": {
+    "card": {
+      "currents_a": [
+        0,
+        0,
+        0
+      ],
+      "meter_received_at": null,
+      "meter_stale_after": 180.0,
+      "power_w": 0,
+      "sample_at": null,
+      "session_energy_kwh": null,
+      "transaction_active": false
+    },
+    "charger_is_faulted": true,
+    "pv_blocked_reason": "charger_faulted",
+    "status_sensor": {
+      "available": true,
+      "state": "faulted"
+    },
+    "transaction_is_active": false
+  },
+  "faulted_during_transaction": {
+    "card": {
+      "currents_a": [
+        0,
+        0,
+        0
+      ],
+      "meter_received_at": null,
+      "meter_stale_after": 180.0,
+      "power_w": 0,
+      "sample_at": null,
+      "session_energy_kwh": null,
+      "transaction_active": true
+    },
+    "charger_is_faulted": true,
+    "pv_blocked_reason": "charger_faulted",
+    "status_sensor": {
+      "available": true,
+      "state": "faulted"
+    },
+    "transaction_is_active": true
+  },
+  "finishing": {
+    "card": {
+      "currents_a": [
+        0,
+        0,
+        0
+      ],
+      "meter_received_at": "2026-10-27T10:00:00Z",
+      "meter_stale_after": 180.0,
+      "power_w": 0,
+      "sample_at": "2026-10-27T10:00:00Z",
+      "session_energy_kwh": null,
+      "transaction_active": false
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "external_meter_not_ready",
+    "status_sensor": {
+      "available": true,
+      "state": "finishing"
+    },
+    "transaction_is_active": false
+  },
+  "idle_after_stop": {
+    "card": {
+      "currents_a": [
+        0,
+        0,
+        0
+      ],
+      "meter_received_at": null,
+      "meter_stale_after": 180.0,
+      "power_w": 0,
+      "sample_at": null,
+      "session_energy_kwh": null,
+      "transaction_active": false
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "external_meter_not_ready",
+    "status_sensor": {
+      "available": true,
+      "state": "idle"
+    },
+    "transaction_is_active": false
+  },
+  "new_disconnected": {
+    "card": {
+      "currents_a": [
+        0,
+        0,
+        0
+      ],
+      "meter_received_at": null,
+      "meter_stale_after": 180.0,
+      "power_w": 0,
+      "sample_at": null,
+      "session_energy_kwh": null,
+      "transaction_active": false
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "charger_disconnected",
+    "status_sensor": {
+      "available": true,
+      "state": "offline"
+    },
+    "transaction_is_active": false
+  },
+  "preparing": {
+    "card": {
+      "currents_a": [
+        0,
+        0,
+        0
+      ],
+      "meter_received_at": null,
+      "meter_stale_after": 180.0,
+      "power_w": 0,
+      "sample_at": null,
+      "session_energy_kwh": null,
+      "transaction_active": false
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "external_meter_not_ready",
+    "status_sensor": {
+      "available": true,
+      "state": "preparing"
+    },
+    "transaction_is_active": false
+  },
+  "reserved": {
+    "card": {
+      "currents_a": [
+        0,
+        0,
+        0
+      ],
+      "meter_received_at": null,
+      "meter_stale_after": 180.0,
+      "power_w": 0,
+      "sample_at": null,
+      "session_energy_kwh": null,
+      "transaction_active": false
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "external_meter_not_ready",
+    "status_sensor": {
+      "available": true,
+      "state": "reserved"
+    },
+    "transaction_is_active": false
+  },
+  "suspended_ev": {
+    "card": {
+      "currents_a": [
+        0,
+        0,
+        0
+      ],
+      "meter_received_at": "2026-10-27T10:00:00Z",
+      "meter_stale_after": 180.0,
+      "power_w": 0,
+      "sample_at": "2026-10-27T10:00:00Z",
+      "session_energy_kwh": null,
+      "transaction_active": true
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "active_transaction",
+    "status_sensor": {
+      "available": true,
+      "state": "suspended_ev"
+    },
+    "transaction_is_active": true
+  },
+  "suspended_evse_restored": {
+    "card": {
+      "currents_a": [
+        0,
+        0,
+        0
+      ],
+      "meter_received_at": null,
+      "meter_stale_after": 180.0,
+      "power_w": 0,
+      "sample_at": null,
+      "session_energy_kwh": null,
+      "transaction_active": true
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "active_transaction",
+    "status_sensor": {
+      "available": true,
+      "state": "suspended_evse"
+    },
+    "transaction_is_active": true
+  },
+  "unavailable": {
+    "card": {
+      "currents_a": [
+        0,
+        0,
+        0
+      ],
+      "meter_received_at": null,
+      "meter_stale_after": 180.0,
+      "power_w": 0,
+      "sample_at": null,
+      "session_energy_kwh": null,
+      "transaction_active": false
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "external_meter_not_ready",
+    "status_sensor": {
+      "available": true,
+      "state": "unavailable"
+    },
+    "transaction_is_active": false
+  },
+  "unknown_status": {
+    "card": {
+      "currents_a": [
+        null,
+        null,
+        null
+      ],
+      "meter_received_at": null,
+      "meter_stale_after": 180.0,
+      "power_w": null,
+      "sample_at": null,
+      "session_energy_kwh": null,
+      "transaction_active": false
+    },
+    "charger_is_faulted": false,
+    "pv_blocked_reason": "external_meter_not_ready",
+    "status_sensor": {
+      "available": true,
+      "state": null
+    },
+    "transaction_is_active": false
+  }
+}
