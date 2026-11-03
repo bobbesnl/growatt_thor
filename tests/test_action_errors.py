@@ -268,9 +268,6 @@ class PublicActionWiringTest(unittest.TestCase):
             "_validated_entity_number",
         },
         ("select.py", "WorkingModeSelect", "async_select_option"): {
-            "async_require_command_completion",
-            "raise_write_blocked",
-            "raise_charger_disconnected",
             "raise_action_validation",
         },
         ("select.py", "PvBoostDraftSelect", "async_select_option"): {
@@ -292,6 +289,7 @@ class PublicActionWiringTest(unittest.TestCase):
         ("number.py", "ElectricityPriceNumber", "async_set_native_value"),
         ("switch.py", "LoadBalancingEnableSwitch", "_set_value"),
         ("switch.py", "LcdDisplaySwitch", "_set_value"),
+        ("select.py", "WorkingModeSelect", "async_select_option"),
     )
 
     def test_composed_entity_actions_await_the_writer_request(self):
