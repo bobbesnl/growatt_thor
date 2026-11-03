@@ -159,6 +159,7 @@ OCPP_LIBRARY_IMPORTERS = frozenset(
     {
         "charging.pv_apply",
         "configuration.controls",
+        "configuration.writer",
         "number",
         "switch",
         "targets.charger_ops",
