@@ -45,6 +45,7 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant, ServiceCall
 
+    from ..charging.control import NativeTargetControl
     from ..coordinator import GrowattCoordinator
     from ..ocpp.server import GrowattChargePoint
 
@@ -97,7 +98,8 @@ class ChargingTargetRuntime:
         self.hass = hass
         self.entry = entry
         self.coordinator = coordinator
-        self.charger = TargetChargerOperations(coordinator)
+        # Charger calls go through the native-target capability only.
+        self.charger: NativeTargetControl = TargetChargerOperations(coordinator)
         self._now_utc = now_utc
         self._store = Store(hass, 1, f"{DOMAIN}.charging_target.{entry.entry_id}")
         # The lock serializes request changes; busy also covers time spent waiting
