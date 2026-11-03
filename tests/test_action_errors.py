@@ -234,6 +234,14 @@ class PublicActionWiringTest(unittest.TestCase):
             "raise_charger_disconnected",
             "raise_action_validation",
         },
+        # Entities composed with ConfigurationWriter reach these guards through it.
+        ("configuration/writer.py", "ConfigurationWriter", "require_charge_point"): {
+            "raise_write_blocked",
+            "raise_charger_disconnected",
+        },
+        ("configuration/writer.py", "ConfigurationWriter", "async_request"): {
+            "async_require_command_completion",
+        },
         ("button.py", "ApplyPvLinkageButton", "async_press"): {
             "async_require_command_completion",
             "raise_write_blocked",
@@ -241,21 +249,12 @@ class PublicActionWiringTest(unittest.TestCase):
             "raise_action_validation",
         },
         ("number.py", "MaxCurrentNumber", "async_set_native_value"): {
-            "async_require_command_completion",
-            "raise_write_blocked",
-            "raise_charger_disconnected",
             "_validated_entity_number",
         },
         ("number.py", "LoadBalancingLimitNumber", "async_set_native_value"): {
-            "async_require_command_completion",
-            "raise_write_blocked",
-            "raise_charger_disconnected",
             "_validated_entity_number",
         },
         ("number.py", "ElectricityPriceNumber", "async_set_native_value"): {
-            "async_require_command_completion",
-            "raise_write_blocked",
-            "raise_charger_disconnected",
             "_validated_entity_number",
         },
         ("number.py", "SolarGridImportLimitNumber", "async_set_native_value"): {
@@ -359,6 +358,7 @@ class PublicActionWiringTest(unittest.TestCase):
         side_effects = {
             "queue_write",
             "_async_write_configuration",
+            "async_request",
             "update_pv_linkage_draft",
         }
 

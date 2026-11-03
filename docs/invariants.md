@@ -91,11 +91,13 @@ boundaries. See the [refactoring contracts](CONTRIBUTING.md#refactoring-contract
 
 ## Configuration write behavior per entity
 
-`GrowattConfigurationWriteMixin` owns transport and acknowledgement primitives.
-`GrowattConfigurationControlMixin` adds the mode-aware pending-state projection
-used by newer controls. Validation, encoding, accepted-state and optimistic-restore
-hooks let each entity keep its policy; all writes still run inside write-queue
-callbacks. The differences below are intentional:
+`ConfigurationWriter` in `configuration/writer.py` owns the order of the shared
+steps; each entity's `WritePolicy` supplies encoding, block reasons, optimistic
+and accepted state, rollback and the exception boundary. Entities not yet
+composed this way use `GrowattConfigurationWriteMixin` for transport and
+acknowledgement primitives; `GrowattConfigurationControlMixin` adds the
+mode-aware pending-state projection used by newer controls. All writes run
+inside write-queue callbacks. The differences below are intentional:
 
 | Entity | State and rollback behavior |
 | --- | --- |
@@ -107,11 +109,12 @@ callbacks. The differences below are intentional:
 | Working mode | An entity intent token protects selections across different configuration keys. It has its own readback waiter and clears only the matching selection; uncertainty schedules that waiter's immediate readback. |
 | Auto Charge times | Two fields share one debounce and one queued snapshot. Restore pending fields only for an unsent owning generation; rejection and unexpected execution failure do not roll back. The HA calls return before the deferred command completes. |
 
-The three legacy Number controls write through `ConfigurationNumberWriteMixin`.
-Their validation and encoding take domain values; mode-aware control setters pass
-an already encoded wire string to the configuration mixin. The load-limit hook
-keeps its order: reported configuration, scheduled refresh, then mirror
-notification.
+The three optimistic Number controls share `OptimisticNumberPolicy` in
+`number.py`. The entity validates the HA value; the policy encodes the domain
+value, and its exception boundary also covers acknowledgement and accepted
+state. Mode-aware control setters pass an already encoded wire string to the
+configuration mixin. The load-limit policy keeps its order: reported
+configuration, scheduled refresh, then mirror notification.
 
 Characterization tests run all seven entities through the production queue for
 accepted, reboot-required, rejected, uncertain, unexpected, superseded and

@@ -4,15 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-from .runtime.keys import ACTIVE_CHARGE_POINT
-
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
     from .coordinator import GrowattCoordinator
-    from .ocpp.server import GrowattChargePoint
     from .runtime.entry import ThorConfigEntry
 
 import logging
@@ -32,7 +29,7 @@ from .charging.limits import (
     maximum_charging_current,
 )
 from .charging.pv_linkage import PvBoostMode
-from .configuration.controls import GrowattConfigurationControlMixin, GrowattConfigurationWriteMixin
+from .configuration.controls import GrowattConfigurationControlMixin
 from .configuration.validation import (
     NumericValidationError,
     NumericValidationReason,
@@ -43,20 +40,15 @@ from .configuration.values import (
     configuration_numeric_value,
     parse_time_sharing_price,
 )
-from .configuration.writes import ConfigurationWriteStatus
+from .configuration.writer import ConfigurationWrite, ConfigurationWriter, WritePolicy
 from .energy.currency import electricity_price_unit
 from .entity import ThorEntity
 from .ocpp.diagnostics import boot_notification_field
 from .runtime.action_errors import (
-    async_require_command_completion,
     raise_action_validation,
-    raise_charger_disconnected,
     raise_write_blocked,
 )
 from .runtime.write_results import (
-    CONFIGURATION_WRITE_POLICY,
-    ChargerConnectionUnavailable,
-    ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
 )
 
@@ -197,78 +189,145 @@ class BaseConfigNumber(ThorEntity, NumberEntity):
         return super().available and self.coordinator.connected and self.native_value is not None
 
 
+# Optimistic number writes
+
+
+class OptimisticNumberPolicy(WritePolicy[float]):
+    """Write one optimistic domain number as one configuration key.
+
+    The coordinator attribute named by ``mirror`` holds the value HA shows.
+    ``previous`` comes from the last reported configuration, not from the
+    optimistic UI value. During rapid 13 → 20 → 17 changes, rolling 17 back to
+    20 would otherwise invent a charger state that never existed.
+    """
+
+    # Number writes keep acknowledgement and accepted state inside the error
+    # boundary: an unexpected failure restores the owning optimistic value and
+    # returns a terminal failure to the queue.
+    guards_outcome = True
+    mirror: str
+    integer = True
+    unchanged_message: str
+    queued_message: str
+
+    def __init__(self, entity: BaseConfigNumber, key: str) -> None:
+        super().__init__(entity.coordinator)
+        self.entity = entity
+        self.coordinator = entity.coordinator
+        self.key = key
+
+    def encode(self, value: float) -> tuple[str, str]:
+        return self.key, str(value)
+
+    def request_block_reason(self) -> str | None:
+        return self.entity._charger_write_block_reason
+
+    def reported_value(self) -> object:
+        return configuration_numeric_value(self.coordinator.configuration_values.get(self.key))
+
+    def _validated(self, value: object) -> int | float | None:
+        return _validated_reported_entity_number(self.entity, value, integer=self.integer)
+
+    def is_unchanged(self, value: float) -> bool:
+        if self._validated(getattr(self.coordinator, self.mirror)) != value:
+            return False
+        _LOGGER.debug(self.unchanged_message, value)
+        return True
+
+    def apply_optimistic(self, value: float) -> object:
+        previous = self._validated(self.reported_value())
+        setattr(self.coordinator, self.mirror, value)
+        self.coordinator.async_set_updated_data(True)
+        _LOGGER.info(self.queued_message, value)
+        return previous
+
+    def apply_accepted(self, write: ConfigurationWrite[float]) -> None:
+        setattr(self.coordinator, self.mirror, write.value)
+        super().apply_accepted(write)
+        self.coordinator.async_set_updated_data(True)
+
+    def _restore(self, write: ConfigurationWrite[float]) -> None:
+        # A failed older request must not roll the UI back over a newer value
+        # that another automation has already selected.
+        if write.previous is not None and self.coordinator.configuration_write_is_current(
+            write.key,
+            write.generation,
+        ):
+            setattr(self.coordinator, self.mirror, write.previous)
+            self.coordinator.async_set_updated_data(True)
+
+    def on_unsent(self, write: ConfigurationWrite[float]) -> None:
+        self._restore(write)
+
+    def on_rejected(self, write: ConfigurationWrite[float], result: object) -> None:
+        self._restore(write)
+
+    def on_unexpected(
+        self, write: ConfigurationWrite[float], exc: Exception
+    ) -> ChargerWriteResult | None:
+        # Restore only the owning optimistic value and return a terminal failure to the queue.
+        _LOGGER.exception("Failed to set %s", write.key)
+        self._restore(write)
+        return ChargerWriteResult.failed("unexpected_error")
+
+    def report_accepted(self, write: ConfigurationWrite[float], result: object) -> None:
+        if result == ConfigurationStatus.reboot_required:
+            _LOGGER.warning("%s accepted; charger reboot required", write.key)
+
+
+class MaxCurrentWritePolicy(OptimisticNumberPolicy):
+    label = "Max Current"
+    mirror = "max_current"
+    unchanged_message = "Max Current unchanged (%d A) - skipping write"
+    queued_message = "Max Current UI updated to %d A (queued for write)"
+
+    def queued_block_reason(self, write: ConfigurationWrite[float]) -> str | None:
+        # The reported model may have changed while the write waited.
+        return self.request_block_reason() or (
+            None
+            if self.entity.native_min_value <= write.value <= self.entity.native_max_value
+            else "model_limit_changed"
+        )
+
+
+class LoadBalancingLimitWritePolicy(OptimisticNumberPolicy):
+    label = "Load Balancing Limit"
+    mirror = "external_limit_power"
+    unchanged_message = "Load Balancing Limit unchanged (%d kW) - skipping write"
+    queued_message = "Load Balancing Limit UI updated to %d kW (queued for write)"
+    # This entity historically schedules readback before publishing its mirror.
+    refreshes_on_apply = True
+
+    def request_block_reason(self) -> str | None:
+        return self.coordinator.write_block_reason(ChargingControl.LOAD_BALANCING_LIMIT)
+
+    def apply_accepted(self, write: ConfigurationWrite[float]) -> None:
+        self.coordinator.update_configuration_value(write.key, write.raw_value)
+        self.coordinator.schedule_configuration_refresh()
+        self.coordinator.external_limit_power = write.value
+        self.coordinator.async_set_updated_data(True)
+
+
+class ElectricityPriceWritePolicy(OptimisticNumberPolicy):
+    label = "Electricity Price"
+    mirror = "electricity_price"
+    integer = False
+    unchanged_message = "Electricity price unchanged (%.2f per kWh) - skipping write"
+    queued_message = "Electricity price updated to %.2f per kWh (queued for write)"
+
+    def encode(self, value: float) -> tuple[str, str]:
+        # Match the full-day time-period format returned by THOR.
+        return self.key, f"time1=00:00-23:59&price1={value:.2f}"
+
+    def reported_value(self) -> object:
+        reported = self.coordinator.configuration_values.get(self.key)
+        return parse_time_sharing_price(reported.raw_value if reported is not None else None)
+
+
 # Max Current
 
 
-class ConfigurationNumberWriteMixin(GrowattConfigurationWriteMixin):
-    """Execute a domain-valued number write with one rollback/error boundary."""
-
-    coordinator: GrowattCoordinator
-
-    if TYPE_CHECKING:
-        _config_key: str
-
-        @property
-        def _charger_write_block_reason(self) -> str | None: ...
-        def _encode(self, value: float) -> str: ...
-        def _on_number_accepted(
-            self, raw_value: str, *, value: float, key: str | None = None
-        ) -> None: ...
-
-    _refresh_in_accept = False
-
-    def _queued_write_block_reason(self) -> str | None:
-        return self._charger_write_block_reason
-
-    def _queued_value_block_reason(self, value: float) -> str | None:
-        return None
-
-    async def _write_to_thor(
-        self, charge_point: GrowattChargePoint, value: float, previous: object, generation: int
-    ) -> ChargerWriteResult:
-        reason = self._queued_write_block_reason() or self._queued_value_block_reason(value)
-        if reason is not None:
-            self.coordinator.mark_configuration_write(
-                self._config_key,
-                ConfigurationWriteStatus.SKIPPED,
-                generation=generation,
-                result=reason,
-            )
-            return ChargerWriteResult.skipped(reason)
-        try:
-            raw_value = self._encode(value)
-            response = await self._configuration_exchange(
-                charge_point, self._config_key, raw_value, generation
-            )
-            if not response.accepted:
-                self._restore_optimistic(generation, previous=previous)
-                return ChargerWriteResult.failed("charger_rejected", response.result)
-            if response.current:
-                self._on_number_accepted(raw_value, key=self._config_key, value=value)
-            if not self._refresh_in_accept or not response.current:
-                self.coordinator.schedule_configuration_refresh()
-            if response.result == ConfigurationStatus.reboot_required:
-                _LOGGER.warning("%s accepted; charger reboot required", self._config_key)
-            return ChargerWriteResult.success(response.result)
-        except ChargerConnectionUnavailable:
-            raise
-        except ChargerRequestOutcomeUncertain as exc:
-            self.coordinator.mark_configuration_write(
-                self._config_key,
-                ConfigurationWriteStatus.UNCERTAIN,
-                generation=generation,
-                result=str(exc),
-            )
-            self.coordinator.schedule_configuration_refresh(delay=0)
-            return ChargerWriteResult.uncertain(str(exc))
-        except Exception:
-            # Restore only the owning optimistic value and return a terminal failure to the queue.
-            _LOGGER.exception("Failed to set %s", self._config_key)
-            self._restore_optimistic(generation, previous=previous)
-            return ChargerWriteResult.failed("unexpected_error")
-
-
-class MaxCurrentNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
+class MaxCurrentNumber(BaseConfigNumber):
     coordinator: GrowattCoordinator
     _attr_translation_key = "max_current"
     _attr_icon = "mdi:current-ac"
@@ -279,6 +338,9 @@ class MaxCurrentNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
 
     def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "max_current")
+        self._writer = ConfigurationWriter(
+            coordinator, MaxCurrentWritePolicy(self, self._config_key)
+        )
 
     @property
     def native_value(self) -> float | None:
@@ -297,92 +359,15 @@ class MaxCurrentNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
     def _validate_write_value(self, value: object) -> int | float:
         return _validated_entity_number(self, value, integer=True)
 
-    def _encode(self, value: float) -> str:
-        return str(value)
-
-    def _on_number_accepted(self, raw_value: str, *, value: float, key: str | None = None) -> None:
-        self.coordinator.max_current = value
-        super()._on_accepted(raw_value, key=key, value=value)
-        self.coordinator.async_set_updated_data(True)
-
-    def _queued_value_block_reason(self, value: float) -> str | None:
-        return None if self._value_is_valid(value) else "model_limit_changed"
-
-    def _value_is_valid(self, value: float) -> bool:
-        return self.native_min_value <= value <= self.native_max_value
-
-    def _restore_optimistic(self, generation: int, *, previous: object = None) -> None:
-        # A failed older request must not roll the UI back over a newer value
-        # that another automation has already selected.
-        if previous is not None and self.coordinator.configuration_write_is_current(
-            self._config_key,
-            generation,
-        ):
-            self.coordinator.max_current = cast(float, previous)
-            self.coordinator.async_set_updated_data(True)
-
     async def async_set_native_value(self, value: float) -> None:
         value = self._validate_write_value(value)
-        if (block_reason := self._charger_write_block_reason) is not None:
-            _LOGGER.warning("Cannot change Max Current: %s", block_reason)
-            raise_write_blocked(block_reason)
-
-        charge_point = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
-        if not charge_point:
-            _LOGGER.warning("Cannot change Max Current: charger not connected")
-            raise_charger_disconnected()
-
-        current = _validated_reported_entity_number(
-            self,
-            self.coordinator.max_current,
-            integer=True,
-        )
-        if current == value:
-            _LOGGER.debug("Max Current unchanged (%d A) - skipping write", value)
-            return
-
-        reported = self.coordinator.configuration_values.get(self._config_key)
-        reported_value = configuration_numeric_value(reported)
-        previous = _validated_reported_entity_number(
-            self,
-            reported_value,
-            integer=True,
-        )
-        self.coordinator.max_current = value
-        self.coordinator.async_set_updated_data(True)
-        _LOGGER.info("Max Current UI updated to %d A (queued for write)", value)
-
-        # ``previous`` comes from the last reported configuration, not from the
-        # optimistic UI value.  During rapid 13 → 20 → 17 changes, rolling 17
-        # back to 20 would otherwise invent a charger state that never existed.
-        generation = self.coordinator.begin_configuration_write(
-            self._config_key,
-            self._encode(value),
-        )
-        handle = await self.coordinator.queue_write(
-            self._write_to_thor,
-            charge_point,
-            value,
-            previous,
-            generation,
-            dedupe_key=self._config_key,
-            command_name=f"ChangeConfiguration({self._config_key})",
-            requires_connection=True,
-            configuration_key=self._config_key,
-            configuration_generation=generation,
-            policy=CONFIGURATION_WRITE_POLICY,
-            on_unsent=lambda _result: self._restore_optimistic(
-                generation,
-                previous=previous,
-            ),
-        )
-        await async_require_command_completion(handle)
+        await self._writer.async_request(value)
 
 
 # Load Balancing Limit
 
 
-class LoadBalancingLimitNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
+class LoadBalancingLimitNumber(BaseConfigNumber):
     coordinator: GrowattCoordinator
     _attr_translation_key = "load_balancing_limit"
     _attr_icon = "mdi:speedometer"
@@ -392,20 +377,12 @@ class LoadBalancingLimitNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "kW"
     _config_key = "G_ExternalLimitPower"
-    # This entity historically schedules readback before publishing its mirror.
-    _refresh_in_accept = True
-
-    def _queued_write_block_reason(self) -> str | None:
-        return self._write_block_reason
-
-    def _on_number_accepted(self, raw_value: str, *, value: float, key: str | None = None) -> None:
-        super()._on_accepted(raw_value, key=key, value=value)
-        self.coordinator.schedule_configuration_refresh()
-        self.coordinator.external_limit_power = value
-        self.coordinator.async_set_updated_data(True)
 
     def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "load_balancing_limit", device="meter")
+        self._writer = ConfigurationWriter(
+            coordinator, LoadBalancingLimitWritePolicy(self, self._config_key)
+        )
 
     @property
     def native_value(self) -> float | None:
@@ -424,10 +401,6 @@ class LoadBalancingLimitNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
         )
 
     @property
-    def _write_block_reason(self) -> str | None:
-        return self.coordinator.write_block_reason(ChargingControl.LOAD_BALANCING_LIMIT)
-
-    @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         return {
             **self.information_attributes,
@@ -437,80 +410,15 @@ class LoadBalancingLimitNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
     def _validate_write_value(self, value: object) -> int | float:
         return _validated_entity_number(self, value, integer=True)
 
-    def _encode(self, value: float) -> str:
-        return str(value)
-
-    def _restore_optimistic(self, generation: int, *, previous: object = None) -> None:
-        """Restore reported power only while this write still owns the UI."""
-        if previous is not None and self.coordinator.configuration_write_is_current(
-            self._config_key,
-            generation,
-        ):
-            self.coordinator.external_limit_power = previous
-            self.coordinator.async_set_updated_data(True)
-
     async def async_set_native_value(self, value: float) -> None:
         value = self._validate_write_value(value)
-        if (block_reason := self._write_block_reason) is not None:
-            _LOGGER.warning(
-                "Cannot change Load Balancing Limit: %s",
-                block_reason,
-            )
-            raise_write_blocked(block_reason)
-
-        charge_point = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
-        if not charge_point:
-            _LOGGER.warning("Cannot change Load Balancing Limit: charger not connected")
-            raise_charger_disconnected()
-
-        current = _validated_reported_entity_number(
-            self,
-            self.coordinator.external_limit_power,
-            integer=True,
-        )
-        if current == value:
-            _LOGGER.debug("Load Balancing Limit unchanged (%d kW) - skipping write", value)
-            return
-
-        reported = self.coordinator.configuration_values.get(self._config_key)
-        reported_value = configuration_numeric_value(reported)
-        previous = _validated_reported_entity_number(
-            self,
-            reported_value,
-            integer=True,
-        )
-        self.coordinator.external_limit_power = value
-        self.coordinator.async_set_updated_data(True)
-        _LOGGER.info("Load Balancing Limit UI updated to %d kW (queued for write)", value)
-
-        generation = self.coordinator.begin_configuration_write(
-            self._config_key,
-            self._encode(value),
-        )
-        handle = await self.coordinator.queue_write(
-            self._write_to_thor,
-            charge_point,
-            value,
-            previous,
-            generation,
-            dedupe_key=self._config_key,
-            command_name=f"ChangeConfiguration({self._config_key})",
-            requires_connection=True,
-            configuration_key=self._config_key,
-            configuration_generation=generation,
-            policy=CONFIGURATION_WRITE_POLICY,
-            on_unsent=lambda _result: self._restore_optimistic(
-                generation,
-                previous=previous,
-            ),
-        )
-        await async_require_command_completion(handle)
+        await self._writer.async_request(value)
 
 
 # Electricity price
 
 
-class ElectricityPriceNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
+class ElectricityPriceNumber(BaseConfigNumber):
     coordinator: GrowattCoordinator
     _attr_translation_key = "electricity_price"
     _attr_icon = "mdi:cash"
@@ -523,6 +431,9 @@ class ElectricityPriceNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
     def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "electricity_price")
         self._attr_native_unit_of_measurement = electricity_price_unit(coordinator.hass)
+        self._writer = ConfigurationWriter(
+            coordinator, ElectricityPriceWritePolicy(self, self._config_key)
+        )
 
     @property
     def native_value(self) -> float | None:
@@ -539,75 +450,9 @@ class ElectricityPriceNumber(ConfigurationNumberWriteMixin, BaseConfigNumber):
     def _validate_write_value(self, value: object) -> int | float:
         return _validated_entity_number(self, value)
 
-    def _encode(self, value: float) -> str:
-        # Match the full-day time-period format returned by THOR.
-        return f"time1=00:00-23:59&price1={value:.2f}"
-
-    def _on_number_accepted(self, raw_value: str, *, value: float, key: str | None = None) -> None:
-        self.coordinator.electricity_price = value
-        super()._on_accepted(raw_value, key=key, value=value)
-        self.coordinator.async_set_updated_data(True)
-
-    def _restore_optimistic(self, generation: int, *, previous: object = None) -> None:
-        """Restore reported tariff only while this write still owns the UI."""
-        if previous is not None and self.coordinator.configuration_write_is_current(
-            self._config_key,
-            generation,
-        ):
-            self.coordinator.electricity_price = cast(float, previous)
-            self.coordinator.async_set_updated_data(True)
-
     async def async_set_native_value(self, value: float) -> None:
         value = self._validate_write_value(value)
-        if (block_reason := self._charger_write_block_reason) is not None:
-            _LOGGER.warning("Cannot change Electricity Price: %s", block_reason)
-            raise_write_blocked(block_reason)
-
-        charge_point = self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
-        if not charge_point:
-            _LOGGER.warning("Cannot change Electricity tariff: charger not connected")
-            raise_charger_disconnected()
-
-        current = _validated_reported_entity_number(
-            self,
-            self.coordinator.electricity_price,
-        )
-        if current == value:
-            _LOGGER.debug("Electricity price unchanged (%.2f per kWh) - skipping write", value)
-            return
-
-        reported = self.coordinator.configuration_values.get(self._config_key)
-        reported_value = parse_time_sharing_price(
-            reported.raw_value if reported is not None else None
-        )
-        previous = _validated_reported_entity_number(self, reported_value)
-        self.coordinator.electricity_price = value
-        self.coordinator.async_set_updated_data(True)
-        _LOGGER.info("Electricity price updated to %.2f per kWh (queued for write)", value)
-
-        price_str = self._encode(value)
-        generation = self.coordinator.begin_configuration_write(
-            self._config_key,
-            price_str,
-        )
-        handle = await self.coordinator.queue_write(
-            self._write_to_thor,
-            charge_point,
-            value,
-            previous,
-            generation,
-            dedupe_key=self._config_key,
-            command_name=f"ChangeConfiguration({self._config_key})",
-            requires_connection=True,
-            configuration_key=self._config_key,
-            configuration_generation=generation,
-            policy=CONFIGURATION_WRITE_POLICY,
-            on_unsent=lambda _result: self._restore_optimistic(
-                generation,
-                previous=previous,
-            ),
-        )
-        await async_require_command_completion(handle)
+        await self._writer.async_request(value)
 
 
 class SolarGridImportLimitNumber(

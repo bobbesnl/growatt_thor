@@ -123,36 +123,40 @@ sequenceDiagram
   autonumber
   actor User as User or automation
   participant Entity as MaxCurrentNumber
+  participant Writer as ConfigurationWriter<br/>+ MaxCurrentWritePolicy
   participant Coord as Coordinator
   participant Queue as ChargerWriteQueue
   participant CP as GrowattChargePoint
   participant THOR
 
   User->>Entity: set 16 A
-  Entity->>Entity: validate range, block reasons and connection,<br/>return early if 16 A is already reported
-  Entity->>Coord: show 16 A optimistically
-  Entity->>Coord: begin_configuration_write() → generation
-  Entity->>Queue: enqueue(dedupe key G_MaxCurrent, rate limited)
+  Entity->>Entity: validate range and step
+  Entity->>Writer: async_request(16)
+  Writer->>Writer: check block reasons and connection,<br/>return early if 16 A is already reported
+  Writer->>Coord: show 16 A optimistically
+  Writer->>Coord: begin_configuration_write() → generation
+  Writer->>Queue: enqueue(dedupe key G_MaxCurrent, rate limited)
   Note over Queue: An unsent older intent for the same key is replaced
   Queue->>Queue: wait for connection and write spacing,<br/>pause polling before the write
-  Queue->>Entity: _write_to_thor(value, previous, generation)
-  Entity->>CP: change_configuration("G_MaxCurrent", "16")
+  Queue->>Writer: _execute(write)
+  Writer->>Writer: recheck block reasons and model limit
+  Writer->>CP: change_configuration("G_MaxCurrent", "16")
   CP->>THOR: ChangeConfiguration
   THOR-->>CP: Accepted / RebootRequired / Rejected
-  Entity->>Coord: acknowledge_configuration_write(generation)
-  alt accepted and still the current generation
-    Entity->>Coord: apply reported value
+  Writer->>Coord: acknowledge_configuration_write(generation)
+  alt accepted
+    Writer->>Coord: apply reported value if still the current generation
+    Writer->>Coord: schedule_configuration_refresh()
   else rejected
-    Entity->>Coord: restore last reported value if still current
+    Writer->>Coord: restore last reported value if still current
   end
-  Entity->>Coord: schedule_configuration_refresh()
-  Entity-->>Queue: terminal result
+  Writer-->>Queue: terminal result
   Queue-->>User: action returns or raises
   Coord->>CP: later: one coalesced GetConfiguration readback
 ```
 
 Code: [`number.py`](../custom_components/growatt_thor/number.py),
-[`configuration/controls.py`](../custom_components/growatt_thor/configuration/controls.py),
+[`configuration/writer.py`](../custom_components/growatt_thor/configuration/writer.py),
 [`configuration/write_tracker.py`](../custom_components/growatt_thor/configuration/write_tracker.py),
 [`configuration/readback.py`](../custom_components/growatt_thor/configuration/readback.py).
 

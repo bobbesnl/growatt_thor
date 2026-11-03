@@ -301,13 +301,13 @@ options/alias mappings are derived from it. The module also declares the live
 configuration projections and the parser for paired times. Operational keys are
 requested before informational ones.
 
-Configuration entities write through the mixins in `configuration/controls.py`
-and `number.py`, always inside write-queue callbacks. `configuration/writer.py`
-composes the same flow: a per-entity `WritePolicy` supplies encoding, block
-reasons, optimistic and accepted state, rollback and the exception boundary,
-and `ConfigurationWriter` owns the order of the shared steps. Validation of HA
-input stays in the entity. Entities move to the writer one platform at a time.
-The per-entity rollback and readback behavior is deliberate and listed in
+Configuration entities write inside write-queue callbacks.
+`configuration/writer.py` composes the flow: a per-entity `WritePolicy`
+supplies encoding, block reasons, optimistic and accepted state, rollback and
+the exception boundary, and `ConfigurationWriter` owns the order of the shared
+steps. Validation of HA input stays in the entity. Entities not yet moved to
+the writer use the mixins in `configuration/controls.py`. The per-entity
+rollback and readback behavior is deliberate and listed in
 [configuration write behavior per entity](invariants.md#configuration-write-behavior-per-entity).
 
 ## Session history
