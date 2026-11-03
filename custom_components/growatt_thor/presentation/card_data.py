@@ -311,7 +311,8 @@ def dashboard_attributes(coordinator: DashboardOwner) -> dict[str, Any]:
     charger = charger_snapshot(coordinator)
     snapshot = coordinator.last_meter_values or {}
     status = (coordinator.last_status_notification or {}).get("request", {})
-    start = (coordinator.active_transaction or {}).get("start") or {}
+    transaction: Mapping[str, Any] = coordinator.active_transaction or {}
+    start = transaction.get("start") or {}
     model = boot_notification_field(coordinator.boot_notification, "charge_point_model")
     firmware = boot_notification_field(coordinator.boot_notification, "firmware_version")
     grid_import_limit = configuration_entity_state(

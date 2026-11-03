@@ -21,13 +21,13 @@ from ..ocpp.status import LIVE_POWER_STATUSES, normalize_ocpp_status
 from ..runtime.keys import APPEND_SESSION_TO_CSV
 from ..timestamps import parse_utc as parse_at
 from ..timestamps import utc_instant, utc_timestamp
-from .active_state import ActiveSessionState
+from .active_state import ActiveSessionState, ActiveTransaction, TransactionStart
 from .completion import completion_transaction
 from .contracts import SessionOwner
 from .correlation import CORRELATION_MATCHED, build_unified_session, session_record_matches
 from .display_times import session_time_zone
 from .duration import EffectiveChargingTracker
-from .events import SessionEventTracker, merge_growatt_record_events
+from .events import SessionEvent, SessionEventTracker, merge_growatt_record_events
 from .outbox import SessionOutbox
 from .records import GrowattSessionRecord
 from .state import LastSessionState
@@ -52,7 +52,7 @@ class SessionLifecycle:
         self.pending_effective_charging_minutes: dict[str, float] = {}
         self.active_power_curve: list[list[object]] = []
         self.event_tracker: SessionEventTracker | None = None
-        self.pending_plugged_event: dict[str, str] | None = None
+        self.pending_plugged_event: SessionEvent | None = None
         self.restored_active_session = False
         self.applied_session_record_keys: deque[tuple[str, str]] = deque(maxlen=50)
         self.last_session = LastSessionState()
@@ -86,7 +86,8 @@ class SessionLifecycle:
         coordinator = self.coordinator
         if coordinator.transaction_id is None:
             return False
-        request = (coordinator.active_transaction or {}).get("start", {}).get("request", {})
+        transaction: Mapping[str, Any] = coordinator.active_transaction or {}
+        request = transaction.get("start", {}).get("request", {})
         lower = utc_instant(request.get("timestamp"), session_time_zone(coordinator))
         sampled = parse_at(entry.timestamp)
         if lower is not None and sampled is not None and sampled < lower:
@@ -131,7 +132,7 @@ class SessionLifecycle:
     def active_session_state(self) -> ActiveSessionState | None:
         """Build the bounded persistent representation of the live session."""
         coordinator = self.coordinator
-        transaction = (
+        transaction: Mapping[str, Any] = (
             coordinator.active_transaction
             if isinstance(coordinator.active_transaction, Mapping)
             else {}
@@ -236,7 +237,7 @@ class SessionLifecycle:
             "Discarding restored active session %s after Available status",
             coordinator.transaction_id,
         )
-        completed = dict(coordinator.active_transaction or {})
+        completed: dict[str, Any] = dict(coordinator.active_transaction or {})
         completed["power_curve"] = list(self.active_power_curve)
         completed.update(self.telemetry.snapshot())
         completed.update(self.telemetry.metadata())
@@ -286,8 +287,12 @@ class SessionLifecycle:
             "meter_start": meter_start,
             **payload,
         }
-        start_snapshot = create_ocpp_snapshot(coordinator.now(), request)
-        start_snapshot["response"] = {"transaction_id": transaction_id}
+        captured = create_ocpp_snapshot(coordinator.now(), request)
+        start_snapshot = TransactionStart(
+            received_at=captured["received_at"],
+            request=captured["request"],
+            response={"transaction_id": transaction_id},
+        )
         self.event_tracker = SessionEventTracker.start(
             start_snapshot["received_at"],
             plugged_event=self.pending_plugged_event,
@@ -333,7 +338,7 @@ class SessionLifecycle:
 
     def record_authorization_response(self, status: object) -> None:
         """Retain the authorization reply on the transaction just observed."""
-        cast(dict[str, Any], self.coordinator.active_transaction)["start"]["response"][
+        cast(ActiveTransaction, self.coordinator.active_transaction)["start"]["response"][
             "id_tag_info"
         ] = {"status": status}
 
@@ -423,7 +428,7 @@ class SessionLifecycle:
     ) -> tuple[dict[str, Any], str | None, float | None]:
         coordinator = self.coordinator
         self.observe_context(notify=False)
-        completed = dict(coordinator.active_transaction or {})
+        completed: dict[str, Any] = dict(coordinator.active_transaction or {})
         completed["stop"] = create_ocpp_snapshot(coordinator.now(), request)
         if self.event_tracker is not None:
             self.event_tracker.stop(completed["stop"]["received_at"], reason=reason)
@@ -556,7 +561,7 @@ class SessionLifecycle:
         duration_minutes: float | None,
         effective_minutes: float | None,
         authorized_identifier: str | None,
-        events: list[dict[str, str]],
+        events: list[SessionEvent],
         accounting: SessionAccumulator | None,
     ) -> None:
         coordinator = self.coordinator
@@ -643,7 +648,7 @@ class SessionLifecycle:
         matched: bool,
         zone: str | tzinfo | None,
         identity: dict[str, Any],
-    ) -> tuple[str | None, list[dict[str, str]]]:
+    ) -> tuple[str | None, list[SessionEvent]]:
         start_request = ((completed_transaction or {}).get("start") or {}).get("request") or {}
         authorized_identifier = start_request.get("id_tag") if matched else None
         events = merge_growatt_record_events(
@@ -782,7 +787,7 @@ class SessionLifecycle:
         duration_minutes: float | None,
         effective_minutes: float | None,
         authorized_identifier: str | None,
-        events: list[dict[str, str]],
+        events: list[SessionEvent],
         accounting: SessionAccumulator | None,
     ) -> dict[str, Any]:
         coordinator = self.coordinator

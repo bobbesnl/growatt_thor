@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypedDict
 
 from ..coerce import optional_float, optional_text
-from .events import normalize_session_events
+from .events import SessionEvent, normalize_session_events
 from .series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 from .telemetry import context_curves
 
@@ -18,6 +18,27 @@ def _text(value: Any, *, limit: int = 256) -> str | None:
 
 def _number(value: Any) -> float | None:
     return optional_float(value, minimum=0)
+
+
+class TransactionStart(TypedDict):
+    """Retained StartTransaction exchange of the active session."""
+
+    # None only after a restart restored a session saved without receipt time.
+    received_at: str | None
+    request: dict[str, Any]
+    response: dict[str, Any]
+
+
+class ActiveTransaction(TypedDict):
+    """Live transaction observations shared by the card, diagnostics and storage.
+
+    The events list is the session event tracker's own list, so a tracked event
+    is visible here without copying.
+    """
+
+    id_tag_alias: str | None
+    start: TransactionStart
+    events: list[SessionEvent]
 
 
 @dataclass(slots=True)
@@ -35,7 +56,7 @@ class ActiveSessionState:
     power_curve: list[list[Any]] = field(default_factory=list)
     context_curves: dict[str, list[list[Any]]] = field(default_factory=dict)
     site_house_load_source: str | None = None
-    events: list[dict[str, str]] = field(default_factory=list)
+    events: list[SessionEvent] = field(default_factory=list)
     energy_flowing: bool | None = None
 
     @classmethod

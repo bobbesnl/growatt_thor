@@ -84,7 +84,7 @@ from .runtime.write_results import (
     ChargerWriteQueuePolicy,
     ChargerWriteResult,
 )
-from .sessions.active_state import ActiveSessionState
+from .sessions.active_state import ActiveSessionState, ActiveTransaction
 from .sessions.duration import EffectiveChargingTracker
 from .sessions.events import (
     append_session_event,
@@ -190,7 +190,7 @@ class GrowattCoordinator(_CoordinatorBase):
         self.last_status_notification: dict[str, Any] | None = None
         self.last_charger_fault: ChargerFault | None = None
         self.last_meter_values: dict[str, Any] | None = None
-        self.active_transaction: dict[str, Any] | None = None
+        self.active_transaction: ActiveTransaction | None = None
         self.last_completed_transaction: dict[str, Any] | None = None
         self.last_current_record: dict[str, Any] | None = None
         self.last_frozen_record: dict[str, Any] | None = None

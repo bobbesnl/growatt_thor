@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import tzinfo
 from math import isfinite
-from typing import Any, cast
+from typing import Any, Literal, NotRequired, TypedDict, cast, get_args
 
 from ..coerce import enum_value
 from ..timestamps import parse_utc, utc_timestamp
@@ -16,20 +16,33 @@ from .constants import ACTIVE_POWER_THRESHOLD_W
 # one unusually noisy session to dominate the Home Assistant state payload.
 MAX_SESSION_EVENTS = 24
 
-EVENT_TYPES = frozenset(
-    {
-        "plugged_in",
-        "transaction_started",
-        "energy_flow_started",
-        "charging_paused",
-        "energy_flow_stopped",
-        "stop_requested",
-        "transaction_stopped",
-        "unplugged",
-    }
-)
-EVENT_SOURCES = frozenset({"ocpp", "growatt", "meter", "home_assistant"})
-EVENT_CERTAINTIES = frozenset({"observed", "derived", "provisional"})
+SessionEventType = Literal[
+    "plugged_in",
+    "transaction_started",
+    "energy_flow_started",
+    "charging_paused",
+    "energy_flow_stopped",
+    "stop_requested",
+    "transaction_stopped",
+    "unplugged",
+]
+SessionEventSource = Literal["ocpp", "growatt", "meter", "home_assistant"]
+SessionEventCertainty = Literal["observed", "derived", "provisional"]
+
+
+class SessionEvent(TypedDict):
+    """One display-safe session marker as stored, exported and sent to the card."""
+
+    type: SessionEventType
+    at: str
+    source: SessionEventSource
+    certainty: SessionEventCertainty
+    reason: NotRequired[str]
+
+
+EVENT_TYPES: frozenset[str] = frozenset(get_args(SessionEventType))
+EVENT_SOURCES: frozenset[str] = frozenset(get_args(SessionEventSource))
+EVENT_CERTAINTIES: frozenset[str] = frozenset(get_args(SessionEventCertainty))
 _ANCHOR_EVENT_TYPES = frozenset(
     {
         "plugged_in",
@@ -42,7 +55,7 @@ _ANCHOR_EVENT_TYPES = frozenset(
 )
 
 
-def _bounded_events(events: list[dict[str, str]]) -> list[dict[str, str]]:
+def _bounded_events(events: list[SessionEvent]) -> list[SessionEvent]:
     """Keep semantic anchors and evenly sample noisy transition events."""
     if len(events) <= MAX_SESSION_EVENTS:
         return events
@@ -78,7 +91,7 @@ def session_event(
     certainty: object,
     *,
     reason: object | None = None,
-) -> dict[str, str] | None:
+) -> SessionEvent | None:
     """Build one bounded, display-safe event or reject invalid input."""
     normalized_type = str(event_type)
     normalized_at = str(at).strip() if at is not None else ""
@@ -91,21 +104,22 @@ def session_event(
         or normalized_certainty not in EVENT_CERTAINTIES
     ):
         return None
-    event = {
-        "type": normalized_type,
-        "at": normalized_at,
-        "source": normalized_source,
-        "certainty": normalized_certainty,
-    }
+    # The membership checks above narrow the text values to the literal types.
+    event = SessionEvent(
+        type=cast(SessionEventType, normalized_type),
+        at=normalized_at,
+        source=cast(SessionEventSource, normalized_source),
+        certainty=cast(SessionEventCertainty, normalized_certainty),
+    )
     if reason not in (None, ""):
         reason_value = enum_value(reason)
         event["reason"] = str(reason_value)[:120]
     return event
 
 
-def normalize_session_events(value: Any) -> list[dict[str, str]]:
+def normalize_session_events(value: Any) -> list[SessionEvent]:
     """Return only valid events and keep the frontend payload bounded."""
-    result: list[dict[str, str]] = []
+    result: list[SessionEvent] = []
     for raw in value if isinstance(value, (list, tuple)) else ():
         if not isinstance(raw, dict):
             continue
@@ -126,8 +140,8 @@ def normalize_session_events(value: Any) -> list[dict[str, str]]:
 
 
 def append_session_event(
-    events: list[dict[str, str]],
-    event: dict[str, str] | None,
+    events: list[SessionEvent],
+    event: SessionEvent | None,
     *,
     unique_type: bool = False,
 ) -> bool:
@@ -157,7 +171,7 @@ def merge_growatt_record_events(
     end_time: object | None,
     unplug_time: object | None,
     time_zone: str | tzinfo | None = None,
-) -> list[dict[str, str]]:
+) -> list[SessionEvent]:
     """Add vendor charging anchors, never infer disconnection from unplugtime."""
     merged = normalize_session_events(events)
     for event_type, at in (
@@ -179,7 +193,7 @@ def merge_growatt_record_events(
 class SessionEventTracker:
     """Track honest observed and meter-derived events for one transaction."""
 
-    events: list[dict[str, str]] = field(default_factory=list)
+    events: list[SessionEvent] = field(default_factory=list)
     energy_flowing: bool | None = None
 
     @classmethod
@@ -187,7 +201,7 @@ class SessionEventTracker:
         cls,
         at: object,
         *,
-        plugged_event: dict[str, str] | None = None,
+        plugged_event: SessionEvent | None = None,
     ) -> SessionEventTracker:
         tracker = cls()
         append_session_event(tracker.events, plugged_event, unique_type=True)

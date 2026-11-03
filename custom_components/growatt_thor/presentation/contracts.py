@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
     from ..charging.pv_draft import PvLinkageDraftState
     from ..energy.session_accumulator import SessionAccumulator
+    from ..sessions.active_state import ActiveTransaction
     from ..sessions.telemetry import SessionTelemetry
 
 
@@ -30,7 +31,7 @@ class ActiveSessionView(Protocol):
 
 
 class ActiveSessionOwner(SessionClock, Protocol):
-    active_transaction: dict[str, Any] | None
+    active_transaction: ActiveTransaction | None
     transaction_id: int | str | None
     source_instance_id: str | None
     charge_point_id: str | None

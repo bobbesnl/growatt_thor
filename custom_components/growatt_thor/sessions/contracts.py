@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ..charging.authorization import LocalAuthorization
     from ..configuration.values import ConfigurationValue
     from ..energy.session_accumulator import SessionAccumulator
+    from .active_state import ActiveTransaction
     from .duration import EffectiveChargingTracker
     from .hooks import TransactionHooks
 
@@ -34,7 +35,7 @@ class TelemetryOwner(SiteObservationOwner, SessionClock, Protocol):
 class SessionOwner(TelemetryOwner, Protocol):
     """Shared charger observations and persistence; lifecycle state stays local."""
 
-    active_transaction: dict[str, Any] | None
+    active_transaction: ActiveTransaction | None
     authorization: LocalAuthorization
     charge_point_id: str | None
     connected: bool

@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from ..coordinator import GrowattCoordinator
     from ..energy.stop_guard import EnergyStopGuard
     from ..ocpp.server import GrowattChargePoint
+    from ..sessions.events import SessionEvent
     from ..targets.runtime import ChargingTargetRuntime
     from .polling import PollIntervalSchedule
 
@@ -44,9 +45,7 @@ class EntryRuntime(MutableMapping[str, Any]):
     target_handlers: dict[str, Callable[..., Awaitable[Any]]] | None = None
     pv_linkage_profile_handler: Callable[..., Awaitable[None]] | None = None
     append_session_to_csv: Callable[[dict[str, Any]], Awaitable[None]] | None = None
-    update_session_events_in_csv: Callable[[str, list[dict[str, str]]], Awaitable[None]] | None = (
-        None
-    )
+    update_session_events_in_csv: Callable[[str, list[SessionEvent]], Awaitable[None]] | None = None
     refresh_dashboard: Callable[[], Awaitable[None]] | None = None
     persist_charger_identity: Callable[[str], None] | None = None
     session_history_unsub: Callable[[], None] | None = None

@@ -8,7 +8,7 @@ from math import isfinite
 from typing import Any
 
 from ..timestamps import parse_utc
-from .events import normalize_session_events
+from .events import SessionEvent, normalize_session_events
 from .identity import (
     SOURCE_LEGACY_UNKNOWN,
     build_session_id,
@@ -182,7 +182,7 @@ def power_curve(
     )
 
 
-def session_events(value: Any) -> list[dict[str, str]]:
+def session_events(value: Any) -> list[SessionEvent]:
     """Decode the bounded event contract without exposing arbitrary JSON."""
     if not value:
         return []

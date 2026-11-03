@@ -89,6 +89,7 @@ from .timestamps import installation_time_zone
 
 if TYPE_CHECKING:
     from .runtime.entry import ThorConfigEntry
+    from .sessions.events import SessionEvent
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -266,7 +267,7 @@ async def _update_session_events_in_csv(
     hass,
     coordinator,
     session_id: str,
-    events: list[dict[str, str]],
+    events: list[SessionEvent],
 ) -> None:
     """Persist late session events such as unplugging after transaction stop."""
     path = _get_session_log_path(hass)
