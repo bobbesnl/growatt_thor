@@ -23,10 +23,10 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.util import dt as dt_util
 
 from .charging.commands import DEFAULT_ID_TAG as DEFAULT_ID_TAG
-from .charging.commands import StartChargingCommand, StopChargingCommand
 from .charging.control_capabilities import (
     ChargingControl,
 )
+from .charging.growatt_charger import GrowattOcppCharger
 from .charging.pv_apply import apply_pv_linkage_writes
 from .charging.pv_linkage import (
     ConfigurationWrite,
@@ -81,14 +81,14 @@ class StartChargingButton(ThorEntity, ButtonEntity):
 
     @property
     def _write_block_reason(self) -> str | None:
-        return StartChargingCommand(self.coordinator).write_block_reason
+        return GrowattOcppCharger(self.coordinator).start_block_reason
 
     @property
     def available(self) -> bool:
         return super().available and self._write_block_reason is None
 
     async def async_press(self) -> None:
-        await StartChargingCommand(self.coordinator).async_request()
+        await GrowattOcppCharger(self.coordinator).async_start()
 
 
 # Stop Charging Button
@@ -107,7 +107,7 @@ class StopChargingButton(ThorEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Delegate the entity action to the common command boundary."""
-        await StopChargingCommand(self.coordinator).async_request()
+        await GrowattOcppCharger(self.coordinator).async_stop()
 
 
 class ApplyPvLinkageButton(ThorEntity, ButtonEntity):

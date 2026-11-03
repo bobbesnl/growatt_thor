@@ -24,7 +24,8 @@ rules are recorded as [decision records](adr/README.md).
   execution and revalidated at that point.
 - Stop cancels an unsent Start before considering a physical Stop. A Stop is
   tied to the observed transaction; a later transaction invalidates it.
-- Start and Stop buttons delegate to `StartChargingCommand` and
+- Start and Stop buttons call `GrowattOcppCharger`, the `ChargerControl`
+  implementation, which delegates to `StartChargingCommand` and
   `StopChargingCommand` in `charging/commands.py`. These commands own
   revalidation, queue submission and command-state reporting. Delayed status
   triggers resolve the current connection after the two-second delay.

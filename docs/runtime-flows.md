@@ -26,6 +26,7 @@ sequenceDiagram
   autonumber
   actor User as User or automation
   participant Button as StartChargingButton
+  participant Ctl as GrowattOcppCharger
   participant Cmd as StartChargingCommand
   participant Queue as ChargerWriteQueue
   participant CP as GrowattChargePoint
@@ -33,7 +34,8 @@ sequenceDiagram
   participant Coord as Coordinator / SessionLifecycle
 
   User->>Button: press
-  Button->>Cmd: async_request()
+  Button->>Ctl: async_start()
+  Ctl->>Cmd: async_request()
   Cmd->>Cmd: reject if target needs reconciliation,<br/>disconnected, faulted or transaction active
   Cmd->>Queue: enqueue(priority, Start/Stop lane, revalidate)
   Queue->>Queue: wait for connection, rebind current charge point,<br/>revalidate
@@ -55,7 +57,8 @@ sequenceDiagram
   CP->>Coord: process_meter_values()
 ```
 
-Code: [`charging/commands.py`](../custom_components/growatt_thor/charging/commands.py),
+Code: [`charging/growatt_charger.py`](../custom_components/growatt_thor/charging/growatt_charger.py),
+[`charging/commands.py`](../custom_components/growatt_thor/charging/commands.py),
 [`runtime/charger_write_queue.py`](../custom_components/growatt_thor/runtime/charger_write_queue.py),
 [`ocpp/server.py`](../custom_components/growatt_thor/ocpp/server.py),
 [`sessions/runtime.py`](../custom_components/growatt_thor/sessions/runtime.py).
