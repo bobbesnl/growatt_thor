@@ -5,6 +5,8 @@ from custom_components.growatt_thor.charging.contracts import (
     PvServiceOwner,
     TransactionTransport,
 )
+from custom_components.growatt_thor.charging.control import ChargerControl, NativeTargetControl
+from custom_components.growatt_thor.charging.growatt_charger import GrowattOcppCharger
 from custom_components.growatt_thor.configuration.contracts import (
     ConfigurationTransport,
     ConfigurationWriteOwner,
@@ -16,6 +18,8 @@ from custom_components.growatt_thor.presentation.contracts import DashboardOwner
 from custom_components.growatt_thor.runtime.charger_write_queue import WriteQueueOwner
 from custom_components.growatt_thor.runtime.services import RefreshTransport
 from custom_components.growatt_thor.sessions.contracts import DashboardHistoryOwner, SessionOwner
+from custom_components.growatt_thor.targets.charger_ops import TargetChargerOperations
+from tests.support.charger_control import FakeChargerControl
 
 
 def dashboard_owner(coordinator: GrowattCoordinator) -> DashboardOwner:
@@ -60,3 +64,15 @@ def pv_transport(charger: GrowattChargePoint) -> PvApplyTransport:
 
 def refresh_transport(charger: GrowattChargePoint) -> RefreshTransport:
     return charger
+
+
+def charger_control(charger: GrowattOcppCharger) -> ChargerControl:
+    return charger
+
+
+def fake_charger_control(charger: FakeChargerControl) -> ChargerControl:
+    return charger
+
+
+def native_target_control(operations: TargetChargerOperations) -> NativeTargetControl:
+    return operations

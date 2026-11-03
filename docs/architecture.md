@@ -138,6 +138,7 @@ from Lit lifecycle and HA calls. See
 | Sensor discovery for option forms | `source_discovery.py` |
 | Start/Stop rules and charging capabilities | `charging/start_stop_rules.py`, `charging/control_capabilities.py` |
 | Derived charger state (connection, status, vehicle state, latest meter reading) | `charging/snapshot.py` (`ChargerSnapshot`) |
+| What callers may ask of the charger | `charging/control.py` (`ChargerControl`, optional `NativeTargetControl`); Growatt implementations in `charging/growatt_charger.py` and `targets/charger_ops.py` |
 
 ### Energy
 
@@ -202,6 +203,14 @@ and unload cancels its timer and clears the hooks.
 Narrow protocols in `sessions/contracts.py`, `energy/contracts.py`,
 `charging/contracts.py` and `configuration/contracts.py` declare what a module
 needs from the coordinator, so domain code does not import it.
+
+`charging/control.py` declares the opposite direction: what a caller may ask of
+the charger. `ChargerControl` covers Start and Stop; wallbox-native targets and
+reservations are the optional `NativeTargetControl` capability. The Growatt
+implementations add no rules of their own: `GrowattOcppCharger` selects the
+Start/Stop commands and `TargetChargerOperations` runs inside target queue
+callbacks, so the write queue stays the single owner of charger writes. Tests use
+`FakeChargerControl` from `tests/support/charger_control.py`.
 
 Use classes for state with a lifecycle or invariants. Keep transformations,
 validation and calculations as typed functions or data models. Package

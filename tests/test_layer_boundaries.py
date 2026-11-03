@@ -183,6 +183,7 @@ OWNER_IMPORTERS = frozenset(
     {
         "__init__",
         "button",
+        "charging.growatt_charger",
         "coordinator",
         "energy.stop_guard",
         "targets.services",
