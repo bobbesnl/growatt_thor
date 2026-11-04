@@ -17,7 +17,7 @@ import asyncio
 import logging
 
 from homeassistant.components.select import SelectEntity
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.const import EntityCategory
 
 from .charging.control_capabilities import (
     PV_LINKAGE_WORKING_MODES,

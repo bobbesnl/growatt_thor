@@ -17,7 +17,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.const import EntityCategory
 
 from .charging.snapshot import ChargerSnapshot, VehicleState, charger_snapshot
 from .entity import ThorEntity

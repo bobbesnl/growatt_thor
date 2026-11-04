@@ -17,7 +17,7 @@ import logging
 from datetime import time
 
 from homeassistant.components.time import TimeEntity
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.const import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
 from .charging.control_capabilities import (

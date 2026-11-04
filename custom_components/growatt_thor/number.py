@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 import logging
 
 from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberMode
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.const import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
 from .charging.control_capabilities import (

@@ -8,9 +8,9 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
+    EntityCategory,
     UnitOfEnergy,
 )
-from homeassistant.helpers.entity import EntityCategory
 
 from .charging.faults import CHARGER_FAULT_OPTIONS
 from .charging.snapshot import charger_snapshot

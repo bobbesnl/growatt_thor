@@ -240,12 +240,8 @@ def install_sensor_stubs():
         "CoordinatorEntity",
         CoordinatorEntity,
     )
-    default(
-        module("homeassistant.helpers.entity"),
-        "EntityCategory",
-        _named("EntityCategory"),
-    )
     const = module("homeassistant.const")
+    default(const, "EntityCategory", _named("EntityCategory"))
     for unit in (
         "UnitOfPower",
         "UnitOfEnergy",

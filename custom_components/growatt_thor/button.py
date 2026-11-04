@@ -19,7 +19,7 @@ import logging
 from collections.abc import Sequence
 
 from homeassistant.components.button import ButtonEntity
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.const import EntityCategory
 from homeassistant.util import dt as dt_util
 
 from .charging.commands import DEFAULT_ID_TAG as DEFAULT_ID_TAG
