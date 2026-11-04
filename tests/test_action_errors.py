@@ -248,10 +248,7 @@ class PublicActionWiringTest(unittest.TestCase):
         ("number.py", "ElectricityPriceNumber", "async_set_native_value"): {
             "_validated_entity_number",
         },
-        ("number.py", "SolarGridImportLimitNumber", "async_set_native_value"): {
-            "_validated_entity_number",
-        },
-        ("number.py", "PowerMeterAddressNumber", "async_set_native_value"): {
+        ("number.py", "ConfigurationControlNumber", "async_set_native_value"): {
             "_validated_entity_number",
         },
         ("number.py", "PvSmartBoostTargetEnergyNumber", "async_set_native_value"): {
@@ -366,13 +363,13 @@ class PublicActionWiringTest(unittest.TestCase):
             "MaxCurrentNumber",
             "LoadBalancingLimitNumber",
             "ElectricityPriceNumber",
-            "SolarGridImportLimitNumber",
-            "PowerMeterAddressNumber",
+            "ConfigurationControlNumber",
             "PvSmartBoostTargetEnergyNumber",
         )
         side_effects = {
             "queue_write",
             "_async_write_configuration",
+            "async_write",
             "async_request",
             "update_pv_linkage_draft",
         }

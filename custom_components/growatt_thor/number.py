@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 if TYPE_CHECKING:
@@ -29,14 +30,13 @@ from .charging.limits import (
     maximum_charging_current,
 )
 from .charging.pv_linkage import PvBoostMode
-from .configuration.controls import GrowattConfigurationControlMixin
+from .configuration.controls import ConfigurationControl
 from .configuration.validation import (
     NumericValidationError,
     NumericValidationReason,
     validate_number,
 )
 from .configuration.values import (
-    configuration_entity_state,
     configuration_numeric_value,
     parse_time_sharing_price,
 )
@@ -148,8 +148,10 @@ async def async_setup_entry(
             MaxCurrentNumber(coordinator, entry),
             LoadBalancingLimitNumber(coordinator, entry),
             ElectricityPriceNumber(coordinator, entry),
-            PowerMeterAddressNumber(coordinator, entry),
-            SolarGridImportLimitNumber(coordinator, entry),
+            *(
+                ConfigurationControlNumber(coordinator, entry, description)
+                for description in CONTROL_NUMBERS
+            ),
             PvSmartBoostTargetEnergyNumber(coordinator, entry),
         ]
     )
@@ -455,87 +457,100 @@ class ElectricityPriceNumber(BaseConfigNumber):
         await self._writer.async_request(value)
 
 
-class SolarGridImportLimitNumber(
-    GrowattConfigurationControlMixin,
-    ThorEntity,
-    NumberEntity,
-):
-    """Configure the grid power allowance used by PV Linkage."""
+@dataclass(frozen=True, kw_only=True)
+class ConfigurationControlNumberDescription:
+    """Declare one mode-aware number; the unique ID is ``<entry>_<key>_control``."""
+
+    key: str
+    control: ChargingControl
+    icon: str
+    native_min_value: float
+    native_max_value: float
+    native_step: float
+    integer: bool = False
+    native_unit_of_measurement: str | None = None
+    device_class: Any = None
+    suggested_display_precision: int | None = None
+    device: Literal["charger", "meter"] = "charger"
+
+
+CONTROL_NUMBERS = (
+    # Configure the Modbus address of the external power meter.
+    ConfigurationControlNumberDescription(
+        key="power_meter_address",
+        control=ChargingControl.POWER_METER_ADDRESS,
+        icon="mdi:numeric",
+        native_min_value=1,
+        native_max_value=247,
+        native_step=1,
+        integer=True,
+        device="meter",
+    ),
+    # Configure the grid power allowance used by PV Linkage.
+    ConfigurationControlNumberDescription(
+        key="solar_grid_import_limit",
+        control=ChargingControl.SOLAR_GRID_IMPORT_LIMIT,
+        icon="mdi:transmission-tower-import",
+        native_min_value=0,
+        native_max_value=22,
+        native_step=0.1,
+        native_unit_of_measurement="kW",
+        device_class=NumberDeviceClass.POWER,
+        suggested_display_precision=1,
+    ),
+)
+
+
+class ConfigurationControlNumber(ThorEntity, NumberEntity):
+    """Write one verified mode-aware number control."""
 
     coordinator: GrowattCoordinator
 
-    _control = ChargingControl.SOLAR_GRID_IMPORT_LIMIT
     _attr_has_entity_name = True
-    _attr_translation_key = "solar_grid_import_limit"
     _attr_entity_category = EntityCategory.CONFIG
-    _attr_device_class = NumberDeviceClass.POWER
     _attr_native_mode = NumberMode.BOX
-    _attr_native_min_value = 0
-    _attr_native_max_value = 22
-    _attr_native_step = 0.1
-    _attr_native_unit_of_measurement = "kW"
-    _attr_suggested_display_precision = 1
-    _attr_icon = "mdi:transmission-tower-import"
 
-    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_solar_grid_import_limit_control"
+    def __init__(
+        self,
+        coordinator: GrowattCoordinator,
+        entry: ConfigEntry,
+        description: ConfigurationControlNumberDescription,
+    ) -> None:
+        super().__init__(coordinator, entry, device=description.device)
+        self._description = description
+        self._configuration = ConfigurationControl(coordinator, description.control)
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}_control"
+        self._attr_translation_key = description.key
+        self._attr_icon = description.icon
+        self._attr_native_min_value = description.native_min_value
+        self._attr_native_max_value = description.native_max_value
+        self._attr_native_step = description.native_step
+        if description.native_unit_of_measurement is not None:
+            self._attr_native_unit_of_measurement = description.native_unit_of_measurement
+        if description.device_class is not None:
+            self._attr_device_class = description.device_class
+        if description.suggested_display_precision is not None:
+            self._attr_suggested_display_precision = description.suggested_display_precision
 
     @property
     def native_value(self) -> float | None:
-        value = configuration_entity_state(
-            self._configuration_key,
-            self._configuration_value,
-        )
-        return float(value) if isinstance(value, (int, float)) else None
+        value = self._configuration.state
+        if not isinstance(value, (int, float)):
+            return None
+        return int(value) if self._description.integer else float(value)
 
     @property
     def available(self) -> bool:
-        return super().available and self._control_available and self.native_value is not None
-
-    async def async_set_native_value(self, value: float) -> None:
-        value = _validated_entity_number(self, value)
-        await self._async_write_configuration(encode_control_value(self._control, value))
-
-
-class PowerMeterAddressNumber(
-    GrowattConfigurationControlMixin,
-    ThorEntity,
-    NumberEntity,
-):
-    """Configure the Modbus address of the external power meter."""
-
-    coordinator: GrowattCoordinator
-
-    _control = ChargingControl.POWER_METER_ADDRESS
-    _attr_has_entity_name = True
-    _attr_translation_key = "power_meter_address"
-    _attr_entity_category = EntityCategory.CONFIG
-    _attr_native_mode = NumberMode.BOX
-    _attr_native_min_value = 1
-    _attr_native_max_value = 247
-    _attr_native_step = 1
-    _attr_icon = "mdi:numeric"
-
-    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, device="meter")
-        self._attr_unique_id = f"{entry.entry_id}_power_meter_address_control"
+        return super().available and self._configuration.available and self.native_value is not None
 
     @property
-    def native_value(self) -> float | None:
-        value = configuration_entity_state(
-            self._configuration_key,
-            self._configuration_value,
-        )
-        return int(value) if isinstance(value, (int, float)) else None
-
-    @property
-    def available(self) -> bool:
-        return super().available and self._control_available and self.native_value is not None
+    def extra_state_attributes(self) -> dict[str, str]:
+        return self._configuration.attributes
 
     async def async_set_native_value(self, value: float) -> None:
-        value = _validated_entity_number(self, value, integer=True)
-        await self._async_write_configuration(encode_control_value(self._control, value))
+        value = _validated_entity_number(self, value, integer=self._description.integer)
+        raw_value = encode_control_value(self._description.control, value)
+        await self._configuration.async_write(raw_value)
 
 
 class PvSmartBoostTargetEnergyNumber(BaseConfigNumber):
