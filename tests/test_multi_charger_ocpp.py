@@ -25,6 +25,7 @@ if HAS_OCPP:
     sys.modules[package.__name__] = package
     server = importlib.import_module(package.__name__ + ".ocpp.growatt.server")
     auth = importlib.import_module(package.__name__ + ".charging.authorization")
+    message_log = importlib.import_module(package.__name__ + ".ocpp.growatt.message_log")
 
 
 class Websocket:
@@ -45,6 +46,7 @@ class Coordinator:
     def __init__(self):
         self.runtime_data = {}
         self.authorization = auth.LocalAuthorization()
+        self.ocpp_messages = message_log.OcppMessageLog()
         self.charger_mode = 1
         self.connected = True
         self.has_pending_charger_writes = False

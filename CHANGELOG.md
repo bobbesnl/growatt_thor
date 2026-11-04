@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## Unreleased
 
+### Added
+
+- Downloaded diagnostics list the latest 50 OCPP messages per charger with time, direction, action and size. RFID tags, private configuration values such as the server URL, and Growatt session data are redacted; the list is kept in memory only.
+
 ### Fixed
 
 - Start the integration again on Home Assistant versions before 2026.8. The External Meter device update no longer uses a registry lookup that only exists in newer versions.

@@ -108,7 +108,7 @@ and shared constants stay at the integration root so HA can discover them.
 | `targets/` | Native target model, wire adapter, execution, dates and HA services |
 | `configuration/` | Configuration values, validation and writes |
 | `ocpp/core/` | Generic OCPP 1.6 parts: connection timing, serialized requests, status normalization, meter samples, BootNotification snapshots and library logging |
-| `ocpp/growatt/` | The THOR charge point (handlers and outbound requests), Growatt DataTransfer and the external meter |
+| `ocpp/growatt/` | The THOR charge point (handlers and outbound requests), Growatt DataTransfer, the external meter and the redacted diagnostics message log |
 | `runtime/` | Write queue, runtime ownership, service setup and entity migrations |
 | `sessions/` | Session lifecycle, identity, events, curves, CSV, outbox and WebSocket reads |
 | `energy/` | Shared observations, energy sources, site accounting and automatic Stop |
@@ -178,6 +178,7 @@ yet" stays distinct from a reported outcome.
 | `runtime/charger_write_queue.py::ChargerWriteQueue` | Pending `ChargerWriteItem`s, the processor task, monotonic expiry and spacing, completion and shutdown. It talks to the coordinator only through the `WriteQueueOwner` protocol. |
 | `sessions/runtime.py::SessionLifecycle` | Session curves, event tracking, restored-session state, pending effective durations, record deduplication, pending completions and the immutable `LastSessionState`. Storage uses its snapshot/restore methods. |
 | `ocpp/growatt/external_meter_state.py::ExternalMeterState` | External-meter observations, fault matching, poll timeouts, health and PV readiness. |
+| `ocpp/growatt/message_log.py::OcppMessageLog` | The latest 50 OCPP frames of the entry with redacted payloads, in memory only (`coordinator.ocpp_messages`). Frames from superseded sockets are not recorded. |
 | `charging/pv_draft.py::PvLinkageDraftState` | The local PV draft, snapshots, initialization from readback, edits and the dirty flag after Apply. |
 | `runtime/ocpp_ingest.py::OcppIngest` | No state of its own. Applies BootNotification, StatusNotification, MeterValues, GetConfiguration, fault and external-meter observations to coordinator state, including live-power resets and site accounting per sample. |
 | `configuration/write_tracker.py::ConfigurationWriteTracker` | Per-key generations and outcomes of configuration writes until readback confirms them (`coordinator.configuration_writes`). |
@@ -267,7 +268,9 @@ returns each action's fallback reply on failure. Configuration groups are fetche
 by one helper; a separate logging helper redacts configuration values and reports
 unknown keys. Socket closes share one bounded close helper. Diagnostics are built
 by section builders in `diagnostics.py` with redaction at the configuration, OCPP
-and session boundaries. The rules for these paths are in the
+and session boundaries. `GrowattChargePoint` records every inbound frame in
+`route_message` and every outbound frame in `_send` into the entry's
+`OcppMessageLog`, which the `ocpp_messages` section exports. The rules for these paths are in the
 [invariants](invariants.md#ocpp-handlers-and-logging).
 
 ## Charger write queue

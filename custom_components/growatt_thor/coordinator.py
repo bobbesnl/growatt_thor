@@ -28,6 +28,7 @@ from .energy.session_accumulator import SessionAccumulator
 from .energy.sources import BATTERY_POSITIVE_DISCHARGE
 from .ocpp.core.status import normalize_ocpp_status
 from .ocpp.growatt.external_meter_state import ExternalMeterState
+from .ocpp.growatt.message_log import OcppMessageLog
 from .runtime.charger_write_queue import ChargerWriteQueue
 from .runtime.coordinator_storage import restore_storage_data, storage_data
 from .runtime.entry import EntryRuntime
@@ -110,6 +111,7 @@ class GrowattCoordinator(_CoordinatorBase):
         # domain-global slot shared with another charger.
         self.runtime_data = EntryRuntime()
         self.external_meter = ExternalMeterState()
+        self.ocpp_messages = OcppMessageLog()
         self.pv_draft = PvLinkageDraftState()
         self._transaction_id_allocator = TransactionIdAllocator()
         self._transaction_id_lock = asyncio.Lock()

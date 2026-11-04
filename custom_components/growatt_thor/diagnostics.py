@@ -70,6 +70,7 @@ async def async_get_config_entry_diagnostics(
             "operational": list(OPERATIONAL_CONFIGURATION_KEYS),
             "informational": list(INFORMATIONAL_CONFIGURATION_KEYS),
         },
+        "ocpp_messages": coordinator.ocpp_messages.diagnostics(),
     }
 
 

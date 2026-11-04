@@ -267,7 +267,14 @@ class GrowattChargePoint(OcppChargePoint):
             action = "InvalidOCPPMessage"
 
         self._mark_activity(action)
+        self.coordinator.ocpp_messages.record("in", raw_msg, self.coordinator.now())
         await super().route_message(raw_msg)
+
+    async def _send(self, message: str) -> None:
+        """Record every outbound frame: our CALLs and replies to the charger."""
+        if self._is_current_connection():
+            self.coordinator.ocpp_messages.record("out", message, self.coordinator.now())
+        await super()._send(message)
 
     async def async_watch_connection(self) -> None:
         """Close and invalidate a connection with no inbound OCPP activity."""

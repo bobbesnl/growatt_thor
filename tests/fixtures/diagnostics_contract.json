@@ -143,6 +143,10 @@
         "G_FullContinueChargeEnable",
         "G_RandDelayChargeTime"
       ]
+    },
+    "ocpp_messages": {
+      "capacity": 50,
+      "messages": []
     }
   },
   {
@@ -425,6 +429,10 @@
         "G_FullContinueChargeEnable",
         "G_RandDelayChargeTime"
       ]
+    },
+    "ocpp_messages": {
+      "capacity": 50,
+      "messages": []
     }
   },
   {
@@ -792,6 +800,10 @@
         "G_FullContinueChargeEnable",
         "G_RandDelayChargeTime"
       ]
+    },
+    "ocpp_messages": {
+      "capacity": 50,
+      "messages": []
     }
   }
 ]

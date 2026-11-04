@@ -68,6 +68,10 @@ rules are recorded as [decision records](adr/README.md).
   the log ([ADR 0005](adr/0005-rfid-safe-logging.md)).
 - Configuration groups apply operational keys before the informational request.
   Logged configuration values are redacted.
+- The OCPP message log in diagnostics stores payloads only after redaction:
+  identifiers by field name, configuration values by registry sensitivity and
+  Growatt DataTransfer data except `get_external_meterval`. It stays in memory
+  and bounded, and records only the socket that owns the runtime.
 - Socket closes share one bounded close helper; ownership release stays with the
   connection owner.
 

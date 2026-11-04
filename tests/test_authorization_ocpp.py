@@ -22,6 +22,7 @@ if HAS_OCPP:
     sys.modules[package.__name__] = package
     server = importlib.import_module(package.__name__ + ".ocpp.growatt.server")
     auth = importlib.import_module(package.__name__ + ".charging.authorization")
+    message_log = importlib.import_module(package.__name__ + ".ocpp.growatt.message_log")
 
 
 class Websocket:
@@ -41,6 +42,7 @@ class Coordinator:
         # Per-entry runtime mapping that owns the active connection slot.
         self.runtime_data = {}
         self.authorization = auth.LocalAuthorization()
+        self.ocpp_messages = message_log.OcppMessageLog()
         self.charger_mode = 1
         self.connected = True
         self.has_pending_charger_writes = False

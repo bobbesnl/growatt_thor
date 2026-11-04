@@ -127,6 +127,14 @@ matching OCPP and Growatt data without replacing either raw source. Its
 correlation status distinguishes sessions reported by both sources from
 OCPP-only and Growatt-only records, and energy differences remain visible.
 
+The `ocpp_messages` section lists the latest 50 OCPP frames, oldest first, with
+time, direction, message type, action, unique ID and size. Payloads are
+redacted like the rest of the export: RFID tags and other identifiers,
+non-public configuration values (such as the server URL and network
+credentials), Growatt session data and error descriptions. The list lives only
+in memory and starts empty after a restart or reload, so download the
+diagnostics soon after the problem occurs.
+
 ---
 
 For command expiry, reconnects and uncertain results, see [automation resilience](automation-resilience.md).
