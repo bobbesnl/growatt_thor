@@ -39,6 +39,10 @@ class SimulatedThor(ChargePoint):
         self.remote_stop_status = RemoteStartStopStatus.accepted
         self.remote_starts: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self.remote_stops: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        # When set, RemoteStop is answered only after the event fires. The
+        # library handles one frame at a time, so the simulator stays silent
+        # until then, like a THOR that lost the answer.
+        self.hold_remote_stop_answer: asyncio.Event | None = None
 
     # Requests from the integration
 
@@ -64,8 +68,10 @@ class SimulatedThor(ChargePoint):
         return call_result.RemoteStartTransaction(status=self.remote_start_status)
 
     @on(Action.remote_stop_transaction)
-    def on_remote_stop(self, transaction_id: int) -> call_result.RemoteStopTransaction:
+    async def on_remote_stop(self, transaction_id: int) -> call_result.RemoteStopTransaction:
         self.remote_stops.put_nowait({"transaction_id": transaction_id})
+        if self.hold_remote_stop_answer is not None:
+            await self.hold_remote_stop_answer.wait()
         return call_result.RemoteStopTransaction(status=self.remote_stop_status)
 
     # Messages the charger sends

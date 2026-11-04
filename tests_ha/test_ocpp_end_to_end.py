@@ -301,3 +301,40 @@ async def test_card_subscription_pushes_the_attribute_payload_until_unload(
     await client.close()
     await hass.async_block_till_done()
     assert "Error unsubscribing" not in caplog.text
+
+
+async def test_unanswered_remote_stop_is_uncertain_and_not_repeated(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The library timeout is fixed when the charger connects; shorten it so
+    # the missing answer shows up within the test.
+    monkeypatch.setattr(
+        "custom_components.growatt_thor.ocpp.growatt.server.OCPP_RESPONSE_TIMEOUT_SECONDS", 0.5
+    )
+    commands = async_capture_events(hass, "growatt_thor_command_result")
+    async with connected_thor(loaded_entry.data[CONF_PORT]) as thor:
+        start = await _connect_ready(hass, loaded_entry, thor)
+        transaction_id = await _start_session(hass, thor, start)
+        thor.hold_remote_stop_answer = asyncio.Event()
+
+        stop = _entity_id(hass, loaded_entry, "button", "stop_charging")
+        with pytest.raises(HomeAssistantError) as raised:
+            await _press(hass, stop)
+        assert raised.value.translation_key == "command_outcome_uncertain"
+        stops = [
+            event.data
+            for event in commands
+            if event.data["command_name"] != "RemoteStartTransaction"
+        ]
+        assert [(result["command_name"], result["status"]) for result in stops] == [
+            ("RemoteStopTransaction", "uncertain")
+        ]
+
+        # The late answer changes nothing, and the Stop is not sent again.
+        thor.hold_remote_stop_answer.set()
+        charging = _entity_id(hass, loaded_entry, "binary_sensor", "charging")
+        assert _state(hass, charging) == "on"
+        await thor.stop_transaction(transaction_id, meter_stop=2500, reason="Remote")
+        await thor.status("Finishing")
+        await _wait_for(lambda: _state(hass, charging) == "off", "the charger's own stop observed")
+        assert thor.remote_stops.qsize() == 1
