@@ -112,7 +112,7 @@ and shared constants stay at the integration root so HA can discover them.
 | `runtime/` | Write queue, runtime ownership, service setup and entity migrations |
 | `sessions/` | Session lifecycle, identity, events, curves, CSV, outbox and WebSocket reads |
 | `energy/` | Shared observations, energy sources, site accounting and automatic Stop |
-| `presentation/` | Bounded card projection and frontend resource registration |
+| `presentation/` | Bounded card projection, its WebSocket subscription and frontend resource registration |
 
 The TypeScript source mirrors these feature boundaries in `frontend/src/`:
 `charger/`, `targets/`, `authorization/`, `pv/`, `sessions/`, `energy/` and
@@ -160,6 +160,15 @@ Energy code does not import discovery or presentation.
 `presentation/` builds the bounded card data. The battery payload and dashboard
 entity map live in `presentation/battery.py` and `presentation/entity_map.py`.
 Card projections read explicit protocols from `presentation/contracts.py`.
+
+`entity_map.card_payload` assembles the card contract once for two consumers.
+`presentation/card_subscription.py` pushes it over the
+`growatt_thor/card/subscribe` WebSocket command after each coordinator update,
+but only when the payload changed. The status sensor still exposes the same
+payload as its `thor_card` attribute, which the cards use as a fallback. On
+unload, `end_card_subscriptions` sends `{"type": "unloaded"}` to every
+subscriber of the entry before the coordinator shuts down. The cards then fall
+back to the attribute and subscribe again after a delay.
 
 `config_flow.py::build_site_accounting_schema` assembles the site-accounting form
 from policy, power-source and tariff field builders. Saved sections update the

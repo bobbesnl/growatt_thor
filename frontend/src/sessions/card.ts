@@ -2,6 +2,7 @@ import { renderSessionCard } from './card.template';
 import { deriveSessionChartModel } from './chart-model';
 import { tokenStyles } from '../shared/styles';
 import { cardInitialization } from '../shared/card-initialization';
+import { CardDataSubscription } from '../shared/card-subscription';
 import { cardNoticeStyles, renderCardNotice } from '../shared/card-notice';
 import { LitElement, unsafeCSS } from 'lit';
 import { createRef, type Ref } from 'lit/directives/ref.js';
@@ -31,6 +32,7 @@ import {
   CHART_ANIMATION_MS,
 } from './chart-options';
 import type {
+  Entity,
   Hass,
   SessionCardConfig,
   SessionDetailResponse,
@@ -106,12 +108,19 @@ export class ThorSessionCard extends LitElement {
   getCardSize() {
     return 6;
   }
+  private readonly _subscription = new CardDataSubscription(() => this.requestUpdate());
+
+  /** Pushed card data when subscribed, otherwise the status attribute. */
+  private cardData(entity?: Entity) {
+    return this._subscription.resolve(entity?.attributes.thor_card);
+  }
   getGridOptions() {
     return { columns: 12, min_columns: 6, min_rows: 4 };
   }
   disconnectedCallback() {
     super.disconnectedCallback();
     this._details.clear();
+    this._subscription.close();
     if (this._labelFadeFrame !== undefined) cancelAnimationFrame(this._labelFadeFrame);
     this._chartHost.disconnect();
   }
@@ -119,8 +128,9 @@ export class ThorSessionCard extends LitElement {
     // Scope the cache before render() can merge details into the new entry's rows.
     // Doing this in updated() would allow one frame with the previous entry's data.
     const entity = this.hass && resolveEntity(this.hass, this._config);
-    if (this._details.setEntry(entity?.attributes.thor_card?.entry_id || this._config.entry_id))
-      this._chartSessionKey = undefined;
+    const entryId = entity?.attributes.thor_card?.entry_id || this._config.entry_id;
+    this._subscription.update(this.hass, entryId);
+    if (this._details.setEntry(entryId)) this._chartSessionKey = undefined;
   }
   updated() {
     this.drawChart();
@@ -132,7 +142,7 @@ export class ThorSessionCard extends LitElement {
   private async loadSelectedDetails(): Promise<void> {
     const hass = this.hass;
     const entity = hass && resolveEntity(hass, this._config);
-    const data = entity?.attributes.thor_card?.sessions;
+    const data = this.cardData(entity)?.sessions;
     if (!hass || !data || this._config.show_curve === false) return;
     await this._details.load(
       selectedSession(data.items, this._selectedSessionId),
@@ -148,7 +158,7 @@ export class ThorSessionCard extends LitElement {
   }
   private drawChart() {
     const entity = this.hass && resolveEntity(this.hass, this._config);
-    const data = entity?.attributes.thor_card?.sessions;
+    const data = this.cardData(entity)?.sessions;
     const el = this._chartRef.value;
     if (!el || !data || this._config.show_curve === false) {
       this._chartHost.disconnect();
@@ -252,7 +262,7 @@ export class ThorSessionCard extends LitElement {
     const language = this.hass?.language || this.hass?.locale?.language || 'en';
     const t = sessionTranslate(language);
     const entity = this.hass && resolveEntity(this.hass, this._config);
-    const data = entity?.attributes.thor_card?.sessions;
+    const data = this.cardData(entity)?.sessions;
     const dark =
       this._config.theme === 'dark' ||
       (this._config.theme !== 'light' && !!this.hass?.themes?.darkMode);
@@ -272,7 +282,7 @@ export class ThorSessionCard extends LitElement {
     );
     this._page = page.index;
     const selected = this.selectedSession(data);
-    const costEntityId = entity?.attributes.thor_card?.entities.last_session_cost;
+    const costEntityId = this.cardData(entity)?.entities.last_session_cost;
     const currency =
       (costEntityId && this.hass?.states[costEntityId]?.attributes.unit_of_measurement) || '€';
     return renderSessionCard(

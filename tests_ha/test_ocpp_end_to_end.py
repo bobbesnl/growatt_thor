@@ -252,3 +252,52 @@ async def test_a_different_charger_cannot_take_over_the_entry(
 
         charge_point_id = _entity_id(hass, loaded_entry, "sensor", "charge_point_id")
         assert _state(hass, charge_point_id) == "THOR-OWNER"
+
+
+async def test_card_subscription_pushes_the_attribute_payload_until_unload(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    client = await hass_ws_client(hass)
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/card/subscribe", "entry_id": "missing"})
+    refused = await client.receive_json()
+    assert not refused["success"]
+    assert refused["error"]["code"] == "not_found"
+
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/card/subscribe", "entry_id": config_entry.entry_id}
+    )
+    assert (await client.receive_json())["success"]
+    initial = (await client.receive_json())["event"]
+    assert initial["type"] == "data"
+    assert initial["data"]["entry_id"] == config_entry.entry_id
+    # The entity map is built per update, so it already lists entities added
+    # after the status sensor wrote its first attribute.
+    assert initial["data"]["entities"]["last_session_cost"] == _entity_id(
+        hass, config_entry, "sensor", "last_session_cost"
+    )
+    assert initial["data"]["connection_started_at"] is None
+
+    async with connected_thor(config_entry.data[CONF_PORT]) as thor:
+        await thor.boot()
+        update = (await asyncio.wait_for(client.receive_json(), TIMEOUT))["event"]
+        assert update["type"] == "data"
+        assert update["data"] != initial["data"]
+
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await hass.async_block_till_done()
+    while (message := (await asyncio.wait_for(client.receive_json(), TIMEOUT))["event"])[
+        "type"
+    ] == "data":
+        pass
+    assert message == {"type": "unloaded"}
+    # Closing the client afterwards must not remove the listener a second time.
+    await client.close()
+    await hass.async_block_till_done()
+    assert "Error unsubscribing" not in caplog.text

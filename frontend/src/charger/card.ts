@@ -5,6 +5,7 @@ import { capabilities, commandInfo, resolveEntity, statusEntities } from '../sha
 import { buildCardViewModel } from './card-view-model';
 import { renderCard, type CardActions } from './card.template';
 import { cardInitialization } from '../shared/card-initialization';
+import { CardDataSubscription } from '../shared/card-subscription';
 import { cardNoticeStyles, renderCardNotice } from '../shared/card-notice';
 import {
   liveGoalAvailable,
@@ -14,7 +15,7 @@ import {
   validLiveTarget,
 } from '../targets/live';
 import type { GoalKind, GoalRecurrence } from '../targets/model';
-import type { CardConfig, Hass } from '../shared/types';
+import type { CardConfig, Entity, Hass } from '../shared/types';
 import './editor';
 import '../targets/dialog';
 import '../authorization/dialog';
@@ -60,6 +61,19 @@ export class ThorCard extends LitElement {
     },
   };
   private _timer?: ReturnType<typeof setInterval>;
+  private readonly subscription = new CardDataSubscription(() => this.requestUpdate());
+
+  /** Pushed card data when subscribed, otherwise the status attribute. */
+  private cardData(entity?: Entity) {
+    return this.subscription.resolve(entity?.attributes.thor_card);
+  }
+  protected willUpdate() {
+    const entity = this.hass && resolveEntity(this.hass, this._config);
+    this.subscription.update(
+      this.hass,
+      entity?.attributes.thor_card?.entry_id || this._config.entry_id,
+    );
+  }
 
   setConfig(config: CardConfig) {
     if (!config || (config.entity && !config.entity.startsWith('sensor.')))
@@ -100,6 +114,7 @@ export class ThorCard extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     clearInterval(this._timer);
+    this.subscription.close();
   }
   private moreInfo(entity?: string) {
     if (entity)
@@ -123,7 +138,7 @@ export class ThorCard extends LitElement {
   ) {
     const hass = this.hass;
     const entity = hass && resolveEntity(hass, this._config);
-    const data = entity?.attributes.thor_card;
+    const data = this.cardData(entity);
     if (
       !hass ||
       !entity ||
@@ -158,7 +173,7 @@ export class ThorCard extends LitElement {
     });
   }
   private async cancelGoal(requestId: string) {
-    const data = this.hass && resolveEntity(this.hass, this._config)?.attributes.thor_card;
+    const data = this.hass && this.cardData(resolveEntity(this.hass, this._config));
     if (!this.hass || !data) throw new Error('goal_unavailable');
     await this.hass.callService('growatt_thor', 'cancel_scheduled_charging_target', {
       entry_id: data.entry_id,
@@ -170,7 +185,7 @@ export class ThorCard extends LitElement {
     const hass = this.hass;
     if (!hass || this._sending) return;
     const entity = resolveEntity(hass, this._config);
-    const data = entity?.attributes.thor_card;
+    const data = this.cardData(entity);
     if (!entity || !data) return;
     const connected = hass.connected !== false && entity.attributes.connected === true;
     const pending = commandInfo(data, entity.state, Date.now()).pending;
@@ -197,7 +212,7 @@ export class ThorCard extends LitElement {
     const language = hass?.language || hass?.locale?.language || 'en';
     const dark = config.theme === 'dark' || (config.theme !== 'light' && !!hass?.themes?.darkMode);
     const entity = hass && resolveEntity(hass, config);
-    const data = entity?.attributes.thor_card;
+    const data = this.cardData(entity);
     const initialization = cardInitialization(hass, config);
     if (initialization !== 'ready' || !hass || !entity || !data)
       return renderCardNotice(initialization, language, dark, config.name || 'Growatt THOR');

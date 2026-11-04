@@ -51,6 +51,7 @@ def _install_home_assistant_stand_ins():
     core = _module("homeassistant.core")
     _default(core, "HomeAssistant", object)
     _default(core, "ServiceCall", object)
+    _default(core, "callback", lambda fn: fn)
     _default(_module("homeassistant.const"), "Platform", _Platform)
     _default(
         _module("homeassistant.components.persistent_notification"),

@@ -90,8 +90,17 @@ custom elements and `window.customCards` entries. The URL includes the manifest
 version; registration occurs once per HA process. Reload open clients after an
 upgrade.
 
-The status sensor's versioned `thor_card` attribute supplies bounded display data
-and registry-resolved entity IDs. It excludes raw transactions and configured
+The versioned `thor_card` payload supplies bounded display data and
+registry-resolved entity IDs. The cards receive it from the
+`growatt_thor/card/subscribe` WebSocket subscription
+(`shared/card-subscription.ts`). The status sensor's `thor_card` attribute
+carries the same payload and remains the fallback in these cases: no data has
+arrived yet, the subscription was refused (for example by an older
+integration), or the entry was unloaded. After a refusal or an unload, the
+cards try again after 30 seconds. The PV boost dialog and the entity lookup
+still read the attribute.
+
+The payload excludes raw transactions and configured
 authorization lists. A session may expose its observed identifier and the card
 name captured at session start; this does not expose the RFID allowlist.
 

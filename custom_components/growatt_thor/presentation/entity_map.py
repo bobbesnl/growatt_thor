@@ -1,15 +1,18 @@
-"""Dashboard control IDs selected from the owning config entry's registry."""
+"""Dashboard control IDs from the entry's registry and the assembled card payload."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers import entity_registry as er
 
 from ..const import DOMAIN
+from .card_data import dashboard_attributes
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
+
+    from ..coordinator import GrowattCoordinator
 
 
 def dashboard_entity_map(hass: HomeAssistant, entry_id: str | None) -> dict[str, str]:
@@ -33,3 +36,10 @@ def dashboard_entity_map(hass: HomeAssistant, entry_id: str | None) -> dict[str,
         and item.unique_id[len(prefix) :] in wanted
         and not item.disabled_by
     }
+
+
+def card_payload(hass: HomeAssistant, coordinator: GrowattCoordinator) -> dict[str, Any]:
+    """Build the card contract shared by the attribute and the subscription."""
+    data = dashboard_attributes(coordinator)
+    data["entities"] = dashboard_entity_map(hass, coordinator.source_instance_id)
+    return data

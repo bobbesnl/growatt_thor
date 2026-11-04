@@ -23,6 +23,24 @@ from custom_components.growatt_thor.const import (
 )
 
 
+@pytest.fixture(autouse=True, scope="session")
+def start_pycares_shutdown_thread() -> None:
+    """Start pycares' process-wide teardown thread before any leak check.
+
+    pycares 5 starts one daemon thread the first time a DNS channel closes,
+    for example after ``hass_ws_client``. The harness for Home Assistant
+    2024.12 reports it as a thread leaked by that test; newer harnesses
+    tolerate it.
+    """
+    try:
+        import pycares
+    except ImportError:
+        return
+    manager = getattr(pycares, "_shutdown_manager", None)
+    if manager is not None:
+        manager.start()
+
+
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
     """Load the integration from custom_components/ in every test."""

@@ -49,6 +49,7 @@ class EntryRuntime(MutableMapping[str, Any]):
     refresh_dashboard: Callable[[], Awaitable[None]] | None = None
     persist_charger_identity: Callable[[str], None] | None = None
     session_history_unsub: Callable[[], None] | None = None
+    card_subscriptions: set[Callable[[], None]] | None = None
     owns_legacy_history: bool | None = None
     _present: dict[str, None] = field(default_factory=dict, init=False, repr=False)
 

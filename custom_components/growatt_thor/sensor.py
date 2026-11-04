@@ -24,8 +24,7 @@ from .energy.site_inputs import coverage_percent
 from .entity import ThorEntity
 from .ocpp.core.diagnostics import boot_notification_field
 from .ocpp.core.status import OCPP_STATUS_OPTIONS
-from .presentation.card_data import dashboard_attributes
-from .presentation.entity_map import dashboard_entity_map
+from .presentation.entity_map import card_payload
 from .runtime.write_results import COMMAND_COMPLETION_STATUSES
 from .sensor_descriptions import (
     CONFIGURATION_SENSOR_DESCRIPTIONS,
@@ -382,9 +381,9 @@ class StatusSensor(BaseSensor):
         }
 
     def _dashboard_attributes(self) -> dict[str, Any]:
-        data = dashboard_attributes(self.coordinator)
-        data["entities"] = dashboard_entity_map(self.hass, self.coordinator.source_instance_id)
-        return data
+        # The card prefers the WebSocket subscription with the same payload;
+        # the attribute stays as its fallback.
+        return card_payload(self.hass, self.coordinator)
 
 
 class ThorSensor(ThorEntity, SensorEntity):

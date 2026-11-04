@@ -44,6 +44,10 @@ from .energy.options import CONF_BATTERY_POWER_ENTITY, CONF_BATTERY_POWER_SIGN
 from .energy.sources import BATTERY_POSITIVE_DISCHARGE
 from .energy.stop_guard import EnergyStopGuard
 from .ocpp.growatt.server import start_ocpp_server
+from .presentation.card_subscription import (
+    async_register_card_websocket,
+    end_card_subscriptions,
+)
 from .presentation.frontend import async_register_frontend
 from .runtime.entity_migrations import (
     LEGACY_SESSION_DURATION_UNIT_MIGRATION,
@@ -55,6 +59,7 @@ from .runtime.entity_migrations import (
 from .runtime.keys import (
     ACTIVE_CHARGE_POINT,
     APPEND_SESSION_TO_CSV,
+    CARD_SUBSCRIPTIONS,
     COORDINATOR,
     ENERGY_STOP_GUARD,
     OWNS_LEGACY_HISTORY,
@@ -299,6 +304,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     async_register_pv_linkage_service(hass)
     async_register_target_services(hass)
     async_register_session_websocket(hass)
+    async_register_card_websocket(hass)
     return True
 
 
@@ -413,6 +419,7 @@ async def _create_coordinator(
     coordinator.site_accounting_options = dict(entry.data)
     await coordinator.async_load_storage()
     runtime_data[COORDINATOR] = coordinator
+    runtime_data[CARD_SUBSCRIPTIONS] = set()
     runtime_data[SKIP_POLLING_UNTIL] = 0.0
     runtime_data[APPEND_SESSION_TO_CSV] = lambda session: _append_session_to_csv(
         hass, coordinator, session
@@ -546,6 +553,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ThorConfigEntry) -> boo
     if stop_history := runtime_data.get(SESSION_HISTORY_UNSUB):
         stop_history()
 
+    # Card subscriptions fall back to the attribute until the reload.
+    end_card_subscriptions(runtime_data.get(CARD_SUBSCRIPTIONS))
     coordinator = runtime_data.get(COORDINATOR)
     if coordinator is not None:
         # The write queue may intentionally be waiting for a reconnect.  Stop

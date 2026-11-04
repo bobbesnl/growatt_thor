@@ -144,6 +144,7 @@ HOMEASSISTANT_RUNTIME_IMPORTERS = frozenset(
         *PLATFORM_MODULES,
         "charging.pv_service",
         "coordinator",
+        "presentation.card_subscription",
         "presentation.entity_map",
         "presentation.frontend",
         "runtime.action_errors",
