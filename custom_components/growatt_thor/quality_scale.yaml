@@ -111,4 +111,9 @@ rules:
     comment: The integration makes no HTTP requests; it runs an OCPP WebSocket server.
   strict-typing:
     status: todo
-    comment: Strict mypy covers the whole integration. Home Assistant and the ocpp library are checked through focused local stubs, not their own type information.
+    comment: >-
+      Strict mypy covers the whole integration, but against focused local stubs
+      for Home Assistant instead of its own type information. The ocpp library
+      ships no py.typed marker, so its calls cannot be checked. A strict run
+      against real Home Assistant types still reports errors, mostly import
+      paths that Home Assistant does not re-export.
