@@ -61,6 +61,14 @@ await writeFile(
 );
 console.log(`Built simulator with ${Object.keys(icons).length} MDI icons`);
 await build({
+  entryPoints: ['frontend/preview/ha-form.ts'],
+  outfile: 'frontend/preview/ha-form.bundle.js',
+  bundle: true,
+  format: 'esm',
+  target: 'es2022',
+  minify: true,
+});
+await build({
   entryPoints: ['frontend/preview/goal-panel.ts'],
   outfile: 'frontend/preview/goal-panel.bundle.js',
   bundle: true,

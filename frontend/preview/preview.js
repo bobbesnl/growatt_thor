@@ -1,4 +1,5 @@
 import './ha-icon.bundle.js';
+import './ha-form.bundle.js';
 import { documentationHistory } from './documentation-data.bundle.js';
 import { exampleGoal } from './goal-panel.bundle.js';
 await import(`../../custom_components/growatt_thor/frontend/thor-card.js?preview=${Date.now()}`);
