@@ -22,8 +22,8 @@ ENTITIES = {
     "load_enable": ("switch", "LoadBalancingEnableSwitch", "G_ExternalLimitPowerEnable", True),
     "lcd": ("switch", "LcdDisplaySwitch", "G_LCDCloseEnable", True),
     "mode": ("select", "WorkingModeSelect", "G_OffPeakEnable", "off_peak"),
-    "warm_up": ("switch", "WarmUpSwitch", "G_FullContinueChargeEnable", True),
-    "warm_up_off": ("switch", "WarmUpSwitch", "G_FullContinueChargeEnable", False),
+    "warm_up": ("switch", "CONTROL_SWITCHES:warm_up", "G_FullContinueChargeEnable", True),
+    "warm_up_off": ("switch", "CONTROL_SWITCHES:warm_up", "G_FullContinueChargeEnable", False),
     "authorization": ("select", "AuthorizationModeSelect", "G_ChargerMode", "rfid_only"),
     "load_enable_off": ("switch", "LoadBalancingEnableSwitch", "G_ExternalLimitPowerEnable", False),
     "lcd_off": ("switch", "LcdDisplaySwitch", "G_LCDCloseEnable", False),
@@ -40,6 +40,19 @@ FIELDS = (
     "auto_charge_start_time_pending",
     "auto_charge_stop_time_pending",
 )
+
+
+# Entities declared from descriptions are named "<DESCRIPTIONS>:<key>".
+DESCRIBED_ENTITY_CLASSES = {"CONTROL_SWITCHES": "ConfigurationControlSwitch"}
+
+
+def build_entity(platform, class_name, coordinator, entry):
+    module = platforms[platform]
+    if ":" not in class_name:
+        return getattr(module, class_name)(coordinator, entry)
+    descriptions, key = class_name.split(":")
+    description = next(item for item in getattr(module, descriptions) if item.key == key)
+    return getattr(module, DESCRIBED_ENTITY_CLASSES[descriptions])(coordinator, entry, description)
 
 
 def safe(value):
@@ -100,7 +113,7 @@ async def capture(name, outcome):
     c.schedule_configuration_refresh = refresh
     c.write_queue.min_write_interval = c.write_queue.poll_pause_after_write = 0
     platform, class_name, key, value = ENTITIES[name]
-    entity = getattr(platforms[platform], class_name)(c, SimpleNamespace(entry_id="entry-test"))
+    entity = build_entity(platform, class_name, c, SimpleNamespace(entry_id="entry-test"))
     entity.hass = c.hass
     entity.on_state_write = lambda: trace.append(["entity", safe(entity.current_option)])
     original_update = c.update_configuration_value

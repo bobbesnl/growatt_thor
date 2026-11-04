@@ -12,7 +12,7 @@ from datetime import time
 from types import SimpleNamespace
 
 from tests.support import FakeHass, build_coordinator
-from tests.test_control_write_contracts import ENTITIES, configuration, platforms
+from tests.test_control_write_contracts import ENTITIES, build_entity, configuration
 
 REPORTED = {
     "G_WorkingMode": "Fast",
@@ -80,7 +80,7 @@ class ControlWriteGuardTest(unittest.IsolatedAsyncioTestCase):
         self.callbacks = []
         c.schedule_auto_charge_schedule_write = self.callbacks.append
         platform, class_name, _key, value = ENTITIES[name]
-        entity = getattr(platforms[platform], class_name)(c, SimpleNamespace(entry_id="entry-test"))
+        entity = build_entity(platform, class_name, c, SimpleNamespace(entry_id="entry-test"))
         entity.hass = c.hass
         self.addAsyncCleanup(c.write_queue.async_shutdown)
         return c, entity, platform, value

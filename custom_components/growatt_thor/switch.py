@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
@@ -24,9 +25,8 @@ from .charging.control_capabilities import (
     control_is_applicable,
     encode_control_value,
 )
-from .configuration.controls import GrowattConfigurationControlMixin
+from .configuration.controls import ConfigurationControl
 from .configuration.keys import KEY_EXTERNAL_LIMIT_POWER_ENABLE, KEY_LCDCLOSE_ENABLE
-from .configuration.values import configuration_entity_state
 from .configuration.writer import ConfigurationWrite, ConfigurationWriter, WritePolicy
 from .configuration.writes import (
     pending_configuration_value,
@@ -47,7 +47,10 @@ async def async_setup_entry(
         [
             LoadBalancingEnableSwitch(coordinator, entry),
             LcdDisplaySwitch(coordinator, entry),
-            WarmUpSwitch(coordinator, entry),
+            *(
+                ConfigurationControlSwitch(coordinator, entry, description)
+                for description in CONTROL_SWITCHES
+            ),
         ]
     )
 
@@ -277,49 +280,65 @@ class LcdDisplaySwitch(ThorEntity, SwitchEntity):
         await self._writer.async_request(value)
 
 
-class BaseModeAwareSwitch(
-    GrowattConfigurationControlMixin,
-    ThorEntity,
-    SwitchEntity,
-):
-    """Base class for verified boolean Growatt configuration controls."""
+@dataclass(frozen=True, kw_only=True)
+class ConfigurationControlSwitchDescription:
+    """Declare one verified boolean control; the unique ID is ``<entry>_<key>_control``."""
+
+    key: str
+    control: ChargingControl
+    icon: str
+
+
+CONTROL_SWITCHES = (
+    # Allow compatible vehicles to draw power after reaching full charge.
+    ConfigurationControlSwitchDescription(
+        key="warm_up",
+        control=ChargingControl.WARM_UP,
+        icon="mdi:car-defrost-front",
+    ),
+)
+
+
+class ConfigurationControlSwitch(ThorEntity, SwitchEntity):
+    """Write one verified boolean Growatt configuration control."""
 
     coordinator: GrowattCoordinator
 
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry, key: str) -> None:
+    def __init__(
+        self,
+        coordinator: GrowattCoordinator,
+        entry: ConfigEntry,
+        description: ConfigurationControlSwitchDescription,
+    ) -> None:
         super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_{key}_control"
+        self._description = description
+        self._configuration = ConfigurationControl(coordinator, description.control)
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}_control"
+        self._attr_translation_key = description.key
+        self._attr_icon = description.icon
 
     @property
     def is_on(self) -> bool | None:
-        state = configuration_entity_state(
-            self._configuration_key,
-            self._configuration_value,
-        )
+        state = self._configuration.state
         if state is None:
             return None
         return state == "enabled"
 
     @property
     def available(self) -> bool:
-        return super().available and self._control_available
+        return super().available and self._configuration.available
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        return self._configuration.attributes
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await self._async_write_configuration(encode_control_value(self._control, True))
+        await self._configuration.async_write(encode_control_value(self._description.control, True))
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self._async_write_configuration(encode_control_value(self._control, False))
-
-
-class WarmUpSwitch(BaseModeAwareSwitch):
-    """Allow compatible vehicles to draw power after reaching full charge."""
-
-    _control = ChargingControl.WARM_UP
-    _attr_translation_key = "warm_up"
-    _attr_icon = "mdi:car-defrost-front"
-
-    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "warm_up")
+        await self._configuration.async_write(
+            encode_control_value(self._description.control, False)
+        )
