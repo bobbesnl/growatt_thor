@@ -2682,8 +2682,8 @@ input:focus-visible {
   >
     <td>
       ${l(r.start_time)}
-      ${r.session_id?z`<small class="session-id">ID: ${r.session_id}</small>`:N}
       ${r.active?z`<span class="active-badge">${o("active")}</span>`:N}
+      ${r.session_id?z`<small class="session-id">ID: ${r.session_id}</small>`:N}
     </td>
     <td class="optional">${r.active?o("active"):l(r.end_time)}</td>
     <td class="num">
@@ -2953,7 +2953,8 @@ tbody tr:last-child td {
   color: var(--muted);
   font-size: 10px;
   font-weight: normal;
-  margin-top: 3px;
+  line-height: 1.2;
+  margin-top: 1px;
 }
 tbody tr {
   cursor: pointer;
@@ -3125,8 +3126,11 @@ th.num {
   font-weight: normal;
   overflow-wrap: anywhere;
 }
+/* Second line under the start date, like the cost basis under the cost. */
 .session-table .session-id {
-  margin-inline-start: 6px;
+  display: block;
+  line-height: 1.2;
+  margin-top: 1px;
 }
 .session-tile-heading:empty {
   display: none;

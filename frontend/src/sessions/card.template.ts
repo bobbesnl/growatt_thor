@@ -190,8 +190,8 @@ function renderSessionRow(row: SessionItem, view: SessionCardView, actions: Sess
   >
     <td>
       ${fmtDate(row.start_time)}
-      ${row.session_id ? html`<small class="session-id">ID: ${row.session_id}</small>` : nothing}
       ${row.active ? html`<span class="active-badge">${t('active')}</span>` : nothing}
+      ${row.session_id ? html`<small class="session-id">ID: ${row.session_id}</small>` : nothing}
     </td>
     <td class="optional">${row.active ? t('active') : fmtDate(row.end_time)}</td>
     <td class="num">
