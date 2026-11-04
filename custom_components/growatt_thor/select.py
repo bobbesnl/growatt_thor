@@ -32,7 +32,6 @@ from .charging.pv_linkage import PvBoostMode
 from .configuration.controls import ConfigurationControl
 from .configuration.values import (
     CONFIGURATION_ENTITY_OPTIONS,
-    ConfigurationScalar,
 )
 from .configuration.writer import ConfigurationWrite, ConfigurationWriter, WritePolicy
 from .const import CONFIGURATION_WRITE_SPACING_SECONDS
@@ -334,8 +333,11 @@ class ConfigurationControlSelect(ThorEntity, SelectEntity):
         self._attr_options = list(CONFIGURATION_ENTITY_OPTIONS[self._configuration.key])
 
     @property
-    def current_option(self) -> ConfigurationScalar:
-        return self._configuration.state
+    def current_option(self) -> str | None:
+        # Every select key maps its raw value through entity aliases, so the
+        # state is one of the option strings or unknown.
+        state = self._configuration.state
+        return state if isinstance(state, str) else None
 
     @property
     def available(self) -> bool:
@@ -367,7 +369,7 @@ class PvBoostDraftSelect(ThorEntity, SelectEntity):
         self._attr_unique_id = f"{entry.entry_id}_pv_boost_mode_draft"
 
     @property
-    def current_option(self) -> ConfigurationScalar:
+    def current_option(self) -> str | None:
         mode = self.coordinator.pv_draft.boost_mode
         return mode.value if mode is not None else None
 
