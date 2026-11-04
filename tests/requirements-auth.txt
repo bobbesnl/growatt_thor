@@ -1,7 +1,8 @@
 # Test dependencies for OCPP, validation, form serialization and the pytest
 # runner with coverage (no HA required).
 ocpp>=2.0.0,<3
-websockets>=12,<14
+# 13.1 is the manifest minimum and the first release with the asyncio server.
+websockets>=13.1,<14
 voluptuous>=0.13
 voluptuous-serialize>=2.6.0
 mypy==2.4.1

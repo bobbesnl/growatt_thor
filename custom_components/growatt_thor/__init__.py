@@ -94,7 +94,7 @@ from .targets.services import (
 from .timestamps import installation_time_zone
 
 if TYPE_CHECKING:
-    from websockets.legacy.server import WebSocketServer
+    from websockets.asyncio.server import Server as WebSocketServer
 
     from .runtime.entry import EntryRuntime, ThorConfigEntry
     from .sessions.events import SessionEvent

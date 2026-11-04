@@ -218,9 +218,10 @@ Translation checks cover all eight languages and preserve format placeholders. `
   upgrade.
 - **`websockets>=13.1`** in `manifest.json`, the lowest version Home Assistant
   2024.12 allows. It has no upper bound so it cannot conflict with Home
-  Assistant's own constraint. The server still uses the deprecated
-  `websockets.legacy` API, which the CI matrix exercises up to the newest
-  release.
+  Assistant's own constraint. The server uses the `websockets.asyncio` API,
+  available from 13.0; the CI matrix exercises it up to the newest release.
+  It keeps the legacy server's handshake: `ocpp1.6` when the charger offers
+  it, otherwise no subprotocol instead of an HTTP 400.
 - **Deprecations.** Entities, services, service fields and options are removed
   at the earliest one minor release after they were deprecated. The release
   that deprecates them says so in `CHANGELOG.md` and, where users must act,

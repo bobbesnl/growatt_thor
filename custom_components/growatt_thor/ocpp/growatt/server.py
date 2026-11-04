@@ -18,7 +18,7 @@ from ocpp.v16.enums import (
     RegistrationStatus,
     RemoteStartStopStatus,
 )
-from websockets.server import serve
+from websockets.asyncio.server import Server, ServerConnection, serve
 from websockets.typing import Subprotocol
 
 from ...charging.control_capabilities import CHARGER_MODE_PLUG_AND_CHARGE
@@ -58,7 +58,6 @@ from .actions import OCPP_ACTIONS, OCPP_RESPONSE_TIMEOUT_SECONDS
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
-    from websockets.legacy.server import WebSocketServer, WebSocketServerProtocol
 
     from ...coordinator import GrowattCoordinator
 
@@ -154,7 +153,7 @@ class GrowattChargePoint(OcppChargePoint):
     def __init__(
         self,
         cp_id: str,
-        websocket: WebSocketServerProtocol,
+        websocket: ServerConnection,
         coordinator: GrowattCoordinator,
         hass: HomeAssistant,
     ) -> None:
@@ -934,7 +933,7 @@ class GrowattChargePoint(OcppChargePoint):
 
 
 async def _close_websocket(
-    websocket: WebSocketServerProtocol, code: int, reason: str, cp_id: str, *, context: str
+    websocket: ServerConnection, code: int, reason: str, cp_id: str, *, context: str
 ) -> None:
     """Bound a close handshake and abort its transport only after a timeout."""
     try:
@@ -953,7 +952,7 @@ async def _close_websocket(
 
 
 async def _on_connect(
-    websocket: WebSocketServerProtocol,
+    websocket: ServerConnection,
     path: str,
     coordinator: GrowattCoordinator,
     hass: HomeAssistant,
@@ -1052,19 +1051,41 @@ async def _on_connect(
             pass
 
 
+def _select_ocpp_subprotocol(
+    connection: ServerConnection, subprotocols: Sequence[Subprotocol]
+) -> Subprotocol | None:
+    """Select ocpp1.6 when offered; otherwise continue without a subprotocol.
+
+    The websockets asyncio server refuses a client that offers no matching
+    subprotocol with HTTP 400. The legacy server accepted it, and the THOR's
+    handshake is not documented, so a charger that omits the header or offers
+    another version must still connect.
+    """
+    if OCPP_SUBPROTOCOL in subprotocols:
+        return Subprotocol(OCPP_SUBPROTOCOL)
+    return None
+
+
 async def start_ocpp_server(
     host: str, port: int, coordinator: GrowattCoordinator, hass: HomeAssistant
-) -> WebSocketServer:
+) -> Server:
+    async def handle_connection(connection: ServerConnection) -> None:
+        # The handler only runs after a completed handshake, so the request
+        # is always present.
+        path = connection.request.path if connection.request is not None else ""
+        await _on_connect(connection, path, coordinator, hass)
+
     try:
         _LOGGER.info("Starting OCPP server on %s:%s", host, port)
 
         await hass.async_add_executor_job(_preload_ocpp_schemas)
 
         return await serve(
-            lambda ws, path: _on_connect(ws, path, coordinator, hass),
+            handle_connection,
             host,
             port,
             subprotocols=[Subprotocol(OCPP_SUBPROTOCOL)],
+            select_subprotocol=_select_ocpp_subprotocol,
             # THOR uses OCPP messages for keepalive; the activity watchdog
             # detects stale sockets without websocket-level ping futures.
             ping_interval=None,

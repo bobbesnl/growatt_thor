@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- The OCPP server uses the current `websockets` server API instead of the deprecated legacy one, so Home Assistant no longer logs its deprecation warnings. A charger that connects without the `ocpp1.6` subprotocol is still accepted.
 - The charger and session cards receive their data over a WebSocket subscription that sends only changes. They fall back to the Status sensor's `thor_card` attribute when the subscription is unavailable, so an older browser bundle or integration keeps working.
 - Require Home Assistant 2024.12.0 or newer. HACS now shows this requirement before installation.
 

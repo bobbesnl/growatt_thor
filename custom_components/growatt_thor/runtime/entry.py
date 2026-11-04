@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
-    from websockets.legacy.server import WebSocketServer
+    from websockets.asyncio.server import Server as WebSocketServer
 
     from ..coordinator import GrowattCoordinator
     from ..energy.stop_guard import EnergyStopGuard
