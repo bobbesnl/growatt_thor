@@ -43,6 +43,7 @@ class SimulatedThor(ChargePoint):
         # library handles one frame at a time, so the simulator stays silent
         # until then, like a THOR that lost the answer.
         self.hold_remote_stop_answer: asyncio.Event | None = None
+        self.connection: Any = connection
 
     # Requests from the integration
 
@@ -137,15 +138,22 @@ class SimulatedThor(ChargePoint):
 
 @asynccontextmanager
 async def connected_thor(
-    port: int, charge_point_id: str = "THOR-SIM"
+    port: int,
+    charge_point_id: str = "THOR-SIM",
+    subprotocols: list[str] | None = ["ocpp1.6"],  # noqa: B006 - never mutated
 ) -> AsyncIterator[SimulatedThor]:
-    """Connect a simulated charger and close the socket when the test is done."""
+    """Connect a simulated charger and close the socket when the test is done.
+
+    ``subprotocols`` is what the charger offers in its handshake; ``None``
+    sends no ``Sec-WebSocket-Protocol`` header at all.
+    """
     connection = await websockets.connect(
         f"ws://127.0.0.1:{port}/ocpp/ws/{charge_point_id}",
-        subprotocols=["ocpp1.6"],
+        subprotocols=subprotocols,
         ping_interval=None,
     )
     thor = SimulatedThor(charge_point_id, connection)
+    thor.connection = connection
     listener = asyncio.create_task(thor.start())
     try:
         yield thor

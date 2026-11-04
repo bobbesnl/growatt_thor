@@ -338,3 +338,38 @@ async def test_unanswered_remote_stop_is_uncertain_and_not_repeated(
         await thor.status("Finishing")
         await _wait_for(lambda: _state(hass, charging) == "off", "the charger's own stop observed")
         assert thor.remote_stops.qsize() == 1
+
+
+@pytest.mark.parametrize(
+    ("offered", "negotiated"),
+    [(["ocpp1.6"], "ocpp1.6"), (None, None), (["ocpp2.0.1"], None)],
+    ids=["ocpp1.6", "no-header", "other-version"],
+)
+async def test_handshake_accepts_a_charger_without_the_ocpp_subprotocol(
+    hass: HomeAssistant,
+    loaded_entry: MockConfigEntry,
+    offered: list[str] | None,
+    negotiated: str | None,
+) -> None:
+    # The firmware's handshake is not documented. The server selects
+    # ocpp1.6 when offered and otherwise continues without a subprotocol
+    # instead of refusing the charger.
+    async with connected_thor(loaded_entry.data[CONF_PORT], subprotocols=offered) as thor:
+        assert thor.connection.subprotocol == negotiated
+        assert (await thor.boot()).status == "Accepted"
+
+
+async def test_a_connection_outside_the_ocpp_path_is_closed(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    connection = await websockets.connect(
+        f"ws://127.0.0.1:{loaded_entry.data[CONF_PORT]}/other/THOR-SIM",
+        subprotocols=["ocpp1.6"],
+        ping_interval=None,
+    )
+    with pytest.raises(websockets.exceptions.ConnectionClosed) as closed:
+        await asyncio.wait_for(connection.recv(), TIMEOUT)
+    assert closed.value.rcvd is not None
+    assert closed.value.rcvd.code == 1000
+    charge_point_id = _entity_id(hass, loaded_entry, "sensor", "charge_point_id")
+    assert _state(hass, charge_point_id) != "THOR-SIM"
