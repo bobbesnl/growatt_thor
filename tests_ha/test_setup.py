@@ -24,7 +24,7 @@ from custom_components.growatt_thor.const import (
 
 from .conftest import free_port, port_is_free
 
-PLATFORMS = {"button", "number", "select", "sensor", "switch", "time"}
+PLATFORMS = {"binary_sensor", "button", "number", "select", "sensor", "switch", "time"}
 
 
 async def _setup(hass: HomeAssistant, entry: MockConfigEntry) -> None:

@@ -364,6 +364,20 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "vehicle_connected": {
+        "name": "Vozilo priključeno"
+      },
+      "charging": {
+        "name": "Polnjenje"
+      },
+      "charger_fault": {
+        "name": "Napaka polnilnika"
+      },
+      "charger_connected": {
+        "name": "Polnilnik povezan"
+      }
+    },
     "sensor": {
       "server_url": {
         "name": "URL strežnika"

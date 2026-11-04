@@ -364,6 +364,20 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "vehicle_connected": {
+        "name": "Voertuig verbonden"
+      },
+      "charging": {
+        "name": "Laden"
+      },
+      "charger_fault": {
+        "name": "Laderstoring"
+      },
+      "charger_connected": {
+        "name": "Lader verbonden"
+      }
+    },
     "sensor": {
       "server_url": {
         "name": "Server-URL"

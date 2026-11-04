@@ -364,6 +364,20 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "vehicle_connected": {
+        "name": "Vehicle connected"
+      },
+      "charging": {
+        "name": "Charging"
+      },
+      "charger_fault": {
+        "name": "Charger fault"
+      },
+      "charger_connected": {
+        "name": "Charger connected"
+      }
+    },
     "sensor": {
       "server_url": {
         "name": "Server URL"

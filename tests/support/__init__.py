@@ -257,6 +257,14 @@ def install_sensor_stubs():
         default(const, unit, _named(unit))
 
 
+def install_binary_sensor_stubs():
+    install_sensor_stubs()
+    binary_sensor = module("homeassistant.components.binary_sensor")
+    default(binary_sensor, "BinarySensorEntity", type("BinarySensorEntity", (), {}))
+    default(binary_sensor, "BinarySensorDeviceClass", _named("BinarySensorDeviceClass"))
+    default(binary_sensor, "BinarySensorEntityDescription", _Description)
+
+
 def load_sensor_module():
     """Load the actual sensor platform with the shared minimal HA types."""
     install_sensor_stubs()

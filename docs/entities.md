@@ -77,6 +77,21 @@ both directions of its Random Delay switch wrote
 `G_RandDelayChargeTime=0`. The integration therefore exposes only the reported
 numeric delay and does not provide an unverified Random Delay control.
 
+### Binary sensors
+
+| Entity name       | Default entity ID                                         | Purpose                                                                                    |
+| ----------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Vehicle connected | `binary_sensor.growatt_thor_ev_charger_vehicle_connected` | On while a vehicle is plugged in (Preparing, Charging, Suspended, Finishing); off on Available |
+| Charging          | `binary_sensor.growatt_thor_ev_charger_charging`          | On while the charger reports Charging                                                      |
+| Charger fault     | `binary_sensor.growatt_thor_ev_charger_charger_fault`     | Diagnostic; on while the charger reports Faulted                                           |
+| Charger connected | `binary_sensor.growatt_thor_ev_charger_charger_connected` | Diagnostic; on while the OCPP connection is open                                           |
+
+The first three follow the Status sensor. They are unavailable while the
+charger is offline or has not reported a status yet. Vehicle connected stays
+`unknown` for Faulted, Reserved, Unavailable and Idle, because these statuses do
+not say whether a vehicle is plugged in. Charger connected is always available
+and turns off when the connection is lost.
+
 ### Controls
 
 | Entity name                      | Type   | Default entity ID                                                 | Purpose                                                                            |
@@ -151,6 +166,7 @@ a restart, so a repeated vendor session record is not counted twice. For retaine
 history and exports, see [sessions](sessions.md).
 
 - Live measurements, session totals, and effective operating states are normal sensors.
+- Plugged-in, charging, fault and connection states are also available as binary sensors for simple automation triggers.
 - Values that can safely change charger behavior use `select`, `number`, `switch`, or `time` entities in the Configuration category.
 - Retained vendor fields that are static, compound, or not safely writable are diagnostic sensors and keep their raw OCPP value as an attribute.
 - Start and Stop are operational buttons rather than configuration entities.

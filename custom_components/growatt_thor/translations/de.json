@@ -364,6 +364,20 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "vehicle_connected": {
+        "name": "Fahrzeug verbunden"
+      },
+      "charging": {
+        "name": "Lädt"
+      },
+      "charger_fault": {
+        "name": "Wallbox-Störung"
+      },
+      "charger_connected": {
+        "name": "Wallbox verbunden"
+      }
+    },
     "sensor": {
       "server_url": {
         "name": "Server-URL"

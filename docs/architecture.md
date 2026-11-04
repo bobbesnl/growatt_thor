@@ -19,7 +19,7 @@ its right; information from the charger flows back as observations.
 flowchart LR
   subgraph HA["Home Assistant adapters"]
     direction TB
-    Platforms["Entity platforms<br/>sensor.py, number.py, switch.py, select.py, time.py, button.py"]
+    Platforms["Entity platforms<br/>sensor.py, binary_sensor.py, number.py, switch.py, select.py, time.py, button.py"]
     Flows["config_flow.py, diagnostics.py"]
     Services["runtime/service_setup.py, targets/services.py, sessions/websocket.py"]
     Card["presentation/ and frontend/src/"]
@@ -135,6 +135,7 @@ from Lit lifecycle and HA calls. See
 | UTC parsing and installation time zone | `timestamps.py`; display normalization in `sessions/display_times.py` |
 | Entity naming and charger/meter device metadata | `entity.py` |
 | Simple sensor definitions | `sensor_descriptions.py` (`ThorSensorDescription`: value, availability, attributes, unit, device); `sensor.py::described_sensor` builds the entity |
+| Binary sensors | `binary_sensor.py` (`BINARY_SENSOR_DESCRIPTIONS`: on/off and availability from `ChargerSnapshot`) |
 | Persisted site/battery option keys | `energy/options.py` |
 | Site and battery option validation | `energy/site_options.py` |
 | Sensor discovery for option forms | `source_discovery.py` |

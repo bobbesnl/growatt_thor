@@ -364,6 +364,20 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "vehicle_connected": {
+        "name": "Veicolo collegato"
+      },
+      "charging": {
+        "name": "In carica"
+      },
+      "charger_fault": {
+        "name": "Guasto della stazione di ricarica"
+      },
+      "charger_connected": {
+        "name": "Stazione di ricarica connessa"
+      }
+    },
     "sensor": {
       "server_url": {
         "name": "URL del server"

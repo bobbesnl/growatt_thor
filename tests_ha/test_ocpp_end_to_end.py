@@ -100,7 +100,15 @@ async def test_remote_start_meter_values_and_remote_stop(
         firmware = _entity_id(hass, loaded_entry, "sensor", "firmware_version")
         await _wait_for(lambda: _state(hass, firmware) == "THOR_11AS-SIM", "firmware reported")
 
+        plugged = _entity_id(hass, loaded_entry, "binary_sensor", "vehicle_connected")
+        charging = _entity_id(hass, loaded_entry, "binary_sensor", "charging")
+        connection = _entity_id(hass, loaded_entry, "binary_sensor", "charger_connected")
+        assert _state(hass, connection) == "on"
+        await _wait_for(lambda: _state(hass, plugged) == "on", "vehicle reported plugged in")
+        assert _state(hass, charging) == "off"
+
         transaction_id = await _start_session(hass, thor, start)
+        await _wait_for(lambda: _state(hass, charging) == "on", "charging reported")
 
         power = _entity_id(hass, loaded_entry, "sensor", "charging_power")
         await thor.meter_values(transaction_id, power_w=7200, energy_wh=1500)

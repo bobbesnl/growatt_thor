@@ -118,6 +118,7 @@ def _in(module: str, prefixes: frozenset[str]) -> bool:
 PLATFORM_MODULES = frozenset(
     {
         "__init__",
+        "binary_sensor",
         "button",
         "config_flow",
         "diagnostics",

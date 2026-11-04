@@ -364,6 +364,20 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "vehicle_connected": {
+        "name": "Jármű csatlakoztatva"
+      },
+      "charging": {
+        "name": "Töltés"
+      },
+      "charger_fault": {
+        "name": "Töltőhiba"
+      },
+      "charger_connected": {
+        "name": "Töltő csatlakoztatva"
+      }
+    },
     "sensor": {
       "server_url": {
         "name": "Kiszolgáló URL-címe"

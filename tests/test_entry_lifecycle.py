@@ -29,6 +29,7 @@ PACKAGE_NAME = "thor_entry_lifecycle_target"
 
 
 class _Platform:
+    BINARY_SENSOR = "binary_sensor"
     SENSOR = "sensor"
     NUMBER = "number"
     SWITCH = "switch"
