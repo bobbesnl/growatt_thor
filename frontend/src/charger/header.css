@@ -30,8 +30,10 @@ header {
   color: var(--muted);
   font-weight: 400;
 }
+/* A zero basis lets the name yield to an ellipsis before the pills wrap;
+   the pills take their own row only when they no longer fit on their own. */
 h2 {
-  flex: 1 1 80px;
+  flex: 1 1 0;
   min-width: 0;
   margin: 5px 0 0;
   font-size: 21px;
