@@ -20,7 +20,8 @@ sensor = load_sensor_module()
 
 def _sensor_for(energy_wh):
     # Skip the entity constructor: only the coordinator is read by the value.
-    entity = object.__new__(sensor.EnergyChargedSensor)
+    entity = object.__new__(sensor.ThorSensor)
+    entity.entity_description = sensor.SENSOR_DESCRIPTIONS["EnergyChargedSensor"]
     entity.coordinator = SimpleNamespace(energy=energy_wh)
     return entity
 
@@ -38,7 +39,7 @@ class EnergyChargedSensorTest(unittest.TestCase):
 
     def test_sensor_is_total_increasing(self):
         self.assertEqual(
-            sensor.EnergyChargedSensor.entity_description.state_class,
+            sensor.SENSOR_DESCRIPTIONS["EnergyChargedSensor"].state_class,
             sensor.SensorStateClass.TOTAL_INCREASING,
         )
 

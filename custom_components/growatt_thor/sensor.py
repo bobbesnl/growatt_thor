@@ -76,54 +76,57 @@ async def async_setup_entry(
         else []
     )
 
+    def described(name: str, phase: str | None = None) -> ThorSensor:
+        return described_sensor(coordinator, entry, SENSOR_DESCRIPTIONS[name], phase)
+
     async_add_entities(
         [
             #  Status / live
             StatusSensor(coordinator, entry),
             LastChargerFaultSensor(coordinator, entry),
             LastCommandResultSensor(coordinator, entry),
-            ChargePointIdSensor(coordinator, entry),
+            described("ChargePointIdSensor"),
             *boot_sensors,
-            ChargingPowerSensor(coordinator, entry),
-            EnergyChargedSensor(coordinator, entry),
-            ServerUrlSensor(coordinator, entry),
+            described("ChargingPowerSensor"),
+            described("EnergyChargedSensor"),
+            described("ServerUrlSensor"),
             #  Last session
-            LastSessionEnergySensor(coordinator, entry),
-            LastSessionCostSensor(coordinator, entry),
-            LastSessionStartSensor(coordinator, entry),
-            LastSessionEndSensor(coordinator, entry),
-            LastSessionPlugTimeSensor(coordinator, entry),
-            LastSessionUnplugTimeSensor(coordinator, entry),
-            LastSessionDurationSensor(coordinator, entry),
-            LastSessionEffectiveChargingDurationSensor(coordinator, entry),
-            LastSessionTransactionIdSensor(coordinator, entry),
-            LastSessionChargeModeSensor(coordinator, entry),
-            LastSessionWorkModeSensor(coordinator, entry),
+            described("LastSessionEnergySensor"),
+            described("LastSessionCostSensor"),
+            described("LastSessionStartSensor"),
+            described("LastSessionEndSensor"),
+            described("LastSessionPlugTimeSensor"),
+            described("LastSessionUnplugTimeSensor"),
+            described("LastSessionDurationSensor"),
+            described("LastSessionEffectiveChargingDurationSensor"),
+            described("LastSessionTransactionIdSensor"),
+            described("LastSessionChargeModeSensor"),
+            described("LastSessionWorkModeSensor"),
             #  Persistent cumulative total (Energy Dashboard)
-            TotalEnergyChargedSensor(coordinator, entry),
+            described("TotalEnergyChargedSensor"),
             *site_sensors,
             #  Per-phase charging diagnostics
-            CurrentSensor(coordinator, entry, "L1"),
-            CurrentSensor(coordinator, entry, "L2"),
-            CurrentSensor(coordinator, entry, "L3"),
-            VoltageSensor(coordinator, entry, "L1"),
-            VoltageSensor(coordinator, entry, "L2"),
-            VoltageSensor(coordinator, entry, "L3"),
-            PhasePowerSensor(coordinator, entry, "L1"),
-            PhasePowerSensor(coordinator, entry, "L2"),
-            PhasePowerSensor(coordinator, entry, "L3"),
-            TemperatureSensor(coordinator, entry),
+            described("CurrentSensor", "L1"),
+            described("CurrentSensor", "L2"),
+            described("CurrentSensor", "L3"),
+            described("VoltageSensor", "L1"),
+            described("VoltageSensor", "L2"),
+            described("VoltageSensor", "L3"),
+            described("PhasePowerSensor", "L1"),
+            described("PhasePowerSensor", "L2"),
+            described("PhasePowerSensor", "L3"),
+            described("TemperatureSensor"),
             #  Load Balancing Grid sensors
-            ExternalMeterHealthSensor(coordinator, entry),
-            GridPowerSensor(coordinator, entry),
-            GridVoltageSensor(coordinator, entry, "L1"),
-            GridVoltageSensor(coordinator, entry, "L2"),
-            GridVoltageSensor(coordinator, entry, "L3"),
-            GridCurrentSensor(coordinator, entry, "L1"),
-            GridCurrentSensor(coordinator, entry, "L2"),
-            GridCurrentSensor(coordinator, entry, "L3"),
+            described("ExternalMeterHealthSensor"),
+            described("GridPowerSensor"),
+            described("GridVoltageSensor", "L1"),
+            described("GridVoltageSensor", "L2"),
+            described("GridVoltageSensor", "L3"),
+            described("GridCurrentSensor", "L1"),
+            described("GridCurrentSensor", "L2"),
+            described("GridCurrentSensor", "L3"),
             #  Electricity tariff
-            ElectricityPriceSensor(coordinator, entry),
+            described("ElectricityPriceSensor"),
             #  Read-only Growatt configuration
             *configuration_sensors,
         ]
@@ -391,9 +394,13 @@ class ThorSensor(ThorEntity, SensorEntity):
     phase: str | None = None
 
     def __init__(
-        self, coordinator: GrowattCoordinator, entry: ConfigEntry, phase: str | None = None
+        self,
+        coordinator: GrowattCoordinator,
+        entry: ConfigEntry,
+        description: ThorSensorDescription,
+        phase: str | None = None,
     ) -> None:
-        description = self.entity_description
+        self.entity_description = description
         super().__init__(coordinator, entry, device=description.device)
         self.phase = phase
         prefix = "load_balancing_" if description.device == "meter" else ""
@@ -433,104 +440,16 @@ class ThorMeterSensor(ThorSensor):
     _unrecorded_attributes = frozenset({"last_updated_at"})
 
 
-# Compatibility constructors retain the established internal sensor names.
+def described_sensor(
+    coordinator: GrowattCoordinator,
+    entry: ConfigEntry,
+    description: ThorSensorDescription,
+    phase: str | None = None,
+) -> ThorSensor:
+    """Build the entity class matching a description's device.
 
-
-class ServerUrlSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["ServerUrlSensor"]
-
-
-class ChargePointIdSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["ChargePointIdSensor"]
-
-
-class ChargingPowerSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["ChargingPowerSensor"]
-
-
-class EnergyChargedSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["EnergyChargedSensor"]
-
-
-class TotalEnergyChargedSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["TotalEnergyChargedSensor"]
-
-
-class ElectricityPriceSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["ElectricityPriceSensor"]
-
-
-class LastSessionEnergySensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["LastSessionEnergySensor"]
-
-
-class LastSessionCostSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["LastSessionCostSensor"]
-
-
-class LastSessionDurationSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["LastSessionDurationSensor"]
-
-
-class LastSessionEffectiveChargingDurationSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["LastSessionEffectiveChargingDurationSensor"]
-
-
-class LastSessionStartSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["LastSessionStartSensor"]
-
-
-class LastSessionEndSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["LastSessionEndSensor"]
-
-
-class LastSessionPlugTimeSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["LastSessionPlugTimeSensor"]
-
-
-class LastSessionUnplugTimeSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["LastSessionUnplugTimeSensor"]
-
-
-class LastSessionTransactionIdSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["LastSessionTransactionIdSensor"]
-
-
-class LastSessionChargeModeSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["LastSessionChargeModeSensor"]
-
-
-class LastSessionWorkModeSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["LastSessionWorkModeSensor"]
-
-
-class CurrentSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["CurrentSensor"]
-
-
-class VoltageSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["VoltageSensor"]
-
-
-class PhasePowerSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["PhasePowerSensor"]
-
-
-class TemperatureSensor(ThorSensor):
-    entity_description = SENSOR_DESCRIPTIONS["TemperatureSensor"]
-
-
-class ExternalMeterHealthSensor(ThorMeterSensor):
-    entity_description = SENSOR_DESCRIPTIONS["ExternalMeterHealthSensor"]
-
-
-class GridPowerSensor(ThorMeterSensor):
-    entity_description = SENSOR_DESCRIPTIONS["GridPowerSensor"]
-
-
-class GridVoltageSensor(ThorMeterSensor):
-    entity_description = SENSOR_DESCRIPTIONS["GridVoltageSensor"]
-
-
-class GridCurrentSensor(ThorMeterSensor):
-    entity_description = SENSOR_DESCRIPTIONS["GridCurrentSensor"]
+    Home Assistant combines ``_unrecorded_attributes`` per class, so external
+    meter sensors need their own class to exclude ``last_updated_at``.
+    """
+    entity_class = ThorMeterSensor if description.device == "meter" else ThorSensor
+    return entity_class(coordinator, entry, description, phase)

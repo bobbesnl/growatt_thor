@@ -120,19 +120,20 @@ def projection(entity):
     }
 
 
+def build(platform, c, name, phase=None):
+    """Build one sensor from its description; fixture keys keep the description names."""
+    description = platform.SENSOR_DESCRIPTIONS[name]
+    return platform.described_sensor(c, SimpleNamespace(entry_id="entry-test"), description, phase)
+
+
 def snapshot(platform=sensor):
     result = {}
     for case in ("unknown", "reported", "disconnected", "coordinator_failed"):
         c = coordinator(case)
-        result[case] = {
-            name: projection(getattr(platform, name)(c, SimpleNamespace(entry_id="entry-test")))
-            for name in SIMPLE
-        }
+        result[case] = {name: projection(build(platform, c, name)) for name in SIMPLE}
         for name in PHASED:
             for phase in ("L1", "L2", "L3"):
-                result[case][name + ":" + phase] = projection(
-                    getattr(platform, name)(c, SimpleNamespace(entry_id="entry-test"), phase)
-                )
+                result[case][name + ":" + phase] = projection(build(platform, c, name, phase))
     return result
 
 

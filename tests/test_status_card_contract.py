@@ -140,18 +140,19 @@ class StatusCardContractTest(unittest.TestCase):
             ),
         )
         variants = [
-            (sensor.GridPowerSensor, None),
-            (sensor.ExternalMeterHealthSensor, None),
+            ("GridPowerSensor", None),
+            ("ExternalMeterHealthSensor", None),
         ]
         variants += [
             (kind, phase)
-            for kind in (sensor.GridVoltageSensor, sensor.GridCurrentSensor)
+            for kind in ("GridVoltageSensor", "GridCurrentSensor")
             for phase in ("L1", "L2", "L3")
         ]
         self.assertEqual(len(variants), 8)
         for kind, phase in variants:
-            with self.subTest(sensor=kind.__name__, phase=phase):
-                entity = object.__new__(kind)
+            with self.subTest(sensor=kind, phase=phase):
+                entity = object.__new__(sensor.ThorMeterSensor)
+                entity.entity_description = sensor.SENSOR_DESCRIPTIONS[kind]
                 entity.coordinator = c
                 entity.phase = phase
                 self.assertEqual(entity._unrecorded_attributes, frozenset({"last_updated_at"}))

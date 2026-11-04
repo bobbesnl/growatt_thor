@@ -132,7 +132,7 @@ from Lit lifecycle and HA calls. See
 | Enum unwrapping, optional numbers and text | `coerce.py` |
 | UTC parsing and installation time zone | `timestamps.py`; display normalization in `sessions/display_times.py` |
 | Entity naming and charger/meter device metadata | `entity.py` |
-| Simple sensor definitions | `sensor_descriptions.py` (`ThorSensorDescription`: value, availability, attributes, unit, device) |
+| Simple sensor definitions | `sensor_descriptions.py` (`ThorSensorDescription`: value, availability, attributes, unit, device); `sensor.py::described_sensor` builds the entity |
 | Persisted site/battery option keys | `energy/options.py` |
 | Site and battery option validation | `energy/site_options.py` |
 | Sensor discovery for option forms | `source_discovery.py` |

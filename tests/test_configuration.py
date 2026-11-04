@@ -728,7 +728,7 @@ class EntityTranslationTest(unittest.TestCase):
         from tests.support import load_package_module, load_sensor_module
 
         platform = load_sensor_module()
-        description = platform.LastSessionDurationSensor.entity_description
+        description = platform.SENSOR_DESCRIPTIONS["LastSessionDurationSensor"]
         self.assertEqual(description.device_class, platform.SensorDeviceClass.DURATION)
         self.assertEqual(
             description.native_unit_of_measurement,
@@ -737,11 +737,12 @@ class EntityTranslationTest(unittest.TestCase):
             ).UnitOfTime.HOURS,
         )
         self.assertEqual(description.suggested_display_precision, 2)
-        entity = platform.LastSessionDurationSensor(
+        entity = platform.described_sensor(
             SimpleNamespace(
                 sessions=SimpleNamespace(last_session=SimpleNamespace(duration_minutes=90))
             ),
             SimpleNamespace(entry_id="entry"),
+            description,
         )
         self.assertEqual(entity.native_value, 1.5)
 
@@ -933,7 +934,7 @@ class EntityTranslationTest(unittest.TestCase):
 
         platform = load_sensor_module()
         self.assertFalse(
-            platform.ElectricityPriceSensor.entity_description.entity_registry_enabled_default
+            platform.SENSOR_DESCRIPTIONS["ElectricityPriceSensor"].entity_registry_enabled_default
         )
 
     def test_control_state_attributes_exclude_write_lifecycle_details(self):

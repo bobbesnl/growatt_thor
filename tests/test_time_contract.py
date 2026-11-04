@@ -218,18 +218,19 @@ class UtcTimeContractTest(unittest.TestCase):
 
         c = _build_coordinator()
         c.hass.config = types.SimpleNamespace(time_zone="Europe/Berlin")
-        for cls, field in (
-            (sensor.LastSessionStartSensor, "start"),
-            (sensor.LastSessionEndSensor, "end"),
-            (sensor.LastSessionPlugTimeSensor, "plug_time"),
-            (sensor.LastSessionUnplugTimeSensor, "unplug_time"),
+        for name, field in (
+            ("LastSessionStartSensor", "start"),
+            ("LastSessionEndSensor", "end"),
+            ("LastSessionPlugTimeSensor", "plug_time"),
+            ("LastSessionUnplugTimeSensor", "unplug_time"),
         ):
             with self.subTest(field=field):
                 state_field = {"start": "start_time", "end": "end_time"}.get(field, field)
                 c.sessions.last_session = replace(
                     c.sessions.last_session, **{state_field: "2026-07-01 10:00:00"}
                 )
-                entity = object.__new__(cls)
+                entity = object.__new__(sensor.ThorSensor)
+                entity.entity_description = sensor.SENSOR_DESCRIPTIONS[name]
                 entity.coordinator = c
                 self.assertEqual(entity.native_value, "2026-07-01T08:00:00Z")
                 self.assertEqual(
