@@ -8,6 +8,8 @@ import type { CardConfig, CardData, Entity, Hass } from '../src/shared/types';
 import { entity, hass, makeData } from './fixtures';
 
 const FIXTURE = new URL('./fixtures/charger-card-markup.json', import.meta.url);
+// Asset URLs resolve against the module file, so they carry the checkout path.
+const REPOSITORY_URL = new URL('../../', import.meta.url).href;
 const now = Date.parse('2026-09-09T12:00:00Z');
 const idleCommand = { issuedAt: 0, sending: false };
 const actions: CardActions = {
@@ -170,7 +172,8 @@ function renderCases(): Map<string, string> {
             );
             const text = markup(renderCard(view, actions, feedback))
               .replace(/\s+/g, ' ')
-              .replace(/>\s+</g, '><');
+              .replace(/>\s+</g, '><')
+              .replaceAll(REPOSITORY_URL, 'repository:/');
             const name = [language, theme, scenario, compact, !!feedback.error].join('-');
             rendered.set(name, createHash('sha256').update(text).digest('hex'));
           }
