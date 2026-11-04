@@ -22,8 +22,8 @@ from .energy.currency import configured_currency
 from .energy.options import CONF_SITE_PROFILE
 from .energy.site_inputs import coverage_percent
 from .entity import ThorEntity
-from .ocpp.diagnostics import boot_notification_field
-from .ocpp.status import OCPP_STATUS_OPTIONS
+from .ocpp.core.diagnostics import boot_notification_field
+from .ocpp.core.status import OCPP_STATUS_OPTIONS
 from .presentation.card_data import dashboard_attributes
 from .presentation.entity_map import dashboard_entity_map
 from .runtime.write_results import COMMAND_COMPLETION_STATUSES

@@ -60,7 +60,7 @@ sequenceDiagram
 Code: [`charging/growatt_charger.py`](../custom_components/growatt_thor/charging/growatt_charger.py),
 [`charging/commands.py`](../custom_components/growatt_thor/charging/commands.py),
 [`runtime/charger_write_queue.py`](../custom_components/growatt_thor/runtime/charger_write_queue.py),
-[`ocpp/server.py`](../custom_components/growatt_thor/ocpp/server.py),
+[`ocpp/growatt/server.py`](../custom_components/growatt_thor/ocpp/growatt/server.py),
 [`sessions/runtime.py`](../custom_components/growatt_thor/sessions/runtime.py).
 
 A rejected or failed request revokes the one-shot grant. An uncertain request

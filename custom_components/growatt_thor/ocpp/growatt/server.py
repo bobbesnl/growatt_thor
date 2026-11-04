@@ -21,27 +21,27 @@ from ocpp.v16.enums import (
 from websockets.server import serve
 from websockets.typing import Subprotocol
 
-from ..charging.control_capabilities import CHARGER_MODE_PLUG_AND_CHARGE
-from ..coerce import enum_value
-from ..configuration.values import (
+from ...charging.control_capabilities import CHARGER_MODE_PLUG_AND_CHARGE
+from ...coerce import enum_value
+from ...configuration.values import (
     INFORMATIONAL_CONFIGURATION_KEYS,
     OPERATIONAL_CONFIGURATION_KEYS,
     normalize_unknown_configuration_keys,
     redact_configuration_value,
 )
-from ..const import DEFAULT_PATH, OCPP_SUBPROTOCOL
-from ..runtime.keys import ACTIVE_CHARGE_POINT
-from ..runtime.ownership import (
+from ...const import DEFAULT_PATH, OCPP_SUBPROTOCOL
+from ...runtime.keys import ACTIVE_CHARGE_POINT
+from ...runtime.ownership import (
     ChargePointConnectionDecision,
     decide_charge_point_connection,
     release_active_charge_point,
 )
-from ..runtime.write_results import (
+from ...runtime.write_results import (
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
 )
-from ..sessions.records import parse_growatt_session_record
-from .connection import (
+from ...sessions.records import parse_growatt_session_record
+from ..core.connection import (
     CONFIGURATION_BACKOFF_STEP_SECONDS,
     CONFIGURATION_GROUP_PAUSE_SECONDS,
     CONFIGURATION_MAX_BACKOFF_SECONDS,
@@ -54,14 +54,14 @@ from .connection import (
     WEBSOCKET_POLICY_VIOLATION,
     OcppConnectionActivity,
 )
-from .logging import OcppMetadataLogger
-from .requests import REQUEST_SKIPPED, SerializedOcppRequestGate
+from ..core.logging import OcppMetadataLogger
+from ..core.requests import REQUEST_SKIPPED, SerializedOcppRequestGate
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from websockets.legacy.server import WebSocketServer, WebSocketServerProtocol
 
-    from ..coordinator import GrowattCoordinator
+    from ...coordinator import GrowattCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -88,7 +88,7 @@ class IntegrationServiceWiringTest(unittest.TestCase):
                 self.assertTrue(expected.issubset(payload["exceptions"]))
 
     def test_status_trigger_participates_in_write_priority_checks(self):
-        tree = ast.parse((PACKAGE_PATH / "ocpp/server.py").read_text(encoding="utf-8"))
+        tree = ast.parse((PACKAGE_PATH / "ocpp/growatt/server.py").read_text(encoding="utf-8"))
         charge_point = next(
             node
             for node in tree.body

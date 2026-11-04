@@ -23,8 +23,8 @@ from ..energy.meter_observations import ChargingMeterObservation
 from ..energy.meter_observations import (
     charging_meter_values as dashboard_meter_values,  # noqa: F401  (card tests parse raw packets)
 )
-from ..ocpp.diagnostics import boot_notification_field
-from ..ocpp.meter_samples import meter_time_zone, normalize_meter_timestamp
+from ..ocpp.core.diagnostics import boot_notification_field
+from ..ocpp.core.meter_samples import meter_time_zone, normalize_meter_timestamp
 from ..sessions.display_times import session_times
 from ..sessions.events import normalize_session_events
 from ..sessions.identity import SOURCE_HOME_ASSISTANT, build_session_id

@@ -9,9 +9,9 @@ from types import SimpleNamespace
 
 from tests.support import PACKAGE_PATH, load_package_module, register_package
 
-MODULE_PATH = PACKAGE_PATH / "ocpp/meter_samples.py"
+MODULE_PATH = PACKAGE_PATH / "ocpp/core/meter_samples.py"
 package = register_package("thor_meter_time_test")
-meter_samples = load_package_module("thor_meter_time_test.ocpp.meter_samples", MODULE_PATH)
+meter_samples = load_package_module("thor_meter_time_test.ocpp.core.meter_samples", MODULE_PATH)
 
 
 class Context(Enum):

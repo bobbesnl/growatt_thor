@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 
     from ..charging.control import NativeTargetControl
     from ..coordinator import GrowattCoordinator
-    from ..ocpp.server import GrowattChargePoint
+    from ..ocpp.growatt.server import GrowattChargePoint
 
 # Persisted HA records remain dictionaries; ChargingTarget validates domain values.
 

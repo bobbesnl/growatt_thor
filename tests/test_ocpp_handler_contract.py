@@ -14,7 +14,7 @@ from tests.support import build_coordinator, load_package_module
 HAS_OCPP = all(importlib.util.find_spec(name) is not None for name in ("ocpp", "websockets"))
 
 if HAS_OCPP:
-    server = load_package_module("ocpp.server")
+    server = load_package_module("ocpp.growatt.server")
 
 FIXTURE = Path(__file__).parent / "fixtures/ocpp_handler_fallbacks.json"
 

@@ -6,7 +6,7 @@ import unittest
 
 from tests.support import PACKAGE_PATH, load_package_module
 
-MODULE_PATH = PACKAGE_PATH / "ocpp/external_meter.py"
+MODULE_PATH = PACKAGE_PATH / "ocpp/growatt/external_meter.py"
 external_meter = load_package_module("growatt_thor_external_meter_test_target", MODULE_PATH)
 
 

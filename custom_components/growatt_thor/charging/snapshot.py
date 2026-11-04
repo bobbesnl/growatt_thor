@@ -20,7 +20,7 @@ from typing import Any, Protocol
 
 from ..coerce import enum_value
 from ..energy.meter_observations import ChargingMeterObservation, charging_meter_values
-from ..ocpp.status import normalize_ocpp_status
+from ..ocpp.core.status import normalize_ocpp_status
 
 
 class VehicleState(StrEnum):

@@ -12,7 +12,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from ..ocpp.server import GrowattChargePoint
+    from ..ocpp.growatt.server import GrowattChargePoint
     from ..runtime.write_results import ChargerCommandResult
     from ..targets.requests import TargetRecord
 

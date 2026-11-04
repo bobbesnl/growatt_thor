@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
 
-from ..ocpp.meter_samples import MeterValue
+from ..ocpp.core.meter_samples import MeterValue
 from ..timestamps import parse_utc
 from .constants import ACTIVE_POWER_THRESHOLD_W
 

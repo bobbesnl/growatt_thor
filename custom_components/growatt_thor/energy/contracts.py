@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
     from ..configuration.values import ConfigurationValue
-    from ..ocpp.external_meter_state import ExternalMeterState
+    from ..ocpp.growatt.external_meter_state import ExternalMeterState
 
 
 class SiteObservationOwner(Protocol):

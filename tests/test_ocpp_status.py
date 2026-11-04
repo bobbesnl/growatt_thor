@@ -7,10 +7,10 @@ from enum import Enum
 
 from tests.support import PACKAGE_PATH, load_package_module, register_package
 
-MODULE_PATH = PACKAGE_PATH / "ocpp/status.py"
+MODULE_PATH = PACKAGE_PATH / "ocpp/core/status.py"
 PACKAGE_NAME = "growatt_thor_ocpp_status_test_target"
 package = register_package(PACKAGE_NAME)
-ocpp_status = load_package_module(f"{PACKAGE_NAME}.ocpp.status", MODULE_PATH)
+ocpp_status = load_package_module(f"{PACKAGE_NAME}.ocpp.core.status", MODULE_PATH)
 
 
 class Status(Enum):

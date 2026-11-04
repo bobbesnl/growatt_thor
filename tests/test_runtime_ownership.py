@@ -225,7 +225,7 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
         self.assertLess(owner_check.lineno, clear_call.lineno)
 
     def test_connection_decision_precedes_charge_point_construction(self):
-        tree = ast.parse((PACKAGE_PATH / "ocpp/server.py").read_text())
+        tree = ast.parse((PACKAGE_PATH / "ocpp/growatt/server.py").read_text())
         connect = next(
             node
             for node in tree.body
@@ -249,7 +249,7 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
         self.assertLess(decision_call.lineno, constructor_call.lineno)
 
     def test_every_inbound_handler_checks_current_connection_ownership(self):
-        tree = ast.parse((PACKAGE_PATH / "ocpp/server.py").read_text())
+        tree = ast.parse((PACKAGE_PATH / "ocpp/growatt/server.py").read_text())
         charge_point_class = next(
             node
             for node in tree.body
@@ -290,7 +290,7 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
         self.assertIn("_connection_may_update_coordinator", ast.unparse(decorator))
 
     def test_watchdog_and_handler_cleanup_release_by_object_identity(self):
-        tree = ast.parse((PACKAGE_PATH / "ocpp/server.py").read_text())
+        tree = ast.parse((PACKAGE_PATH / "ocpp/growatt/server.py").read_text())
         release_calls = [
             node
             for node in ast.walk(tree)

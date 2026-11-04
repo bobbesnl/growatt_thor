@@ -43,7 +43,7 @@ from .configuration.values import (
 from .configuration.writer import ConfigurationWrite, ConfigurationWriter, WritePolicy
 from .energy.currency import electricity_price_unit
 from .entity import ThorEntity
-from .ocpp.diagnostics import boot_notification_field
+from .ocpp.core.diagnostics import boot_notification_field
 from .runtime.action_errors import (
     raise_action_validation,
     raise_write_blocked,

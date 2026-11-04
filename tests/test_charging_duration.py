@@ -15,7 +15,7 @@ def _load(name: str):
     return load_package_module(name, package_name=PACKAGE_NAME)
 
 
-meter_samples = _load("ocpp.meter_samples")
+meter_samples = _load("ocpp.core.meter_samples")
 duration = _load("sessions.duration")
 
 

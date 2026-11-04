@@ -38,8 +38,8 @@ flowchart LR
   end
   subgraph Adapter["OCPP adapter"]
     direction TB
-    Server["ocpp/server.py: GrowattChargePoint"]
-    Support["ocpp/connection.py, requests.py, meter_samples.py, external_meter.py"]
+    Server["ocpp/growatt/server.py: GrowattChargePoint"]
+    Support["ocpp/core/connection.py, requests.py, meter_samples.py;<br/>ocpp/growatt/external_meter.py"]
   end
   HA --> Owners
   Owners --> Domain
@@ -107,7 +107,8 @@ and shared constants stay at the integration root so HA can discover them.
 | `charging/` | Authorization, guarded Start/Stop, current limits and PV controls |
 | `targets/` | Native target model, wire adapter, execution, dates and HA services |
 | `configuration/` | Configuration values, validation and writes |
-| `ocpp/` | Charge point, connection, polling requests, meter samples and diagnostics |
+| `ocpp/core/` | Generic OCPP 1.6 parts: connection timing, serialized requests, status normalization, meter samples, BootNotification snapshots and library logging |
+| `ocpp/growatt/` | The THOR charge point (handlers and outbound requests), Growatt DataTransfer and the external meter |
 | `runtime/` | Write queue, runtime ownership, service setup and entity migrations |
 | `sessions/` | Session lifecycle, identity, events, curves, CSV, outbox and WebSocket reads |
 | `energy/` | Shared observations, energy sources, site accounting and automatic Stop |
@@ -126,9 +127,9 @@ from Lit lifecycle and HA calls. See
 | --- | --- |
 | Session flow thresholds | `sessions/constants.py` |
 | Platform configuration keys | `configuration/keys.py` |
-| Connection timing and close codes | `ocpp/connection.py` |
+| Connection timing and close codes | `ocpp/core/connection.py` |
 | Configuration-write spacing | `const.py` |
-| OCPP status groups and normalization | `ocpp/status.py` (accepts both OCPP wire values and translated entity spellings) |
+| OCPP status groups and normalization | `ocpp/core/status.py` (accepts both OCPP wire values and translated entity spellings) |
 | Enum unwrapping, optional numbers and text | `coerce.py` |
 | UTC parsing and installation time zone | `timestamps.py`; display normalization in `sessions/display_times.py` |
 | Entity naming and charger/meter device metadata | `entity.py` |
@@ -175,7 +176,7 @@ yet" stays distinct from a reported outcome.
 | `runtime/entry.py::EntryRuntime` | Resources of one config entry. Setup publishes the same object on `entry.runtime_data`, the coordinator and the entry-scoped dispatch registry; stable mapping keys are in `runtime/keys.py`. Release clears only the runtime still registered to that entry. |
 | `runtime/charger_write_queue.py::ChargerWriteQueue` | Pending `ChargerWriteItem`s, the processor task, monotonic expiry and spacing, completion and shutdown. It talks to the coordinator only through the `WriteQueueOwner` protocol. |
 | `sessions/runtime.py::SessionLifecycle` | Session curves, event tracking, restored-session state, pending effective durations, record deduplication, pending completions and the immutable `LastSessionState`. Storage uses its snapshot/restore methods. |
-| `ocpp/external_meter_state.py::ExternalMeterState` | External-meter observations, fault matching, poll timeouts, health and PV readiness. |
+| `ocpp/growatt/external_meter_state.py::ExternalMeterState` | External-meter observations, fault matching, poll timeouts, health and PV readiness. |
 | `charging/pv_draft.py::PvLinkageDraftState` | The local PV draft, snapshots, initialization from readback, edits and the dirty flag after Apply. |
 | `runtime/ocpp_ingest.py::OcppIngest` | No state of its own. Applies BootNotification, StatusNotification, MeterValues, GetConfiguration, fault and external-meter observations to coordinator state, including live-power resets and site accounting per sample. |
 | `configuration/write_tracker.py::ConfigurationWriteTracker` | Per-key generations and outcomes of configuration writes until readback confirms them (`coordinator.configuration_writes`). |

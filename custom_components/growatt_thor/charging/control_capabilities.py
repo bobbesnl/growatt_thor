@@ -10,7 +10,7 @@ from typing import Final
 
 from ..configuration.validation import format_decimal, validate_number
 from ..configuration.values import ConfigurationValue, configuration_entity_state
-from ..ocpp.status import ENERGY_SESSION_STATUSES, normalize_ocpp_status
+from ..ocpp.core.status import ENERGY_SESSION_STATUSES, normalize_ocpp_status
 
 CHARGER_MODE_PLUG_AND_CHARGE = "3"
 

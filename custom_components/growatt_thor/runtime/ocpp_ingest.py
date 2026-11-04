@@ -21,16 +21,16 @@ from ..configuration.values import (
     parse_auto_charge_time,
 )
 from ..energy.site_inputs import site_inputs
-from ..ocpp.diagnostics import create_ocpp_snapshot
-from ..ocpp.external_meter import parse_external_meter_data
-from ..ocpp.meter_samples import (
+from ..ocpp.core.diagnostics import create_ocpp_snapshot
+from ..ocpp.core.meter_samples import (
     DEFAULT_MEASURAND,
     MeterValue,
     charging_power_curve_point,
     meter_time_zone,
     parse_meter_values,
 )
-from ..ocpp.status import ENERGY_SESSION_STATUSES, LIVE_POWER_STATUSES, normalize_ocpp_status
+from ..ocpp.core.status import ENERGY_SESSION_STATUSES, LIVE_POWER_STATUSES, normalize_ocpp_status
+from ..ocpp.growatt.external_meter import parse_external_meter_data
 from ..sessions.events import append_session_event, session_event
 from ..sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 from ..timestamps import installation_time_zone

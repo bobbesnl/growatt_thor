@@ -15,9 +15,9 @@ from datetime import tzinfo
 from typing import Any, TypedDict, cast
 
 from ..energy.session_accumulator import SessionAccumulator
-from ..ocpp.diagnostics import create_ocpp_snapshot
-from ..ocpp.meter_samples import MeterValue
-from ..ocpp.status import LIVE_POWER_STATUSES, normalize_ocpp_status
+from ..ocpp.core.diagnostics import create_ocpp_snapshot
+from ..ocpp.core.meter_samples import MeterValue
+from ..ocpp.core.status import LIVE_POWER_STATUSES, normalize_ocpp_status
 from ..runtime.keys import APPEND_SESSION_TO_CSV
 from ..timestamps import parse_utc as parse_at
 from ..timestamps import utc_instant, utc_timestamp

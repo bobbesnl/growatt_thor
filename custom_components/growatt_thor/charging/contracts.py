@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
     from ..configuration.values import ConfigurationValue
     from ..configuration.writes import ConfigurationWriteStatus
-    from ..ocpp.external_meter_state import ExternalMeterState
+    from ..ocpp.growatt.external_meter_state import ExternalMeterState
     from ..runtime.write_results import ChargerCommandHandle
     from ..targets.requests import TargetRecord
     from .pv_linkage import PvLinkageApplyResult, PvLinkageDraft

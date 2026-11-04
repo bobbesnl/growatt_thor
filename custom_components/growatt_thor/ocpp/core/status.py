@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from ..coerce import enum_value
+from ...coerce import enum_value
 
 ENERGY_SESSION_STATUSES = frozenset({"charging", "suspended_ev", "suspended_evse"})
 LIVE_POWER_STATUSES = frozenset({"charging"})

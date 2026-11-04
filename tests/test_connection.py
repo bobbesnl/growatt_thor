@@ -6,8 +6,8 @@ import unittest
 
 from tests.support import PACKAGE_PATH, load_package_module
 
-MODULE_PATH = PACKAGE_PATH / "ocpp/connection.py"
-OCPP_SERVER_PATH = MODULE_PATH.with_name("server.py")
+MODULE_PATH = PACKAGE_PATH / "ocpp/core/connection.py"
+OCPP_SERVER_PATH = PACKAGE_PATH / "ocpp/growatt/server.py"
 connection = load_package_module("growatt_thor_connection_test_target", MODULE_PATH)
 
 

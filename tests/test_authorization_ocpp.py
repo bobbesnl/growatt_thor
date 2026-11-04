@@ -20,7 +20,7 @@ if HAS_OCPP:
     package = ModuleType("thor_auth_wire_target")
     package.__path__ = [str(PACKAGE_PATH)]
     sys.modules[package.__name__] = package
-    server = importlib.import_module(package.__name__ + ".ocpp.server")
+    server = importlib.import_module(package.__name__ + ".ocpp.growatt.server")
     auth = importlib.import_module(package.__name__ + ".charging.authorization")
 
 

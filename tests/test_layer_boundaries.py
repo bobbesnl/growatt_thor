@@ -345,7 +345,7 @@ class LayerBoundaryTest(unittest.TestCase):
         # Guards the parser itself: these imports exist today and must be found.
         edges = _edges()
         self.assertIn(
-            ("ocpp.server", "coordinator", True),
+            ("ocpp.growatt.server", "coordinator", True),
             {(edge.source, edge.target, edge.type_only) for edge in edges},
         )
         self.assertIn(

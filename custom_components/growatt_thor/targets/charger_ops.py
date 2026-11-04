@@ -9,14 +9,14 @@ from ocpp.v16 import call as ocpp_call
 
 from ..charging.control_capabilities import selected_working_mode
 from ..configuration.values import ConfigurationScalar, configuration_entity_state
-from ..ocpp.diagnostics import boot_notification_field
+from ..ocpp.core.diagnostics import boot_notification_field
 from ..runtime.keys import ACTIVE_CHARGE_POINT
 from .model import CAPTURE_FIRMWARE
 from .requests import TargetRecord
 
 if TYPE_CHECKING:
     from ..coordinator import GrowattCoordinator
-    from ..ocpp.server import GrowattChargePoint
+    from ..ocpp.growatt.server import GrowattChargePoint
 
 
 def _response_status(result: object) -> str | None:

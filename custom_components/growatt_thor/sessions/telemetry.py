@@ -13,7 +13,7 @@ from ..energy.options import (
     CONF_HOUSE_ENTITY,
 )
 from ..energy.site_observations import PowerObservation, read_site_observations
-from ..ocpp.meter_samples import MeterValue
+from ..ocpp.core.meter_samples import MeterValue
 from ..timestamps import parse_utc as parse_at
 from ..timestamps import utc_timestamp
 from .contracts import TelemetryOwner

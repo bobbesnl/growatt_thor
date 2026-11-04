@@ -51,7 +51,7 @@ from .configuration.values import (
 )
 from .energy.currency import configured_currency, electricity_price_unit
 from .entity import INFORMATION_ATTRIBUTES
-from .ocpp.external_meter import EXTERNAL_METER_HEALTH_OPTIONS
+from .ocpp.growatt.external_meter import EXTERNAL_METER_HEALTH_OPTIONS
 from .sessions.constants import ACTIVE_POWER_THRESHOLD_W
 from .sessions.display_times import session_time_zone
 from .sessions.records import (

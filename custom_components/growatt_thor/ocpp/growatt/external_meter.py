@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import parse_qsl
 
-from ..coerce import enum_value
+from ...coerce import enum_value
 
 _VOLTAGE_FIELDS = {
     "u-voltage": "L1",

@@ -16,7 +16,7 @@ def _load_module(name: str):
 
 
 write_queue = _load_module("runtime.write_results")
-requests = _load_module("ocpp.requests")
+requests = _load_module("ocpp.core.requests")
 
 
 class TransportClosed(RuntimeError):

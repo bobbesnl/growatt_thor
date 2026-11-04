@@ -13,7 +13,7 @@ from custom_components.growatt_thor.configuration.contracts import (
 )
 from custom_components.growatt_thor.coordinator import GrowattCoordinator
 from custom_components.growatt_thor.energy.contracts import EnergyStopOwner
-from custom_components.growatt_thor.ocpp.server import GrowattChargePoint
+from custom_components.growatt_thor.ocpp.growatt.server import GrowattChargePoint
 from custom_components.growatt_thor.presentation.contracts import DashboardOwner
 from custom_components.growatt_thor.runtime.charger_write_queue import WriteQueueOwner
 from custom_components.growatt_thor.runtime.services import RefreshTransport

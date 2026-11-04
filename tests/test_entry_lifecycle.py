@@ -124,7 +124,9 @@ class _Coordinator:
     instances = []
 
     def __init__(self, hass, source_instance_id=None, seed_from_legacy=True):
-        self.external_meter = load_package_module("ocpp.external_meter_state").ExternalMeterState()
+        self.external_meter = load_package_module(
+            "ocpp.growatt.external_meter_state"
+        ).ExternalMeterState()
         self.hass = hass
         self.source_instance_id = source_instance_id
         self.runtime_data = {}
@@ -304,7 +306,7 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await integration.async_setup_entry(self.hass, entry))
         c = self.runtime("bound")["coordinator"]
         self.assertEqual(c.charge_point_id, "EXPECTED")
-        server_module = sys.modules[PACKAGE_NAME + ".ocpp.server"]
+        server_module = sys.modules[PACKAGE_NAME + ".ocpp.growatt.server"]
         ws = SimpleNamespace(close=AsyncMock())
         await server_module._on_connect(ws, "/ocpp/ws/FOREIGN", c, self.hass)
         self.assertEqual(ws.close.call_args.kwargs["code"], 1008)

@@ -43,7 +43,7 @@ from .coordinator import GrowattCoordinator
 from .energy.options import CONF_BATTERY_POWER_ENTITY, CONF_BATTERY_POWER_SIGN
 from .energy.sources import BATTERY_POSITIVE_DISCHARGE
 from .energy.stop_guard import EnergyStopGuard
-from .ocpp.server import start_ocpp_server
+from .ocpp.growatt.server import start_ocpp_server
 from .presentation.frontend import async_register_frontend
 from .runtime.entity_migrations import (
     LEGACY_SESSION_DURATION_UNIT_MIGRATION,

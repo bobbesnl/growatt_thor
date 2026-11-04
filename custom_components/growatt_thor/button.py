@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
     from .coordinator import GrowattCoordinator
-    from .ocpp.server import GrowattChargePoint
+    from .ocpp.growatt.server import GrowattChargePoint
     from .runtime.entry import ThorConfigEntry
 
 import logging

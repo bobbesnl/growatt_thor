@@ -15,7 +15,7 @@ from .configuration.values import (
 )
 from .configuration.writes import serialize_configuration_writes
 from .const import DOMAIN
-from .ocpp.diagnostics import redact_ocpp_data
+from .ocpp.core.diagnostics import redact_ocpp_data
 from .runtime.keys import COORDINATOR
 from .runtime.ownership import entry_runtime_data
 from .sessions.correlation import build_unified_session

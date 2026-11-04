@@ -8,7 +8,7 @@ from enum import Enum
 
 from tests.support import PACKAGE_PATH, load_package_module
 
-MODULE_PATH = PACKAGE_PATH / "ocpp/diagnostics.py"
+MODULE_PATH = PACKAGE_PATH / "ocpp/core/diagnostics.py"
 ocpp_diagnostics = load_package_module("growatt_thor_ocpp_diagnostics_test_target", MODULE_PATH)
 
 

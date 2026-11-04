@@ -26,8 +26,8 @@ from .const import CONF_LOCATION, CONF_POLL_INTERVAL, CONFIGURATION_WRITE_SPACIN
 from .energy.options import CONF_BATTERY_POWER_ENTITY, CONF_BATTERY_POWER_SIGN
 from .energy.session_accumulator import SessionAccumulator
 from .energy.sources import BATTERY_POSITIVE_DISCHARGE
-from .ocpp.external_meter_state import ExternalMeterState
-from .ocpp.status import normalize_ocpp_status
+from .ocpp.core.status import normalize_ocpp_status
+from .ocpp.growatt.external_meter_state import ExternalMeterState
 from .runtime.charger_write_queue import ChargerWriteQueue
 from .runtime.coordinator_storage import restore_storage_data, storage_data
 from .runtime.entry import EntryRuntime
@@ -58,7 +58,7 @@ from .sessions.transaction_ids import TransactionIdAllocator
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
-    from .ocpp.server import GrowattChargePoint
+    from .ocpp.growatt.server import GrowattChargePoint
     from .targets.requests import TargetRecord
 
 

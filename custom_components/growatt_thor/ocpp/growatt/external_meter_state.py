@@ -2,8 +2,8 @@
 
 from dataclasses import dataclass, field
 
-from ..coerce import enum_value
-from ..const import DEFAULT_POLL_INTERVAL
+from ...coerce import enum_value
+from ...const import DEFAULT_POLL_INTERVAL
 from .external_meter import (
     ExternalMeterSnapshot,
     external_meter_health,

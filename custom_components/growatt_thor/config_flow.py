@@ -89,7 +89,7 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry, ConfigFlowResult
 
     from .coordinator import GrowattCoordinator
-    from .ocpp.server import GrowattChargePoint
+    from .ocpp.growatt.server import GrowattChargePoint
     from .runtime.polling import PollIntervalSchedule
 
 _LOGGER = logging.getLogger(__name__)

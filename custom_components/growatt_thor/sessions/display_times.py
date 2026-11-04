@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from datetime import tzinfo
 from typing import Any
 
-from ..ocpp.meter_samples import meter_time_zone
+from ..ocpp.core.meter_samples import meter_time_zone
 from ..timestamps import installation_time_zone, utc_timestamp
 from .contracts import SessionClock
 

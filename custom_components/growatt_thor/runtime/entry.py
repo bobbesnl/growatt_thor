@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
     from ..coordinator import GrowattCoordinator
     from ..energy.stop_guard import EnergyStopGuard
-    from ..ocpp.server import GrowattChargePoint
+    from ..ocpp.growatt.server import GrowattChargePoint
     from ..sessions.events import SessionEvent
     from ..targets.runtime import ChargingTargetRuntime
     from .polling import PollIntervalSchedule
