@@ -279,11 +279,7 @@ class PublicActionWiringTest(unittest.TestCase):
         ("switch.py", "LcdDisplaySwitch", "_set_value"): "async_request",
         ("select.py", "WorkingModeSelect", "async_select_option"): "async_request",
         ("time.py", "BaseAutoChargeTime", "async_set_value"): "require_charge_point",
-        (
-            "configuration/controls.py",
-            "GrowattConfigurationControlMixin",
-            "_async_write_configuration",
-        ): "async_request",
+        ("configuration/controls.py", "ConfigurationControl", "async_write"): "async_request",
     }
 
     def test_composed_entity_actions_reach_the_writer_guards(self):

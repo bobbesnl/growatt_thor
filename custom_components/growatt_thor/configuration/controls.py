@@ -10,7 +10,12 @@ from ..charging.control_capabilities import (
     ChargingControl,
     control_is_applicable,
 )
-from .values import ConfigurationValue, configuration_value_from_item
+from .values import (
+    ConfigurationScalar,
+    ConfigurationValue,
+    configuration_entity_state,
+    configuration_value_from_item,
+)
 from .writer import ConfigurationWrite, ConfigurationWriter, WritePolicy
 from .writes import pending_configuration_value
 
@@ -46,23 +51,25 @@ class ConfigurationControlWritePolicy(WritePolicy[str]):
         _LOGGER.warning("Skipping queued change for %s: %s", write.key, reason)
 
 
-class GrowattConfigurationControlMixin:
-    """Write one mode-aware control with pending-state projection."""
+class ConfigurationControl:
+    """Pending-state projection and write entry for one mode-aware control.
 
-    coordinator: ConfigurationWriteOwner
-    _control: ChargingControl
+    Entities hold one instance and delegate to it; it keeps no state of its
+    own besides the control it projects.
+    """
+
+    __slots__ = ("_owner", "_writer", "control", "key")
+
+    def __init__(self, owner: ConfigurationWriteOwner, control: ChargingControl) -> None:
+        self._owner = owner
+        self.control = control
+        self.key = CONTROL_DEFINITIONS[control].configuration_key
+        self._writer = ConfigurationWriter(owner, ConfigurationControlWritePolicy(owner, control))
 
     @property
-    def _configuration_key(self) -> str:
-        return CONTROL_DEFINITIONS[self._control].configuration_key
-
-    @property
-    def _configuration_value(self) -> ConfigurationValue | None:
-        reported = self.coordinator.configuration_values.get(self._configuration_key)
-        pending_raw_value = pending_configuration_value(
-            self.coordinator.configuration_writes,
-            self._configuration_key,
-        )
+    def value(self) -> ConfigurationValue | None:
+        reported = self._owner.configuration_values.get(self.key)
+        pending_raw_value = pending_configuration_value(self._owner.configuration_writes, self.key)
         if pending_raw_value is None:
             return reported
         # Configuration entities should display the latest queued intent. The
@@ -70,14 +77,19 @@ class GrowattConfigurationControlMixin:
         # reaches a terminal rejected, skipped, or mismatching state.
         return configuration_value_from_item(
             {
-                "key": self._configuration_key,
+                "key": self.key,
                 "value": pending_raw_value,
                 "readonly": (reported.readonly if reported is not None else False),
             }
         )
 
     @property
-    def _control_available(self) -> bool:
+    def state(self) -> ConfigurationScalar:
+        """The normalized entity state of the shown value."""
+        return configuration_entity_state(self.key, self.value)
+
+    @property
+    def available(self) -> bool:
         """Return whether a reported value can still be shown in Home Assistant.
 
         Availability describes whether state is known, not whether a new value
@@ -86,46 +98,61 @@ class GrowattConfigurationControlMixin:
         from the UI.
         """
         return (
-            self.coordinator.connected
-            and control_is_applicable(
-                self._control,
-                self.coordinator.configuration_values,
-            )
-            and self._configuration_value is not None
+            self._owner.connected
+            and control_is_applicable(self.control, self._owner.configuration_values)
+            and self.value is not None
         )
 
     @property
-    def _writer(self) -> ConfigurationWriter[str]:
-        # Writer and policy hold no state, so a fresh pair per call behaves
-        # like a retained one.
-        return ConfigurationWriter(
-            self.coordinator, ConfigurationControlWritePolicy(self.coordinator, self._control)
-        )
-
-    @property
-    def extra_state_attributes(self) -> dict[str, str]:
+    def attributes(self) -> dict[str, str]:
         """Expose stable metadata without creating attribute-only history."""
         return {
             "information": "details",
-            "ocpp_key": self._configuration_key,
+            "ocpp_key": self.key,
         }
 
-    async def _async_write_configuration(self, raw_value: str) -> None:
+    async def async_write(self, raw_value: str) -> None:
         # Callers validate domain values and pass the finished OCPP wire string.
-        pending_raw_value = pending_configuration_value(
-            self.coordinator.configuration_writes,
-            self._configuration_key,
-        )
+        pending_raw_value = pending_configuration_value(self._owner.configuration_writes, self.key)
         if pending_raw_value == raw_value:
             # Repeating an already pending action is idempotent. In contrast,
             # selecting the last reported value while a different value is
             # pending must create a new generation and supersede that request.
             return
-        if (
-            pending_raw_value is None
-            and self._configuration_value is not None
-            and self._configuration_value.raw_value == raw_value
-        ):
+        shown = self.value
+        if pending_raw_value is None and shown is not None and shown.raw_value == raw_value:
             return
 
         await self._writer.async_request(raw_value)
+
+
+class GrowattConfigurationControlMixin:
+    """Delegate one mode-aware entity to a ConfigurationControl."""
+
+    coordinator: ConfigurationWriteOwner
+    _control: ChargingControl
+
+    @property
+    def _configuration(self) -> ConfigurationControl:
+        # The control holds no state, so a fresh one per access behaves like
+        # a retained one.
+        return ConfigurationControl(self.coordinator, self._control)
+
+    @property
+    def _configuration_key(self) -> str:
+        return CONTROL_DEFINITIONS[self._control].configuration_key
+
+    @property
+    def _configuration_value(self) -> ConfigurationValue | None:
+        return self._configuration.value
+
+    @property
+    def _control_available(self) -> bool:
+        return self._configuration.available
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        return self._configuration.attributes
+
+    async def _async_write_configuration(self, raw_value: str) -> None:
+        await self._configuration.async_write(raw_value)
