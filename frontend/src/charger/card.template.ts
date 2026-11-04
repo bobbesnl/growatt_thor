@@ -34,7 +34,11 @@ export function renderCard(view: CardViewModel, actions: CardActions, feedback: 
         >${t(vehicle)}
       </div>
       <p class="hint">${t(status.hint)}</p>
-      ${renderEnergyStop(view.data.energy_stop, hass.language || hass.locale?.language || 'en')}
+      ${renderEnergyStop(
+        view.data.energy_stop,
+        hass.language || hass.locale?.language || 'en',
+        hass.config?.time_zone || 'UTC',
+      )}
       ${renderWarnings(view)} ${renderSession(view)} ${renderActions(view, actions)}
       ${renderTargetNotice(view)} ${renderCommandFeedback(view, feedback)}
       ${renderFooter(view, actions)} </ha-card

@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - After a configuration change that the charger applies by rebooting, further changes and Start are refused until it has reconnected. Previously they were sent into the reboot: a change waited 30 seconds for an answer that never came, and Start was discarded. The card shows **Restarting** and disables the mode and authorization badges, the current limit and Start; Stop stays available.
 - The charger name on the card ends in an ellipsis before the mode and authorization badges wrap to a new line.
 - The arrow of dropdowns in the authorization dialog and the session list no longer sits against the rounded border.
+- The time of the last protection stop on the card uses the Home Assistant time zone, like every other time on the card, instead of the browser's.
 - The session table shows the session ID on a second line under the start time, like the cost basis under the cost, so the start column no longer grows with the ID.
 - Start the integration again on Home Assistant versions before 2026.8. The External Meter device update no longer uses a registry lookup that only exists in newer versions.
 - Show a field error instead of an unknown error when a very large polling interval is entered.

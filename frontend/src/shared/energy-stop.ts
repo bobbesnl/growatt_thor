@@ -60,7 +60,12 @@ export function energyStopReason(reason: string, language: string): string {
   return dictionary(language)[reason === 'battery' ? 1 : 2];
 }
 
-export function renderEnergyStop(report: CardData['energy_stop'], language: string) {
+/** ``timeZone`` is Home Assistant's, like every other time on the card. */
+export function renderEnergyStop(
+  report: CardData['energy_stop'],
+  language: string,
+  timeZone: string,
+) {
   if (
     !report ||
     !['battery', 'grid'].includes(report.reason) ||
@@ -79,7 +84,11 @@ export function renderEnergyStop(report: CardData['energy_stop'], language: stri
     <div>
       <strong>${text[0]}: ${energyStopReason(report.reason, language)}</strong>
       <div>
-        ${new Date(report.at).toLocaleString(language, { dateStyle: 'short', timeStyle: 'short' })}
+        ${new Date(report.at).toLocaleString(language, {
+          dateStyle: 'short',
+          timeStyle: 'short',
+          timeZone,
+        })}
       </div>
       <small>${hint}</small>
     </div>
