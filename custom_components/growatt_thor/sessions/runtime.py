@@ -330,6 +330,12 @@ class SessionLifecycle:
 
         _LOGGER.info("Transaction started: %s", transaction_id)
         coordinator.async_set_updated_data(True)
+        coordinator.events.session_started(
+            transaction_id=transaction_id,
+            connector_id=connector_id,
+            meter_start=meter_start,
+            started_at=start_snapshot["received_at"],
+        )
         hooks = coordinator.transaction_hooks
         if hooks is not None:
             coordinator.hass.async_create_task(
@@ -414,6 +420,12 @@ class SessionLifecycle:
         coordinator.status = "Idle"
         coordinator.hass.async_create_task(coordinator.async_save_storage())
         coordinator.async_set_updated_data(True)
+        coordinator.events.session_completed(
+            completed,
+            transaction_id=stopped_transaction_id,
+            reason=reason,
+            meter_stop=meter_stop,
+        )
         hooks = coordinator.transaction_hooks
         if hooks is not None:
             coordinator.hass.async_create_task(

@@ -363,6 +363,15 @@
       }
     }
   },
+  "device_automation": {
+    "trigger_type": {
+      "command_result": "Comando finalizado",
+      "session_started": "Sesión de carga iniciada",
+      "session_completed": "Sesión de carga completada",
+      "target_state_changed": "Estado del objetivo de carga cambiado",
+      "charger_fault": "Avería del cargador notificada"
+    }
+  },
   "entity": {
     "binary_sensor": {
       "vehicle_connected": {

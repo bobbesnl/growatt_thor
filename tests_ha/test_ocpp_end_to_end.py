@@ -12,12 +12,20 @@ from collections.abc import Callable
 
 import pytest
 import websockets
+from homeassistant.components.device_automation import DeviceAutomationType
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.setup import async_setup_component
 from ocpp.v16.enums import RemoteStartStopStatus
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_capture_events,
+    async_get_device_automations,
+    async_mock_service,
+)
 
 from custom_components.growatt_thor.const import CONF_PORT, DOMAIN
 
@@ -120,6 +128,71 @@ async def test_remote_start_meter_values_and_remote_stop(
         await thor.stop_transaction(transaction_id, meter_stop=2500, reason="Remote")
         await thor.status("Finishing")
         await _wait_for(lambda: _number(hass, power) == 0, "live power reset after stop")
+
+
+async def test_events_and_device_triggers_follow_the_session(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    devices = {
+        identifier: device
+        for device in dr.async_entries_for_config_entry(dr.async_get(hass), loaded_entry.entry_id)
+        for identifier in device.identifiers
+    }
+    device = devices.get((DOMAIN, loaded_entry.entry_id))
+    meter = devices.get((DOMAIN, loaded_entry.entry_id, "grid_connection"))
+    assert device is not None and meter is not None
+    triggers = await async_get_device_automations(hass, DeviceAutomationType.TRIGGER, device.id)
+    assert {trigger["type"] for trigger in triggers if trigger["domain"] == DOMAIN} == {
+        "command_result",
+        "session_started",
+        "session_completed",
+        "target_state_changed",
+        "charger_fault",
+    }
+    meter_triggers = await async_get_device_automations(
+        hass, DeviceAutomationType.TRIGGER, meter.id
+    )
+    assert not [trigger for trigger in meter_triggers if trigger["domain"] == DOMAIN]
+
+    calls = async_mock_service(hass, "test", "automation")
+    assert await async_setup_component(
+        hass,
+        "automation",
+        {
+            "automation": {
+                "trigger": {
+                    "platform": "device",
+                    "domain": DOMAIN,
+                    "device_id": device.id,
+                    "type": "session_completed",
+                },
+                "action": {
+                    "service": "test.automation",
+                    "data_template": {"energy": "{{ trigger.event.data.energy_kwh }}"},
+                },
+            }
+        },
+    )
+    commands = async_capture_events(hass, "growatt_thor_command_result")
+    started = async_capture_events(hass, "growatt_thor_session_started")
+
+    async with connected_thor(loaded_entry.data[CONF_PORT]) as thor:
+        start = await _connect_ready(hass, loaded_entry, thor)
+        transaction_id = await _start_session(hass, thor, start)
+        await _wait_for(lambda: bool(started), "session start event")
+        assert started[0].data["transaction_id"] == transaction_id
+        assert started[0].data["device_id"] == device.id
+        assert "id_tag" not in started[0].data
+
+        await _press(hass, _entity_id(hass, loaded_entry, "button", "stop_charging"))
+        await thor.stop_transaction(transaction_id, meter_stop=2500, reason="Remote")
+        await _wait_for(lambda: bool(calls), "device trigger runs the automation")
+        assert float(calls[0].data["energy"]) == 1.5
+
+    results = [event.data for event in commands]
+    assert all(result["device_id"] == device.id for result in results)
+    assert {result["status"] for result in results} == {"confirmed"}
+    assert all(result["config_entry_id"] == loaded_entry.entry_id for result in results)
 
 
 async def test_rejected_remote_start_is_reported_to_the_caller(

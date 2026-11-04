@@ -121,6 +121,7 @@ PLATFORM_MODULES = frozenset(
         "binary_sensor",
         "button",
         "config_flow",
+        "device_trigger",
         "diagnostics",
         "entity",
         "number",

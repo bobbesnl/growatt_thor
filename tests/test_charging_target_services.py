@@ -88,6 +88,10 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
             self.runtime = sys.modules[package.__name__ + ".targets.runtime"]
         model = importlib.import_module(package.__name__ + ".targets.model")
         config = importlib.import_module(package.__name__ + ".configuration.values")
+        automation_events = importlib.import_module(package.__name__ + ".runtime.automation_events")
+        self.events = []
+        events = automation_events.AutomationEvents()
+        events.connect(lambda event_type, data: self.events.append((event_type, data)))
         self.cp = SimpleNamespace(
             id="TEST-CHARGER",
             call=AsyncMock(return_value=SimpleNamespace(status="Accepted")),
@@ -121,6 +125,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
             async_set_updated_data=lambda value: None,
             queue_write=queue_write,
             write_queue=SimpleNamespace(poll_pause_after_write=10),
+            events=events,
         )
         self.hass = SimpleNamespace(
             services=Services(),
@@ -428,6 +433,24 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.cp.call.call_args.args[0].message_id, "G_SetEnergy")
         self.assertEqual(Store.retained["state"], "target_accepted_waiting_for_plug")
         self.assertEqual(Store.retained["connection_started_at"], "connection-1")
+
+    async def test_each_persisted_target_state_fires_one_event(self):
+        self.plug_mode()
+        await self.prepare_plug()
+        await self.queue[0]()
+        request_id = Store.retained["request_id"]
+
+        states = [
+            (data["request_id"], data["previous_state"], data["state"])
+            for event_type, data in self.events
+            if event_type == "growatt_thor_target_state_changed"
+        ]
+        self.assertEqual(states[0], (request_id, None, states[0][2]))
+        self.assertEqual(states[-1][2], "target_accepted_waiting_for_plug")
+        # Every event continues from the previous one, without repeats.
+        for before, after in zip(states, states[1:], strict=False):
+            self.assertEqual(before[2], after[1])
+            self.assertNotEqual(after[1], after[2])
 
     async def test_plug_refresh_requires_exact_request_and_same_accepted_value(self):
         self.plug_mode()

@@ -210,8 +210,10 @@ class ChargingTargetRuntime:
 
     async def persist(self, record: TargetRecord | None) -> None:
         await self._store.async_save(record)
+        previous = self.coordinator.charging_target_request
         self.coordinator.charging_target_request = record
         self.coordinator.async_set_updated_data(True)
+        self.coordinator.events.target_state_changed(previous, record)
 
     def cancel_timer(self) -> None:
         if self._scheduled_handle is not None:

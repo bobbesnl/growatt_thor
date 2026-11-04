@@ -363,6 +363,15 @@
       }
     }
   },
+  "device_automation": {
+    "trigger_type": {
+      "command_result": "Ukaz zaključen",
+      "session_started": "Polnjenje se je začelo",
+      "session_completed": "Polnjenje je končano",
+      "target_state_changed": "Stanje cilja polnjenja se je spremenilo",
+      "charger_fault": "Prijavljena napaka polnilnika"
+    }
+  },
   "entity": {
     "binary_sensor": {
       "vehicle_connected": {

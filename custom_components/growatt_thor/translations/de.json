@@ -363,6 +363,15 @@
       }
     }
   },
+  "device_automation": {
+    "trigger_type": {
+      "command_result": "Befehl abgeschlossen",
+      "session_started": "Ladevorgang gestartet",
+      "session_completed": "Ladevorgang beendet",
+      "target_state_changed": "Status des Ladeziels geändert",
+      "charger_fault": "Wallbox-Störung gemeldet"
+    }
+  },
   "entity": {
     "binary_sensor": {
       "vehicle_connected": {

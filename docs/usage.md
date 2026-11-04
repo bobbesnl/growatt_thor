@@ -202,7 +202,9 @@ Automations monitoring connection loss should test for `offline` (and may also
 handle `unavailable` during integration unload or HA shutdown). The
 **Charger connected** binary sensor turns `off` at the same moment; the plugged-in,
 charging and fault binary sensors become unavailable until the charger reports
-its status again (see [binary sensors](entities.md#binary-sensors)).
+its status again (see [binary sensors](entities.md#binary-sensors)). For
+session ends, command results and faults, use the
+[automation events and device triggers](entities.md#automation-events-and-device-triggers).
 
 The card contract uses additional entity attributes. Home Assistant only includes
 these attributes for available entities, as implemented in the

@@ -44,6 +44,16 @@ rules are recorded as [decision records](adr/README.md).
   Wallbox-native energy/time limits and HA-owned repeat scheduling stay separate
   ([ADR 0003](adr/0003-native-charging-targets.md)).
 
+## Automation events
+
+- Events fire after the observation they report is complete and never change
+  it. A publication failure is logged behind the event boundary; it never
+  reaches the write queue, an OCPP handler or the target runtime.
+- Event payloads carry no RFID tags. Event types, trigger types and field names
+  are a public contract: add fields, never rename or remove them.
+- A command result fires once per command ID; a fault fires on the transition
+  into Faulted only; restored state fires nothing.
+
 ## Observations
 
 - Unit and sign normalization is shared. Automatic controls require recent

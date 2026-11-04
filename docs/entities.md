@@ -180,6 +180,42 @@ setting did not change. A Home Assistant or integration reload may still produce
 the standard initial `unavailable` to current-value transition.
 
 
+## Automation events and device triggers
+
+The integration fires the Home Assistant events below. Each one carries
+`device_id` (the charger device) and `config_entry_id`, so automations for
+several chargers stay apart. In the automation editor the same events are
+offered as **device triggers** of the charger device; the event data is
+available as `trigger.event.data`. Payloads never contain RFID tags. Events
+start once the entry has finished loading; restored state after a restart does
+not fire them.
+
+| Event (device trigger) | When | Fields |
+| --- | --- | --- |
+| `growatt_thor_command_result` (Command finished) | A queued command reaches its terminal result, once per command ID | `command_id`, `command_name`, `status` (`confirmed`, `failed`, `skipped`, `expired`, `uncertain`), `write_status`, `reason`, `charger_result`, `queued_at`, `completed_at` |
+| `growatt_thor_session_started` (Charging session started) | The charger reports StartTransaction | `transaction_id`, `connector_id`, `meter_start_wh`, `started_at` |
+| `growatt_thor_session_completed` (Charging session completed) | The charger reports StopTransaction for the active session | `transaction_id`, `reason`, `meter_start_wh`, `meter_stop_wh`, `energy_kwh`, `effective_charging_duration_minutes`, `stopped_at` |
+| `growatt_thor_target_state_changed` (Charging target state changed) | The stored charging-target request changes state | `request_id`, `state`, `previous_state` (`null` for a new request; `state` is `null` when the target is cleared) |
+| `growatt_thor_fault` (Charger fault reported) | The status changes to Faulted; a repeated Faulted report does not fire again | `category`, `ocpp_error_code`, `connector_id`, `observed_at` |
+
+`energy_kwh` is the charger's OCPP meter difference and is `null` when a
+reading is missing. Cost and the Growatt session record arrive separately and
+update the Last Session sensors afterwards. `status: uncertain` means the
+outcome could not be determined; see
+[command outcomes](automation-resilience.md#9-expose-the-actual-outcome-of-a-command).
+
+```yaml
+automation:
+  - alias: "Notify when a charging session ends"
+    trigger:
+      - platform: event
+        event_type: growatt_thor_session_completed
+    action:
+      - service: notify.notify
+        data:
+          message: "Charged {{ trigger.event.data.energy_kwh }} kWh"
+```
+
 ## Example automations
 
 Adapt entity IDs to your installation. Read [command outcomes and waiting](automation-resilience.md#9-expose-the-actual-outcome-of-a-command) before relying on service completion or optimistic entity values.

@@ -315,6 +315,7 @@ An optimistically displayed entity value is not physical confirmation. Without a
 - If the 30-second wait expires, Home Assistant reports that the command is still pending. The physical command is not cancelled and may still complete normally later.
 - Cancelling the caller's wait likewise does not silently cancel a physical command that may already be in progress.
 - The diagnostic **Last command result** sensor publishes the terminal state, command ID, command name, detailed write status, timestamps, reason, and charger result. The same structured record is included in config-entry diagnostics, and queue logs contain the command ID for correlation.
+- The same record is fired once per command as the `growatt_thor_command_result` event, so an automation can wait for a result it did not await itself, such as the deferred Auto Charge write.
 - Replacement, explicit cancellation, expiry, revalidation failure, callback failure, missing legacy callback results, lost acknowledgements, partial compound writes, and integration unload all resolve through one central completion path.
 - During unload, an active request becomes `uncertain` because it may already have reached OCPP, while work that was still queued becomes `skipped`.
 

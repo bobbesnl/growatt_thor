@@ -363,6 +363,15 @@
       }
     }
   },
+  "device_automation": {
+    "trigger_type": {
+      "command_result": "Parancs befejeződött",
+      "session_started": "Töltési munkamenet elindult",
+      "session_completed": "Töltési munkamenet befejeződött",
+      "target_state_changed": "Töltési cél állapota megváltozott",
+      "charger_fault": "Töltőhiba jelentve"
+    }
+  },
   "entity": {
     "binary_sensor": {
       "vehicle_connected": {

@@ -29,6 +29,7 @@ from .energy.sources import BATTERY_POSITIVE_DISCHARGE
 from .ocpp.core.status import normalize_ocpp_status
 from .ocpp.growatt.external_meter_state import ExternalMeterState
 from .ocpp.growatt.message_log import OcppMessageLog
+from .runtime.automation_events import AutomationEvents
 from .runtime.charger_write_queue import ChargerWriteQueue
 from .runtime.coordinator_storage import restore_storage_data, storage_data
 from .runtime.entry import EntryRuntime
@@ -112,6 +113,7 @@ class GrowattCoordinator(_CoordinatorBase):
         self.runtime_data = EntryRuntime()
         self.external_meter = ExternalMeterState()
         self.ocpp_messages = OcppMessageLog()
+        self.events = AutomationEvents()
         self.pv_draft = PvLinkageDraftState()
         self._transaction_id_allocator = TransactionIdAllocator()
         self._transaction_id_lock = asyncio.Lock()
@@ -322,6 +324,7 @@ class GrowattCoordinator(_CoordinatorBase):
     def publish_write_result(self, result: ChargerCommandResult) -> None:
         self.last_command_result = result
         self.async_set_updated_data(True)
+        self.events.command_result(result)
 
     # LOAD BALANCING PROPERTY
 

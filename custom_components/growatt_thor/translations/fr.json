@@ -363,6 +363,15 @@
       }
     }
   },
+  "device_automation": {
+    "trigger_type": {
+      "command_result": "Commande terminée",
+      "session_started": "Session de charge démarrée",
+      "session_completed": "Session de charge terminée",
+      "target_state_changed": "État de l'objectif de charge modifié",
+      "charger_fault": "Défaut de la borne signalé"
+    }
+  },
   "entity": {
     "binary_sensor": {
       "vehicle_connected": {

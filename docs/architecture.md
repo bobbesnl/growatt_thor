@@ -19,7 +19,7 @@ its right; information from the charger flows back as observations.
 flowchart LR
   subgraph HA["Home Assistant adapters"]
     direction TB
-    Platforms["Entity platforms<br/>sensor.py, binary_sensor.py, number.py, switch.py, select.py, time.py, button.py"]
+    Platforms["Entity platforms<br/>sensor.py, binary_sensor.py, number.py, switch.py, select.py, time.py, button.py;<br/>device_trigger.py"]
     Flows["config_flow.py, diagnostics.py"]
     Services["runtime/service_setup.py, targets/services.py, sessions/websocket.py"]
     Card["presentation/ and frontend/src/"]
@@ -179,6 +179,7 @@ yet" stays distinct from a reported outcome.
 | `runtime/charger_write_queue.py::ChargerWriteQueue` | Pending `ChargerWriteItem`s, the processor task, monotonic expiry and spacing, completion and shutdown. It talks to the coordinator only through the `WriteQueueOwner` protocol. |
 | `sessions/runtime.py::SessionLifecycle` | Session curves, event tracking, restored-session state, pending effective durations, record deduplication, pending completions and the immutable `LastSessionState`. Storage uses its snapshot/restore methods. |
 | `ocpp/growatt/external_meter_state.py::ExternalMeterState` | External-meter observations, fault matching, poll timeouts, health and PV readiness. |
+| `runtime/automation_events.py::AutomationEvents` | No state of its own besides the publisher that setup connects. Builds the event payloads for command results, session start and completion, target state changes and faults (`coordinator.events`). |
 | `ocpp/growatt/message_log.py::OcppMessageLog` | The latest 50 OCPP frames of the entry with redacted payloads, in memory only (`coordinator.ocpp_messages`). Frames from superseded sockets are not recorded. |
 | `charging/pv_draft.py::PvLinkageDraftState` | The local PV draft, snapshots, initialization from readback, edits and the dirty flag after Apply. |
 | `runtime/ocpp_ingest.py::OcppIngest` | No state of its own. Applies BootNotification, StatusNotification, MeterValues, GetConfiguration, fault and external-meter observations to coordinator state, including live-power resets and site accounting per sample. |

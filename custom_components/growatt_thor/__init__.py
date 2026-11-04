@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import MutableMapping
+from collections.abc import Callable, MutableMapping
 from contextlib import suppress
 from typing import TYPE_CHECKING, Any
 
@@ -345,6 +345,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ThorConfigEntry) -> bool
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         _complete_external_meter_readback_migration(hass, entry)
         _migrate_external_meter_device(hass, entry)
+        # The charger device exists once the platforms are set up; events
+        # observed before this point carry no device and are not fired.
+        coordinator.events.connect(_automation_event_publisher(hass, entry))
     except Exception:
         startup_check_task.cancel()
         # Release startup tasks, server and entry ownership before propagating setup failure.
@@ -357,6 +360,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ThorConfigEntry) -> bool
 
     await _start_background_tasks(hass, entry, coordinator, runtime_data, poll_interval_schedule)
     return True
+
+
+def _automation_event_publisher(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> Callable[[str, dict[str, Any]], None]:
+    """Fire automation events on the bus with the charger device of this entry."""
+
+    def publish(event_type: str, data: dict[str, Any]) -> None:
+        device = find_device_with_identifier(
+            dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id),
+            (DOMAIN, entry.entry_id),
+        )
+        hass.bus.async_fire(
+            event_type,
+            {
+                "device_id": device.id if device is not None else None,
+                "config_entry_id": entry.entry_id,
+                **data,
+            },
+        )
+
+    return publish
 
 
 async def _create_coordinator(
@@ -527,6 +552,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ThorConfigEntry) -> boo
         # that wait before releasing the runtime so no background task
         # survives a reload of the integration.
         await coordinator.async_shutdown()
+        # Commands resolved by the shutdown above still report their result.
+        coordinator.events.connect(None)
 
     server = runtime_data.get(SERVER)
     if server:

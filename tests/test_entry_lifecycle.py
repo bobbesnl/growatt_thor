@@ -136,6 +136,7 @@ class _Coordinator:
         self.location = ""
         self.shutdown_calls = 0
         self.sessions = SimpleNamespace(async_flush_pending=AsyncMock())
+        self.events = load_package_module("runtime.automation_events").AutomationEvents()
         self.async_set_updated_data = lambda _: None
         _Coordinator.instances.append(self)
 
@@ -344,9 +345,12 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
         coordinator = runtime["coordinator"]
         self.hass.config_entries.fail_platform_unload.add("entry-left")
 
+        # Setup connects the event publisher once the platforms are loaded.
+        self.assertTrue(coordinator.events.connected)
         self.assertFalse(await integration.async_unload_entry(self.hass, left))
 
         self.assertIs(self.runtime("entry-left"), runtime)
+        self.assertTrue(coordinator.events.connected)
         self.assertTrue(runtime["server"].is_serving())
         self.assertFalse(runtime["polling_task"].done())
         self.assertEqual(coordinator.shutdown_calls, 0)
@@ -361,6 +365,7 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(polling_task.done())
         self.assertFalse(server.is_serving())
         self.assertEqual(coordinator.shutdown_calls, 1)
+        self.assertFalse(coordinator.events.connected)
         self.assertTrue(_port_is_free(left.data["port"]))
 
     async def test_unloading_one_entry_leaves_the_other_untouched(self):

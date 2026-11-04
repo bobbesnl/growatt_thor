@@ -363,6 +363,15 @@
       }
     }
   },
+  "device_automation": {
+    "trigger_type": {
+      "command_result": "Comando completato",
+      "session_started": "Sessione di ricarica avviata",
+      "session_completed": "Sessione di ricarica completata",
+      "target_state_changed": "Stato dell'obiettivo di ricarica modificato",
+      "charger_fault": "Guasto della stazione di ricarica segnalato"
+    }
+  },
   "entity": {
     "binary_sensor": {
       "vehicle_connected": {

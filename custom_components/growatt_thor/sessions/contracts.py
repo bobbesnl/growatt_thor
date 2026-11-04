@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ..charging.authorization import LocalAuthorization
     from ..configuration.values import ConfigurationValue
     from ..energy.session_accumulator import SessionAccumulator
+    from ..runtime.automation_events import AutomationEvents
     from .active_state import ActiveTransaction
     from .duration import EffectiveChargingTracker
     from .hooks import TransactionHooks
@@ -43,6 +44,7 @@ class SessionOwner(TelemetryOwner, Protocol):
     currents: dict[str, float]
     effective_charging: EffectiveChargingTracker
     energy: float | None
+    events: AutomationEvents
     id_tag: str | None
     last_completed_transaction: dict[str, Any] | None
     last_current_record: dict[str, Any] | None

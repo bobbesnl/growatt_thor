@@ -363,6 +363,15 @@
       }
     }
   },
+  "device_automation": {
+    "trigger_type": {
+      "command_result": "Opdracht afgerond",
+      "session_started": "Laadsessie gestart",
+      "session_completed": "Laadsessie voltooid",
+      "target_state_changed": "Status van laaddoel gewijzigd",
+      "charger_fault": "Laderstoring gemeld"
+    }
+  },
   "entity": {
     "binary_sensor": {
       "vehicle_connected": {

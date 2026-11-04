@@ -174,6 +174,7 @@ class OcppIngest:
         if transaction and tracker is not None and session_connector:
             if tracker.observe_suspension(received_at, normalized_status):
                 self.coordinator.schedule_storage_save()
+        new_fault = None
         if normalize_ocpp_status(status) == "faulted":
             self.coordinator.last_charger_fault = fault_from_status_notification(
                 self.coordinator.now(),
@@ -182,9 +183,14 @@ class OcppIngest:
                 payload,
             )
             self.coordinator.schedule_fault_storage_save()
+            # A repeated Faulted report is the same fault, not a new event.
+            if previous_status != "faulted":
+                new_fault = self.coordinator.last_charger_fault
         info = payload.get("info")
         self.coordinator.external_meter.observe_status(connector_id, error_code, info)
         self.observe_status(status)
+        if new_fault is not None:
+            self.coordinator.events.fault(new_fault)
 
     def observe_fault_message(
         self,

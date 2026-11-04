@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Home Assistant events and matching device triggers for automations: command results, session start and completion, charging-target state changes and charger faults. Each event names the charger device; no event contains an RFID tag.
 - Binary sensors for automations: vehicle connected, charging, charger fault and charger connected. They follow the Status sensor, so a status that does not say whether a car is plugged in stays unknown.
 - Downloaded diagnostics list the latest 50 OCPP messages per charger with time, direction, action and size. RFID tags, private configuration values such as the server URL, and Growatt session data are redacted; the list is kept in memory only.
 
