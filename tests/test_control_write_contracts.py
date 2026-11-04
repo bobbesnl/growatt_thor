@@ -24,7 +24,7 @@ ENTITIES = {
     "mode": ("select", "WorkingModeSelect", "G_OffPeakEnable", "off_peak"),
     "warm_up": ("switch", "CONTROL_SWITCHES:warm_up", "G_FullContinueChargeEnable", True),
     "warm_up_off": ("switch", "CONTROL_SWITCHES:warm_up", "G_FullContinueChargeEnable", False),
-    "authorization": ("select", "AuthorizationModeSelect", "G_ChargerMode", "rfid_only"),
+    "authorization": ("select", "CONTROL_SELECTS:authorization_mode", "G_ChargerMode", "rfid_only"),
     "load_enable_off": ("switch", "LoadBalancingEnableSwitch", "G_ExternalLimitPowerEnable", False),
     "lcd_off": ("switch", "LcdDisplaySwitch", "G_LCDCloseEnable", False),
     "schedule": ("time", "AutoChargeStartTime", "G_AutoChargeTime", time(2)),
@@ -43,7 +43,10 @@ FIELDS = (
 
 
 # Entities declared from descriptions are named "<DESCRIPTIONS>:<key>".
-DESCRIBED_ENTITY_CLASSES = {"CONTROL_SWITCHES": "ConfigurationControlSwitch"}
+DESCRIBED_ENTITY_CLASSES = {
+    "CONTROL_SELECTS": "ConfigurationControlSelect",
+    "CONTROL_SWITCHES": "ConfigurationControlSwitch",
+}
 
 
 def build_entity(platform, class_name, coordinator, entry):

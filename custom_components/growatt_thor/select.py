@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -28,11 +29,10 @@ from .charging.control_capabilities import (
     selected_working_mode,
 )
 from .charging.pv_linkage import PvBoostMode
-from .configuration.controls import GrowattConfigurationControlMixin
+from .configuration.controls import ConfigurationControl
 from .configuration.values import (
     CONFIGURATION_ENTITY_OPTIONS,
     ConfigurationScalar,
-    configuration_entity_state,
 )
 from .configuration.writer import ConfigurationWrite, ConfigurationWriter, WritePolicy
 from .const import CONFIGURATION_WRITE_SPACING_SECONDS
@@ -57,43 +57,13 @@ async def async_setup_entry(
     async_add_entities(
         [
             WorkingModeSelect(coordinator, entry),
-            AuthorizationModeSelect(coordinator, entry),
-            ExternalSamplingMethodSelect(coordinator, entry),
-            PowerMeterTypeSelect(coordinator, entry),
+            *(
+                ConfigurationControlSelect(coordinator, entry, description)
+                for description in CONTROL_SELECTS
+            ),
             PvBoostDraftSelect(coordinator, entry),
         ]
     )
-
-
-class AuthorizationModeSelect(GrowattConfigurationControlMixin, ThorEntity, SelectEntity):
-    """Explicit, idle-only authorization changes; never issue a reboot or start."""
-
-    coordinator: GrowattCoordinator
-
-    _control = ChargingControl.AUTHORIZATION_MODE
-    _attr_has_entity_name = True
-    _attr_translation_key = "authorization_mode"
-    _attr_icon = "mdi:card-account-details-outline"
-    _attr_entity_category = EntityCategory.CONFIG
-    _attr_options = list(CONFIGURATION_ENTITY_OPTIONS["G_ChargerMode"])
-
-    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_authorization_mode_control"
-
-    @property
-    def current_option(self) -> ConfigurationScalar:
-        return configuration_entity_state(
-            self._configuration_key,
-            self._configuration_value,
-        )
-
-    @property
-    def available(self) -> bool:
-        return super().available and self._control_available and self.current_option is not None
-
-    async def async_select_option(self, option: str) -> None:
-        await self._async_write_configuration(encode_control_value(self._control, option))
 
 
 class WorkingModeWritePolicy(WritePolicy[str]):
@@ -307,74 +277,80 @@ class WorkingModeSelect(ThorEntity, SelectEntity):
         await super().async_will_remove_from_hass()
 
 
-class ExternalSamplingMethodSelect(
-    GrowattConfigurationControlMixin,
-    ThorEntity,
-    SelectEntity,
-):
-    """Select the captured external current sampling method."""
+@dataclass(frozen=True, kw_only=True)
+class ConfigurationControlSelectDescription:
+    """Declare one verified option control; the unique ID is ``<entry>_<key>_control``."""
+
+    key: str
+    control: ChargingControl
+    icon: str
+    device: Literal["charger", "meter"] = "charger"
+
+
+CONTROL_SELECTS = (
+    # Explicit, idle-only authorization changes; never issue a reboot or start.
+    ConfigurationControlSelectDescription(
+        key="authorization_mode",
+        control=ChargingControl.AUTHORIZATION_MODE,
+        icon="mdi:card-account-details-outline",
+    ),
+    # Select the captured external current sampling method.
+    ConfigurationControlSelectDescription(
+        key="external_sampling_method",
+        control=ChargingControl.EXTERNAL_SAMPLING_METHOD,
+        icon="mdi:connection",
+        device="meter",
+    ),
+    # Select the Modbus meter model reported through OCPP.
+    ConfigurationControlSelectDescription(
+        key="power_meter_type",
+        control=ChargingControl.POWER_METER_TYPE,
+        icon="mdi:counter",
+        device="meter",
+    ),
+)
+
+
+class ConfigurationControlSelect(ThorEntity, SelectEntity):
+    """Write one verified Growatt option control."""
 
     coordinator: GrowattCoordinator
 
-    _control = ChargingControl.EXTERNAL_SAMPLING_METHOD
     _attr_has_entity_name = True
-    _attr_translation_key = "external_sampling_method"
     _attr_entity_category = EntityCategory.CONFIG
-    _attr_icon = "mdi:connection"
-    _attr_options = list(CONFIGURATION_ENTITY_OPTIONS["G_ExternalSamplingCurWring"])
 
-    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, device="meter")
-        self._attr_unique_id = f"{entry.entry_id}_external_sampling_method_control"
+    def __init__(
+        self,
+        coordinator: GrowattCoordinator,
+        entry: ConfigEntry,
+        description: ConfigurationControlSelectDescription,
+    ) -> None:
+        super().__init__(coordinator, entry, device=description.device)
+        self._description = description
+        self._configuration = ConfigurationControl(coordinator, description.control)
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}_control"
+        self._attr_translation_key = description.key
+        self._attr_icon = description.icon
+        self._attr_options = list(CONFIGURATION_ENTITY_OPTIONS[self._configuration.key])
 
     @property
     def current_option(self) -> ConfigurationScalar:
-        return configuration_entity_state(
-            self._configuration_key,
-            self._configuration_value,
-        )
+        return self._configuration.state
 
     @property
     def available(self) -> bool:
-        return super().available and self._control_available and self.current_option is not None
-
-    async def async_select_option(self, option: str) -> None:
-        await self._async_write_configuration(encode_control_value(self._control, option))
-
-
-class PowerMeterTypeSelect(
-    GrowattConfigurationControlMixin,
-    ThorEntity,
-    SelectEntity,
-):
-    """Select the Modbus meter model reported through OCPP."""
-
-    coordinator: GrowattCoordinator
-
-    _control = ChargingControl.POWER_METER_TYPE
-    _attr_has_entity_name = True
-    _attr_translation_key = "power_meter_type"
-    _attr_entity_category = EntityCategory.CONFIG
-    _attr_icon = "mdi:counter"
-    _attr_options = list(CONFIGURATION_ENTITY_OPTIONS["G_PowerMeterType"])
-
-    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, device="meter")
-        self._attr_unique_id = f"{entry.entry_id}_power_meter_type_control"
-
-    @property
-    def current_option(self) -> ConfigurationScalar:
-        return configuration_entity_state(
-            self._configuration_key,
-            self._configuration_value,
+        return (
+            super().available and self._configuration.available and self.current_option is not None
         )
 
     @property
-    def available(self) -> bool:
-        return super().available and self._control_available and self.current_option is not None
+    def extra_state_attributes(self) -> dict[str, str]:
+        return self._configuration.attributes
 
     async def async_select_option(self, option: str) -> None:
-        await self._async_write_configuration(encode_control_value(self._control, option))
+        await self._configuration.async_write(
+            encode_control_value(self._description.control, option)
+        )
 
 
 class PvBoostDraftSelect(ThorEntity, SelectEntity):

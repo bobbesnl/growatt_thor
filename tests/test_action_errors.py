@@ -368,7 +368,6 @@ class PublicActionWiringTest(unittest.TestCase):
         )
         side_effects = {
             "queue_write",
-            "_async_write_configuration",
             "async_write",
             "async_request",
             "update_pv_linkage_draft",

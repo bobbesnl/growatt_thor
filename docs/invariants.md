@@ -94,9 +94,10 @@ boundaries. See the [refactoring contracts](CONTRIBUTING.md#refactoring-contract
 `ConfigurationWriter` in `configuration/writer.py` owns the order of the shared
 steps; each entity's `WritePolicy` supplies encoding, block reasons, optimistic
 and accepted state, rollback and the exception boundary. Mode-aware controls
-share `ConfigurationControlWritePolicy` and the pending-state projection of
-`GrowattConfigurationControlMixin` in `configuration/controls.py`. All writes
-run inside write-queue callbacks. The differences below are intentional:
+are declared from descriptions and hold a `ConfigurationControl` from
+`configuration/controls.py` for the pending-state projection and the shared
+`ConfigurationControlWritePolicy`. All writes run inside write-queue callbacks.
+The differences below are intentional:
 
 | Entity | State and rollback behavior |
 | --- | --- |

@@ -124,35 +124,3 @@ class ConfigurationControl:
             return
 
         await self._writer.async_request(raw_value)
-
-
-class GrowattConfigurationControlMixin:
-    """Delegate one mode-aware entity to a ConfigurationControl."""
-
-    coordinator: ConfigurationWriteOwner
-    _control: ChargingControl
-
-    @property
-    def _configuration(self) -> ConfigurationControl:
-        # The control holds no state, so a fresh one per access behaves like
-        # a retained one.
-        return ConfigurationControl(self.coordinator, self._control)
-
-    @property
-    def _configuration_key(self) -> str:
-        return CONTROL_DEFINITIONS[self._control].configuration_key
-
-    @property
-    def _configuration_value(self) -> ConfigurationValue | None:
-        return self._configuration.value
-
-    @property
-    def _control_available(self) -> bool:
-        return self._configuration.available
-
-    @property
-    def extra_state_attributes(self) -> dict[str, str]:
-        return self._configuration.attributes
-
-    async def _async_write_configuration(self, raw_value: str) -> None:
-        await self._configuration.async_write(raw_value)
