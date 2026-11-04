@@ -8,28 +8,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## Unreleased
 
+## 2.0.0-alpha.4 — 2026-11-04
+
 ### Added
 
-- Home Assistant events and matching device triggers for automations: command results, session start and completion, charging-target state changes and charger faults. Each event names the charger device; no event contains an RFID tag.
-- Binary sensors for automations: vehicle connected, charging, charger fault and charger connected. They follow the Status sensor, so a status that does not say whether a car is plugged in stays unknown.
-- Downloaded diagnostics list the latest 50 OCPP messages per charger with time, direction, action and size. RFID tags, private configuration values such as the server URL, and Growatt session data are redacted; the list is kept in memory only.
+- Add binary sensors for vehicle connection, charging, charger faults and connectivity, plus events and device triggers for command results, sessions, charging targets and faults.
+- Include the latest 50 OCPP messages in downloaded diagnostics, with sensitive data redacted. The message log is kept in memory only.
 
 ### Fixed
 
-- After a configuration change that the charger applies by rebooting, further changes and Start are refused until it has reconnected. Previously they were sent into the reboot: a change waited 30 seconds for an answer that never came, and Start was discarded. The card shows **Restarting** and disables the mode and authorization badges, the current limit and Start; Stop stays available.
-- The charger name on the card ends in an ellipsis before the mode and authorization badges wrap to a new line.
-- The arrow of dropdowns in the authorization dialog and the session list no longer sits against the rounded border.
-- The time of the last protection stop on the card uses the Home Assistant time zone, like every other time on the card, instead of the browser's.
-- The session table shows the session ID on a second line under the start time, like the cost basis under the cost, so the start column no longer grows with the ID.
-- Start the integration again on Home Assistant versions before 2026.8. The External Meter device update no longer uses a registry lookup that only exists in newer versions.
-- Show a field error instead of an unknown error when a very large polling interval is entered.
-- Declare the `websockets` library the OCPP server needs, so installations without it no longer fail to load the integration.
+- Show **Restarting** and temporarily block settings changes and Start when a charger reboot is expected. Stop remains available; the block ends on reconnection or after two minutes.
+- Restore setup on Home Assistant versions before 2026.8 and install the required connection library automatically.
+- Improve long charger names, dropdown spacing and session-table layout; show protection-stop times in the Home Assistant time zone.
+- Show a field error when a polling interval is too large.
 
 ### Changed
 
-- The OCPP server uses the current `websockets` server API instead of the deprecated legacy one, so Home Assistant no longer logs its deprecation warnings. A charger that connects without the `ocpp1.6` subprotocol is still accepted.
-- The charger and session cards receive their data over a WebSocket subscription that sends only changes. They fall back to the Status sensor's `thor_card` attribute when the subscription is unavailable, so an older browser bundle or integration keeps working.
-- Require Home Assistant 2024.12.0 or newer. HACS now shows this requirement before installation.
+- Update both dashboard cards directly when their data changes, with the Status sensor retained as a fallback. Use native Home Assistant forms in the card editors.
+- Separate charger state, controls and configuration handling to make maintenance safer, and expand automated checks against real Home Assistant with a simulated charger.
+- Replace the deprecated connection-server API and declare Home Assistant 2024.12.0 as the minimum version in HACS.
 
 ## 2.0.0-alpha.3 — 2026-11-02
 
