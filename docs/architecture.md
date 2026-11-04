@@ -128,6 +128,7 @@ from Lit lifecycle and HA calls. See
 | Session flow thresholds | `sessions/constants.py` |
 | Platform configuration keys | `configuration/keys.py` |
 | Connection timing and close codes | `ocpp/core/connection.py` |
+| Response timeout, outcome uncertainty and retry per outbound OCPP action | `ocpp/growatt/actions.py` (`OCPP_ACTIONS`) |
 | Configuration-write spacing | `const.py` |
 | OCPP status groups and normalization | `ocpp/core/status.py` (accepts both OCPP wire values and translated entity spellings) |
 | Enum unwrapping, optional numbers and text | `coerce.py` |

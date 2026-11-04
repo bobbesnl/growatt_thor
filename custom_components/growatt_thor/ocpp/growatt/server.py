@@ -45,8 +45,6 @@ from ..core.connection import (
     CONFIGURATION_BACKOFF_STEP_SECONDS,
     CONFIGURATION_GROUP_PAUSE_SECONDS,
     CONFIGURATION_MAX_BACKOFF_SECONDS,
-    CONFIGURATION_REFRESH_WAIT_SECONDS,
-    CONFIGURATION_REQUEST_TIMEOUT_SECONDS,
     CONNECTION_WATCHDOG_INTERVAL_SECONDS,
     OCPP_HEARTBEAT_INTERVAL_SECONDS,
     WEBSOCKET_CLOSE_TIMEOUT_SECONDS,
@@ -56,6 +54,7 @@ from ..core.connection import (
 )
 from ..core.logging import OcppMetadataLogger
 from ..core.requests import REQUEST_SKIPPED, SerializedOcppRequestGate
+from .actions import OCPP_ACTIONS, OCPP_RESPONSE_TIMEOUT_SECONDS
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -64,6 +63,11 @@ if TYPE_CHECKING:
     from ...coordinator import GrowattCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _uncertain(action: str) -> bool:
+    """Whether a timeout of this action leaves its outcome unknown."""
+    return OCPP_ACTIONS[action].timeout_makes_outcome_uncertain
 
 
 class OcppHandlerGuard[HandlerResult](Protocol):
@@ -154,7 +158,12 @@ class GrowattChargePoint(OcppChargePoint):
         coordinator: GrowattCoordinator,
         hass: HomeAssistant,
     ) -> None:
-        super().__init__(cp_id, websocket, logger=OcppMetadataLogger(_LOGGER, {}))
+        super().__init__(
+            cp_id,
+            websocket,
+            response_timeout=OCPP_RESPONSE_TIMEOUT_SECONDS,
+            logger=OcppMetadataLogger(_LOGGER, {}),
+        )
 
         self.coordinator = coordinator
         self.hass = hass
@@ -527,6 +536,7 @@ class GrowattChargePoint(OcppChargePoint):
                     ),
                 ),
                 skip_if_writes_pending=skip_if_writes_pending,
+                timeout_makes_outcome_uncertain=_uncertain("TriggerMessage(StatusNotification)"),
             )
             return result is not REQUEST_SKIPPED
         except Exception as exc:
@@ -543,6 +553,7 @@ class GrowattChargePoint(OcppChargePoint):
                 lambda: self.call(
                     call.TriggerMessage(requested_message="BootNotification"),
                 ),
+                timeout_makes_outcome_uncertain=_uncertain("TriggerMessage(BootNotification)"),
             )
             return True
         except Exception as exc:
@@ -565,7 +576,10 @@ class GrowattChargePoint(OcppChargePoint):
                 )
                 try:
                     return await asyncio.wait_for(
-                        asyncio.shield(task), timeout=CONFIGURATION_REFRESH_WAIT_SECONDS
+                        asyncio.shield(task),
+                        timeout=OCPP_ACTIONS[
+                            "DataTransfer(get_external_meterval)"
+                        ].response_timeout,
                     )
                 except BaseException:
                     # Cancel/drain the shielded request on error or cancellation, then propagate.
@@ -581,6 +595,7 @@ class GrowattChargePoint(OcppChargePoint):
                 "DataTransfer(get_external_meterval)",
                 request_external_meter,
                 skip_if_writes_pending=skip_if_writes_pending,
+                timeout_makes_outcome_uncertain=_uncertain("DataTransfer(get_external_meterval)"),
             )
             if result is REQUEST_SKIPPED:
                 return False
@@ -633,6 +648,7 @@ class GrowattChargePoint(OcppChargePoint):
                 "GetConfiguration",
                 self._request_configuration,
                 skip_if_writes_pending=skip_if_writes_pending,
+                timeout_makes_outcome_uncertain=_uncertain("GetConfiguration"),
             )
             return result is not REQUEST_SKIPPED and bool(result)
         except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain) as exc:
@@ -750,7 +766,7 @@ class GrowattChargePoint(OcppChargePoint):
         _LOGGER.info("Triggering GetConfiguration %s (%s keys: %d)", label, category, len(keys))
         result = await asyncio.wait_for(
             self.call(call.GetConfiguration(key=list(keys))),
-            timeout=CONFIGURATION_REQUEST_TIMEOUT_SECONDS,
+            timeout=OCPP_ACTIONS["GetConfiguration"].response_timeout,
         )
         if not self._connection_may_update_coordinator(f"GetConfiguration {label} response"):
             return None
@@ -781,7 +797,7 @@ class GrowattChargePoint(OcppChargePoint):
                 lambda: self.call(
                     call.ChangeConfiguration(key=key, value=value),
                 ),
-                timeout_makes_outcome_uncertain=True,
+                timeout_makes_outcome_uncertain=_uncertain("ChangeConfiguration"),
             )
             status = getattr(result, "status", ConfigurationStatus.rejected)
             _LOGGER.info("ChangeConfiguration result: %s", status)
@@ -829,7 +845,7 @@ class GrowattChargePoint(OcppChargePoint):
                 lambda: self.call(
                     call.DataTransfer(**payload),
                 ),
-                timeout_makes_outcome_uncertain=True,
+                timeout_makes_outcome_uncertain=_uncertain("DataTransfer"),
             )
             status = getattr(result, "status", DataTransferStatus.rejected)
             _LOGGER.info("DataTransfer control result: %s", status)
@@ -864,7 +880,7 @@ class GrowattChargePoint(OcppChargePoint):
                         id_tag=id_tag,
                     ),
                 ),
-                timeout_makes_outcome_uncertain=True,
+                timeout_makes_outcome_uncertain=_uncertain("RemoteStartTransaction"),
             )
             status = getattr(result, "status", RemoteStartStopStatus.rejected)
             status_value = enum_value(status, stringify_fallback=True)
@@ -894,7 +910,7 @@ class GrowattChargePoint(OcppChargePoint):
                 lambda: self.call(
                     call.RemoteStopTransaction(transaction_id=transaction_id),
                 ),
-                timeout_makes_outcome_uncertain=True,
+                timeout_makes_outcome_uncertain=_uncertain("RemoteStopTransaction"),
             )
             status = getattr(result, "status", RemoteStartStopStatus.rejected)
             _LOGGER.info("RemoteStopTransaction result: %s", status)
