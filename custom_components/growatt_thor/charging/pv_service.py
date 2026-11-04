@@ -95,6 +95,8 @@ def _block_reason(
     charge_point = coordinator.runtime_data.get(ACTIVE_CHARGE_POINT)
     if not coordinator.connected or charge_point is None:
         return "charger_disconnected"
+    if coordinator.charger_reboot_pending:
+        return "charger_rebooting"
     if coordinator.charger_is_faulted:
         return "charger_faulted"
     if coordinator.transaction_is_active:

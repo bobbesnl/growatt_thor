@@ -807,6 +807,10 @@ class GrowattChargePoint(OcppChargePoint):
             )
             status = getattr(result, "status", ConfigurationStatus.rejected)
             _LOGGER.info("ChangeConfiguration result: %s", status)
+            if status == ConfigurationStatus.reboot_required and self._is_current_connection():
+                # The THOR reboots about 30 s after this answer; refuse further
+                # writes until it reconnects (runtime/charger_reboot.py).
+                self.coordinator.observe_reboot_required()
             return status
         except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain):
             # The queue distinguishes a definitely-unsent request from one

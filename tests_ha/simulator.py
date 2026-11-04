@@ -39,6 +39,10 @@ class SimulatedThor(ChargePoint):
         self.remote_stop_status = RemoteStartStopStatus.accepted
         self.remote_starts: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self.remote_stops: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self.configuration_changes: asyncio.Queue[dict[str, str]] = asyncio.Queue()
+        self.change_configuration_status = ConfigurationStatus.accepted
+        # Reported configuration; keys outside it are answered as unknown.
+        self.configuration: dict[str, str] = {"G_ChargerMode": "1"}
         # When set, RemoteStop is answered only after the event fires. The
         # library handles one frame at a time, so the simulator stays silent
         # until then, like a THOR that lost the answer.
@@ -49,7 +53,15 @@ class SimulatedThor(ChargePoint):
 
     @on(Action.get_configuration)
     def on_get_configuration(self, key: list[str] | None = None) -> call_result.GetConfiguration:
-        return call_result.GetConfiguration(configuration_key=[], unknown_key=key or [])
+        requested = key or list(self.configuration)
+        return call_result.GetConfiguration(
+            configuration_key=[
+                {"key": name, "value": self.configuration[name], "readonly": False}
+                for name in requested
+                if name in self.configuration
+            ],
+            unknown_key=[name for name in requested if name not in self.configuration],
+        )
 
     @on(Action.trigger_message)
     def on_trigger_message(self, **_: Any) -> call_result.TriggerMessage:
@@ -60,8 +72,11 @@ class SimulatedThor(ChargePoint):
         return call_result.DataTransfer(status=DataTransferStatus.rejected)
 
     @on(Action.change_configuration)
-    def on_change_configuration(self, **_: Any) -> call_result.ChangeConfiguration:
-        return call_result.ChangeConfiguration(status=ConfigurationStatus.accepted)
+    def on_change_configuration(self, key: str, value: str) -> call_result.ChangeConfiguration:
+        self.configuration_changes.put_nowait({"key": key, "value": value})
+        if key in self.configuration:
+            self.configuration[key] = value
+        return call_result.ChangeConfiguration(status=self.change_configuration_status)
 
     @on(Action.remote_start_transaction)
     def on_remote_start(self, id_tag: str, **kwargs: Any) -> call_result.RemoteStartTransaction:

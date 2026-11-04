@@ -257,6 +257,9 @@
     "charger_faulted": {
       "message": "A művelet tiltott, amíg a töltő hibát jelez."
     },
+    "charger_rebooting": {
+      "message": "A töltő újraindul egy konfigurációs módosítás alkalmazásához. Próbálja újra, amint ismét csatlakozott."
+    },
     "active_transaction": {
       "message": "Aktív töltési tranzakció közben ez a beállítás nem módosítható."
     },

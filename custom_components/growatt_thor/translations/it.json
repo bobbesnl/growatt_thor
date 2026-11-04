@@ -257,6 +257,9 @@
     "charger_faulted": {
       "message": "L’azione è bloccata mentre il caricatore segnala un guasto."
     },
+    "charger_rebooting": {
+      "message": "Il caricatore si sta riavviando per applicare una modifica alla configurazione. Riprova quando si sarà ricollegato."
+    },
     "active_transaction": {
       "message": "Impossibile modificare questa impostazione durante una transazione di ricarica attiva."
     },

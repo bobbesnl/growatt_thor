@@ -65,6 +65,11 @@ export function renderWarnings({
   format,
 }: CardViewModel) {
   return html`
+    ${status.key === 'rebooting'
+      ? html`<div class="notice warning" role="status">
+          <ha-icon icon="mdi:restart"></ha-icon>${t('rebootingNotice')}
+        </div>`
+      : nothing}
     ${status.key === 'faulted' && faultMessage
       ? html`<div class="notice error" role="alert">
           <ha-icon icon="mdi:alert-outline"></ha-icon>

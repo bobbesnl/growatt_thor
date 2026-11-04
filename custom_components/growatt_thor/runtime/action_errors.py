@@ -32,6 +32,7 @@ DEFAULT_ACTION_COMMAND_WAIT_TIMEOUT = 30.0
 _WRITE_BLOCK_TRANSLATIONS: Mapping[str, tuple[type[HomeAssistantError], str]] = {
     "charger_disconnected": (HomeAssistantError, "charger_disconnected"),
     "charger_faulted": (ServiceValidationError, "charger_faulted"),
+    "charger_rebooting": (HomeAssistantError, "charger_rebooting"),
     "active_transaction": (ServiceValidationError, "active_transaction"),
     "control_not_applicable": (
         ServiceValidationError,

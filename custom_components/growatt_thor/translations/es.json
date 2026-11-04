@@ -257,6 +257,9 @@
     "charger_faulted": {
       "message": "La acción solicitada está bloqueada mientras el cargador indica un fallo."
     },
+    "charger_rebooting": {
+      "message": "El cargador se está reiniciando para aplicar un cambio de configuración. Vuelve a intentarlo cuando se haya reconectado."
+    },
     "active_transaction": {
       "message": "No se puede cambiar este ajuste mientras haya una transacción de carga activa."
     },

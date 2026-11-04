@@ -174,6 +174,10 @@ export const hu: Record<keyof typeof en, string> = {
   reservedHint: 'A töltőpont foglalt.',
   unavailableHint: 'A fali töltő nem elérhető állapotot jelez.',
   offlineHint: 'Nincs kapcsolat. Az élő mérések és vezérlők nem érhetők el.',
+  rebooting: 'Újraindul',
+  rebootingHint: 'A töltő újraindul egy módosítás alkalmazásához.',
+  rebootingNotice:
+    'A töltő újraindul egy konfigurációs módosítás alkalmazásához. A további módosítások és a töltés indítása le vannak tiltva, amíg újra nem csatlakozik.',
   unknownHint: 'Várakozás a töltő állapotfrissítésére.',
   faultHint: 'A fali töltő hibát jelez. Újraindítás előtt ellenőrizze a részleteket.',
   pvWaitHint: 'A fali töltő jelzi, hogy napenergiára vár.',

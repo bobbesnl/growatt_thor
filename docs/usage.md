@@ -68,6 +68,10 @@ Open the authorization badge on the card (number **1**) and choose
 confirmation: changing mode can reboot the charger, and Plug & Charge can
 start charging immediately when a vehicle is connected.
 
+When the charger answers that a change needs a reboot, the card shows
+**Restarting**. Further changes and Start stay blocked until the charger has
+reconnected, because the reboot would drop them; Stop stays available.
+
 [Compare the three authorization dialogs](screenshots.md#authorization).
 
 ### Manage local access

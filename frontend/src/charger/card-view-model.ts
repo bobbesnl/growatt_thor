@@ -36,7 +36,8 @@ export function buildCardViewModel(
   const dark = config.theme === 'dark' || (config.theme !== 'light' && !!hass.themes?.darkMode);
   const connected = hass.connected !== false && entity.attributes.connected === true;
   const status = stateFor(entity, connected, data);
-  const inactive = ['offline', 'unavailable'].includes(status.key);
+  const inactive = ['offline', 'unavailable', 'rebooting'].includes(status.key);
+  const rebooting = status.key === 'rebooting';
   const vehicle = vehicleConnection(entity.state, connected);
   const auth = ['home_assistant_rfid', 'rfid_only', 'plug_and_charge'].includes(
     data.auth_mode || '',
@@ -114,6 +115,7 @@ export function buildCardViewModel(
     connected,
     status,
     inactive,
+    rebooting,
     vehicle,
     auth,
     fresh,

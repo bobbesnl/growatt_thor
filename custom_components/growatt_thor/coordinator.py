@@ -30,6 +30,7 @@ from .ocpp.core.status import normalize_ocpp_status
 from .ocpp.growatt.external_meter_state import ExternalMeterState
 from .ocpp.growatt.message_log import OcppMessageLog
 from .runtime.automation_events import AutomationEvents
+from .runtime.charger_reboot import REBOOT_WINDOW_SECONDS, ChargerRebootWindow
 from .runtime.charger_write_queue import ChargerWriteQueue
 from .runtime.coordinator_storage import restore_storage_data, storage_data
 from .runtime.entry import EntryRuntime
@@ -114,6 +115,8 @@ class GrowattCoordinator(_CoordinatorBase):
         self.external_meter = ExternalMeterState()
         self.ocpp_messages = OcppMessageLog()
         self.events = AutomationEvents()
+        self.reboot_window = ChargerRebootWindow()
+        self._reboot_window_expiry: asyncio.TimerHandle | None = None
         self.pv_draft = PvLinkageDraftState()
         self._transaction_id_allocator = TransactionIdAllocator()
         self._transaction_id_lock = asyncio.Lock()
@@ -372,6 +375,8 @@ class GrowattCoordinator(_CoordinatorBase):
         self.last_message_action = "WebSocketConnect"
         self.last_heartbeat_at = None
         self._connection_changed.set()
+        # A new connection after RebootRequired means the reboot is over.
+        self._end_reboot_window()
         _LOGGER.info("Charge point connected: %s", cp_id)
         self.async_set_updated_data(True)
 
@@ -453,6 +458,7 @@ class GrowattCoordinator(_CoordinatorBase):
             connected=self.connected,
             transaction_active=self.transaction_is_active,
             charger_faulted=self.charger_is_faulted,
+            reboot_pending=self.charger_reboot_pending,
         )
 
     def schedule_configuration_refresh(
@@ -548,6 +554,7 @@ class GrowattCoordinator(_CoordinatorBase):
     async def async_shutdown(self) -> None:
         """Cancel coordinator-owned background work during integration unload."""
         self._shutting_down = True
+        self._end_reboot_window()
         self.write_queue.begin_shutdown()
         tasks = (
             self.configuration_readback.task,
@@ -580,6 +587,38 @@ class GrowattCoordinator(_CoordinatorBase):
     def charger_is_faulted(self) -> bool:
         """Return whether the current OCPP charger status is Faulted."""
         return normalize_ocpp_status(self.status) == "faulted"
+
+    @property
+    def charger_reboot_pending(self) -> bool:
+        """Return whether the charger is expected to reboot or still rebooting."""
+        # Read the loop clock only while a window is open.
+        return self.reboot_window.is_open and self.reboot_window.pending(self.hass.loop.time())
+
+    def observe_reboot_required(self) -> None:
+        """Record that the charger accepted a change it applies by rebooting."""
+        self.reboot_window.expect(self.hass.loop.time())
+        if self._reboot_window_expiry is not None:
+            self._reboot_window_expiry.cancel()
+        self._reboot_window_expiry = self.hass.loop.call_later(
+            REBOOT_WINDOW_SECONDS, self._expire_reboot_window
+        )
+        _LOGGER.info("Charger reboot expected; writes are refused until it reconnects")
+        self.async_set_updated_data(True)
+
+    def _expire_reboot_window(self) -> None:
+        self._reboot_window_expiry = None
+        if self.reboot_window.clear():
+            _LOGGER.warning(
+                "Expected charger reboot not observed within %.0f s; writes allowed again",
+                REBOOT_WINDOW_SECONDS,
+            )
+            self.async_set_updated_data(True)
+
+    def _end_reboot_window(self) -> None:
+        if self._reboot_window_expiry is not None:
+            self._reboot_window_expiry.cancel()
+            self._reboot_window_expiry = None
+        self.reboot_window.clear()
 
     def schedule_fault_storage_save(self) -> None:
         """Coalesce paired StatusNotification/faultmessage storage writes."""

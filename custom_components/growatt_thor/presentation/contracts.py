@@ -64,3 +64,6 @@ class DashboardOwner(
 
     @property
     def charger_is_faulted(self) -> bool: ...
+
+    @property
+    def charger_reboot_pending(self) -> bool: ...

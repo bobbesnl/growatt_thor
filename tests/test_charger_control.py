@@ -21,6 +21,7 @@ class GrowattOcppChargerTest(unittest.IsolatedAsyncioTestCase):
         self.results = []
         self.coordinator.record_stop_requested = lambda **kwargs: self.stop_reasons.append(kwargs)
         self.coordinator.charger_is_faulted = False
+        self.coordinator.charger_reboot_pending = False
         self.coordinator.connected = True
         self.coordinator.charging_target_request = None
         self.ocpp.remote_start_transaction = AsyncMock(return_value={"status": "Accepted"})

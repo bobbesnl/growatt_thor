@@ -20,6 +20,9 @@ export function stateFor(entity: Entity, connected: boolean, data: CardData): St
   const fault = state === 'faulted';
   if (!connected)
     return { key: 'offline', tone: 'neutral', icon: 'mdi:lan-disconnect', hint: 'offlineHint' };
+  // The charger accepted a change it applies by rebooting; it is about to drop.
+  if (data.charger_rebooting)
+    return { key: 'rebooting', tone: 'neutral', icon: 'mdi:restart', hint: 'rebootingHint' };
   if (fault)
     return { key: 'faulted', tone: 'red', icon: 'mdi:alert-octagon-outline', hint: 'faultHint' };
   if (state === 'unavailable')
@@ -177,6 +180,7 @@ export function capabilities(
   return {
     start:
       connected &&
+      !data.charger_rebooting &&
       (data.auth_mode === 'home_assistant_rfid' ||
         (data.auth_mode === 'plug_and_charge' &&
           ['preparing', 'suspended_ev', 'suspended_evse'].includes(entity.state))) &&
@@ -189,7 +193,11 @@ export function capabilities(
       !pending &&
       (data.transaction_active || entity.state === 'charging') &&
       ready('stop_charging'),
-    limit: connected && !['faulted', 'unavailable'].includes(entity.state) && ready('max_current'),
+    limit:
+      connected &&
+      !data.charger_rebooting &&
+      !['faulted', 'unavailable'].includes(entity.state) &&
+      ready('max_current'),
   };
 }
 

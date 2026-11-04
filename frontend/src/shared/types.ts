@@ -165,6 +165,8 @@ export interface CardData {
   working_mode: string | null;
   auth_mode?: string | null;
   transaction_active: boolean;
+  /** Writes and Start are refused until the charger reconnects after RebootRequired. */
+  charger_rebooting?: boolean;
   session_started_at: string | null;
   session_energy_kwh: number | null;
   meter_received_at: string | null;

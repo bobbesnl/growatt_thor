@@ -179,6 +179,10 @@ export const it: Record<keyof typeof en, string> = {
   reservedHint: 'Il punto di ricarica è prenotato.',
   unavailableHint: 'La wallbox segnala di non essere disponibile.',
   offlineHint: 'Nessuna connessione. Letture attuali e controlli non disponibili.',
+  rebooting: 'Riavvio in corso',
+  rebootingHint: 'Il caricatore si sta riavviando per applicare una modifica.',
+  rebootingNotice:
+    'Il caricatore si sta riavviando per applicare una modifica alla configurazione. Altre modifiche e l’avvio della ricarica sono bloccati finché non si ricollega.',
   unknownHint: 'In attesa di un aggiornamento dello stato del caricatore.',
   faultHint: 'La wallbox segnala un guasto. Verificare i dettagli prima di riavviare.',
   pvWaitHint: 'La wallbox segnala di essere in attesa di energia solare.',

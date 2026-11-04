@@ -181,6 +181,10 @@ export const de: Record<Key, string> = {
   reservedHint: 'Der Ladepunkt ist reserviert.',
   unavailableHint: 'Die Wallbox meldet sich als nicht verfügbar.',
   offlineHint: 'Keine Verbindung. Live-Werte und Bedienung sind nicht verfügbar.',
+  rebooting: 'Startet neu',
+  rebootingHint: 'Die Wallbox startet neu, um eine Änderung zu übernehmen.',
+  rebootingNotice:
+    'Die Wallbox startet neu, um eine Konfigurationsänderung zu übernehmen. Weitere Änderungen und Laden starten sind gesperrt, bis sie wieder verbunden ist.',
   unknownHint: 'Warte auf eine Statusmeldung der Wallbox.',
   faultHint: 'Die Wallbox meldet eine Störung. Vor dem Neustart die Details prüfen.',
   pvWaitHint: 'Die Wallbox meldet, dass sie auf Solarüberschuss wartet.',

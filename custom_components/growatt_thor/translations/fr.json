@@ -257,6 +257,9 @@
     "charger_faulted": {
       "message": "L’action demandée est bloquée tant que la borne signale un défaut."
     },
+    "charger_rebooting": {
+      "message": "La borne redémarre pour appliquer une modification de configuration. Réessayez lorsqu'elle sera reconnectée."
+    },
     "active_transaction": {
       "message": "Ce réglage ne peut pas être modifié pendant une transaction de charge active."
     },

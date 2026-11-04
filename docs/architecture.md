@@ -186,6 +186,7 @@ yet" stays distinct from a reported outcome.
 | --- | --- |
 | `runtime/entry.py::EntryRuntime` | Resources of one config entry. Setup publishes the same object on `entry.runtime_data`, the coordinator and the entry-scoped dispatch registry; stable mapping keys are in `runtime/keys.py`. Release clears only the runtime still registered to that entry. |
 | `runtime/charger_write_queue.py::ChargerWriteQueue` | Pending `ChargerWriteItem`s, the processor task, monotonic expiry and spacing, completion and shutdown. It talks to the coordinator only through the `WriteQueueOwner` protocol. |
+| `runtime/charger_reboot.py::ChargerRebootWindow` | The expected reboot after `RebootRequired`. The charge point opens it, the next connection or a 120 s expiry closes it; while open, the shared write guard returns `charger_rebooting`. |
 | `sessions/runtime.py::SessionLifecycle` | Session curves, event tracking, restored-session state, pending effective durations, record deduplication, pending completions and the immutable `LastSessionState`. Storage uses its snapshot/restore methods. |
 | `ocpp/growatt/external_meter_state.py::ExternalMeterState` | External-meter observations, fault matching, poll timeouts, health and PV readiness. |
 | `runtime/automation_events.py::AutomationEvents` | No state of its own besides the publisher that setup connects. Builds the event payloads for command results, session start and completion, target state changes and faults (`coordinator.events`). |

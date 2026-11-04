@@ -257,6 +257,9 @@
     "charger_faulted": {
       "message": "Die angeforderte Aktion ist gesperrt, solange die Wallbox eine Störung meldet."
     },
+    "charger_rebooting": {
+      "message": "Die Wallbox startet neu, um eine Konfigurationsänderung zu übernehmen. Bitte erneut versuchen, sobald sie wieder verbunden ist."
+    },
     "active_transaction": {
       "message": "Diese Einstellung kann während eines aktiven Ladevorgangs nicht geändert werden."
     },

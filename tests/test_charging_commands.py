@@ -111,6 +111,7 @@ class StartChargingCommandsTest(unittest.IsolatedAsyncioTestCase):
         ChargingCommandsTest.setUp(self)
         self.coordinator.transaction_is_active = False
         self.coordinator.charger_is_faulted = False
+        self.coordinator.charger_reboot_pending = False
         self.coordinator.connected = True
         self.coordinator.charging_target_request = None
         self.ocpp.remote_start_transaction = AsyncMock(return_value={"status": "Accepted"})

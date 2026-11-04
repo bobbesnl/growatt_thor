@@ -220,6 +220,7 @@ def control_write_block_reason(
     connected: bool,
     transaction_active: bool,
     charger_faulted: bool = False,
+    reboot_pending: bool = False,
 ) -> str | None:
     """Return why a control cannot currently write, or ``None``."""
     definition = CONTROL_DEFINITIONS[control]
@@ -229,6 +230,7 @@ def control_write_block_reason(
     if block_reason := charger_write_block_reason(
         connected=connected,
         charger_faulted=charger_faulted,
+        reboot_pending=reboot_pending,
     ):
         return block_reason
     if definition.write_policy == ControlWritePolicy.IDLE_ONLY and transaction_active:
@@ -247,10 +249,14 @@ def charger_write_block_reason(
     *,
     connected: bool,
     charger_faulted: bool,
+    reboot_pending: bool,
 ) -> str | None:
     """Return a connection/status blocker shared by legacy controls."""
     if not connected:
         return "charger_disconnected"
+    if reboot_pending:
+        # See runtime/charger_reboot.py: a write now would be lost in the reboot.
+        return "charger_rebooting"
     if charger_faulted:
         return "charger_faulted"
     return None

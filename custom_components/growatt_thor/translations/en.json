@@ -257,6 +257,9 @@
     "charger_faulted": {
       "message": "The requested action is blocked while the charger reports a fault."
     },
+    "charger_rebooting": {
+      "message": "The charger is restarting to apply a configuration change. Try again once it has reconnected."
+    },
     "active_transaction": {
       "message": "This setting cannot be changed while a charging transaction is active."
     },

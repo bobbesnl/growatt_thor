@@ -174,6 +174,7 @@ class LcdDisplayWritePolicy(WritePolicy[str]):
         return charger_write_block_reason(
             connected=self.coordinator.connected,
             charger_faulted=self.coordinator.charger_is_faulted,
+            reboot_pending=self.coordinator.charger_reboot_pending,
         )
 
     def is_unchanged(self, value: str) -> bool:

@@ -19,7 +19,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
-from ocpp.v16.enums import RemoteStartStopStatus
+from ocpp.v16.enums import ConfigurationStatus, RemoteStartStopStatus
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_capture_events,
@@ -373,3 +373,40 @@ async def test_a_connection_outside_the_ocpp_path_is_closed(
     assert closed.value.rcvd.code == 1000
     charge_point_id = _entity_id(hass, loaded_entry, "sensor", "charge_point_id")
     assert _state(hass, charge_point_id) != "THOR-SIM"
+
+
+async def test_reboot_required_blocks_changes_and_start_until_the_reconnect(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    port = loaded_entry.data[CONF_PORT]
+    mode = _entity_id(hass, loaded_entry, "select", "authorization_mode_control")
+
+    async def select(option: str) -> None:
+        await hass.services.async_call(
+            "select", "select_option", {"entity_id": mode, "option": option}, blocking=True
+        )
+
+    async with connected_thor(port) as thor:
+        start = await _connect_ready(hass, loaded_entry, thor)
+        await _wait_for(lambda: _state(hass, mode) == "home_assistant_rfid", "mode reported")
+        thor.change_configuration_status = ConfigurationStatus.reboot_required
+        await select("rfid_only")
+        assert thor.configuration_changes.get_nowait() == {"key": "G_ChargerMode", "value": "2"}
+
+        # The THOR reboots shortly after RebootRequired: a second change or a
+        # Start would be lost, so both are refused before reaching the charger.
+        with pytest.raises(HomeAssistantError) as raised:
+            await select("home_assistant_rfid")
+        assert raised.value.translation_key == "charger_rebooting"
+        assert thor.configuration_changes.empty()
+        await _wait_for(lambda: _state(hass, start) == STATE_UNAVAILABLE, "Start blocked")
+
+    # The charger comes back after its reboot. The 20 s firmware spacing
+    # between writes is unrelated to the reboot; skip it here.
+    loaded_entry.runtime_data.coordinator.write_queue.min_write_interval = 0
+    async with connected_thor(port) as thor:
+        await thor.boot()
+        await thor.status("Preparing")
+        await _wait_for(lambda: _state(hass, start) != STATE_UNAVAILABLE, "Start after reboot")
+        await select("home_assistant_rfid")
+        assert thor.configuration_changes.get_nowait()["value"] == "1"

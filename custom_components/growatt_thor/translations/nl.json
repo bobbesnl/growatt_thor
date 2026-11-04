@@ -257,6 +257,9 @@
     "charger_faulted": {
       "message": "De gevraagde actie is geblokkeerd zolang de lader een storing meldt."
     },
+    "charger_rebooting": {
+      "message": "De laadpaal start opnieuw op om een configuratiewijziging toe te passen. Probeer het opnieuw zodra hij weer verbonden is."
+    },
     "active_transaction": {
       "message": "Deze instelling kan niet worden gewijzigd terwijl een laadsessie actief is."
     },

@@ -21,6 +21,7 @@ def card_owner(**values):
         "effective_meter_gap_seconds": coordinator.effective_meter_gap_seconds,
         "transaction_is_active": coordinator.transaction_is_active,
         "charger_is_faulted": coordinator.charger_is_faulted,
+        "charger_reboot_pending": coordinator.charger_reboot_pending,
     }
     return types.SimpleNamespace(**(defaults | values))
 

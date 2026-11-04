@@ -92,6 +92,15 @@ const scenarios: Record<string, Scenario> = {
     data: { working_mode: 'pv_linkage_plus', external_meter_health: 'modbus_fault' },
   },
   pv_linkage: { state: 'charging', data: { working_mode: 'pv_linkage', pv_linkage: pvLinkage } },
+  rebooting: {
+    state: 'available',
+    data: {
+      transaction_active: false,
+      charger_rebooting: true,
+      working_mode: 'pv_linkage',
+      pv_linkage: pvLinkage,
+    },
+  },
   target_and_command: {
     state: 'preparing',
     data: {
@@ -179,4 +188,43 @@ test('charger card templates preserve their markup across themes, states and car
   for (const [name, hash] of rendered) assert.equal(hash, contracts[name], name);
   // The scenarios must reach different markup, or the contract would prove little.
   assert.ok(new Set(rendered.values()).size > Object.keys(scenarios).length * 4);
+});
+
+test('a charger reboot blocks Start, the limit and both header pills and says why', () => {
+  const data = makeData({
+    transaction_active: false,
+    charger_rebooting: true,
+    working_mode: 'pv_linkage',
+    pv_linkage: pvLinkage,
+  });
+  const view = buildCardViewModel(
+    { ...hass, language: 'de' } as Hass,
+    { type: 'custom:growatt-thor-card' },
+    entity('available', data),
+    data,
+    now,
+    idleCommand,
+  );
+  assert.equal(view.status.key, 'rebooting');
+  assert.ok(view.inactive && view.rebooting);
+  assert.equal(view.caps.start, false);
+  assert.equal(view.caps.limit, false);
+
+  const text = markup(renderCard(view, actions, { error: '', sending: false }));
+  assert.ok(text.includes(view.t('rebootingNotice')));
+  const pills = text.slice(text.indexOf('class="pills"'), text.indexOf('</header>'));
+  assert.equal(pills.match(/\?disabled=true/g)?.length, 2);
+
+  // Without the reboot the same card is usable again.
+  const ready = makeData({ ...data, charger_rebooting: false });
+  const after = buildCardViewModel(
+    hass,
+    { type: 'custom:growatt-thor-card' },
+    entity('available', ready),
+    ready,
+    now,
+    idleCommand,
+  );
+  assert.equal(after.rebooting, false);
+  assert.equal(after.caps.start, true);
 });

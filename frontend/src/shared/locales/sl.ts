@@ -174,6 +174,10 @@ export const sl: Record<keyof typeof en, string> = {
   reservedHint: 'Polnilno mesto je rezervirano.',
   unavailableHint: 'Polnilnica javlja, da ni na voljo.',
   offlineHint: 'Ni povezave. Trenutne meritve in kontrolniki niso na voljo.',
+  rebooting: 'Ponovni zagon',
+  rebootingHint: 'Polnilnica se znova zaganja, da uveljavi spremembo.',
+  rebootingNotice:
+    'Polnilnica se znova zaganja, da uveljavi spremembo nastavitev. Nadaljnje spremembe in začetek polnjenja so blokirani, dokler se ne poveže znova.',
   unknownHint: 'Čakanje na posodobitev stanja polnilnice.',
   faultHint: 'Polnilnica javlja napako. Pred ponovnim zagonom preverite podrobnosti.',
   pvWaitHint: 'Polnilnica javlja, da čaka na sončno energijo.',

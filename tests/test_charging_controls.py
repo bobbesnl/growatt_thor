@@ -257,6 +257,7 @@ class ChargingControlDependencyTest(unittest.TestCase):
             controls.charger_write_block_reason(
                 connected=True,
                 charger_faulted=True,
+                reboot_pending=False,
             ),
             "charger_faulted",
         )

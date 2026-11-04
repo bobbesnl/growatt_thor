@@ -4,7 +4,7 @@ import type { CardActions } from './card-actions';
 import type { CardViewModel } from './card-view-model';
 
 export function renderHeader(
-  { config, t, data, auth, entity }: CardViewModel,
+  { config, t, data, auth, entity, rebooting }: CardViewModel,
   actions: CardActions,
 ) {
   return html`
@@ -17,6 +17,7 @@ export function renderHeader(
               class="mode strategy"
               title=${t('chargeMode')}
               aria-haspopup="dialog"
+              ?disabled=${rebooting}
               @click=${() => actions.openPv(entity.entity_id, data.pv_linkage)}
             >
               <ha-icon
@@ -42,7 +43,7 @@ export function renderHeader(
           class="mode auth"
           title=${t(`${auth}Hint`)}
           aria-label=${t('authorization')}
-          ?disabled=${!data.entities.authorization_mode_control}
+          ?disabled=${!data.entities.authorization_mode_control || rebooting}
           @click=${() => actions.openAuth(data.entities.authorization_mode_control)}
         >
           <ha-icon

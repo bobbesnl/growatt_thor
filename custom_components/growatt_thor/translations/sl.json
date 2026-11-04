@@ -257,6 +257,9 @@
     "charger_faulted": {
       "message": "Dejanje je blokirano, dokler polnilnica javlja napako."
     },
+    "charger_rebooting": {
+      "message": "Polnilnica se znova zaganja, da uveljavi spremembo nastavitev. Poskusite znova, ko se ponovno poveže."
+    },
     "active_transaction": {
       "message": "Te nastavitve med aktivno transakcijo polnjenja ni mogoče spremeniti."
     },

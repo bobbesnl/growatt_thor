@@ -181,6 +181,7 @@ class BaseConfigNumber(ThorEntity, NumberEntity):
         return charger_write_block_reason(
             connected=self.coordinator.connected,
             charger_faulted=self.coordinator.charger_is_faulted,
+            reboot_pending=self.coordinator.charger_reboot_pending,
         )
 
     @property

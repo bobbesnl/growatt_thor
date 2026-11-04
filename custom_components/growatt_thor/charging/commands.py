@@ -216,6 +216,7 @@ class StartChargingCommand:
         return charger_write_block_reason(
             connected=self.coordinator.connected,
             charger_faulted=self.coordinator.charger_is_faulted,
+            reboot_pending=self.coordinator.charger_reboot_pending,
         )
 
     def _start_revalidation_failure(self) -> str | None:

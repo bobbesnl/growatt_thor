@@ -352,6 +352,8 @@ def dashboard_attributes(coordinator: DashboardOwner) -> dict[str, Any]:
             "G_ChargerMode", coordinator.configuration_values.get("G_ChargerMode")
         ),
         "transaction_active": charger.transaction_active,
+        # Writes and Start are refused until the charger reconnects.
+        "charger_rebooting": coordinator.charger_reboot_pending,
         "session_started_at": utc_timestamp(
             start.get("received_at"),
             installation_time_zone(coordinator.hass),
