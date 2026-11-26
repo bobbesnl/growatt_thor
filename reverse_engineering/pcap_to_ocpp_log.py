@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-import subprocess
 import json
-import sys
 import os
+import subprocess
+import sys
 from datetime import datetime
 
 if len(sys.argv) < 2:
@@ -21,21 +21,24 @@ OUTPUT_FILE = os.path.join(WS_DIR, f"{base}.ocpp.log")
 # tshark: pak ruwe TCP payload (werkt bij Growatt beter dan websocket dissector)
 cmd = [
     "tshark",
-    "-r", PCAP_FILE,
-    "-Y", "tcp.port == 9000",
-    "-T", "fields",
-    "-e", "frame.time_epoch",
-    "-e", "ip.src",
-    "-e", "ip.dst",
-    "-e", "tcp.payload"
+    "-r",
+    PCAP_FILE,
+    "-Y",
+    "tcp.port == 9000",
+    "-T",
+    "fields",
+    "-e",
+    "frame.time_epoch",
+    "-e",
+    "ip.src",
+    "-e",
+    "ip.dst",
+    "-e",
+    "tcp.payload",
 ]
 
-proc = subprocess.Popen(
-    cmd,
-    stdout=subprocess.PIPE,
-    stderr=subprocess.DEVNULL,
-    text=True
-)
+proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+
 
 def try_parse_json_chunks(text):
     """
@@ -70,9 +73,7 @@ with open(OUTPUT_FILE, "w") as out:
             continue
 
         try:
-            payload = bytes.fromhex(payload_hex.replace(":", "")).decode(
-                "utf-8", errors="ignore"
-            )
+            payload = bytes.fromhex(payload_hex.replace(":", "")).decode("utf-8", errors="ignore")
         except Exception:
             continue
 
@@ -129,4 +130,3 @@ with open(OUTPUT_FILE, "w") as out:
             out.write("\n")
 
 print(f"OCPP log written to {OUTPUT_FILE}")
-

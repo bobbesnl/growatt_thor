@@ -1,0 +1,1140 @@
+from __future__ import annotations
+
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable, Sequence
+from functools import wraps
+from typing import TYPE_CHECKING, Any, NotRequired, Protocol, TypedDict, cast
+
+import websockets.exceptions
+from ocpp.messages import unpack
+from ocpp.routing import on
+from ocpp.v16 import ChargePoint as OcppChargePoint
+from ocpp.v16 import call, call_result
+from ocpp.v16.enums import (
+    AuthorizationStatus,
+    ConfigurationStatus,
+    DataTransferStatus,
+    RegistrationStatus,
+    RemoteStartStopStatus,
+    ResetStatus,
+    ResetType,
+)
+from websockets.asyncio.server import Server, ServerConnection, serve
+from websockets.typing import Subprotocol
+
+from ...charging.control_capabilities import CHARGER_MODE_PLUG_AND_CHARGE
+from ...coerce import enum_value
+from ...configuration.values import (
+    INFORMATIONAL_CONFIGURATION_KEYS,
+    OPERATIONAL_CONFIGURATION_KEYS,
+    normalize_unknown_configuration_keys,
+    redact_configuration_value,
+)
+from ...const import DEFAULT_PATH, OCPP_SUBPROTOCOL
+from ...runtime.keys import ACTIVE_CHARGE_POINT
+from ...runtime.ownership import (
+    ChargePointConnectionDecision,
+    decide_charge_point_connection,
+    release_active_charge_point,
+)
+from ...runtime.write_results import (
+    ChargerConnectionUnavailable,
+    ChargerRequestOutcomeUncertain,
+    ChargerWriteResult,
+    ChargerWriteStatus,
+)
+from ...sessions.records import parse_growatt_session_record
+from ..core.connection import (
+    CONFIGURATION_BACKOFF_STEP_SECONDS,
+    CONFIGURATION_GROUP_PAUSE_SECONDS,
+    CONFIGURATION_MAX_BACKOFF_SECONDS,
+    CONNECTION_WATCHDOG_INTERVAL_SECONDS,
+    OCPP_HEARTBEAT_INTERVAL_SECONDS,
+    WEBSOCKET_CLOSE_TIMEOUT_SECONDS,
+    WEBSOCKET_GOING_AWAY,
+    WEBSOCKET_POLICY_VIOLATION,
+    OcppConnectionActivity,
+)
+from ..core.logging import OcppMetadataLogger
+from ..core.requests import REQUEST_SKIPPED, SerializedOcppRequestGate
+from .actions import OCPP_ACTIONS, OCPP_RESPONSE_TIMEOUT_SECONDS
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+
+    from ...coordinator import GrowattCoordinator
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _uncertain(action: str) -> bool:
+    """Whether a timeout of this action leaves its outcome unknown."""
+    return OCPP_ACTIONS[action].timeout_makes_outcome_uncertain
+
+
+class OcppHandlerGuard[HandlerResult](Protocol):
+    def __call__[**P](
+        self, handler: Callable[P, Awaitable[HandlerResult]]
+    ) -> Callable[P, Awaitable[HandlerResult]]: ...
+
+
+def guarded_ocpp_handler[HandlerResult](
+    name: str,
+    *,
+    fallback: Callable[[GrowattChargePoint], HandlerResult],
+    stale_fallback: Callable[[GrowattChargePoint], HandlerResult] | None = None,
+    sensitive: bool = False,
+) -> OcppHandlerGuard[HandlerResult]:
+    """Guard inbound socket ownership and retain each action's fallback reply."""
+
+    def decorate[**P](
+        handler: Callable[P, Awaitable[HandlerResult]],
+    ) -> Callable[P, Awaitable[HandlerResult]]:
+        @wraps(handler)
+        async def guarded(self: GrowattChargePoint, *args: Any, **kwargs: Any) -> HandlerResult:
+            if not self._connection_may_update_coordinator(name):
+                return (stale_fallback or fallback)(self)
+            try:
+                return await cast(Callable[..., Awaitable[HandlerResult]], handler)(
+                    self, *args, **kwargs
+                )
+            except Exception:
+                # Inbound handlers must return their OCPP fallback even after unexpected failures.
+                # Authorization/transaction exceptions may contain RFID identifiers.
+                # Retain their existing payload-free logging contract.
+                _LOGGER.error("Error in %s handler", name, exc_info=not sensitive)
+                return fallback(self)
+
+        return cast(Callable[P, Awaitable[HandlerResult]], guarded)
+
+    return decorate
+
+
+def _preload_ocpp_schemas() -> None:
+    try:
+        # Schema preload runs in an executor; keep optional preload imports here.
+        import importlib.metadata
+
+        version = importlib.metadata.version("ocpp")
+        _LOGGER.info("ocpp library version: %s", version)
+    except Exception as exc:
+        # Optional package-version diagnostics must not block server startup.
+        _LOGGER.warning("Could not determine ocpp library version: %s", exc)
+
+    try:
+        # Validator discovery belongs to the executor preload, not event-loop imports.
+        from ocpp.messages import MessageType, get_validator
+        from ocpp.v16.enums import Action
+
+        count = 0
+        for action in Action:
+            for message_type in [MessageType.Call, MessageType.CallResult]:
+                try:
+                    get_validator(message_type, action.value, "1.6")
+                    count += 1
+                except Exception:
+                    # Skip unavailable validators so the remaining schemas can still preload.
+                    pass
+
+        _LOGGER.info("OCPP validator cache pre-loaded (%d validators)", count)
+
+    except Exception as exc:
+        # Schema preloading is optional; its failure must not prevent server startup.
+        _LOGGER.warning("OCPP schema pre-load failed (non-fatal): %s", exc)
+
+
+class TransactionResult(TypedDict):
+    status: str
+    reason: NotRequired[str]
+
+
+class GrowattChargePoint(OcppChargePoint):
+    """
+    Growatt THOR OCPP 1.6 Charge Point with guarded handlers and connection recovery
+    """
+
+    def __init__(
+        self,
+        cp_id: str,
+        websocket: ServerConnection,
+        coordinator: GrowattCoordinator,
+        hass: HomeAssistant,
+    ) -> None:
+        super().__init__(
+            cp_id,
+            websocket,
+            response_timeout=OCPP_RESPONSE_TIMEOUT_SECONDS,
+            logger=OcppMetadataLogger(_LOGGER, {}),
+        )
+
+        self.coordinator = coordinator
+        self.hass = hass
+        self._cp_id = cp_id
+        self._websocket = websocket
+        self._activity = OcppConnectionActivity(hass.loop.time())
+        self._boot_notification_requested = False
+        self._post_connect_init_started = False
+        self._outbound_requests = SerializedOcppRequestGate(
+            connection_is_current=self._is_current_connection,
+            connection_is_available=lambda: self.coordinator.connected,
+            writes_are_pending=lambda: self.coordinator.has_pending_charger_writes,
+            uncertain_transport_errors=(
+                websockets.exceptions.ConnectionClosedError,
+                websockets.exceptions.ConnectionClosedOK,
+            ),
+        )
+
+        # The newest connection on this entry's server owns the entry's
+        # connection slot.  Other config entries keep their own slot.
+        self.coordinator.runtime_data[ACTIVE_CHARGE_POINT] = self
+
+        self.coordinator.observe_connected(cp_id)
+        _LOGGER.info("GrowattChargePoint initialised for %s", cp_id)
+
+    def _is_current_connection(self) -> bool:
+        """Return whether this charge point owns the active connection slot."""
+        return self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT) is self
+
+    def _connection_may_update_coordinator(self, operation_name: str) -> bool:
+        """Allow state changes only from the socket that owns the runtime.
+
+        A THOR reconnect can leave its old handler alive briefly.  Object
+        identity, rather than the charger ID alone, distinguishes that stale
+        socket from the replacement connection for the same physical charger.
+        """
+        if self._is_current_connection():
+            return True
+        _LOGGER.debug(
+            "Ignoring %s from superseded connection for %s",
+            operation_name,
+            self._cp_id,
+        )
+        return False
+
+    async def _run_serialized_request(
+        self,
+        operation_name: str,
+        operation: Callable[[], Awaitable[object]],
+        *,
+        skip_if_writes_pending: bool = False,
+        timeout_makes_outcome_uncertain: bool = False,
+    ) -> object:
+        """Run one integration-initiated OCPP operation at a time.
+
+        The OCPP library already serializes individual CALL frames, but that is
+        too low-level for the THOR firmware.  A two-part GetConfiguration used
+        to overlap logically with ChangeConfiguration and meter polling; the
+        library then sent the waiting calls back-to-back.  Holding this lock for
+        the complete logical operation prevents that burst and documents the
+        firmware-protection boundary in one place.
+
+        Incoming charger requests and their CALLRESULT responses do not use
+        this lock.  Heartbeats must still be answered while an initiated CALL
+        is waiting for the charger.
+        """
+        result = await self._outbound_requests.run(
+            operation_name,
+            operation,
+            skip_if_writes_pending=skip_if_writes_pending,
+            timeout_makes_outcome_uncertain=timeout_makes_outcome_uncertain,
+        )
+        if result is REQUEST_SKIPPED:
+            _LOGGER.debug(
+                "Skipping optional %s while a charger write is pending",
+                operation_name,
+            )
+        return result
+
+    def _mark_activity(self, action: str) -> None:
+        """Record an inbound message for the connection watchdog."""
+        self._activity.mark(self.hass.loop.time())
+        if self._is_current_connection():
+            self.coordinator.observe_message(action)
+
+    async def route_message(self, raw_msg: str | bytes) -> None:
+        """Track every inbound OCPP frame before routing it."""
+        if not self._connection_may_update_coordinator("inbound OCPP frame"):
+            return
+
+        action = "OCPPMessage"
+        try:
+            message = unpack(raw_msg)
+            message_action = getattr(message, "action", None)
+            if message_action is None:
+                action = type(message).__name__
+            else:
+                action = str(enum_value(message_action, stringify_fallback=True))
+        except Exception:
+            # Leave validation and protocol error replies to the OCPP router.
+            action = "InvalidOCPPMessage"
+
+        self._mark_activity(action)
+        self.coordinator.ocpp_messages.record("in", raw_msg, self.coordinator.now())
+        await super().route_message(raw_msg)
+
+    async def _send(self, message: str) -> None:
+        """Record every outbound frame: our CALLs and replies to the charger."""
+        if self._is_current_connection():
+            self.coordinator.ocpp_messages.record("out", message, self.coordinator.now())
+        await super()._send(message)
+
+    async def async_watch_connection(self) -> None:
+        """Close and invalidate a connection with no inbound OCPP activity."""
+        while True:
+            await asyncio.sleep(CONNECTION_WATCHDOG_INTERVAL_SECONDS)
+
+            if not self._is_current_connection():
+                return
+
+            now_monotonic = self.hass.loop.time()
+            if not self._activity.is_stale(now_monotonic):
+                continue
+
+            idle_seconds = self._activity.idle_seconds(now_monotonic)
+            _LOGGER.warning(
+                "No OCPP activity from %s for %.0f seconds; marking disconnected",
+                self._cp_id,
+                idle_seconds,
+            )
+            self.coordinator.observe_disconnected()
+
+            try:
+                await _close_websocket(
+                    self._websocket,
+                    WEBSOCKET_GOING_AWAY,
+                    "OCPP activity timeout",
+                    self._cp_id,
+                    context="stale OCPP",
+                )
+            finally:
+                release_active_charge_point(
+                    self.coordinator.runtime_data,
+                    self,
+                )
+            return
+
+    # Boot / keepalive
+
+    @on("BootNotification")
+    @guarded_ocpp_handler(
+        "BootNotification",
+        fallback=lambda self: call_result.BootNotification(
+            current_time=self.coordinator.now(),
+            interval=OCPP_HEARTBEAT_INTERVAL_SECONDS,
+            status=RegistrationStatus.accepted,
+        ),
+    )
+    async def on_boot_notification(self, **payload: Any) -> call_result.BootNotification:
+        _LOGGER.info("BootNotification payload: %s", payload)
+        self.coordinator.ingest.observe_boot_notification(payload)
+        self._schedule_post_connect_init()
+        return call_result.BootNotification(
+            current_time=self.coordinator.now(),
+            interval=OCPP_HEARTBEAT_INTERVAL_SECONDS,
+            status=RegistrationStatus.accepted,
+        )
+
+    @on("Heartbeat")
+    @guarded_ocpp_handler(
+        "Heartbeat",
+        fallback=lambda self: call_result.Heartbeat(current_time=self.coordinator.now()),
+    )
+    async def on_heartbeat(self, **payload: Any) -> call_result.Heartbeat:
+        self._schedule_post_connect_init()
+        return call_result.Heartbeat(current_time=self.coordinator.now())
+
+    # Helper: Post-connect init
+
+    def _schedule_post_connect_init(self) -> None:
+        # Latch synchronously: BootNotification and Heartbeat may both arrive
+        # before the delayed task starts. Reconnect creates a fresh latch.
+        if not self._post_connect_init_started:
+            self._post_connect_init_started = True
+            self.hass.async_create_task(self._post_connect_init())
+
+    async def _post_connect_init(self) -> None:
+        try:
+            await asyncio.sleep(1)
+
+            _LOGGER.info("Auto GetConfiguration after connect")
+            await self.trigger_get_configuration()
+
+            _LOGGER.info("Fetching external meter snapshot after connect")
+            await self.trigger_external_meterval()
+
+            if self.coordinator.boot_notification is None and not self._boot_notification_requested:
+                self._boot_notification_requested = True
+                await self.trigger_boot_notification()
+
+        except Exception as exc:
+            # Report initialization failure without escaping this background task.
+            _LOGGER.warning("Post-connect init failed: %s", exc)
+
+    # Transactions
+
+    @on("Authorize")
+    @guarded_ocpp_handler(
+        "Authorize",
+        sensitive=True,
+        fallback=lambda self: call_result.Authorize(
+            id_tag_info={"status": AuthorizationStatus.invalid}
+        ),
+    )
+    async def on_authorize(self, id_tag: str, **kwargs: Any) -> call_result.Authorize:
+        status = self.coordinator.authorization.decide(id_tag, "Authorize", self.coordinator.now())
+        _LOGGER.info("Local Authorize decision: %s", status)
+        return call_result.Authorize(id_tag_info={"status": status})
+
+    @on("StartTransaction")
+    @guarded_ocpp_handler(
+        "StartTransaction",
+        sensitive=True,
+        fallback=lambda self: call_result.StartTransaction(
+            transaction_id=0, id_tag_info={"status": AuthorizationStatus.invalid}
+        ),
+    )
+    async def on_start_transaction(
+        self, connector_id: int, id_tag: str, meter_start: float, **kwargs: Any
+    ) -> call_result.StartTransaction:
+        # Even a denied start is a reported transaction. Allocate and retain
+        # its identity so subsequent meter/stop messages remain correlatable.
+        transaction_id = await self.coordinator.async_allocate_transaction_id()
+        # ID allocation waits on a lock and therefore yields to a possible
+        # reconnect.  Recheck ownership before committing transaction state
+        # that would otherwise belong to the replacement socket.
+        if not self._connection_may_update_coordinator("StartTransaction after ID allocation"):
+            return call_result.StartTransaction(
+                transaction_id=0,
+                id_tag_info={"status": AuthorizationStatus.invalid},
+            )
+        # Authorization diagnostics and a one-shot HA Remote Start grant
+        # are mutable coordinator-owned state.  Decide only after the
+        # ownership recheck so a superseded socket cannot consume them.
+        status = self.coordinator.authorization.decide(
+            id_tag,
+            "StartTransaction",
+            self.coordinator.now(),
+            # Plug & Charge is an explicit charger mode, not an RFID identity.
+            card_policy_applies=str(self.coordinator.charger_mode) != CHARGER_MODE_PLUG_AND_CHARGE,
+        )
+        self.coordinator.sessions.start_transaction(
+            transaction_id,
+            id_tag,
+            connector_id=connector_id,
+            meter_start=meter_start,
+            **kwargs,
+        )
+        self.coordinator.sessions.record_authorization_response(status)
+        _LOGGER.info("Local StartTransaction decision: %s", status)
+        return call_result.StartTransaction(
+            transaction_id=transaction_id,
+            id_tag_info={"status": status},
+        )
+
+    @on("StopTransaction")
+    @guarded_ocpp_handler(
+        "StopTransaction", sensitive=True, fallback=lambda self: call_result.StopTransaction()
+    )
+    async def on_stop_transaction(
+        self, transaction_id: int, meter_stop: float, reason: str | None = None, **kwargs: Any
+    ) -> call_result.StopTransaction:
+        self.coordinator.sessions.stop_transaction(
+            reason,
+            transaction_id=transaction_id,
+            meter_stop=meter_stop,
+            **kwargs,
+        )
+        # A stop must always be processed. Omit optional idTagInfo so this
+        # acknowledgement does not grant cached access to an unknown tag.
+        return call_result.StopTransaction()
+
+    # Status & Metering
+
+    @on("StatusNotification")
+    @guarded_ocpp_handler(
+        "StatusNotification", fallback=lambda self: call_result.StatusNotification()
+    )
+    async def on_status_notification(
+        self, connector_id: int, status: str, error_code: str | None = None, **kwargs: Any
+    ) -> call_result.StatusNotification:
+        self.coordinator.ingest.observe_status_notification(
+            connector_id,
+            status,
+            error_code,
+            **kwargs,
+        )
+        return call_result.StatusNotification()
+
+    @on("MeterValues")
+    @guarded_ocpp_handler("MeterValues", fallback=lambda self: call_result.MeterValues())
+    async def on_meter_values(
+        self, connector_id: int, meter_value: list[dict[str, Any]], **kwargs: Any
+    ) -> call_result.MeterValues:
+        transaction_id = kwargs.get("transaction_id")
+        self.coordinator.ingest.observe_meter_values(
+            meter_value,
+            connector_id=connector_id,
+            transaction_id=transaction_id,
+        )
+        return call_result.MeterValues()
+
+    # Growatt vendor DataTransfer
+
+    @on("DataTransfer")
+    @guarded_ocpp_handler(
+        "DataTransfer",
+        fallback=lambda self: call_result.DataTransfer(status=DataTransferStatus.accepted),
+        stale_fallback=lambda self: call_result.DataTransfer(status=DataTransferStatus.rejected),
+    )
+    async def on_data_transfer(
+        self, vendor_id: str, message_id: str | None = None, data: object = None, **kwargs: Any
+    ) -> call_result.DataTransfer:
+        _LOGGER.debug(
+            "DataTransfer received: vendor=%s messageId=%s data=%s",
+            vendor_id,
+            message_id,
+            data,
+        )
+        if isinstance(data, str) and message_id in (
+            "frozenrecord",
+            "currentrecord",
+        ):
+            record = parse_growatt_session_record(message_id, data)
+            _LOGGER.info(
+                "Parsed %s for transaction %s",
+                message_id,
+                record.transaction_id,
+            )
+            self.coordinator.sessions.process_session_record(record)
+        elif isinstance(data, str) and message_id == "faultmessage":
+            self.coordinator.ingest.observe_fault_message(vendor_id, data)
+        return call_result.DataTransfer(status=DataTransferStatus.accepted)
+
+    # Active triggers
+
+    def _normalize_configuration_list(
+        self, payload: object, field_name: str, call_name: str
+    ) -> list[object]:
+        if payload is None:
+            _LOGGER.warning("%s returned no %s payload", call_name, field_name)
+            return []
+
+        if isinstance(payload, list):
+            return payload
+
+        if isinstance(payload, tuple):
+            return list(payload)
+
+        _LOGGER.warning(
+            "%s returned unexpected %s type: %s",
+            call_name,
+            field_name,
+            type(payload).__name__,
+        )
+        return []
+
+    async def trigger_status(self, *, skip_if_writes_pending: bool = False) -> bool:
+        try:
+            _LOGGER.info("Triggering StatusNotification")
+            result = await self._run_serialized_request(
+                "TriggerMessage(StatusNotification)",
+                lambda: self.call(
+                    call.TriggerMessage(
+                        requested_message="StatusNotification",
+                        connector_id=1,
+                    ),
+                ),
+                skip_if_writes_pending=skip_if_writes_pending,
+                timeout_makes_outcome_uncertain=_uncertain("TriggerMessage(StatusNotification)"),
+            )
+            return result is not REQUEST_SKIPPED
+        except Exception as exc:
+            # Report an unsuccessful status read through the existing boolean request contract.
+            _LOGGER.warning("Failed to trigger StatusNotification: %s", exc)
+            return False
+
+    async def trigger_boot_notification(self) -> bool:
+        """Request BootNotification when a reconnect did not send one."""
+        try:
+            _LOGGER.info("Triggering BootNotification for diagnostics")
+            await self._run_serialized_request(
+                "TriggerMessage(BootNotification)",
+                lambda: self.call(
+                    call.TriggerMessage(requested_message="BootNotification"),
+                ),
+                timeout_makes_outcome_uncertain=_uncertain("TriggerMessage(BootNotification)"),
+            )
+            return True
+        except Exception as exc:
+            # Report an unsuccessful boot read through the existing boolean request contract.
+            _LOGGER.warning("Failed to trigger BootNotification: %s", exc)
+            return False
+
+    async def trigger_external_meterval(self, *, skip_if_writes_pending: bool = False) -> bool:
+        _LOGGER.info("Triggering Growatt get_external_meterval")
+        try:
+
+            async def request_external_meter() -> call_result.DataTransfer:
+                task = asyncio.ensure_future(
+                    self.call(
+                        call.DataTransfer(
+                            vendor_id="Growatt",
+                            message_id="get_external_meterval",
+                        ),
+                    )
+                )
+                try:
+                    return await asyncio.wait_for(
+                        asyncio.shield(task),
+                        timeout=OCPP_ACTIONS[
+                            "DataTransfer(get_external_meterval)"
+                        ].response_timeout,
+                    )
+                except BaseException:
+                    # Cancel/drain the shielded request on error or cancellation, then propagate.
+                    task.cancel()
+                    try:
+                        await task
+                    except (asyncio.CancelledError, Exception):
+                        # Draining must not replace the original request failure or cancellation.
+                        pass
+                    raise
+
+            result = await self._run_serialized_request(
+                "DataTransfer(get_external_meterval)",
+                request_external_meter,
+                skip_if_writes_pending=skip_if_writes_pending,
+                timeout_makes_outcome_uncertain=_uncertain("DataTransfer(get_external_meterval)"),
+            )
+            if result is REQUEST_SKIPPED:
+                return False
+            if not self._connection_may_update_coordinator("external meter response"):
+                return False
+
+            if hasattr(result, "data") and isinstance(result.data, str):
+                _LOGGER.info("Received external meter values: %s", result.data)
+                if not self.coordinator.ingest.observe_external_meter_values(result.data):
+                    self.coordinator.ingest.observe_external_meter_timeout()
+            else:
+                self.coordinator.ingest.observe_external_meter_timeout()
+                _LOGGER.warning("External meterval returned no usable data: %s", result)
+            return True
+
+        except TimeoutError:
+            if not self._connection_may_update_coordinator("external meter timeout"):
+                return False
+            self.coordinator.ingest.observe_external_meter_timeout()
+            count = self.coordinator.external_meter.consecutive_timeouts
+
+            if count >= 2:
+                pause = min(
+                    CONFIGURATION_BACKOFF_STEP_SECONDS * (count - 1),
+                    CONFIGURATION_MAX_BACKOFF_SECONDS,
+                )
+                self.coordinator.pause_polling_until(self.hass.loop.time() + pause)
+                _LOGGER.debug(
+                    "External meterval timeout #%d - pausing poll %ds (THOR likely rebooting)",
+                    count,
+                    pause,
+                )
+            else:
+                _LOGGER.debug("External meterval timeout - THOR likely disconnected or busy")
+            return False
+
+        except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain) as exc:
+            _LOGGER.debug("External meterval aborted - connection closed: %s", exc)
+            return False
+
+        except Exception as exc:
+            # Unexpected read failures return False after timeout and connection handling.
+            _LOGGER.warning("Failed to trigger external meter values: %s", exc)
+            return False
+
+    async def trigger_get_configuration(self, *, skip_if_writes_pending: bool = False) -> bool:
+        """Read both configuration groups as one serialized operation."""
+        try:
+            result = await self._run_serialized_request(
+                "GetConfiguration",
+                self._request_configuration,
+                skip_if_writes_pending=skip_if_writes_pending,
+                timeout_makes_outcome_uncertain=_uncertain("GetConfiguration"),
+            )
+            return result is not REQUEST_SKIPPED and bool(result)
+        except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain) as exc:
+            _LOGGER.debug("GetConfiguration aborted - connection closed: %s", exc)
+            return False
+
+    async def _request_configuration(self) -> bool:
+        """Perform the two firmware-sized GetConfiguration calls."""
+        try:
+            # CALL 1: Operational keys
+            # Keys actively used by the coordinator + essential OCPP
+            # protocol keys. Explicit list keeps response small and
+            # compatible with all THOR firmware variants (incl. 07AS)
+
+            first = await self._fetch_configuration_group(
+                OPERATIONAL_CONFIGURATION_KEYS, "CALL 1", "operational"
+            )
+            if first is None:
+                return False
+            config_keys_1, unknown_keys_1 = first
+
+            # Apply operational state immediately.  The second call contains
+            # diagnostics and has historically been more likely to time out on
+            # a busy THOR.  A timeout there must not discard a valid first
+            # response or leave charging controls unknown.
+            self.coordinator.ingest.observe_configuration(
+                config_keys_1,
+                unknown_keys_1,
+            )
+            # CALL 2: Informational / diagnostic keys
+            # Device info, network, solar, off-peak — display only
+            # Capped at 30 keys (firmware hard limit per request)
+            # G_WifiPassword intentionally excluded (security)
+
+            await asyncio.sleep(CONFIGURATION_GROUP_PAUSE_SECONDS)
+
+            second = await self._fetch_configuration_group(
+                INFORMATIONAL_CONFIGURATION_KEYS, "CALL 2", "informational"
+            )
+            if second is None:
+                return False
+            config_keys_2, unknown_keys_2 = second
+            # Process all keys (call 1 + call 2)
+
+            all_config_keys = config_keys_1 + config_keys_2
+            all_unknown_keys = normalize_unknown_configuration_keys(unknown_keys_1 + unknown_keys_2)
+            self._log_configuration_values(all_config_keys, all_unknown_keys)
+
+            if all_config_keys or all_unknown_keys:
+                # The first group was already applied above; process only the
+                # new values while retaining the complete unknown-key view.
+                self.coordinator.ingest.observe_configuration(
+                    config_keys_2,
+                    all_unknown_keys,
+                )
+            else:
+                _LOGGER.warning("GetConfiguration returned no usable configuration keys")
+            return True
+
+        except TimeoutError:
+            _LOGGER.warning(
+                "GetConfiguration timeout - Thor likely rebooting, will retry on reconnect"
+            )
+            return False
+        except (
+            websockets.exceptions.ConnectionClosedError,
+            websockets.exceptions.ConnectionClosedOK,
+        ):
+            # Let _run_serialized_request translate transport loss into the
+            # shared reconnect semantics.
+            raise
+        except Exception as exc:
+            # Keep the existing failed-read result after handling timeout and transport loss.
+            _LOGGER.warning("Failed to trigger GetConfiguration: %s", exc)
+            return False
+
+    def _log_configuration_values(
+        self, all_config_keys: Sequence[object], all_unknown_keys: Sequence[str]
+    ) -> None:
+        _LOGGER.info(
+            "Total received: %d keys (%d unknown)",
+            len(all_config_keys),
+            len(all_unknown_keys),
+        )
+
+        for item in all_config_keys:
+            if not isinstance(item, dict):
+                _LOGGER.debug(
+                    "Skipping unexpected configuration item type: %s",
+                    type(item).__name__,
+                )
+                continue
+
+            key = item.get("key")
+            value = item.get("value")
+            readonly = item.get("readonly")
+            _LOGGER.debug(
+                "Config key: %s = %s (readonly=%s)",
+                key,
+                redact_configuration_value(key, value),
+                readonly,
+            )
+
+        if all_unknown_keys:
+            _LOGGER.info("Unknown keys: %s", ", ".join(str(k) for k in all_unknown_keys))
+
+    # ChangeConfiguration
+
+    async def _fetch_configuration_group(
+        self,
+        keys: Sequence[str],
+        label: str,
+        category: str,
+    ) -> tuple[list[object], list[object]] | None:
+        _LOGGER.info("Triggering GetConfiguration %s (%s keys: %d)", label, category, len(keys))
+        result = await asyncio.wait_for(
+            self.call(call.GetConfiguration(key=list(keys))),
+            timeout=OCPP_ACTIONS["GetConfiguration"].response_timeout,
+        )
+        if not self._connection_may_update_coordinator(f"GetConfiguration {label} response"):
+            return None
+        config_keys = self._normalize_configuration_list(
+            getattr(result, "configuration_key", None),
+            "configuration_key",
+            f"GetConfiguration {label}",
+        )
+        unknown_keys = self._normalize_configuration_list(
+            getattr(result, "unknown_key", None),
+            "unknown_key",
+            f"GetConfiguration {label}",
+        )
+        _LOGGER.info(
+            "%s received: %d keys (%d unknown)", label, len(config_keys), len(unknown_keys)
+        )
+        return config_keys, unknown_keys
+
+    async def change_configuration(self, key: str, value: str) -> ConfigurationStatus | str:
+        try:
+            _LOGGER.info(
+                "ChangeConfiguration: %s = %s",
+                key,
+                redact_configuration_value(key, value),
+            )
+            result = await self._run_serialized_request(
+                f"ChangeConfiguration({key})",
+                lambda: self.call(
+                    call.ChangeConfiguration(key=key, value=value),
+                ),
+                timeout_makes_outcome_uncertain=_uncertain("ChangeConfiguration"),
+            )
+            status = getattr(result, "status", ConfigurationStatus.rejected)
+            _LOGGER.info("ChangeConfiguration result: %s", status)
+            if status == ConfigurationStatus.reboot_required and self._is_current_connection():
+                # The THOR reboots about 30 s after this answer; refuse further
+                # writes until it reconnects (runtime/charger_reboot.py).
+                self.coordinator.observe_reboot_required()
+            return status
+        except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain):
+            # The queue distinguishes a definitely-unsent request from one
+            # whose acknowledgement was lost.  Do not collapse either into an
+            # ordinary charger rejection here.
+            raise
+        except Exception as exc:
+            # Preserve the rejection fallback; unsent and uncertain outcomes propagate above.
+            _LOGGER.error(
+                "Failed to change configuration %s=%s: %s",
+                key,
+                redact_configuration_value(key, value),
+                exc,
+                exc_info=True,
+            )
+            return ConfigurationStatus.rejected
+
+    async def send_data_transfer(
+        self,
+        *,
+        vendor_id: str,
+        message_id: str,
+        data: str | None = None,
+    ) -> DataTransferStatus | str:
+        """Send one vendor control payload and return its OCPP status."""
+        try:
+            _LOGGER.info(
+                "DataTransfer control: vendor=%s messageId=%s",
+                vendor_id,
+                message_id,
+            )
+            payload = {
+                "vendor_id": vendor_id,
+                "message_id": message_id,
+            }
+            if data is not None:
+                # OCPP marks ``data`` optional.  Omitting it is safer than
+                # serializing JSON null for firmware commands such as AP mode.
+                payload["data"] = data
+            result = await self._run_serialized_request(
+                f"DataTransfer({message_id})",
+                lambda: self.call(
+                    call.DataTransfer(**payload),
+                ),
+                timeout_makes_outcome_uncertain=_uncertain("DataTransfer"),
+            )
+            status = getattr(result, "status", DataTransferStatus.rejected)
+            _LOGGER.info("DataTransfer control result: %s", status)
+            return status
+        except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain):
+            raise
+        except Exception as exc:
+            # Preserve the rejection fallback; unsent and uncertain outcomes propagate above.
+            _LOGGER.error(
+                "Failed DataTransfer control %s/%s: %s",
+                vendor_id,
+                message_id,
+                exc,
+                exc_info=True,
+            )
+            return DataTransferStatus.rejected
+
+    async def soft_reset(
+        self, *, check_at_gate: Callable[[], ChargerWriteResult | None]
+    ) -> ChargerWriteResult:
+        """Request a Soft Reset on the current socket, once."""
+
+        async def send() -> ChargerWriteResult:
+            # A transaction can start while Reset waits behind an OCPP read.
+            if (blocked := check_at_gate()) is not None:
+                return blocked
+            response = await self.call(call.Reset(type=ResetType.soft))
+            status = getattr(response, "status", None)
+            if status == ResetStatus.accepted:
+                return ChargerWriteResult.success(status)
+            if response is None or status == ResetStatus.rejected:
+                # The OCPP library returns None for an explicit CALLERROR.
+                return ChargerWriteResult.failed("charger_rejected", status)
+            raise ChargerRequestOutcomeUncertain("Reset: invalid acknowledgement")
+
+        try:
+            result = cast(
+                ChargerWriteResult,
+                await self._run_serialized_request(
+                    "Reset", send, timeout_makes_outcome_uncertain=_uncertain("Reset")
+                ),
+            )
+        except ChargerRequestOutcomeUncertain:
+            # A lost answer can still mean a reboot is imminent. An already
+            # replaced socket cannot open a new window on its successor.
+            if self._is_current_connection():
+                self.coordinator.observe_reboot_required()
+            raise
+        if result.status == ChargerWriteStatus.SUCCESS and self._is_current_connection():
+            self.coordinator.observe_reboot_required()
+        return result
+
+    # Remote Start/Stop Transaction
+
+    async def remote_start_transaction(self, connector_id: int, id_tag: str) -> TransactionResult:
+        authorization = self.coordinator.authorization
+        try:
+            if not authorization.begin_ha_remote_start(id_tag):
+                _LOGGER.warning("Remote start denied by local authorisation policy")
+                return {"status": "Rejected", "reason": "local_authorization_denied"}
+            _LOGGER.info("RemoteStartTransaction: connector_id=%d", connector_id)
+            result = await self._run_serialized_request(
+                "RemoteStartTransaction",
+                lambda: self.call(
+                    call.RemoteStartTransaction(
+                        connector_id=connector_id,
+                        id_tag=id_tag,
+                    ),
+                ),
+                timeout_makes_outcome_uncertain=_uncertain("RemoteStartTransaction"),
+            )
+            status = getattr(result, "status", RemoteStartStopStatus.rejected)
+            status_value = enum_value(status, stringify_fallback=True)
+            if status_value != RemoteStartStopStatus.accepted.value:
+                authorization.cancel_ha_remote_start()
+            _LOGGER.info("RemoteStartTransaction result: %s", status)
+            return {"status": status_value}
+        except ChargerConnectionUnavailable:
+            authorization.cancel_ha_remote_start()
+            raise
+        except ChargerRequestOutcomeUncertain:
+            # The THOR may have accepted the command before the response was
+            # lost.  Keep the short-lived, one-shot grant so a resulting
+            # StartTransaction is not incorrectly denied by local RFID policy.
+            raise
+        except Exception:
+            # Revoke the local grant on unexpected failure without logging RFID payloads.
+            authorization.cancel_ha_remote_start()
+            _LOGGER.error("Failed to send remote start transaction")
+            return {"status": "Rejected"}
+
+    async def remote_stop_transaction(self, transaction_id: int | str) -> TransactionResult:
+        try:
+            _LOGGER.info("RemoteStopTransaction: transaction_id=%d", transaction_id)
+            result = await self._run_serialized_request(
+                "RemoteStopTransaction",
+                lambda: self.call(
+                    call.RemoteStopTransaction(transaction_id=transaction_id),
+                ),
+                timeout_makes_outcome_uncertain=_uncertain("RemoteStopTransaction"),
+            )
+            status = getattr(result, "status", RemoteStartStopStatus.rejected)
+            _LOGGER.info("RemoteStopTransaction result: %s", status)
+            return {"status": enum_value(status, stringify_fallback=True)}
+        except (ChargerConnectionUnavailable, ChargerRequestOutcomeUncertain):
+            raise
+        except Exception as exc:
+            # Preserve the rejection fallback; unsent and uncertain outcomes propagate above.
+            _LOGGER.error("Failed to stop transaction: %s", exc, exc_info=True)
+            return {"status": "Rejected"}
+
+
+# WebSocket server
+
+
+async def _close_websocket(
+    websocket: ServerConnection, code: int, reason: str, cp_id: str, *, context: str
+) -> None:
+    """Bound a close handshake and abort its transport only after a timeout."""
+    try:
+        await asyncio.wait_for(
+            websocket.close(code=code, reason=reason),
+            timeout=WEBSOCKET_CLOSE_TIMEOUT_SECONDS,
+        )
+    except TimeoutError:
+        _LOGGER.warning("Timed out closing %s connection for %s", context, cp_id)
+        transport = getattr(websocket, "transport", None)
+        if transport is not None:
+            transport.close()
+    except Exception as exc:
+        # A failed socket close must not disrupt the caller's connection cleanup.
+        _LOGGER.debug("Failed to close %s connection for %s: %s", context, cp_id, exc)
+
+
+async def _on_connect(
+    websocket: ServerConnection,
+    path: str,
+    coordinator: GrowattCoordinator,
+    hass: HomeAssistant,
+) -> None:
+    watchdog_task = None
+    cp = None
+    try:
+        if not path.startswith(DEFAULT_PATH):
+            await websocket.close()
+            return
+
+        cp_id = path.rstrip("/").split("/")[-1]
+        # Each config entry runs its own server, so this decision only sees
+        # the connection and charger identity of the entry that owns it.
+        runtime_data = coordinator.runtime_data
+        active_charge_point = runtime_data.get(ACTIVE_CHARGE_POINT)
+        active_charge_point_id = (
+            getattr(active_charge_point, "_cp_id", "<unknown>")
+            if active_charge_point is not None
+            else None
+        )
+        decision = decide_charge_point_connection(
+            retained_charge_point_id=coordinator.charge_point_id,
+            active_charge_point_id=active_charge_point_id,
+            incoming_charge_point_id=cp_id,
+        )
+        if decision == ChargePointConnectionDecision.REJECT_DIFFERENT_CHARGER:
+            _LOGGER.error(
+                "Rejecting OCPP connection from %s: runtime belongs to %s",
+                cp_id,
+                coordinator.charge_point_id or active_charge_point_id,
+            )
+            await websocket.close(
+                code=WEBSOCKET_POLICY_VIOLATION,
+                reason="A different charger already owns this integration",
+            )
+            return
+
+        _LOGGER.info("THOR connected: %s", cp_id)
+        cp = GrowattChargePoint(cp_id, websocket, coordinator, hass)
+        if decision == ChargePointConnectionDecision.REPLACE_SAME_CHARGER:
+            # Publish the replacement first.  The old handler's identity guard
+            # then becomes effective before its socket is asked to close.
+            hass.async_create_background_task(
+                _close_websocket(
+                    cast(GrowattChargePoint, active_charge_point)._websocket,
+                    1000,
+                    "Superseded by a newer connection",
+                    cast(GrowattChargePoint, active_charge_point)._cp_id,
+                    context="superseded",
+                ),
+                name=f"growatt_thor_close_superseded_{cp_id}",
+            )
+        watchdog_task = hass.async_create_background_task(
+            cp.async_watch_connection(),
+            name=f"growatt_thor_connection_watchdog_{cp_id}",
+        )
+        try:
+            await cp.start()
+        except (
+            websockets.exceptions.ConnectionClosedError,
+            websockets.exceptions.ConnectionClosedOK,
+        ):
+            _LOGGER.debug("Connection closed normally during startup - THOR disconnected")
+        except Exception as exc:
+            # Log connection-loop failures before the ownership-aware disconnect cleanup.
+            _LOGGER.error("Error in connection handler: %s", exc, exc_info=True)
+        finally:
+            if watchdog_task is not None:
+                watchdog_task.cancel()
+                try:
+                    await watchdog_task
+                except asyncio.CancelledError:
+                    pass
+
+            if release_active_charge_point(coordinator.runtime_data, cp):
+                coordinator.observe_disconnected()
+            else:
+                _LOGGER.debug(
+                    "Ignoring disconnect cleanup for superseded connection: %s",
+                    cp_id,
+                )
+            try:
+                await asyncio.wait_for(websocket.close(), timeout=WEBSOCKET_CLOSE_TIMEOUT_SECONDS)
+            except (TimeoutError, Exception):
+                # Socket-close failure must not escape the completed disconnect cleanup.
+                pass
+
+    except Exception as exc:
+        # Contain setup failures within this connection handler and attempt to close its socket.
+        _LOGGER.error("Error in connection handler: %s", exc, exc_info=True)
+        try:
+            await websocket.close()
+        except Exception:
+            # A secondary close failure must not escape this connection failure boundary.
+            pass
+
+
+def _select_ocpp_subprotocol(
+    connection: ServerConnection, subprotocols: Sequence[Subprotocol]
+) -> Subprotocol | None:
+    """Select ocpp1.6 when offered; otherwise continue without a subprotocol.
+
+    The websockets asyncio server refuses a client that offers no matching
+    subprotocol with HTTP 400. The legacy server accepted it, and the THOR's
+    handshake is not documented, so a charger that omits the header or offers
+    another version must still connect.
+    """
+    if OCPP_SUBPROTOCOL in subprotocols:
+        return Subprotocol(OCPP_SUBPROTOCOL)
+    return None
+
+
+async def start_ocpp_server(
+    host: str, port: int, coordinator: GrowattCoordinator, hass: HomeAssistant
+) -> Server:
+    async def handle_connection(connection: ServerConnection) -> None:
+        # The handler only runs after a completed handshake, so the request
+        # is always present.
+        path = connection.request.path if connection.request is not None else ""
+        await _on_connect(connection, path, coordinator, hass)
+
+    try:
+        _LOGGER.info("Starting OCPP server on %s:%s", host, port)
+
+        await hass.async_add_executor_job(_preload_ocpp_schemas)
+
+        return await serve(
+            handle_connection,
+            host,
+            port,
+            subprotocols=[Subprotocol(OCPP_SUBPROTOCOL)],
+            select_subprotocol=_select_ocpp_subprotocol,
+            # THOR uses OCPP messages for keepalive; the activity watchdog
+            # detects stale sockets without websocket-level ping futures.
+            ping_interval=None,
+            ping_timeout=None,
+        )
+    except Exception as exc:
+        # Log server-start failures, then propagate them to entry-setup cleanup.
+        _LOGGER.error("Failed to start OCPP server: %s", exc, exc_info=True)
+        raise

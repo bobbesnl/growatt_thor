@@ -1,28 +1,15 @@
 """Regression tests for config-entry and OCPP connection ownership."""
+
 from __future__ import annotations
 
 import ast
-import importlib.util
 import json
-from pathlib import Path
-import sys
 import unittest
 
+from tests.support import PACKAGE_PATH, load_package_module
 
-PACKAGE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-)
-MODULE_PATH = PACKAGE_PATH / "runtime_ownership.py"
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_runtime_ownership_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-ownership = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = ownership
-SPEC.loader.exec_module(ownership)
+MODULE_PATH = PACKAGE_PATH / "runtime/ownership.py"
+ownership = load_package_module("runtime.ownership")
 
 
 class RuntimeOwnershipDecisionTest(unittest.TestCase):
@@ -144,12 +131,8 @@ class EntryRuntimeTest(unittest.TestCase):
         right = ownership.claim_entry_runtime(domain_data, "entry-right")
         right["coordinator"] = object()
 
-        self.assertFalse(
-            ownership.release_entry_runtime(domain_data, "entry-left", right)
-        )
-        self.assertTrue(
-            ownership.release_entry_runtime(domain_data, "entry-left", left)
-        )
+        self.assertFalse(ownership.release_entry_runtime(domain_data, "entry-left", right))
+        self.assertTrue(ownership.release_entry_runtime(domain_data, "entry-left", left))
         self.assertIsNone(ownership.entry_runtime_data(domain_data, "entry-left"))
         self.assertIs(domain_data["entry-right"], right)
         self.assertIn("coordinator", right)
@@ -170,20 +153,17 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
         flow_class = next(
             node
             for node in tree.body
-            if isinstance(node, ast.ClassDef)
-            and node.name == "GrowattThorConfigFlow"
+            if isinstance(node, ast.ClassDef) and node.name == "GrowattThorConfigFlow"
         )
         user_step = next(
             node
             for node in flow_class.body
-            if isinstance(node, ast.AsyncFunctionDef)
-            and node.name == "async_step_user"
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "async_step_user"
         )
         called_names = {
             node.func.attr
             for node in ast.walk(user_step)
-            if isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
         }
 
         # A second charger is a second entry; only a port that another
@@ -196,8 +176,7 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
         setup = next(
             node
             for node in tree.body
-            if isinstance(node, ast.AsyncFunctionDef)
-            and node.name == "async_setup_entry"
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "async_setup_entry"
         )
         claim_call = next(
             node
@@ -206,27 +185,27 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
             and isinstance(node.func, ast.Name)
             and node.func.id == "claim_entry_runtime"
         )
-        coordinator_assignment = next(
+        create_call = next(
             node
             for node in ast.walk(setup)
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Subscript)
-                and isinstance(target.slice, ast.Constant)
-                and target.slice.value == "coordinator"
-                for target in node.targets
-            )
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "_create_coordinator"
         )
-
-        self.assertLess(claim_call.lineno, coordinator_assignment.lineno)
+        self.assertLess(claim_call.lineno, create_call.lineno)
+        create = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "_create_coordinator"
+        )
+        self.assertIn("runtime_data[COORDINATOR] = coordinator", ast.unparse(create))
 
     def test_non_owner_unload_is_guarded_before_runtime_cleanup(self):
         tree = ast.parse((PACKAGE_PATH / "__init__.py").read_text())
         unload = next(
             node
             for node in tree.body
-            if isinstance(node, ast.AsyncFunctionDef)
-            and node.name == "async_unload_entry"
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "async_unload_entry"
         )
         owner_check = next(
             node
@@ -246,12 +225,11 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
         self.assertLess(owner_check.lineno, clear_call.lineno)
 
     def test_connection_decision_precedes_charge_point_construction(self):
-        tree = ast.parse((PACKAGE_PATH / "ocpp_server.py").read_text())
+        tree = ast.parse((PACKAGE_PATH / "ocpp/growatt/server.py").read_text())
         connect = next(
             node
             for node in tree.body
-            if isinstance(node, ast.AsyncFunctionDef)
-            and node.name == "_on_connect"
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "_on_connect"
         )
         decision_call = next(
             node
@@ -271,12 +249,11 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
         self.assertLess(decision_call.lineno, constructor_call.lineno)
 
     def test_every_inbound_handler_checks_current_connection_ownership(self):
-        tree = ast.parse((PACKAGE_PATH / "ocpp_server.py").read_text())
+        tree = ast.parse((PACKAGE_PATH / "ocpp/growatt/server.py").read_text())
         charge_point_class = next(
             node
             for node in tree.body
-            if isinstance(node, ast.ClassDef)
-            and node.name == "GrowattChargePoint"
+            if isinstance(node, ast.ClassDef) and node.name == "GrowattChargePoint"
         )
         handlers = [
             node
@@ -290,24 +267,30 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
             )
         ]
 
-        self.assertGreater(len(handlers), 0)
+        self.assertEqual(len(handlers), 8)
         for handler in handlers:
-            guard_calls = [
-                node
-                for node in ast.walk(handler)
-                if isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "_connection_may_update_coordinator"
-            ]
             with self.subTest(handler=handler.name):
-                self.assertGreaterEqual(len(guard_calls), 1)
+                self.assertTrue(
+                    any(
+                        isinstance(decorator, ast.Call)
+                        and isinstance(decorator.func, ast.Name)
+                        and decorator.func.id == "guarded_ocpp_handler"
+                        for decorator in handler.decorator_list
+                    )
+                )
                 if handler.name == "on_start_transaction":
-                    # Allocation awaits a lock, so ownership must be checked a
-                    # second time before the transaction state is committed.
-                    self.assertGreaterEqual(len(guard_calls), 2)
+                    # ID allocation yields; the handler must recheck ownership
+                    # before authorization or committing transaction state.
+                    self.assertIn("_connection_may_update_coordinator", ast.unparse(handler))
+        decorator = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "guarded_ocpp_handler"
+        )
+        self.assertIn("_connection_may_update_coordinator", ast.unparse(decorator))
 
     def test_watchdog_and_handler_cleanup_release_by_object_identity(self):
-        tree = ast.parse((PACKAGE_PATH / "ocpp_server.py").read_text())
+        tree = ast.parse((PACKAGE_PATH / "ocpp/growatt/server.py").read_text())
         release_calls = [
             node
             for node in ast.walk(tree)
@@ -326,9 +309,7 @@ class RuntimeOwnershipWiringTest(unittest.TestCase):
         for path in files:
             payload = json.loads(path.read_text(encoding="utf-8"))
             with self.subTest(language=path.stem):
-                self.assertTrue(
-                    payload["config"]["error"]["port_already_configured"]
-                )
+                self.assertTrue(payload["config"]["error"]["port_already_configured"])
                 self.assertNotIn(
                     "single_instance_allowed",
                     payload["config"].get("abort", {}),

@@ -1,0 +1,4 @@
+/* Palette values are emitted from palette.ts before these shared semantics. */
+.dark {
+  color-scheme: dark;
+}

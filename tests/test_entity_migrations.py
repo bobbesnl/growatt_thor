@@ -1,36 +1,26 @@
 """Tests for one-time Home Assistant entity-registry migrations."""
+
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
-import types
 import unittest
+from types import SimpleNamespace
 
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
-COMPONENT_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor"
-)
+COMPONENT_PATH = PACKAGE_PATH
 INIT_PATH = COMPONENT_PATH / "__init__.py"
 PACKAGE_NAME = "growatt_thor_entity_migrations_test_package"
-PACKAGE = types.ModuleType(PACKAGE_NAME)
-PACKAGE.__path__ = [str(COMPONENT_PATH)]
-sys.modules[PACKAGE_NAME] = PACKAGE
+PACKAGE = register_package(PACKAGE_NAME)
 
 
 def _load_module(name: str, filename: str):
-    spec = importlib.util.spec_from_file_location(name, COMPONENT_PATH / filename)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_package_module(name, filename)
 
 
 _load_module(f"{PACKAGE_NAME}.const", "const.py")
 entity_migrations = _load_module(
-    f"{PACKAGE_NAME}.entity_migrations",
-    "entity_migrations.py",
+    f"{PACKAGE_NAME}.runtime.entity_migrations",
+    "runtime/entity_migrations.py",
 )
 
 
@@ -52,20 +42,14 @@ class _Entity:
         self.options = {
             "conversation": {"should_expose": False},
             "sensor": {"suggested_display_precision": 1},
-            "sensor.private": {
-                "suggested_unit_of_measurement": unit_of_measurement
-            },
+            "sensor.private": {"suggested_unit_of_measurement": unit_of_measurement},
         }
 
 
 class _Registry:
     def __init__(self, unit_of_measurement="min", *, exists=True):
         self.entity = _Entity(unit_of_measurement) if exists else None
-        self.entities = (
-            {self.entity.entity_id: self.entity}
-            if self.entity is not None
-            else {}
-        )
+        self.entities = {self.entity.entity_id: self.entity} if self.entity is not None else {}
         self.updates = []
 
     def async_get_entity_id(self, domain, platform, unique_id):
@@ -88,9 +72,7 @@ class _Registry:
         self.updates.append((entity_id, changes))
 
     def async_update_entity_options(self, entity_id, domain, options):
-        self.updates.append(
-            (entity_id, {"domain": domain, "options": options})
-        )
+        self.updates.append((entity_id, {"domain": domain, "options": options}))
 
 
 class _ExternalMeterRegistry:
@@ -163,9 +145,7 @@ class EntityMigrationTest(unittest.TestCase):
 
     def test_private_legacy_unit_is_migrated_when_public_unit_is_hours(self):
         registry = _Registry("h")
-        registry.entity.options["sensor.private"][
-            "suggested_unit_of_measurement"
-        ] = "min"
+        registry.entity.options["sensor.private"]["suggested_unit_of_measurement"] = "min"
 
         self.assertTrue(
             entity_migrations.migrate_session_duration_unit(
@@ -232,10 +212,7 @@ class EntityMigrationTest(unittest.TestCase):
         self.assertEqual(changed, tuple(expected))
         self.assertEqual(
             registry.updates,
-            [
-                (entity_id, {"disabled_by": "integration"})
-                for entity_id in expected
-            ],
+            [(entity_id, {"disabled_by": "integration"}) for entity_id in expected],
         )
 
     def test_existing_disabled_readback_is_preserved(self):
@@ -300,9 +277,7 @@ class EntityMigrationTest(unittest.TestCase):
             "migrated_data[PENDING_EXTERNAL_METER_READBACK_MIGRATION] = True",
             source,
         )
-        platform_setup = source.index(
-            "await hass.config_entries.async_forward_entry_setups"
-        )
+        platform_setup = source.index("await hass.config_entries.async_forward_entry_setups")
         completion = source.index(
             "_complete_external_meter_readback_migration(hass, entry)",
             platform_setup,
@@ -311,13 +286,23 @@ class EntityMigrationTest(unittest.TestCase):
 
     def test_external_meter_device_lookup_is_scoped_to_config_entry(self):
         source = INIT_PATH.read_text(encoding="utf-8")
-        self.assertIn("registry.async_get_device_by_identifier(", source)
-        self.assertIn(
-            '(DOMAIN, entry.entry_id, "grid_connection"),\n'
-            "        entry.entry_id,",
-            source,
-        )
+        self.assertIn("dr.async_entries_for_config_entry(registry, entry.entry_id)", source)
+        self.assertIn('(DOMAIN, entry.entry_id, "grid_connection"),', source)
+        # async_get_device is deprecated since HA 2026.9; async_get_device_by_identifier
+        # only exists since HA 2026.8 and would break setup on older versions.
         self.assertNotIn("registry.async_get_device(", source)
+        self.assertNotIn("async_get_device_by_identifier", source)
+
+    def test_find_device_with_identifier_matches_only_the_given_identifier(self):
+        charger = SimpleNamespace(id="charger", identifiers={("growatt_thor", "entry")})
+        meter = SimpleNamespace(
+            id="meter", identifiers={("growatt_thor", "entry", "grid_connection")}
+        )
+        identifier = ("growatt_thor", "entry", "grid_connection")
+        self.assertIs(
+            entity_migrations.find_device_with_identifier([charger, meter], identifier), meter
+        )
+        self.assertIsNone(entity_migrations.find_device_with_identifier([charger], identifier))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,46 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# Changing Enum string formatting or runtime type-alias objects is not formatting.
+ignore = ["UP040", "UP042"]
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "tests/typing_stubs"
+explicit_package_bases = true
+strict = true
+# Dependencies outside the checked files are analyzed for their signatures only.
+follow_imports = "silent"
+files = [
+    "custom_components/growatt_thor/",
+    "tests/typing/owner_contracts.py",
+    "tests/test_layer_boundaries.py",
+    "scripts/",
+]
+
+[[tool.mypy.overrides]]
+module = ["homeassistant.*", "voluptuous", "voluptuous.*", "voluptuous_serialize", "ocpp.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+# pytest is the runner; the suites stay unittest-style and also run with
+# `python -m unittest discover -s tests`.
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["custom_components/growatt_thor"]
+branch = true
+
+[tool.coverage.report]
+skip_covered = true
+
+# Read by scripts/check_size_budgets.py. CI reports overruns as warnings.
+[tool.growatt_thor.size_budgets]
+max_file_lines = 600
+max_function_lines = 60
+python = ["custom_components"]
+typescript = ["frontend/src"]

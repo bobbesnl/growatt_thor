@@ -1,0 +1,32 @@
+details {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 10px;
+}
+summary {
+  cursor: pointer;
+  padding: 7px 0;
+}
+dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin: 10px 0;
+}
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+.empty {
+  padding: 22px;
+  line-height: 1.6;
+}
+.spinner {
+  animation: pulse 1.5s ease infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.4;
+  }
+}

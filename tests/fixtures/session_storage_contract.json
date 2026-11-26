@@ -1,0 +1,585 @@
+[
+  {
+    "pending_session_rows": [],
+    "pending_completed_sessions": [],
+    "last_energy_stop": null,
+    "total_energy_charged": 0.0,
+    "next_transaction_id": 1,
+    "last_session": {
+      "energy_kwh": null,
+      "cost": null,
+      "start_time": null,
+      "end_time": null,
+      "plug_time": null,
+      "unplug_time": null,
+      "duration_minutes": null,
+      "effective_charging_minutes": null,
+      "session_id": null,
+      "session_source": null,
+      "transaction_id": null,
+      "charge_mode": null,
+      "work_mode": null,
+      "record_key": null
+    },
+    "applied_session_record_keys": [],
+    "last_charger_fault": null,
+    "active_effective_charging": {
+      "transaction_id": "42",
+      "elapsed_seconds": 0.0,
+      "last_sample_at": null,
+      "last_active": false,
+      "last_energy_wh": null,
+      "interval_count": 0
+    },
+    "active_session": {
+      "transaction_id": "42",
+      "id_tag": "TEST-TAG",
+      "id_tag_alias": null,
+      "start_received_at": "2026-10-30T12:00:00Z",
+      "start_timestamp": null,
+      "connector_id": "1",
+      "meter_start": 1000.0,
+      "energy_wh": 0.0,
+      "power_curve": [],
+      "events": [
+        {
+          "type": "plugged_in",
+          "at": "2026-10-30T12:00:00Z",
+          "source": "ocpp",
+          "certainty": "derived"
+        },
+        {
+          "type": "transaction_started",
+          "at": "2026-10-30T12:00:00Z",
+          "source": "ocpp",
+          "certainty": "observed"
+        }
+      ],
+      "energy_flowing": null
+    },
+    "active_site_accounting": null,
+    "pending_site_accounting": null,
+    "site_accounting_totals": {
+      "energy_kwh": 0.0,
+      "direct_solar_kwh": 0.0,
+      "direct_grid_kwh": 0.0,
+      "battery_unknown_kwh": 0.0,
+      "unknown_kwh": 0.0,
+      "effective_grid_cost": 0.0
+    },
+    "pending_effective_charging_minutes": {}
+  },
+  {
+    "pending_session_rows": [],
+    "pending_completed_sessions": [],
+    "last_energy_stop": null,
+    "total_energy_charged": 0.0,
+    "next_transaction_id": 1,
+    "last_session": {
+      "energy_kwh": null,
+      "cost": null,
+      "start_time": null,
+      "end_time": null,
+      "plug_time": null,
+      "unplug_time": null,
+      "duration_minutes": null,
+      "effective_charging_minutes": null,
+      "session_id": null,
+      "session_source": null,
+      "transaction_id": null,
+      "charge_mode": null,
+      "work_mode": null,
+      "record_key": null
+    },
+    "applied_session_record_keys": [],
+    "last_charger_fault": null,
+    "active_effective_charging": {
+      "transaction_id": "42",
+      "elapsed_seconds": 0.0,
+      "last_sample_at": "2026-10-30T12:01:00+00:00",
+      "last_active": true,
+      "last_energy_wh": 1500.0,
+      "interval_count": 0
+    },
+    "active_session": {
+      "transaction_id": "42",
+      "id_tag": "TEST-TAG",
+      "id_tag_alias": null,
+      "start_received_at": "2026-10-30T12:00:00Z",
+      "start_timestamp": null,
+      "connector_id": "1",
+      "meter_start": 1000.0,
+      "energy_wh": 1500.0,
+      "power_curve": [
+        [
+          "2026-10-30T12:01:00Z",
+          3000.0
+        ]
+      ],
+      "events": [
+        {
+          "type": "plugged_in",
+          "at": "2026-10-30T12:00:00Z",
+          "source": "ocpp",
+          "certainty": "derived"
+        },
+        {
+          "type": "transaction_started",
+          "at": "2026-10-30T12:00:00Z",
+          "source": "ocpp",
+          "certainty": "observed"
+        },
+        {
+          "type": "energy_flow_started",
+          "at": "2026-10-30T12:01:00Z",
+          "source": "meter",
+          "certainty": "derived"
+        }
+      ],
+      "energy_flowing": true
+    },
+    "active_site_accounting": null,
+    "pending_site_accounting": null,
+    "site_accounting_totals": {
+      "energy_kwh": 0.0,
+      "direct_solar_kwh": 0.0,
+      "direct_grid_kwh": 0.0,
+      "battery_unknown_kwh": 0.0,
+      "unknown_kwh": 0.0,
+      "effective_grid_cost": 0.0
+    },
+    "pending_effective_charging_minutes": {}
+  },
+  {
+    "pending_session_rows": [],
+    "pending_completed_sessions": [],
+    "last_energy_stop": null,
+    "total_energy_charged": 0.0,
+    "next_transaction_id": 1,
+    "last_session": {
+      "energy_kwh": null,
+      "cost": null,
+      "start_time": null,
+      "end_time": null,
+      "plug_time": null,
+      "unplug_time": null,
+      "duration_minutes": null,
+      "effective_charging_minutes": null,
+      "session_id": null,
+      "session_source": null,
+      "transaction_id": null,
+      "charge_mode": null,
+      "work_mode": null,
+      "record_key": null
+    },
+    "applied_session_record_keys": [],
+    "last_charger_fault": null,
+    "active_effective_charging": {
+      "transaction_id": "42",
+      "elapsed_seconds": 0.0,
+      "last_sample_at": "2026-10-30T12:01:00+00:00",
+      "last_active": true,
+      "last_energy_wh": 1500.0,
+      "interval_count": 0
+    },
+    "active_session": {
+      "transaction_id": "42",
+      "id_tag": "TEST-TAG",
+      "id_tag_alias": null,
+      "start_received_at": "2026-10-30T12:00:00Z",
+      "start_timestamp": null,
+      "connector_id": "1",
+      "meter_start": 1000.0,
+      "energy_wh": 1500.0,
+      "power_curve": [
+        [
+          "2026-10-30T12:01:00Z",
+          3000.0
+        ]
+      ],
+      "events": [
+        {
+          "type": "plugged_in",
+          "at": "2026-10-30T12:00:00Z",
+          "source": "ocpp",
+          "certainty": "derived"
+        },
+        {
+          "type": "transaction_started",
+          "at": "2026-10-30T12:00:00Z",
+          "source": "ocpp",
+          "certainty": "observed"
+        },
+        {
+          "type": "energy_flow_started",
+          "at": "2026-10-30T12:01:00Z",
+          "source": "meter",
+          "certainty": "derived"
+        },
+        {
+          "type": "charging_paused",
+          "at": "2026-10-30T12:02:00Z",
+          "source": "ocpp",
+          "certainty": "observed",
+          "reason": "suspended_ev"
+        }
+      ],
+      "energy_flowing": false
+    },
+    "active_site_accounting": null,
+    "pending_site_accounting": null,
+    "site_accounting_totals": {
+      "energy_kwh": 0.0,
+      "direct_solar_kwh": 0.0,
+      "direct_grid_kwh": 0.0,
+      "battery_unknown_kwh": 0.0,
+      "unknown_kwh": 0.0,
+      "effective_grid_cost": 0.0
+    },
+    "pending_effective_charging_minutes": {}
+  },
+  {
+    "pending_session_rows": [],
+    "pending_completed_sessions": [
+      {
+        "transaction": {
+          "id_tag_alias": null,
+          "start": {
+            "received_at": "2026-10-30T12:00:00Z",
+            "request": {
+              "id_tag": "TEST-TAG",
+              "connector_id": "1",
+              "meter_start": 1000.0,
+              "timestamp": null
+            },
+            "response": {
+              "transaction_id": "42"
+            }
+          },
+          "stop": {
+            "received_at": "2026-10-30T12:02:00Z",
+            "request": {
+              "transaction_id": 42,
+              "meter_stop": 1500,
+              "reason": "Remote"
+            }
+          },
+          "events": [
+            {
+              "type": "plugged_in",
+              "at": "2026-10-30T12:00:00Z",
+              "source": "ocpp",
+              "certainty": "derived"
+            },
+            {
+              "type": "transaction_started",
+              "at": "2026-10-30T12:00:00Z",
+              "source": "ocpp",
+              "certainty": "observed"
+            },
+            {
+              "type": "energy_flow_started",
+              "at": "2026-10-30T12:01:00Z",
+              "source": "meter",
+              "certainty": "derived"
+            },
+            {
+              "type": "charging_paused",
+              "at": "2026-10-30T12:02:00Z",
+              "source": "ocpp",
+              "certainty": "observed",
+              "reason": "suspended_ev"
+            },
+            {
+              "type": "energy_flow_stopped",
+              "at": "2026-10-30T12:02:00Z",
+              "source": "ocpp",
+              "certainty": "derived"
+            },
+            {
+              "type": "transaction_stopped",
+              "at": "2026-10-30T12:02:00Z",
+              "source": "ocpp",
+              "certainty": "observed",
+              "reason": "Remote"
+            }
+          ],
+          "power_curve": [
+            [
+              "2026-10-30T12:01:00Z",
+              3000.0
+            ]
+          ],
+          "effective_charging_duration_minutes": null
+        },
+        "accounting": null
+      }
+    ],
+    "last_energy_stop": null,
+    "total_energy_charged": 0.0,
+    "next_transaction_id": 1,
+    "last_session": {
+      "energy_kwh": null,
+      "cost": null,
+      "start_time": null,
+      "end_time": null,
+      "plug_time": null,
+      "unplug_time": null,
+      "duration_minutes": null,
+      "effective_charging_minutes": null,
+      "session_id": null,
+      "session_source": null,
+      "transaction_id": null,
+      "charge_mode": null,
+      "work_mode": null,
+      "record_key": null
+    },
+    "applied_session_record_keys": [],
+    "last_charger_fault": null,
+    "active_effective_charging": {
+      "transaction_id": null,
+      "elapsed_seconds": 0.0,
+      "last_sample_at": null,
+      "last_active": false,
+      "last_energy_wh": null,
+      "interval_count": 0
+    },
+    "active_session": null,
+    "active_site_accounting": null,
+    "pending_site_accounting": null,
+    "site_accounting_totals": {
+      "energy_kwh": 0.0,
+      "direct_solar_kwh": 0.0,
+      "direct_grid_kwh": 0.0,
+      "battery_unknown_kwh": 0.0,
+      "unknown_kwh": 0.0,
+      "effective_grid_cost": 0.0
+    },
+    "pending_effective_charging_minutes": {}
+  },
+  {
+    "pending_session_rows": [
+      {
+        "timestamp": "2026-10-30T12:02:00Z",
+        "charger_id": "XGJ0000000000001",
+        "source_instance_id": "entry_test",
+        "location": "",
+        "start_time": "2026-10-30T12:00:00Z",
+        "end_time": "2026-10-30T12:02:00Z",
+        "energy_kwh": 0.5,
+        "cost": 0.12,
+        "duration_minutes": 2.0,
+        "effective_charging_minutes": "",
+        "transaction_id": "42",
+        "session_id": "ha-efd24359349d2193",
+        "session_source": "home_assistant",
+        "authorized_identifier": "TEST-TAG",
+        "authorized_alias": "",
+        "green_energy_kwh": "",
+        "power_curve": "[[\"2026-10-30T12:01:00Z\",3000.0]]",
+        "site_house_load_source": "",
+        "events": "[{\"type\":\"plugged_in\",\"at\":\"2026-10-30T12:00:00Z\",\"source\":\"ocpp\",\"certainty\":\"derived\"},{\"type\":\"transaction_started\",\"at\":\"2026-10-30T12:00:00Z\",\"source\":\"ocpp\",\"certainty\":\"observed\"},{\"type\":\"energy_flow_started\",\"at\":\"2026-10-30T12:01:00Z\",\"source\":\"meter\",\"certainty\":\"derived\"},{\"type\":\"charging_paused\",\"at\":\"2026-10-30T12:02:00Z\",\"source\":\"ocpp\",\"certainty\":\"observed\",\"reason\":\"suspended_ev\"},{\"type\":\"energy_flow_stopped\",\"at\":\"2026-10-30T12:02:00Z\",\"source\":\"ocpp\",\"certainty\":\"derived\"},{\"type\":\"transaction_stopped\",\"at\":\"2026-10-30T12:02:00Z\",\"source\":\"ocpp\",\"certainty\":\"observed\",\"reason\":\"Remote\"}]"
+      }
+    ],
+    "pending_completed_sessions": [],
+    "last_energy_stop": null,
+    "total_energy_charged": 0.5,
+    "next_transaction_id": 1,
+    "last_session": {
+      "energy_kwh": 0.5,
+      "cost": 0.12,
+      "start_time": "2026-10-30 12:00:00",
+      "end_time": "2026-10-30 12:02:00",
+      "plug_time": "2026-10-30 12:00:00",
+      "unplug_time": "",
+      "duration_minutes": 2.0,
+      "effective_charging_minutes": null,
+      "session_id": "ha-efd24359349d2193",
+      "session_source": "home_assistant",
+      "transaction_id": "42",
+      "charge_mode": "3",
+      "work_mode": "3",
+      "record_key": [
+        "42",
+        "2026-10-30 12:02:00"
+      ]
+    },
+    "applied_session_record_keys": [
+      [
+        "42",
+        "2026-10-30 12:02:00"
+      ]
+    ],
+    "last_charger_fault": null,
+    "active_effective_charging": {
+      "transaction_id": null,
+      "elapsed_seconds": 0.0,
+      "last_sample_at": null,
+      "last_active": false,
+      "last_energy_wh": null,
+      "interval_count": 0
+    },
+    "active_session": null,
+    "active_site_accounting": null,
+    "pending_site_accounting": null,
+    "site_accounting_totals": {
+      "energy_kwh": 0.0,
+      "direct_solar_kwh": 0.0,
+      "direct_grid_kwh": 0.0,
+      "battery_unknown_kwh": 0.0,
+      "unknown_kwh": 0.0,
+      "effective_grid_cost": 0.0
+    },
+    "pending_effective_charging_minutes": {}
+  },
+  {
+    "pending_session_rows": [
+      {
+        "timestamp": "2026-10-30T12:02:00Z",
+        "charger_id": "XGJ0000000000001",
+        "source_instance_id": "entry_test",
+        "location": "",
+        "start_time": "2026-10-30T12:00:00Z",
+        "end_time": "2026-10-30T12:02:00Z",
+        "energy_kwh": 0.5,
+        "cost": 0.12,
+        "duration_minutes": 2.0,
+        "effective_charging_minutes": "",
+        "transaction_id": "42",
+        "session_id": "ha-efd24359349d2193",
+        "session_source": "home_assistant",
+        "authorized_identifier": "TEST-TAG",
+        "authorized_alias": "",
+        "green_energy_kwh": "",
+        "power_curve": "[[\"2026-10-30T12:01:00Z\",3000.0]]",
+        "site_house_load_source": "",
+        "events": "[{\"type\":\"plugged_in\",\"at\":\"2026-10-30T12:00:00Z\",\"source\":\"ocpp\",\"certainty\":\"derived\"},{\"type\":\"transaction_started\",\"at\":\"2026-10-30T12:00:00Z\",\"source\":\"ocpp\",\"certainty\":\"observed\"},{\"type\":\"energy_flow_started\",\"at\":\"2026-10-30T12:01:00Z\",\"source\":\"meter\",\"certainty\":\"derived\"},{\"type\":\"charging_paused\",\"at\":\"2026-10-30T12:02:00Z\",\"source\":\"ocpp\",\"certainty\":\"observed\",\"reason\":\"suspended_ev\"},{\"type\":\"energy_flow_stopped\",\"at\":\"2026-10-30T12:02:00Z\",\"source\":\"ocpp\",\"certainty\":\"derived\"},{\"type\":\"transaction_stopped\",\"at\":\"2026-10-30T12:02:00Z\",\"source\":\"ocpp\",\"certainty\":\"observed\",\"reason\":\"Remote\"}]"
+      }
+    ],
+    "pending_completed_sessions": [],
+    "last_energy_stop": null,
+    "total_energy_charged": 0.5,
+    "next_transaction_id": 1,
+    "last_session": {
+      "energy_kwh": 0.5,
+      "cost": 0.12,
+      "start_time": "2026-10-30 12:00:00",
+      "end_time": "2026-10-30 12:02:00",
+      "plug_time": "2026-10-30 12:00:00",
+      "unplug_time": "",
+      "duration_minutes": 2.0,
+      "effective_charging_minutes": null,
+      "session_id": "ha-efd24359349d2193",
+      "session_source": "home_assistant",
+      "transaction_id": "42",
+      "charge_mode": "3",
+      "work_mode": "3",
+      "record_key": [
+        "42",
+        "2026-10-30 12:02:00"
+      ]
+    },
+    "applied_session_record_keys": [
+      [
+        "42",
+        "2026-10-30 12:02:00"
+      ]
+    ],
+    "last_charger_fault": null,
+    "active_effective_charging": {
+      "transaction_id": null,
+      "elapsed_seconds": 0.0,
+      "last_sample_at": null,
+      "last_active": false,
+      "last_energy_wh": null,
+      "interval_count": 0
+    },
+    "active_session": null,
+    "active_site_accounting": null,
+    "pending_site_accounting": null,
+    "site_accounting_totals": {
+      "energy_kwh": 0.0,
+      "direct_solar_kwh": 0.0,
+      "direct_grid_kwh": 0.0,
+      "battery_unknown_kwh": 0.0,
+      "unknown_kwh": 0.0,
+      "effective_grid_cost": 0.0
+    },
+    "pending_effective_charging_minutes": {}
+  },
+  {
+    "pending_session_rows": [
+      {
+        "timestamp": "2026-10-30T12:02:00Z",
+        "charger_id": "XGJ0000000000001",
+        "source_instance_id": "entry_test",
+        "location": "",
+        "start_time": "2026-10-30T12:00:00Z",
+        "end_time": "2026-10-30T12:02:00Z",
+        "energy_kwh": 0.5,
+        "cost": 0.12,
+        "duration_minutes": 2.0,
+        "effective_charging_minutes": "",
+        "transaction_id": "42",
+        "session_id": "ha-efd24359349d2193",
+        "session_source": "home_assistant",
+        "authorized_identifier": "TEST-TAG",
+        "authorized_alias": "",
+        "green_energy_kwh": "",
+        "power_curve": "[[\"2026-10-30T12:01:00Z\",3000.0]]",
+        "site_house_load_source": "",
+        "events": "[{\"type\":\"plugged_in\",\"at\":\"2026-10-30T12:00:00Z\",\"source\":\"ocpp\",\"certainty\":\"derived\"},{\"type\":\"transaction_started\",\"at\":\"2026-10-30T12:00:00Z\",\"source\":\"ocpp\",\"certainty\":\"observed\"},{\"type\":\"energy_flow_started\",\"at\":\"2026-10-30T12:01:00Z\",\"source\":\"meter\",\"certainty\":\"derived\"},{\"type\":\"charging_paused\",\"at\":\"2026-10-30T12:02:00Z\",\"source\":\"ocpp\",\"certainty\":\"observed\",\"reason\":\"suspended_ev\"},{\"type\":\"energy_flow_stopped\",\"at\":\"2026-10-30T12:02:00Z\",\"source\":\"ocpp\",\"certainty\":\"derived\"},{\"type\":\"transaction_stopped\",\"at\":\"2026-10-30T12:02:00Z\",\"source\":\"ocpp\",\"certainty\":\"observed\",\"reason\":\"Remote\"}]"
+      }
+    ],
+    "pending_completed_sessions": [],
+    "last_energy_stop": null,
+    "total_energy_charged": 0.5,
+    "next_transaction_id": 1,
+    "last_session": {
+      "energy_kwh": 0.5,
+      "cost": 0.12,
+      "start_time": "2026-10-30 12:00:00",
+      "end_time": "2026-10-30 12:02:00",
+      "plug_time": "2026-10-30 12:00:00",
+      "unplug_time": null,
+      "duration_minutes": 2.0,
+      "effective_charging_minutes": null,
+      "session_id": "ha-efd24359349d2193",
+      "session_source": "home_assistant",
+      "transaction_id": "42",
+      "charge_mode": "3",
+      "work_mode": "3",
+      "record_key": [
+        "42",
+        "2026-10-30 12:02:00"
+      ]
+    },
+    "applied_session_record_keys": [
+      [
+        "42",
+        "2026-10-30 12:02:00"
+      ]
+    ],
+    "last_charger_fault": null,
+    "active_effective_charging": {
+      "transaction_id": null,
+      "elapsed_seconds": 0.0,
+      "last_sample_at": null,
+      "last_active": false,
+      "last_energy_wh": null,
+      "interval_count": 0
+    },
+    "active_session": null,
+    "active_site_accounting": null,
+    "pending_site_accounting": null,
+    "site_accounting_totals": {
+      "energy_kwh": 0.0,
+      "direct_solar_kwh": 0.0,
+      "direct_grid_kwh": 0.0,
+      "battery_unknown_kwh": 0.0,
+      "unknown_kwh": 0.0,
+      "effective_grid_cost": 0.0
+    },
+    "pending_effective_charging_minutes": {}
+  }
+]

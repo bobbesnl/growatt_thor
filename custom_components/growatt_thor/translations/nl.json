@@ -1,10 +1,87 @@
 {
+  "services": {
+    "prepare_plug_charging_target": {
+      "name": "Ingebouwd laaddoel voor Plug & Charge voorbereiden",
+      "description": "Alleen als de auto niet is aangesloten. Verstuurt een duur, energiehoeveelheid of budget zonder op afstand te starten. Wacht op acceptatie voordat je de auto aansluit."
+    },
+    "schedule_charging_target": {
+      "name": "Een ingebouwd laaddoel reserveren of herhalen",
+      "description": "Een eenmalige reservering verstuurt nu het doel en ReserveNow, en op het gekozen tijdstip het doel en een startopdracht. Dagelijkse herhaling wordt door Home Assistant beheerd en opnieuw klaargezet."
+    },
+    "cancel_scheduled_charging_target": {
+      "name": "Gepland laaddoel annuleren",
+      "description": "Annuleert een dagelijkse HA-timer lokaal of verstuurt CancelReservation voor een eenmalige reservering. Een doel dat al naar de laadpaal is geschreven, wordt niet gewist."
+    },
+    "preview_charging_target": {
+      "name": "Ingebouwd laaddoel vooraf bekijken",
+      "description": "Toont alleen welke functies met opnames zijn geverifieerd en welke opdrachten zijn gepland. Verstuurt geen opdrachten.",
+      "fields": {
+        "kind": {
+          "name": "Type laaddoel",
+          "description": "Duur, energie of budget."
+        },
+        "value": {
+          "name": "Doelwaarde",
+          "description": "Hele minuten, kWh of numerieke tariefeenheden van de laadpaal."
+        },
+        "start": {
+          "name": "Type start",
+          "description": "Nu, eenmalige reservering of herhaling. Niet-geverifieerde combinaties blijven geblokkeerd."
+        }
+      }
+    },
+    "start_charging_target": {
+      "name": "Ingebouwd laaddoel starten (experimenteel)",
+      "description": "Verstuurt een duur, energiehoeveelheid of budget, gevolgd door een startopdracht op de vastgelegde firmware in de modus Snel. Stoppen op duur en energie is geverifieerd; budget blijft experimenteel. Geen automatische nieuwe pogingen.",
+      "fields": {
+        "kind": {
+          "name": "Type laaddoel",
+          "description": "Duur, energie of budget."
+        },
+        "value": {
+          "name": "Doelwaarde",
+          "description": "Grenzen: 1–1440 hele minuten, 0,01–100 kWh of 1–1000 tariefeenheden."
+        },
+        "confirm_experimental": {
+          "name": "Proef onder toezicht bevestigen",
+          "description": "Acceptatie bewijst niet dat er wordt geladen of dat het doel wordt gehandhaafd. Blijf beschikbaar om het laden te stoppen."
+        }
+      }
+    },
+    "acknowledge_target_reset": {
+      "name": "Onafhankelijke reset van het ingebouwde doel bevestigen",
+      "description": "Wist alleen het bewaarde HA-verzoek, NIET het doel op de laadpaal. Verstuurt geen annuleer- of stopopdracht.",
+      "fields": {
+        "confirm_native_target_reset": {
+          "name": "Ingebouwd doel onafhankelijk gewist",
+          "description": "Bevestig dat het doel op de laadpaal is gewist en een volgende start veilig is. Een afgeronde sessie bewijst op zichzelf geen reset."
+        }
+      }
+    },
+    "prepare_rfid_charging_target": {
+      "name": "Ingebouwd laaddoel voor RFID voorbereiden",
+      "description": "Stelt een duur, energiehoeveelheid of budget in, maar start nooit op afstand. Wacht op target_accepted_waiting_for_rfid voordat je de kaart aanbiedt.",
+      "fields": {
+        "value": {
+          "name": "Energie (kWh)"
+        },
+        "confirm_experimental": {
+          "name": "Experiment onder toezicht bevestigen"
+        }
+      }
+    },
+    "charging_target_status": {
+      "name": "Status van de laaddoelproef uitlezen",
+      "description": "Alleen uitlezen. Acceptatie bewijst niet dat het doel wordt gehandhaafd."
+    }
+  },
   "config": {
     "step": {
       "user": {
         "title": "Growatt THOR Installatie",
         "description": "Configureer je Growatt THOR EV Charger OCPP verbinding",
         "data": {
+          "bind_address": "OCPP-luisteradres (lokaal IP)",
           "port": "Poort",
           "location": "Installatielocatie",
           "poll_interval": "Grid poll interval (seconden, min {min_interval})"
@@ -14,6 +91,7 @@
     "error": {
       "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn",
       "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn",
+      "invalid_bind_address": "Voer een geldig lokaal IPv4- of IPv6-adres in",
       "invalid_port": "De poort moet een geheel getal van 1 tot en met 65535 zijn",
       "port_already_configured": "Deze poort wordt al gebruikt door een andere Growatt THOR-lader. Kies een andere poort."
     },
@@ -26,30 +104,83 @@
     "step": {
       "init": {
         "title": "Growatt THOR Opties",
-        "description": "Choose what you want to configure. Charging strategy and authorization mode are dedicated device controls.",
-        "menu_options": {"general": "General settings", "authorization": "Local access control", "confirm_ap_mode": "Maintenance: AP mode"},
-        "menu_option_descriptions": {"general": "Configure polling and location.", "authorization": "Manage RFID access and Home Assistant remote starts separately.", "confirm_ap_mode": "Enable the charger's setup Wi-Fi; this disconnects Home Assistant."}
+        "description": "Kies welk onderdeel je wilt configureren. Optionele energiebronnen worden alleen voor visualisatie gebruikt.",
+        "menu_options": {
+          "general": "Algemene instellingen",
+          "energy_sources": "Optionele energiebronnen",
+          "site_accounting": "Energie- en kostenregistratie voor laden",
+          "authorization": "Lokale toegangscontrole",
+          "confirm_ap_mode": "Onderhoud: AP-modus",
+          "learn_rfid": "RFID-kaart inleren"
+        },
+        "menu_option_descriptions": {
+          "general": "Configureer het pollinginterval en de locatie.",
+          "energy_sources": "Configureer optionele batterijstroom voor kaarten en grafieken.",
+          "site_accounting": "Registreer laadenergie en kosten; stel desgewenst automatisch stoppen met laden in.",
+          "authorization": "Beheer RFID-toegang en starts vanuit Home Assistant afzonderlijk.",
+          "confirm_ap_mode": "Schakel de configuratie-wifi van de lader in; Home Assistant wordt hierbij losgekoppeld.",
+          "learn_rfid": "Houd een kaart voor om de code en een optionele naam aan de toegangslijst van deze lader toe te voegen."
+        }
       },
       "general": {
-        "title": "General settings",
-        "description": "These settings affect Home Assistant. Charging strategy and authorization mode are dedicated device controls.",
+        "title": "Algemene instellingen",
+        "description": "Deze instellingen beïnvloeden de verbinding tussen Home Assistant en de lader.",
         "data": {
+          "bind_address": "OCPP-luisteradres (lokaal IP)",
           "poll_interval": "Grid poll interval (seconden, nu: {current_interval})",
           "location": "Installatielocatie"
+        },
+        "data_description": {
+          "poll_interval": "Hoe vaak Home Assistant externe vermogenswaarden vernieuwt.",
+          "location": "Label dat voor deze installatie wordt getoond."
+        }
+      },
+      "energy_sources": {
+        "title": "Optionele energiebronnen",
+        "description": "Alleen voor woningen met een compatibele thuisbatterij. De waarden worden uitsluitend gevisualiseerd en sturen de lader of batterij nooit aan. Laat de sensor leeg om deze functie uit te schakelen.",
+        "data": {
+          "battery_power_entity": "Batterijvermogenssensor (optioneel)",
+          "battery_power_sign": "Tekenconventie van de batterijsensor"
+        },
+        "data_description": {
+          "battery_power_entity": "Selecteer een vermogenssensor in W, kW of MW om de batterijstroom op de kaart weer te geven.",
+          "battery_power_sign": "Geef aan of een positieve waarde laden of ontladen betekent."
+        }
+      },
+      "site_accounting": {
+        "title": "Energie- en kostenregistratie voor laden",
+        "description": "De automatische beveiliging werkt alleen in PV Linkage+ (uitsluitend zonne-overschot). Registreer EV-energie en kosten. De optionele beveiliging stopt bij aanhoudende batterijontlading of netafname. Drempel en wachttijd zijn instelbaar. Ontbrekende of verouderde metingen veroorzaken geen stop. Laden herstart niet automatisch.",
+        "data": {
+          "site_accounting_profile": "Installatieprofiel",
+          "site_stop_threshold_w": "Stopdrempel (W)",
+          "site_stop_hold_seconds": "Tijd boven de drempel (seconden)",
+          "site_auto_stop_mode": "Automatisch stoppen met laden",
+          "site_grid_source": "Bron voor netmetingen",
+          "site_grid_power_entity": "Sensor voor netvermogen (optioneel)",
+          "site_grid_power_sign": "Tekenconventie van de netsensor",
+          "site_solar_power_entity": "Sensor voor zonnevermogen (optioneel)",
+          "site_house_power_entity": "Sensor voor huishoudelijk vermogen zonder de auto (optioneel)",
+          "site_tariff_entity": "Sensor voor de huidige prijs per kWh (optioneel)",
+          "site_fixed_price": "Vaste prijs per kWh (zonder prijssensor)"
+        },
+        "data_description": {
+          "site_stop_threshold_w": "Vermogen uit batterij of net. Standaard: 500 W.",
+          "site_stop_hold_seconds": "Standaard: 180 seconden. Als actuele PV-opwek het laadvermogen dekt, krijgen tijdelijke huishoudelijke verbruikers twee extra minuten. Geen automatische herstart.",
+          "site_auto_stop_mode": "De automatische beveiliging werkt alleen in PV Linkage+ (uitsluitend zonne-overschot). Uit, bij batterijontlading, bij netafname of bij beide. Vereist actuele metingen en een actieve laadsessie; stel de batterijbron in onder Optionele energiebronnen."
         }
       },
       "authorization": {
-        "title": "Local charging authorisation",
-        "description": "Stored RFID identifiers: {count}. Physical card access and starts initiated by Home Assistant are managed independently. This does not change the charger's authorization mode, cards, or cloud bindings.",
+        "title": "Lokale laadautorisatie",
+        "description": "Opgeslagen RFID-identificaties: {count}. Toegang met fysieke kaarten en starten vanuit Home Assistant worden onafhankelijk beheerd. Dit verandert de autorisatiemodus, kaarten of cloudkoppelingen van de laadpaal niet.",
         "data": {
-          "restrict_authorization": "Restrict RFID access to the allowlist",
-          "allow_ha_remote_start": "Allow starts from Home Assistant",
-          "authorized_id_tags": "RFID allowlist (one identifier per line)"
+          "restrict_authorization": "RFID-toegang beperken tot de toestemmingslijst",
+          "allow_ha_remote_start": "Starten vanuit Home Assistant toestaan",
+          "authorized_id_tags": "RFID-toestemmingslijst (één identificatie per regel)"
         },
         "data_description": {
-          "restrict_authorization": "Enables local checking of physical RFID identifiers. An enabled empty list rejects every card.",
-          "allow_ha_remote_start": "Allows starts through HA controls, services, and automations. No technical identifier needs to be added to the RFID list.",
-          "authorized_id_tags": "Up to 100 exact OCPP identifiers of 1–20 characters. The list is stored locally and shown again when this dialog opens. Delete a line to remove it; identifiers are omitted from normal logs and diagnostics."
+          "restrict_authorization": "Schakelt lokale controle van fysieke RFID-identificaties in. Een ingeschakelde lege lijst weigert elke kaart.",
+          "allow_ha_remote_start": "Staat starten via HA-bediening, services en automatiseringen toe. Er hoeft geen technische identificatie aan de RFID-lijst te worden toegevoegd.",
+          "authorized_id_tags": "Maximaal 100 exacte OCPP-identificaties van 1–20 tekens. De lijst wordt lokaal opgeslagen en opnieuw getoond wanneer dit venster wordt geopend. Verwijder een regel om een kaart te verwijderen; identificaties worden weggelaten uit gewone logboeken en diagnostiek. Eén code per regel, eventueel gevolgd door een spatie, |, een spatie en een naam: 00Ab12 | Gezinsauto. Behoud hoofdletters en voorloopnullen. Namen mogen maximaal 80 tekens bevatten. Laat alleen de code staan om de naam te verwijderen; verwijder de regel om de kaart te verwijderen."
         }
       },
       "confirm_charger_mode": {
@@ -65,20 +196,58 @@
         "data": {
           "confirm": "Ja, activeer AP Mode"
         }
+      },
+      "learn_rfid": {
+        "title": "RFID-kaart inleren",
+        "description": "Houd de kaart binnen twee minuten bij deze lader en kies daarna Verzenden. Alleen de volgende kaart wordt vastgelegd. De bestaande toegangsregels blijven gelden: ook een geweigerde kaart kan worden ingeleerd, maar wordt pas na bevestiging toegestaan. De lader moet de kaart naar Home Assistant sturen; gebruik Home Assistant / RFID als Alleen RFID niets doorgeeft."
+      },
+      "confirm_rfid": {
+        "title": "RFID-kaart bevestigen",
+        "description": "Ontvangen code: {id_tag}. Geef eventueel een naam op en kies Verzenden om de kaart op te slaan. De bestaande toegangsinstellingen blijven behouden. Het inleren verloopt twee minuten na de start.",
+        "data": {
+          "alias": "Kaartnaam (optioneel)"
+        },
+        "data_description": {
+          "alias": "Maximaal 80 tekens, bijvoorbeeld “Gezinsauto”. De naam helpt sessies in CSV-bestanden te herkennen."
+        }
       }
     },
     "error": {
-      "invalid_authorization": "Enter at most 100 identifiers of 1–20 printable ASCII characters without spaces.",
+      "invalid_bind_address": "Voer een geldig lokaal IPv4- of IPv6-adres in",
+      "invalid_authorization": "Voer maximaal 100 identificaties in van 1–20 afdrukbare ASCII-tekens zonder spaties.",
+      "duplicate_power_source": "Kies verschillende sensoren voor net-, zonne-, huishoudelijk en batterijvermogen.",
+      "profile_requires_battery": "Selecteer eerst een batterijvermogenssensor onder Optionele energiebronnen.",
+      "invalid_grid_source": "Kies een ondersteunde netbron.",
+      "invalid_fixed_price": "Voer een eindige prijs per kWh in; negatieve prijzen zijn toegestaan.",
+      "invalid_power_sensor": "Selecteer een sensor met eenheid W, kW of MW.",
+      "invalid_site_profile": "Kies een ondersteund installatieprofiel.",
+      "invalid_stop_settings": "Gebruik 100–10000 W en 30–1800 seconden.",
+      "invalid_auto_stop_mode": "Kies een ondersteunde modus voor automatisch stoppen.",
+      "auto_stop_requires_profile": "Schakel een installatieprofiel in voordat je automatisch stoppen met laden gebruikt.",
+      "auto_stop_requires_battery": "Selecteer eerst een batterijvermogenssensor onder Optionele energiebronnen.",
+      "grid_source_required": "Selecteer een netbron voor de registratie van zonne-energie.",
+      "tariff_required": "Kies een vaste prijs of een sensor voor de huidige prijs per kWh.",
+      "invalid_grid_sign": "Bevestig of een positieve waarde afname of teruglevering betekent.",
+      "invalid_tariff_sensor": "Selecteer een prijssensor met een valuta-per-kWh-eenheid.",
+      "invalid_battery_power_sign": "Choose whether a positive value means battery charging or discharging.",
       "poll_interval_too_low": "Poll interval moet minimaal {min_interval} seconden zijn",
-      "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn"
+      "invalid_poll_interval": "Het pollinterval moet een eindig geheel aantal seconden zijn",
+      "rfid_not_seen": "Nog geen kaart ontvangen. Houd deze bij deze lader en kies opnieuw Verzenden.",
+      "invalid_rfid_alias": "Gebruik een naam van maximaal 80 afdrukbare tekens zonder regeleinden."
     },
     "abort": {
       "ap_mode_activated": "✅ AP Mode geactiveerd! THOR zendt nu een WiFi netwerk uit. Zoek naar het SSID met daarin het serienummer van de THOR",
       "ap_mode_failed": "❌ AP Mode activeren mislukt. Controleer de logs.",
-      "charger_mode_changed": "✅ Oplaadmodus gewijzigd. De THOR herstart. Plug de EV indien nodig opnieuw in."
+      "charger_mode_changed": "✅ Oplaadmodus gewijzigd. De THOR herstart. Plug de EV indien nodig opnieuw in.",
+      "rfid_learning_expired": "Het inleren is verlopen. Open RFID-kaart inleren opnieuw en houd de kaart binnen twee minuten voor.",
+      "rfid_learning_busy": "Een ander venster leert al een kaart voor deze lader in. Rond dit af of wacht twee minuten.",
+      "rfid_charger_unavailable": "Deze lader moet verbonden zijn om een kaart in te leren. Verbind deze en open RFID-kaart inleren opnieuw."
     }
   },
   "exceptions": {
+    "local_authorization_denied": {
+      "message": "Start geblokkeerd door lokale toegangscontrole. Controleer “Starten vanuit Home Assistant toestaan” in de THOR-instellingen."
+    },
     "action_not_allowed": {
       "message": "De gevraagde actie is niet toegestaan ({reason})."
     },
@@ -87,6 +256,15 @@
     },
     "charger_faulted": {
       "message": "De gevraagde actie is geblokkeerd zolang de lader een storing meldt."
+    },
+    "charger_rebooting": {
+      "message": "De laadpaal start opnieuw op. Probeer het opnieuw zodra hij weer verbonden is."
+    },
+    "restart_in_progress": {
+      "message": "Er is al een herstart aangevraagd."
+    },
+    "restart_not_ready": {
+      "message": "Wacht op de status van de laadpaal en annuleer een actieve reservering voordat je hem herstart."
     },
     "active_transaction": {
       "message": "Deze instelling kan niet worden gewijzigd terwijl een laadsessie actief is."
@@ -150,20 +328,82 @@
     }
   },
   "selector": {
+    "site_accounting_profile": {
+      "options": {
+        "disabled": "Uitgeschakeld",
+        "grid_only": "Net zonder PV",
+        "pv": "PV zonder batterij",
+        "pv_battery": "PV met batterij",
+        "grohome_load_first": "GroHome: huishouden → batterij → laadpaal → GroBoost"
+      }
+    },
+    "site_auto_stop_mode": {
+      "options": {
+        "off": "Uit",
+        "battery": "Bij batterijontlading",
+        "grid": "Bij netafname",
+        "battery_or_grid": "Bij batterijontlading of netafname"
+      }
+    },
+    "site_grid_source": {
+      "options": {
+        "none": "Geen",
+        "thor_external": "THOR External Meter",
+        "ha_sensor": "HA-sensor"
+      }
+    },
+    "site_grid_power_sign": {
+      "options": {
+        "positive_import": "Positief = afname",
+        "positive_export": "Positief = teruglevering"
+      }
+    },
     "charger_mode": {
       "options": {
         "1": "Home Assistant / RFID",
         "2": "Alleen RFID",
         "3": "Aansluiten en laden"
       }
+    },
+    "battery_power_sign": {
+      "options": {
+        "positive_discharge": "Positief = batterij ontlaadt",
+        "positive_charge": "Positief = batterij laadt"
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "command_result": "Opdracht afgerond",
+      "session_started": "Laadsessie gestart",
+      "session_completed": "Laadsessie voltooid",
+      "target_state_changed": "Status van laaddoel gewijzigd",
+      "charger_fault": "Laderstoring gemeld"
     }
   },
   "entity": {
+    "binary_sensor": {
+      "vehicle_connected": {
+        "name": "Voertuig verbonden"
+      },
+      "charging": {
+        "name": "Laden"
+      },
+      "charger_fault": {
+        "name": "Laderstoring"
+      },
+      "charger_connected": {
+        "name": "Lader verbonden"
+      }
+    },
     "sensor": {
-      "server_url": { "name": "Server-URL" },
+      "server_url": {
+        "name": "Server-URL"
+      },
       "status": {
         "name": "Status",
         "state": {
+          "offline": "Offline",
           "available": "Beschikbaar",
           "preparing": "Voorbereiden",
           "charging": "Laden",
@@ -202,21 +442,50 @@
           "uncertain": "Onzeker"
         },
         "state_attributes": {
-          "information": { "name": "Over dit resultaat", "state": { "details": "Het laatste terminale wachtrijresultaat; gebruik de opdracht-ID om herhaalde automatiseringen te correleren." } },
-          "command_id": { "name": "Opdracht-ID" },
-          "command_name": { "name": "Opdracht" },
-          "write_status": { "name": "Gedetailleerd resultaat" },
-          "queued_at": { "name": "In wachtrij sinds" },
-          "completed_at": { "name": "Voltooid om" },
-          "reason": { "name": "Reden" },
-          "charger_result": { "name": "Laderresultaat" }
+          "information": {
+            "name": "Over dit resultaat",
+            "state": {
+              "details": "Het laatste terminale wachtrijresultaat; gebruik de opdracht-ID om herhaalde automatiseringen te correleren."
+            }
+          },
+          "command_id": {
+            "name": "Opdracht-ID"
+          },
+          "command_name": {
+            "name": "Opdracht"
+          },
+          "write_status": {
+            "name": "Gedetailleerd resultaat"
+          },
+          "queued_at": {
+            "name": "In wachtrij sinds"
+          },
+          "completed_at": {
+            "name": "Voltooid om"
+          },
+          "reason": {
+            "name": "Reden"
+          },
+          "charger_result": {
+            "name": "Laderresultaat"
+          }
         }
       },
-      "charge_point_id": { "name": "Laadpunt-ID" },
-      "charger_vendor": { "name": "Fabrikant laadstation" },
-      "charger_model": { "name": "Model laadstation" },
-      "firmware_version": { "name": "Firmwareversie" },
-      "charger_serial_number": { "name": "Serienummer laadstation" },
+      "charge_point_id": {
+        "name": "Laadpunt-ID"
+      },
+      "charger_vendor": {
+        "name": "Fabrikant laadstation"
+      },
+      "charger_model": {
+        "name": "Model laadstation"
+      },
+      "firmware_version": {
+        "name": "Firmwareversie"
+      },
+      "charger_serial_number": {
+        "name": "Serienummer laadstation"
+      },
       "network_mode": {
         "name": "Netwerkmodus",
         "state": {
@@ -224,19 +493,66 @@
           "static": "Statisch"
         }
       },
-      "network_ip_address": { "name": "IP-adres" },
-      "network_subnet_mask": { "name": "Subnetmasker" },
-      "network_gateway": { "name": "Standaardgateway" },
-      "network_dns_server": { "name": "DNS-server" },
-      "network_mac_address": { "name": "MAC-adres" },
-      "network_wifi_ssid": { "name": "Wifi-SSID" },
-      "charging_power": { "name": "Laadvermogen" },
-      "energy_charged": { "name": "Geladen energie" },
-      "total_energy_charged": { "name": "Totaal geladen energie" },
-      "electricity_price": { "name": "Elektriciteitsprijs" },
-      "last_session_energy": { "name": "Energie laatste sessie" },
-      "last_session_cost": { "name": "Kosten laatste sessie" },
-      "last_session_duration": { "name": "Duur laatste sessie" },
+      "network_ip_address": {
+        "name": "IP-adres"
+      },
+      "network_subnet_mask": {
+        "name": "Subnetmasker"
+      },
+      "network_gateway": {
+        "name": "Standaardgateway"
+      },
+      "network_dns_server": {
+        "name": "DNS-server"
+      },
+      "network_mac_address": {
+        "name": "MAC-adres"
+      },
+      "network_wifi_ssid": {
+        "name": "Wifi-SSID"
+      },
+      "charging_power": {
+        "name": "Laadvermogen"
+      },
+      "energy_charged": {
+        "name": "Geladen energie"
+      },
+      "total_energy_charged": {
+        "name": "Totaal geladen energie"
+      },
+      "site_energy_kwh": {
+        "name": "Geregistreerde laadenergie op locatie"
+      },
+      "site_direct_solar_kwh": {
+        "name": "Directe zonne-energie voor laden op locatie"
+      },
+      "site_direct_grid_kwh": {
+        "name": "Directe netenergie voor laden op locatie"
+      },
+      "site_battery_unknown_kwh": {
+        "name": "Batterij-energie voor laden op locatie van onbekende herkomst"
+      },
+      "site_unknown_kwh": {
+        "name": "Niet-toegewezen laadenergie op locatie"
+      },
+      "site_effective_grid_cost": {
+        "name": "Bekende werkelijke netkosten voor laden op locatie"
+      },
+      "site_coverage": {
+        "name": "Dekking van de laadenergieregistratie op locatie"
+      },
+      "electricity_price": {
+        "name": "Elektriciteitsprijs"
+      },
+      "last_session_energy": {
+        "name": "Energie laatste sessie"
+      },
+      "last_session_cost": {
+        "name": "Kosten laatste sessie"
+      },
+      "last_session_duration": {
+        "name": "Duur laatste sessie"
+      },
       "last_session_effective_charging_duration": {
         "name": "Effectieve laadtijd laatste sessie",
         "state_attributes": {
@@ -248,11 +564,21 @@
           }
         }
       },
-      "last_session_start": { "name": "Start laatste sessie" },
-      "last_session_end": { "name": "Einde laatste sessie" },
-      "last_session_plug_time": { "name": "Inplugtijd laatste sessie" },
-      "last_session_unplug_time": { "name": "Uitplugtijd laatste sessie" },
-      "last_session_transaction_id": { "name": "Transactie-ID laatste sessie" },
+      "last_session_start": {
+        "name": "Start laatste sessie"
+      },
+      "last_session_end": {
+        "name": "Einde laatste sessie"
+      },
+      "last_session_plug_time": {
+        "name": "Inplugtijd laatste sessie"
+      },
+      "last_session_unplug_time": {
+        "name": "Uitplugtijd laatste sessie"
+      },
+      "last_session_transaction_id": {
+        "name": "Transactie-ID laatste sessie"
+      },
       "last_session_charge_mode": {
         "name": "Laadmodus laatste sessie",
         "state": {
@@ -271,10 +597,18 @@
           "unknown_mode": "Onbekend"
         }
       },
-      "current": { "name": "Stroom {phase}" },
-      "voltage": { "name": "Spanning {phase}" },
-      "phase_power": { "name": "Vermogen {phase}" },
-      "temperature": { "name": "Temperatuur" },
+      "current": {
+        "name": "Stroom {phase}"
+      },
+      "voltage": {
+        "name": "Spanning {phase}"
+      },
+      "phase_power": {
+        "name": "Vermogen {phase}"
+      },
+      "temperature": {
+        "name": "Temperatuur"
+      },
       "external_meter_health": {
         "name": "Communicatiestatus",
         "state": {
@@ -292,9 +626,15 @@
           }
         }
       },
-      "grid_power": { "name": "Netvermogen" },
-      "grid_voltage": { "name": "Netspanning {phase}" },
-      "grid_current": { "name": "Netstroom {phase}" },
+      "grid_power": {
+        "name": "Netvermogen"
+      },
+      "grid_voltage": {
+        "name": "Netspanning {phase}"
+      },
+      "grid_current": {
+        "name": "Netstroom {phase}"
+      },
       "working_mode": {
         "name": "Bedrijfsmodus",
         "state": {
@@ -503,8 +843,12 @@
       }
     },
     "button": {
-      "start_charging": { "name": "Laden starten" },
-      "stop_charging": { "name": "Laden stoppen" },
+      "start_charging": {
+        "name": "Laden starten"
+      },
+      "stop_charging": {
+        "name": "Laden stoppen"
+      },
       "apply_pv_linkage": {
         "name": "PV-Boost-instellingen toepassen",
         "state_attributes": {
@@ -515,10 +859,15 @@
             }
           }
         }
+      },
+      "restart_charger": {
+        "name": "Laadpaal herstarten"
       }
     },
     "number": {
-      "max_current": { "name": "Maximale laadstroom" },
+      "max_current": {
+        "name": "Maximale laadstroom"
+      },
       "load_balancing_limit": {
         "name": "Limiet voor load balancing",
         "state_attributes": {
@@ -530,7 +879,9 @@
           }
         }
       },
-      "electricity_price": { "name": "Elektriciteitsprijs" },
+      "electricity_price": {
+        "name": "Elektriciteitsprijs"
+      },
       "power_meter_address": {
         "name": "Energiemeteradres",
         "state_attributes": {
@@ -566,7 +917,14 @@
       }
     },
     "select": {
-      "authorization_mode": {"name":"Authorization mode","state":{"home_assistant_rfid":"Home Assistant / RFID","rfid_only":"Alleen RFID","plug_and_charge":"Aansluiten en laden"}},
+      "authorization_mode": {
+        "name": "Autorisatiemodus",
+        "state": {
+          "home_assistant_rfid": "Home Assistant / RFID",
+          "rfid_only": "Alleen RFID",
+          "plug_and_charge": "Aansluiten en laden"
+        }
+      },
       "working_mode": {
         "name": "Laadstrategie",
         "state": {
@@ -652,7 +1010,9 @@
           }
         }
       },
-      "lcd_display": { "name": "LCD-scherm" },
+      "lcd_display": {
+        "name": "LCD-scherm"
+      },
       "warm_up": {
         "name": "Opwarmen na volledig laden",
         "state_attributes": {
@@ -666,14 +1026,20 @@
       }
     },
     "time": {
-      "auto_charge_start_time": { "name": "Automatische laadstart" },
-      "auto_charge_stop_time": { "name": "Automatisch laadeinde" },
+      "auto_charge_start_time": {
+        "name": "Automatische laadstart"
+      },
+      "auto_charge_stop_time": {
+        "name": "Automatisch laadeinde"
+      },
       "pv_manual_boost_start": {
         "name": "Start Handmatige Boost",
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
-            "state": { "details": "Start van het voorbereide Handmatige Boost-tijdvenster. Toepassen stuurt het volledige tijdvenster." }
+            "state": {
+              "details": "Start van het voorbereide Handmatige Boost-tijdvenster. Toepassen stuurt het volledige tijdvenster."
+            }
           }
         }
       },
@@ -682,7 +1048,9 @@
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
-            "state": { "details": "Einde van het voorbereide Handmatige Boost-tijdvenster. Toepassen stuurt het volledige tijdvenster." }
+            "state": {
+              "details": "Einde van het voorbereide Handmatige Boost-tijdvenster. Toepassen stuurt het volledige tijdvenster."
+            }
           }
         }
       },
@@ -691,7 +1059,9 @@
         "state_attributes": {
           "information": {
             "name": "Over deze instelling",
-            "state": { "details": "Gewenste eindtijd voor Slimme Boost. Een tijd die vandaag al voorbij is, wordt bij Toepassen voor morgen gepland." }
+            "state": {
+              "details": "Gewenste eindtijd voor Slimme Boost. Een tijd die vandaag al voorbij is, wordt bij Toepassen voor morgen gepland."
+            }
           }
         }
       }

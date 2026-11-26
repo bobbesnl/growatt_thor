@@ -1,0 +1,44 @@
+{
+  "locale": "en",
+  "scale": 2,
+  "source": "Home Assistant options UI, integration 2.0.0-dev.13, captured with Playwright",
+  "privacy": "Installation location replaced with Garage in the unsaved form; personal price-sensor identifier replaced in rendered text with sensor.electricity_price. No settings submitted.",
+  "captures": [
+    {
+      "number": 30,
+      "file": "30-ha-options-menu.png",
+      "width": 1160,
+      "height": 1040
+    },
+    {
+      "number": 31,
+      "file": "31-ha-general-settings.png",
+      "width": 1160,
+      "height": 812
+    },
+    {
+      "number": 32,
+      "file": "32-ha-optional-energy-sources.png",
+      "width": 1160,
+      "height": 904
+    },
+    {
+      "number": 33,
+      "file": "33-ha-site-ev-accounting.png",
+      "width": 1160,
+      "height": 2112
+    },
+    {
+      "number": 34,
+      "file": "34-ha-local-authorization.png",
+      "width": 1160,
+      "height": 1224
+    },
+    {
+      "number": 35,
+      "file": "35-ha-ap-mode-confirmation.png",
+      "width": 1160,
+      "height": 612
+    }
+  ]
+}

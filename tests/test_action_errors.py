@@ -1,41 +1,17 @@
 """Regression tests for Home Assistant action-error reporting."""
+
 from __future__ import annotations
 
 import ast
 import asyncio
-import importlib.util
-from pathlib import Path
 import sys
 import types
 import unittest
 from unittest.mock import patch
 
-
-PACKAGE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-)
-
-
-class _HomeAssistantError(Exception):
-    """Small stand-in retaining Home Assistant's localization arguments."""
-
-    def __init__(
-        self,
-        *,
-        translation_domain=None,
-        translation_key=None,
-        translation_placeholders=None,
-    ):
-        super().__init__(translation_key)
-        self.translation_domain = translation_domain
-        self.translation_key = translation_key
-        self.translation_placeholders = translation_placeholders
-
-
-class _ServiceValidationError(_HomeAssistantError):
-    """Stand-in used to distinguish user input from communication errors."""
+from tests.support import PACKAGE_PATH, load_package_module
+from tests.support import HomeAssistantError as _HomeAssistantError
+from tests.support import ServiceValidationError as _ServiceValidationError
 
 
 def _load_action_errors():
@@ -54,14 +30,7 @@ def _load_action_errors():
             "homeassistant.exceptions": exceptions,
         },
     ):
-        spec = importlib.util.spec_from_file_location(
-            f"{package_name}.action_errors",
-            PACKAGE_PATH / "action_errors.py",
-        )
-        assert spec is not None and spec.loader is not None
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = module
-        spec.loader.exec_module(module)
+        module = load_package_module("runtime.action_errors", package_name=package_name)
     return module
 
 
@@ -160,9 +129,7 @@ class ActionCommandCompletionTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_confirmed_command_returns_terminal_result(self):
         result = await action_errors.async_require_command_completion(
-            self._completed_handle(
-                action_errors.ChargerCommandStatus.CONFIRMED
-            )
+            self._completed_handle(action_errors.ChargerCommandStatus.CONFIRMED)
         )
 
         self.assertEqual(
@@ -214,6 +181,18 @@ class ActionCommandCompletionTest(unittest.IsolatedAsyncioTestCase):
                     translation_key,
                 )
 
+    async def test_local_denial_explains_the_permission_instead_of_charger_rejection(
+        self,
+    ):
+        with self.assertRaises(_ServiceValidationError) as raised:
+            await action_errors.async_require_command_completion(
+                self._completed_handle(
+                    action_errors.ChargerCommandStatus.FAILED,
+                    reason="local_authorization_denied",
+                )
+            )
+        self.assertEqual(raised.exception.translation_key, "local_authorization_denied")
+
     async def test_wait_timeout_keeps_completion_future_alive(self):
         future = asyncio.get_running_loop().create_future()
         handle = action_errors.ChargerCommandHandle("command-2", future)
@@ -235,21 +214,24 @@ class PublicActionWiringTest(unittest.TestCase):
     """Keep the immediate HA action guards connected to the shared helpers."""
 
     EXPECTED_HELPERS = {
-        ("configuration_control.py", "GrowattConfigurationControlMixin", "_async_write_configuration"): {
-            "async_require_command_completion",
-            "raise_write_blocked",
-            "raise_charger_disconnected",
-        },
-        ("button.py", "StartChargingButton", "async_press"): {
+        ("charging/commands.py", "StartChargingCommand", "async_request"): {
             "async_require_command_completion",
             "raise_write_blocked",
             "raise_charger_disconnected",
             "raise_action_validation",
         },
-        ("button.py", "StopChargingButton", "async_press"): {
+        ("charging/commands.py", "StopChargingCommand", "async_request"): {
             "async_require_command_completion",
             "raise_charger_disconnected",
             "raise_action_validation",
+        },
+        # Entities composed with ConfigurationWriter reach these guards through it.
+        ("configuration/writer.py", "ConfigurationWriter", "require_charge_point"): {
+            "raise_write_blocked",
+            "raise_charger_disconnected",
+        },
+        ("configuration/writer.py", "ConfigurationWriter", "async_request"): {
+            "async_require_command_completion",
         },
         ("button.py", "ApplyPvLinkageButton", "async_press"): {
             "async_require_command_completion",
@@ -258,27 +240,15 @@ class PublicActionWiringTest(unittest.TestCase):
             "raise_action_validation",
         },
         ("number.py", "MaxCurrentNumber", "async_set_native_value"): {
-            "async_require_command_completion",
-            "raise_write_blocked",
-            "raise_charger_disconnected",
             "_validated_entity_number",
         },
         ("number.py", "LoadBalancingLimitNumber", "async_set_native_value"): {
-            "async_require_command_completion",
-            "raise_write_blocked",
-            "raise_charger_disconnected",
             "_validated_entity_number",
         },
         ("number.py", "ElectricityPriceNumber", "async_set_native_value"): {
-            "async_require_command_completion",
-            "raise_write_blocked",
-            "raise_charger_disconnected",
             "_validated_entity_number",
         },
-        ("number.py", "SolarGridImportLimitNumber", "async_set_native_value"): {
-            "_validated_entity_number",
-        },
-        ("number.py", "PowerMeterAddressNumber", "async_set_native_value"): {
+        ("number.py", "ConfigurationControlNumber", "async_set_native_value"): {
             "_validated_entity_number",
         },
         ("number.py", "PvSmartBoostTargetEnergyNumber", "async_set_native_value"): {
@@ -286,32 +256,56 @@ class PublicActionWiringTest(unittest.TestCase):
             "_validated_entity_number",
         },
         ("select.py", "WorkingModeSelect", "async_select_option"): {
-            "async_require_command_completion",
-            "raise_write_blocked",
-            "raise_charger_disconnected",
             "raise_action_validation",
         },
         ("select.py", "PvBoostDraftSelect", "async_select_option"): {
             "raise_write_blocked",
         },
-        ("switch.py", "LoadBalancingEnableSwitch", "_set_value"): {
-            "async_require_command_completion",
-            "raise_write_blocked",
-            "raise_charger_disconnected",
-        },
-        ("switch.py", "LcdDisplaySwitch", "_set_value"): {
-            "async_require_command_completion",
-            "raise_write_blocked",
-            "raise_charger_disconnected",
-        },
-        ("time.py", "BaseAutoChargeTime", "async_set_value"): {
-            "raise_write_blocked",
-            "raise_charger_disconnected",
-        },
         ("time.py", "BasePvBoostTime", "async_set_value"): {
             "raise_write_blocked",
         },
     }
+
+    # Entity actions that reach the guards above through ConfigurationWriter:
+    # each awaits ``async_request`` or calls ``require_charge_point`` on it.
+    WRITER_CALLS = {
+        ("number.py", "MaxCurrentNumber", "async_set_native_value"): "async_request",
+        ("number.py", "LoadBalancingLimitNumber", "async_set_native_value"): "async_request",
+        ("number.py", "ElectricityPriceNumber", "async_set_native_value"): "async_request",
+        ("switch.py", "LoadBalancingEnableSwitch", "_set_value"): "async_request",
+        ("switch.py", "LcdDisplaySwitch", "_set_value"): "async_request",
+        ("select.py", "WorkingModeSelect", "async_select_option"): "async_request",
+        ("time.py", "BaseAutoChargeTime", "async_set_value"): "require_charge_point",
+        ("configuration/controls.py", "ConfigurationControl", "async_write"): "async_request",
+    }
+
+    def test_composed_entity_actions_reach_the_writer_guards(self):
+        for (file_name, class_name, method_name), writer_method in self.WRITER_CALLS.items():
+            tree = ast.parse((PACKAGE_PATH / file_name).read_text(encoding="utf-8"))
+            class_node = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.ClassDef) and node.name == class_name
+            )
+            method = next(
+                node
+                for node in class_node.body
+                if isinstance(node, ast.AsyncFunctionDef) and node.name == method_name
+            )
+            calls = [
+                node
+                for node in ast.walk(method)
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == writer_method
+                and isinstance(node.func.value, ast.Attribute)
+                and node.func.value.attr == "_writer"
+            ]
+            awaited = {id(node.value) for node in ast.walk(method) if isinstance(node, ast.Await)}
+            with self.subTest(class_name=class_name, method_name=method_name):
+                self.assertTrue(calls)
+                if writer_method == "async_request":
+                    self.assertTrue(all(id(call) in awaited for call in calls))
 
     def test_public_action_guards_raise_instead_of_silently_returning(self):
         parsed_files = {}
@@ -336,28 +330,46 @@ class PublicActionWiringTest(unittest.TestCase):
                 for node in ast.walk(method)
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
             }
+            for call in ast.walk(method):
+                if (
+                    isinstance(call, ast.Call)
+                    and isinstance(call.func, ast.Attribute)
+                    and call.func.attr == "_validate_write_value"
+                ):
+                    hook = next(
+                        (
+                            item
+                            for item in class_node.body
+                            if isinstance(item, ast.FunctionDef)
+                            and item.name == "_validate_write_value"
+                        ),
+                        None,
+                    )
+                    if hook is None:
+                        continue
+                    calls.update(
+                        item.func.id
+                        for item in ast.walk(hook)
+                        if isinstance(item, ast.Call) and isinstance(item.func, ast.Name)
+                    )
             with self.subTest(class_name=class_name, method_name=method_name):
                 self.assertTrue(
-                    self.EXPECTED_HELPERS[
-                        (file_name, class_name, method_name)
-                    ].issubset(calls)
+                    self.EXPECTED_HELPERS[(file_name, class_name, method_name)].issubset(calls)
                 )
 
     def test_number_validation_precedes_every_write_or_draft_mutation(self):
-        tree = ast.parse(
-            (PACKAGE_PATH / "number.py").read_text(encoding="utf-8")
-        )
+        tree = ast.parse((PACKAGE_PATH / "number.py").read_text(encoding="utf-8"))
         number_classes = (
             "MaxCurrentNumber",
             "LoadBalancingLimitNumber",
             "ElectricityPriceNumber",
-            "SolarGridImportLimitNumber",
-            "PowerMeterAddressNumber",
+            "ConfigurationControlNumber",
             "PvSmartBoostTargetEnergyNumber",
         )
         side_effects = {
             "queue_write",
-            "_async_write_configuration",
+            "async_write",
+            "async_request",
             "update_pv_linkage_draft",
         }
 
@@ -370,15 +382,19 @@ class PublicActionWiringTest(unittest.TestCase):
             setter = next(
                 node
                 for node in class_node.body
-                if isinstance(node, ast.AsyncFunctionDef)
-                and node.name == "async_set_native_value"
+                if isinstance(node, ast.AsyncFunctionDef) and node.name == "async_set_native_value"
             )
             validation = next(
                 node
                 for node in ast.walk(setter)
                 if isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Name)
-                and node.func.id == "_validated_entity_number"
+                and (
+                    (isinstance(node.func, ast.Name) and node.func.id == "_validated_entity_number")
+                    or (
+                        isinstance(node.func, ast.Attribute)
+                        and node.func.attr == "_validate_write_value"
+                    )
+                )
             )
             mutations = [
                 node
@@ -397,35 +413,25 @@ class PublicActionWiringTest(unittest.TestCase):
 
             with self.subTest(class_name=class_name):
                 self.assertTrue(mutations)
-                self.assertTrue(
-                    all(
-                        validation.lineno < mutation.lineno
-                        for mutation in mutations
-                    )
-                )
+                self.assertTrue(all(validation.lineno < mutation.lineno for mutation in mutations))
                 self.assertEqual(round_calls, [])
 
     def test_ap_mode_waits_for_charger_completion_before_success_abort(self):
-        tree = ast.parse(
-            (PACKAGE_PATH / "config_flow.py").read_text(encoding="utf-8")
-        )
+        tree = ast.parse((PACKAGE_PATH / "config_flow.py").read_text(encoding="utf-8"))
         options_flow = next(
             node
             for node in tree.body
-            if isinstance(node, ast.ClassDef)
-            and node.name == "GrowattThorOptionsFlow"
+            if isinstance(node, ast.ClassDef) and node.name == "GrowattThorOptionsFlow"
         )
         activate = next(
             node
             for node in options_flow.body
-            if isinstance(node, ast.AsyncFunctionDef)
-            and node.name == "_activate_ap_mode"
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "_activate_ap_mode"
         )
         calls = {
             node.func.id
             for node in ast.walk(activate)
-            if isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
         }
 
         self.assertIn("async_require_command_completion", calls)

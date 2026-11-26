@@ -1,26 +1,17 @@
 """Tests for persistent last-session entity state."""
+
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
 import unittest
 
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "session_state.py"
+MODULE_PATH = PACKAGE_PATH / "sessions/state.py"
+PACKAGE_NAME = "growatt_thor_session_state_test_target"
+package = register_package(PACKAGE_NAME)
+session_state = load_package_module(
+    "growatt_thor_session_state_test_target.sessions.state", MODULE_PATH
 )
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_session_state_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-session_state = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = session_state
-SPEC.loader.exec_module(session_state)
 
 
 class LastSessionStateTest(unittest.TestCase):

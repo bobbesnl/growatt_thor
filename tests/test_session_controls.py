@@ -1,28 +1,34 @@
 """Regression tests for Remote Start/Stop transaction decisions."""
+
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
 import unittest
 
+from tests.support import PACKAGE_PATH, load_package_module
 
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "session_controls.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_session_controls_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-session_controls = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(session_controls)
+MODULE_PATH = PACKAGE_PATH / "charging/start_stop_rules.py"
+session_controls = load_package_module("growatt_thor_session_controls_test_target", MODULE_PATH)
 
 
 class SessionControlDecisionTest(unittest.TestCase):
     """Keep delayed session commands tied to current charger state."""
+
+    def test_never_applied_targets_do_not_permanently_disable_manual_start(self):
+        self.assertFalse(session_controls.target_blocks_manual_start(None))
+        for state in ("blocked_before_target", "target_rejected"):
+            self.assertFalse(session_controls.target_blocks_manual_start({"state": state}))
+        for state in (
+            "scheduled",
+            "sending_target",
+            "target_accepted",
+            "outcome_unknown",
+            "completed",
+            "active",
+            "start_rejected_target_may_remain",
+            "unknown",
+        ):
+            self.assertTrue(session_controls.target_blocks_manual_start({"state": state}))
+        self.assertTrue(session_controls.target_blocks_manual_start("invalid"))
 
     def test_start_is_rejected_for_every_active_transaction_signal(self):
         # The coordinator folds OCPP Charging/Suspended states, a retained

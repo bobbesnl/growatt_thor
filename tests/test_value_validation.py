@@ -1,26 +1,13 @@
 """Tests for strict service, entity, and config-entry input validation."""
+
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
 import unittest
 
+from tests.support import PACKAGE_PATH, load_package_module
 
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "value_validation.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_value_validation_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-validation = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = validation
-SPEC.loader.exec_module(validation)
+MODULE_PATH = PACKAGE_PATH / "configuration/validation.py"
+validation = load_package_module("growatt_thor_value_validation_test_target", MODULE_PATH)
 
 
 class NumericValidationTest(unittest.TestCase):
@@ -50,9 +37,7 @@ class NumericValidationTest(unittest.TestCase):
     def test_non_finite_numbers_are_always_rejected(self):
         for value in (float("nan"), float("inf"), float("-inf")):
             with self.subTest(value=value):
-                with self.assertRaises(
-                    validation.NumericValidationError
-                ) as raised:
+                with self.assertRaises(validation.NumericValidationError) as raised:
                     validation.validate_number(
                         value,
                         minimum=-2,
@@ -67,9 +52,7 @@ class NumericValidationTest(unittest.TestCase):
     def test_bounds_are_checked_before_payload_formatting(self):
         for value in (-2.01, 2.01):
             with self.subTest(value=value):
-                with self.assertRaises(
-                    validation.NumericValidationError
-                ) as raised:
+                with self.assertRaises(validation.NumericValidationError) as raised:
                     validation.validate_number(
                         value,
                         minimum=-2,
@@ -84,9 +67,7 @@ class NumericValidationTest(unittest.TestCase):
     def test_step_mismatch_is_rejected_instead_of_rounded(self):
         for value, step in ((6.6, 1), (4.25, 0.1), (0.011, 0.01)):
             with self.subTest(value=value, step=step):
-                with self.assertRaises(
-                    validation.NumericValidationError
-                ) as raised:
+                with self.assertRaises(validation.NumericValidationError) as raised:
                     validation.validate_number(
                         value,
                         minimum=0,
@@ -129,6 +110,17 @@ class NumericValidationTest(unittest.TestCase):
                 with self.assertRaises(validation.NumericValidationError):
                     validation.validate_poll_interval(value, minimum=5)
 
+    def test_poll_interval_handles_values_beyond_decimal_precision(self):
+        # The interval has no upper bound. Huge values must neither raise a
+        # decimal error nor be rounded: 1e28 has more digits than the default
+        # decimal context, which made a remainder check fail.
+        self.assertEqual(validation.validate_poll_interval(1e28, minimum=5), 10**28)
+        self.assertEqual(validation.validate_poll_interval("1e40", minimum=5), 10**40)
+        with self.assertRaises(validation.NumericValidationError):
+            validation.validate_poll_interval("1e40.5", minimum=5)
+        with self.assertRaises(validation.NumericValidationError):
+            validation.validate_poll_interval("10000000000000000000000000000.5", minimum=5)
+
 
 class ExportDateRangeValidationTest(unittest.TestCase):
     """Keep malformed and reversed date ranges out of the executor job."""
@@ -149,9 +141,7 @@ class ExportDateRangeValidationTest(unittest.TestCase):
             (None, "2026-08-25"),
         ):
             with self.subTest(date_from=date_from, date_to=date_to):
-                with self.assertRaises(
-                    validation.DateRangeValidationError
-                ) as raised:
+                with self.assertRaises(validation.DateRangeValidationError) as raised:
                     validation.parse_export_date_range(date_from, date_to)
                 self.assertEqual(
                     raised.exception.reason,
@@ -159,9 +149,7 @@ class ExportDateRangeValidationTest(unittest.TestCase):
                 )
 
     def test_reversed_range_has_distinct_reason(self):
-        with self.assertRaises(
-            validation.DateRangeValidationError
-        ) as raised:
+        with self.assertRaises(validation.DateRangeValidationError) as raised:
             validation.parse_export_date_range(
                 "2026-08-25",
                 "2026-08-24",
@@ -175,3 +163,12 @@ class ExportDateRangeValidationTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BindAddressValidationTest(unittest.TestCase):
+    def test_accepts_ip_literals_only(self):
+        for value in ("0.0.0.0", "192.168.1.2", "::1"):
+            self.assertEqual(validation.validate_bind_address(value), value)
+        for value in ("", "localhost", "192.168.1.999", None, 123):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                validation.validate_bind_address(value)

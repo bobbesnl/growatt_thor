@@ -1,41 +1,28 @@
 """Tests for MeterValues-based effective charging time."""
+
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
-import types
 import unittest
 
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
-COMPONENT_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
+COMPONENT_PATH = PACKAGE_PATH
 PACKAGE_NAME = "growatt_thor_charging_duration_test_target"
-package = types.ModuleType(PACKAGE_NAME)
-package.__path__ = [str(COMPONENT_PATH)]
-sys.modules[PACKAGE_NAME] = package
+package = register_package(PACKAGE_NAME)
 
 
 def _load(name: str):
-    spec = importlib.util.spec_from_file_location(
-        f"{PACKAGE_NAME}.{name}", COMPONENT_PATH / f"{name}.py"
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_package_module(name, package_name=PACKAGE_NAME)
 
 
-meter_samples = _load("meter_samples")
-duration = _load("charging_duration")
+meter_samples = _load("ocpp.core.meter_samples")
+duration = _load("sessions.duration")
 
 
 def _entry(timestamp: str, *, power_w=None, energy_wh=None):
     samples = []
     if power_w is not None:
-        samples.append(
-            {"value": str(power_w), "measurand": "Power.Active.Import", "unit": "W"}
-        )
+        samples.append({"value": str(power_w), "measurand": "Power.Active.Import", "unit": "W"})
     if energy_wh is not None:
         samples.append(
             {
@@ -44,9 +31,7 @@ def _entry(timestamp: str, *, power_w=None, energy_wh=None):
                 "unit": "Wh",
             }
         )
-    return meter_samples.parse_meter_values(
-        {"timestamp": timestamp, "sampledValue": samples}
-    )[0]
+    return meter_samples.parse_meter_values({"timestamp": timestamp, "sampledValue": samples})[0]
 
 
 class EffectiveChargingTrackerTest(unittest.TestCase):

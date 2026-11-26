@@ -1,13 +1,25 @@
 {
   "domain": "growatt_thor",
   "name": "Growatt THOR EV Charger",
-  "codeowners": ["@bobbesnl"],
+  "codeowners": [
+    "@bobbesnl"
+  ],
   "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http",
+    "websocket_api"
+  ],
   "documentation": "https://github.com/bobbesnl/growatt_thor",
   "integration_type": "device",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/bobbesnl/growatt_thor/issues",
-  "loggers": ["custom_components.growatt_thor"],
-  "requirements": ["ocpp>=2.0.0"],
-  "version": "1.7.1"
+  "loggers": [
+    "custom_components.growatt_thor"
+  ],
+  "requirements": [
+    "ocpp>=2.0.0,<3",
+    "websockets>=13.1"
+  ],
+  "version": "2.0.0-beta.1"
 }

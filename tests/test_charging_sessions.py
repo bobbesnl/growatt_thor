@@ -1,42 +1,31 @@
 """Tests for correlation of OCPP and Growatt charging session data."""
+
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
-import types
 import unittest
 
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
-COMPONENT_PATH = (
-    Path(__file__).parents[1] / "custom_components" / "growatt_thor"
-)
+COMPONENT_PATH = PACKAGE_PATH
 PACKAGE_NAME = "growatt_thor_charging_sessions_test_package"
-PACKAGE = types.ModuleType(PACKAGE_NAME)
-PACKAGE.__path__ = [str(COMPONENT_PATH)]
-sys.modules[PACKAGE_NAME] = PACKAGE
+PACKAGE = register_package(PACKAGE_NAME)
 
 
 def _load_module(name: str, filename: str):
-    spec = importlib.util.spec_from_file_location(name, COMPONENT_PATH / filename)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_package_module(name, filename)
 
 
 session_records = _load_module(
-    f"{PACKAGE_NAME}.session_records",
-    "session_records.py",
+    f"{PACKAGE_NAME}.sessions.records",
+    "sessions/records.py",
 )
 _load_module(
-    f"{PACKAGE_NAME}.session_identity",
-    "session_identity.py",
+    f"{PACKAGE_NAME}.sessions.identity",
+    "sessions/identity.py",
 )
 charging_sessions = _load_module(
-    f"{PACKAGE_NAME}.charging_sessions",
-    "charging_sessions.py",
+    f"{PACKAGE_NAME}.sessions.correlation",
+    "sessions/correlation.py",
 )
 
 

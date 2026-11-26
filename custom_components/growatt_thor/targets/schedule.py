@@ -1,0 +1,76 @@
+"""Timezone-safe helpers for one-time and daily charging schedules."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, time, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from ..timestamps import parse_utc
+
+MAX_SCHEDULE_AHEAD = timedelta(days=30)
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def parse_start_at(value: object, *, now: datetime | None = None) -> datetime:
+    """Return a future UTC datetime from an explicit timezone-aware value."""
+    if not isinstance(value, str):
+        raise ValueError("start_at_must_be_iso_datetime")  # noqa: TRY004
+    start = parse_utc(value, allow_datetime=False, allow_naive=True, normalize=False, strip=True)
+    if start is None:
+        raise ValueError("start_at_must_be_iso_datetime")
+    if start.tzinfo is None or start.utcoffset() is None:
+        raise ValueError("start_at_timezone_required")
+    start = start.astimezone(UTC)
+    current = (now or utc_now()).astimezone(UTC)
+    if start <= current:
+        raise ValueError("start_at_must_be_future")
+    if start - current > MAX_SCHEDULE_AHEAD:
+        raise ValueError("start_at_too_far")
+    return start
+
+
+def stored_start_at(value: object) -> datetime | None:
+    """Parse a retained UTC timestamp without asserting that it is future."""
+    return parse_utc(value, allow_datetime=False, strip=True)
+
+
+def iso_utc(value: datetime) -> str:
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def reservation_expiry(value: datetime, time_zone: str) -> str:
+    """Encode Growatt's captured timezone-naive local ReserveNow boundary."""
+    try:
+        local = value.astimezone(ZoneInfo(time_zone))
+    except ZoneInfoNotFoundError as exc:
+        raise ValueError("invalid_time_zone") from exc
+    return local.strftime("%Y-%m-%dT%H:%M:%S.000")
+
+
+def next_daily_start(
+    previous: datetime,
+    *,
+    now: datetime,
+    time_zone: str,
+    local_time: str | None = None,
+) -> datetime:
+    """Return the next future occurrence of a local wall-clock time."""
+    try:
+        zone = ZoneInfo(time_zone)
+    except ZoneInfoNotFoundError as exc:
+        raise ValueError("invalid_time_zone") from exc
+    local_previous = previous.astimezone(zone)
+    local_now = now.astimezone(zone)
+    clock = time.fromisoformat(local_time) if local_time is not None else local_previous.time()
+    if clock.tzinfo is not None:
+        raise ValueError("local_time_must_be_naive")
+    day = local_now.date()
+    while True:
+        candidate = datetime.combine(day, clock, tzinfo=zone).astimezone(UTC)
+        # Compare actual instants, including nonexistent spring clock times.
+        if candidate > now.astimezone(UTC):
+            return candidate
+        day += timedelta(days=1)

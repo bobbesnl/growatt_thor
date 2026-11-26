@@ -1,0 +1,534 @@
+"""End-to-end scenarios: Home Assistant, the OCPP server and a simulated charger.
+
+Each scenario connects a simulated charge point over a real WebSocket to the
+server of a loaded config entry and drives it through HA buttons, as a user
+or automation would.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Callable
+
+import pytest
+import websockets
+from homeassistant.components.button import DATA_COMPONENT as BUTTON_COMPONENT
+from homeassistant.components.device_automation import DeviceAutomationType
+from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
+from homeassistant.setup import async_setup_component
+from ocpp.v16.enums import ConfigurationStatus, RemoteStartStopStatus, ResetStatus
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_capture_events,
+    async_get_device_automations,
+    async_mock_service,
+)
+
+from custom_components.growatt_thor.const import CONF_PORT, DOMAIN
+from custom_components.growatt_thor.runtime.keys import ACTIVE_CHARGE_POINT
+
+from .simulator import SimulatedThor, connected_thor
+
+TIMEOUT = 10
+
+
+async def _wait_for(condition: Callable[[], bool], what: str) -> None:
+    try:
+        async with asyncio.timeout(TIMEOUT):
+            while not condition():
+                await asyncio.sleep(0.05)
+    except TimeoutError:
+        pytest.fail(f"Timed out waiting until {what}")
+
+
+def _entity_id(hass: HomeAssistant, entry: MockConfigEntry, platform: str, key: str) -> str:
+    entity_id = er.async_get(hass).async_get_entity_id(platform, DOMAIN, f"{entry.entry_id}_{key}")
+    assert entity_id is not None, key
+    return entity_id
+
+
+def _state(hass: HomeAssistant, entity_id: str) -> str:
+    state = hass.states.get(entity_id)
+    assert state is not None, entity_id
+    return state.state
+
+
+def _number(hass: HomeAssistant, entity_id: str) -> float | None:
+    try:
+        return float(_state(hass, entity_id))
+    except ValueError:
+        return None
+
+
+async def _press(hass: HomeAssistant, entity_id: str) -> None:
+    await hass.services.async_call("button", "press", {"entity_id": entity_id}, blocking=True)
+
+
+@pytest.fixture
+async def loaded_entry(hass: HomeAssistant, config_entry: MockConfigEntry) -> MockConfigEntry:
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    yield config_entry
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def _connect_ready(hass: HomeAssistant, entry: MockConfigEntry, thor: SimulatedThor) -> str:
+    """Boot the simulated charger with a plugged-in car; return the Start button."""
+    boot = await thor.boot()
+    assert boot.status == "Accepted"
+    await thor.status("Preparing")
+    start = _entity_id(hass, entry, "button", "start_charging")
+    await _wait_for(lambda: _state(hass, start) != STATE_UNAVAILABLE, "Start becomes available")
+    return start
+
+
+async def _start_session(hass: HomeAssistant, thor: SimulatedThor, start_button: str) -> int:
+    """Press Start and answer it like THOR: StartTransaction, then Charging."""
+    await _press(hass, start_button)
+    remote_start = thor.remote_starts.get_nowait()
+    assert remote_start["connector_id"] == 1
+
+    started = await thor.start_transaction(remote_start["id_tag"], meter_start=1000)
+    # The integration's one-shot Remote Start grant authorizes its own id tag.
+    assert started.id_tag_info["status"] == "Accepted"
+    assert started.transaction_id > 0
+    await thor.status("Charging")
+    return int(started.transaction_id)
+
+
+async def test_remote_start_meter_values_and_remote_stop(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    async with connected_thor(loaded_entry.data[CONF_PORT]) as thor:
+        start = await _connect_ready(hass, loaded_entry, thor)
+        firmware = _entity_id(hass, loaded_entry, "sensor", "firmware_version")
+        await _wait_for(lambda: _state(hass, firmware) == "THOR_11AS-SIM", "firmware reported")
+
+        plugged = _entity_id(hass, loaded_entry, "binary_sensor", "vehicle_connected")
+        charging = _entity_id(hass, loaded_entry, "binary_sensor", "charging")
+        connection = _entity_id(hass, loaded_entry, "binary_sensor", "charger_connected")
+        assert _state(hass, connection) == "on"
+        await _wait_for(lambda: _state(hass, plugged) == "on", "vehicle reported plugged in")
+        assert _state(hass, charging) == "off"
+
+        transaction_id = await _start_session(hass, thor, start)
+        await _wait_for(lambda: _state(hass, charging) == "on", "charging reported")
+
+        power = _entity_id(hass, loaded_entry, "sensor", "charging_power")
+        await thor.meter_values(transaction_id, power_w=7200, energy_wh=1500)
+        await _wait_for(lambda: _number(hass, power) == 7200, "charging power reported")
+
+        await _press(hass, _entity_id(hass, loaded_entry, "button", "stop_charging"))
+        assert thor.remote_stops.get_nowait() == {"transaction_id": transaction_id}
+
+        await thor.stop_transaction(transaction_id, meter_stop=2500, reason="Remote")
+        await thor.status("Finishing")
+        await _wait_for(lambda: _number(hass, power) == 0, "live power reset after stop")
+
+
+async def test_events_and_device_triggers_follow_the_session(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    devices = {
+        identifier: device
+        for device in dr.async_entries_for_config_entry(dr.async_get(hass), loaded_entry.entry_id)
+        for identifier in device.identifiers
+    }
+    device = devices.get((DOMAIN, loaded_entry.entry_id))
+    meter = devices.get((DOMAIN, loaded_entry.entry_id, "grid_connection"))
+    assert device is not None and meter is not None
+    triggers = await async_get_device_automations(hass, DeviceAutomationType.TRIGGER, device.id)
+    assert {trigger["type"] for trigger in triggers if trigger["domain"] == DOMAIN} == {
+        "command_result",
+        "session_started",
+        "session_completed",
+        "target_state_changed",
+        "charger_fault",
+    }
+    meter_triggers = await async_get_device_automations(
+        hass, DeviceAutomationType.TRIGGER, meter.id
+    )
+    assert not [trigger for trigger in meter_triggers if trigger["domain"] == DOMAIN]
+
+    calls = async_mock_service(hass, "test", "automation")
+    assert await async_setup_component(
+        hass,
+        "automation",
+        {
+            "automation": {
+                "trigger": {
+                    "platform": "device",
+                    "domain": DOMAIN,
+                    "device_id": device.id,
+                    "type": "session_completed",
+                },
+                "action": {
+                    "service": "test.automation",
+                    "data_template": {"energy": "{{ trigger.event.data.energy_kwh }}"},
+                },
+            }
+        },
+    )
+    commands = async_capture_events(hass, "growatt_thor_command_result")
+    started = async_capture_events(hass, "growatt_thor_session_started")
+
+    async with connected_thor(loaded_entry.data[CONF_PORT]) as thor:
+        start = await _connect_ready(hass, loaded_entry, thor)
+        transaction_id = await _start_session(hass, thor, start)
+        await _wait_for(lambda: bool(started), "session start event")
+        assert started[0].data["transaction_id"] == transaction_id
+        assert started[0].data["device_id"] == device.id
+        assert "id_tag" not in started[0].data
+
+        await _press(hass, _entity_id(hass, loaded_entry, "button", "stop_charging"))
+        await thor.stop_transaction(transaction_id, meter_stop=2500, reason="Remote")
+        await _wait_for(lambda: bool(calls), "device trigger runs the automation")
+        assert float(calls[0].data["energy"]) == 1.5
+
+    results = [event.data for event in commands]
+    assert all(result["device_id"] == device.id for result in results)
+    assert {result["status"] for result in results} == {"confirmed"}
+    assert all(result["config_entry_id"] == loaded_entry.entry_id for result in results)
+
+
+async def test_rejected_remote_start_is_reported_to_the_caller(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    async with connected_thor(loaded_entry.data[CONF_PORT]) as thor:
+        start = await _connect_ready(hass, loaded_entry, thor)
+        thor.remote_start_status = RemoteStartStopStatus.rejected
+
+        with pytest.raises(HomeAssistantError) as raised:
+            await _press(hass, start)
+
+        assert raised.value.translation_domain == DOMAIN
+        assert thor.remote_starts.qsize() == 1
+
+
+async def test_reconnect_during_a_transaction_keeps_it_stoppable(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    port = loaded_entry.data[CONF_PORT]
+    stop = _entity_id(hass, loaded_entry, "button", "stop_charging")
+    async with connected_thor(port) as thor:
+        start = await _connect_ready(hass, loaded_entry, thor)
+        transaction_id = await _start_session(hass, thor, start)
+
+    # The socket dropped mid-transaction; the charger keeps charging.
+    await _wait_for(lambda: _state(hass, start) == STATE_UNAVAILABLE, "disconnect observed")
+
+    async with connected_thor(port) as thor:
+        await thor.boot()
+        await thor.status("Charging")
+        await thor.meter_values(transaction_id, power_w=3600, energy_wh=1800)
+
+        await _press(hass, stop)
+        # The Stop is bound to the transaction from before the reconnect and
+        # is sent on the new socket.
+        assert thor.remote_stops.get_nowait() == {"transaction_id": transaction_id}
+        await thor.stop_transaction(transaction_id, meter_stop=2600, reason="Remote")
+
+
+async def test_a_different_charger_cannot_take_over_the_entry(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    port = loaded_entry.data[CONF_PORT]
+    async with connected_thor(port, "THOR-OWNER") as owner:
+        await _connect_ready(hass, loaded_entry, owner)
+
+        intruder = await websockets.connect(
+            f"ws://127.0.0.1:{port}/ocpp/ws/THOR-OTHER",
+            subprotocols=["ocpp1.6"],
+            ping_interval=None,
+        )
+        with pytest.raises(websockets.exceptions.ConnectionClosed) as closed:
+            await asyncio.wait_for(intruder.recv(), TIMEOUT)
+        assert closed.value.rcvd is not None
+        assert closed.value.rcvd.code == 1008
+
+        charge_point_id = _entity_id(hass, loaded_entry, "sensor", "charge_point_id")
+        assert _state(hass, charge_point_id) == "THOR-OWNER"
+
+
+async def test_card_subscription_pushes_the_attribute_payload_until_unload(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    client = await hass_ws_client(hass)
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/card/subscribe", "entry_id": "missing"})
+    refused = await client.receive_json()
+    assert not refused["success"]
+    assert refused["error"]["code"] == "not_found"
+
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/card/subscribe", "entry_id": config_entry.entry_id}
+    )
+    assert (await client.receive_json())["success"]
+    initial = (await client.receive_json())["event"]
+    assert initial["type"] == "data"
+    assert initial["data"]["entry_id"] == config_entry.entry_id
+    # The entity map is built per update, so it already lists entities added
+    # after the status sensor wrote its first attribute.
+    assert initial["data"]["entities"]["last_session_cost"] == _entity_id(
+        hass, config_entry, "sensor", "last_session_cost"
+    )
+    assert initial["data"]["connection_started_at"] is None
+
+    async with connected_thor(config_entry.data[CONF_PORT]) as thor:
+        await thor.boot()
+        update = (await asyncio.wait_for(client.receive_json(), TIMEOUT))["event"]
+        assert update["type"] == "data"
+        assert update["data"] != initial["data"]
+
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await hass.async_block_till_done()
+    while (message := (await asyncio.wait_for(client.receive_json(), TIMEOUT))["event"])[
+        "type"
+    ] == "data":
+        pass
+    assert message == {"type": "unloaded"}
+    # Closing the client afterwards must not remove the listener a second time.
+    await client.close()
+    await hass.async_block_till_done()
+    assert "Error unsubscribing" not in caplog.text
+
+
+async def test_unanswered_remote_stop_is_uncertain_and_not_repeated(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The library timeout is fixed when the charger connects; shorten it so
+    # the missing answer shows up within the test.
+    monkeypatch.setattr(
+        "custom_components.growatt_thor.ocpp.growatt.server.OCPP_RESPONSE_TIMEOUT_SECONDS", 0.5
+    )
+    commands = async_capture_events(hass, "growatt_thor_command_result")
+    async with connected_thor(loaded_entry.data[CONF_PORT]) as thor:
+        start = await _connect_ready(hass, loaded_entry, thor)
+        transaction_id = await _start_session(hass, thor, start)
+        thor.hold_remote_stop_answer = asyncio.Event()
+
+        stop = _entity_id(hass, loaded_entry, "button", "stop_charging")
+        with pytest.raises(HomeAssistantError) as raised:
+            await _press(hass, stop)
+        assert raised.value.translation_key == "command_outcome_uncertain"
+        stops = [
+            event.data
+            for event in commands
+            if event.data["command_name"] != "RemoteStartTransaction"
+        ]
+        assert [(result["command_name"], result["status"]) for result in stops] == [
+            ("RemoteStopTransaction", "uncertain")
+        ]
+
+        # The late answer changes nothing, and the Stop is not sent again.
+        thor.hold_remote_stop_answer.set()
+        charging = _entity_id(hass, loaded_entry, "binary_sensor", "charging")
+        assert _state(hass, charging) == "on"
+        await thor.stop_transaction(transaction_id, meter_stop=2500, reason="Remote")
+        await thor.status("Finishing")
+        await _wait_for(lambda: _state(hass, charging) == "off", "the charger's own stop observed")
+        assert thor.remote_stops.qsize() == 1
+
+
+@pytest.mark.parametrize(
+    ("offered", "negotiated"),
+    [(["ocpp1.6"], "ocpp1.6"), (None, None), (["ocpp2.0.1"], None)],
+    ids=["ocpp1.6", "no-header", "other-version"],
+)
+async def test_handshake_accepts_a_charger_without_the_ocpp_subprotocol(
+    hass: HomeAssistant,
+    loaded_entry: MockConfigEntry,
+    offered: list[str] | None,
+    negotiated: str | None,
+) -> None:
+    # The firmware's handshake is not documented. The server selects
+    # ocpp1.6 when offered and otherwise continues without a subprotocol
+    # instead of refusing the charger.
+    async with connected_thor(loaded_entry.data[CONF_PORT], subprotocols=offered) as thor:
+        assert thor.connection.subprotocol == negotiated
+        assert (await thor.boot()).status == "Accepted"
+
+
+async def test_a_connection_outside_the_ocpp_path_is_closed(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    connection = await websockets.connect(
+        f"ws://127.0.0.1:{loaded_entry.data[CONF_PORT]}/other/THOR-SIM",
+        subprotocols=["ocpp1.6"],
+        ping_interval=None,
+    )
+    with pytest.raises(websockets.exceptions.ConnectionClosed) as closed:
+        await asyncio.wait_for(connection.recv(), TIMEOUT)
+    assert closed.value.rcvd is not None
+    assert closed.value.rcvd.code == 1000
+    charge_point_id = _entity_id(hass, loaded_entry, "sensor", "charge_point_id")
+    assert _state(hass, charge_point_id) != "THOR-SIM"
+
+
+async def test_reboot_required_blocks_changes_and_start_until_the_reconnect(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    port = loaded_entry.data[CONF_PORT]
+    mode = _entity_id(hass, loaded_entry, "select", "authorization_mode_control")
+
+    async def select(option: str) -> None:
+        await hass.services.async_call(
+            "select", "select_option", {"entity_id": mode, "option": option}, blocking=True
+        )
+
+    async with connected_thor(port) as thor:
+        start = await _connect_ready(hass, loaded_entry, thor)
+        await _wait_for(lambda: _state(hass, mode) == "home_assistant_rfid", "mode reported")
+        thor.change_configuration_status = ConfigurationStatus.reboot_required
+        await select("rfid_only")
+        assert thor.configuration_changes.get_nowait() == {"key": "G_ChargerMode", "value": "2"}
+
+        # The THOR reboots shortly after RebootRequired: a second change or a
+        # Start would be lost, so both are refused before reaching the charger.
+        with pytest.raises(HomeAssistantError) as raised:
+            await select("home_assistant_rfid")
+        assert raised.value.translation_key == "charger_rebooting"
+        assert thor.configuration_changes.empty()
+        await _wait_for(lambda: _state(hass, start) == STATE_UNAVAILABLE, "Start blocked")
+
+    # The charger comes back after its reboot. The 20 s firmware spacing
+    # between writes is unrelated to the reboot; skip it here.
+    loaded_entry.runtime_data.coordinator.write_queue.min_write_interval = 0
+    async with connected_thor(port) as thor:
+        await thor.boot()
+        await thor.status("Preparing")
+        await _wait_for(lambda: _state(hass, start) != STATE_UNAVAILABLE, "Start after reboot")
+        await select("home_assistant_rfid")
+        assert thor.configuration_changes.get_nowait()["value"] == "1"
+
+
+@pytest.mark.parametrize(
+    ("firmware", "wire_value"),
+    [("THOR_11AS-V2.2.16-20240902", "Eastron SDM630"), ("THOR_11AS-SIM", "4")],
+)
+async def test_sdm630_select_uses_firmware_specific_wire_value(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry, firmware: str, wire_value: str
+) -> None:
+    key = "G_PowerMeterType"
+    meter = _entity_id(hass, loaded_entry, "select", "power_meter_type_control")
+    async with connected_thor(loaded_entry.data[CONF_PORT]) as thor:
+        thor.configuration.update({"G_ExternalSamplingCurWring": "1", key: "Eastron SDM230"})
+        assert (await thor.boot(firmware_version=firmware)).status == "Accepted"
+        await thor.status("Available")
+        await _wait_for(lambda: _state(hass, meter) == "eastron_sdm230", "meter model reported")
+
+        await hass.services.async_call(
+            "select",
+            "select_option",
+            {"entity_id": meter, "option": "eastron_sdm630_three"},
+            blocking=True,
+        )
+
+        assert thor.configuration_changes.get_nowait() == {"key": key, "value": wire_value}
+        await _wait_for(
+            lambda: _state(hass, meter) == "eastron_sdm630_three", "meter model selected"
+        )
+
+
+async def test_manual_soft_reset_blocks_duplicates_and_waits_for_reconnect(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    port = loaded_entry.data[CONF_PORT]
+    restart = _entity_id(hass, loaded_entry, "button", "restart_charger")
+    last_result = _entity_id(hass, loaded_entry, "sensor", "last_command_result")
+    assert _state(hass, restart) == STATE_UNAVAILABLE
+    async with connected_thor(port) as thor:
+        start = await _connect_ready(hass, loaded_entry, thor)
+        thor.hold_reset_answer = asyncio.Event()
+        press = asyncio.create_task(_press(hass, restart))
+        try:
+            assert await asyncio.wait_for(thor.reset_types.get(), TIMEOUT) == "Soft"
+            await _wait_for(lambda: _state(hass, restart) == STATE_UNAVAILABLE, "reset pending")
+            entity = hass.data[BUTTON_COMPONENT].get_entity(restart)
+            assert entity is not None
+            # Some HA versions ignore service calls to unavailable entities.
+            # The entity action also needs its own duplicate guard.
+            with pytest.raises(HomeAssistantError) as raised:
+                await entity.async_press()
+            assert raised.value.translation_key == "restart_in_progress"
+        finally:
+            thor.hold_reset_answer.set()
+            await press
+
+        result = hass.states.get(last_result)
+        assert result is not None and result.state == "confirmed"
+        assert result.attributes["command_name"] == "Reset"
+        assert result.attributes["charger_result"] == "Accepted"
+        assert _state(hass, restart) == STATE_UNAVAILABLE
+        assert _state(hass, start) == STATE_UNAVAILABLE
+        assert thor.reset_types.empty()
+        assert thor.remote_starts.empty()
+
+    async with connected_thor(port) as thor:
+        await _connect_ready(hass, loaded_entry, thor)
+        await _wait_for(
+            lambda: _state(hass, restart) != STATE_UNAVAILABLE, "restart available again"
+        )
+        assert thor.reset_types.empty()
+        assert thor.remote_starts.empty()
+
+
+@pytest.mark.parametrize("lost_answer", [False, True], ids=["rejected", "uncertain"])
+async def test_soft_reset_publishes_negative_outcome_without_resending(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry, lost_answer: bool
+) -> None:
+    async with connected_thor(loaded_entry.data[CONF_PORT]) as thor:
+        await _connect_ready(hass, loaded_entry, thor)
+        restart = _entity_id(hass, loaded_entry, "button", "restart_charger")
+        coordinator = loaded_entry.runtime_data.coordinator
+        if lost_answer:
+            thor.hold_reset_answer = asyncio.Event()
+            coordinator.runtime_data[ACTIVE_CHARGE_POINT]._response_timeout = 0.5
+        else:
+            thor.reset_status = ResetStatus.rejected
+
+        with pytest.raises(HomeAssistantError) as raised:
+            await _press(hass, restart)
+        assert raised.value.translation_key == (
+            "command_outcome_uncertain" if lost_answer else "command_failed"
+        )
+        last_result = _entity_id(hass, loaded_entry, "sensor", "last_command_result")
+        assert _state(hass, last_result) == ("uncertain" if lost_answer else "failed")
+        assert coordinator.charger_reboot_pending is lost_answer
+        assert thor.reset_types.get_nowait() == "Soft"
+        assert thor.reset_types.empty()
+
+
+async def test_reset_rechecks_active_session_after_waiting_for_the_ocpp_gate(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    async with connected_thor(loaded_entry.data[CONF_PORT]) as thor:
+        await _connect_ready(hass, loaded_entry, thor)
+        restart = _entity_id(hass, loaded_entry, "button", "restart_charger")
+        coordinator = loaded_entry.runtime_data.coordinator
+        charge_point = coordinator.runtime_data[ACTIVE_CHARGE_POINT]
+        async with charge_point._outbound_requests._lock:
+            press = asyncio.create_task(_press(hass, restart))
+            await _wait_for(
+                lambda: coordinator.write_queue._active is not None, "reset owns the write queue"
+            )
+            await thor.status("SuspendedEV")
+            assert coordinator.transaction_is_active
+
+        with pytest.raises(HomeAssistantError) as raised:
+            await press
+        assert raised.value.translation_key == "command_not_executed"
+        assert _state(hass, restart) == STATE_UNAVAILABLE
+        assert thor.reset_types.empty()

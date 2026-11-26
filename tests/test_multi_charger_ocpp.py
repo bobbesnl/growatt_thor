@@ -3,14 +3,16 @@
 Backlog F09: connections and session state are scoped to each charger, and a
 reconnect or connection for one charger cannot affect another.
 """
+
 import asyncio
 import importlib
 import importlib.util
 import json
-from pathlib import Path
 import sys
-from types import ModuleType, SimpleNamespace
 import unittest
+from types import ModuleType, SimpleNamespace
+
+from tests.support import PACKAGE_PATH
 
 HAS_OCPP = (
     importlib.util.find_spec("ocpp") is not None
@@ -19,12 +21,11 @@ HAS_OCPP = (
 if HAS_OCPP:
     # Load the actual integration modules without executing HA's package setup.
     package = ModuleType("thor_multi_charger_target")
-    package.__path__ = [
-        str(Path(__file__).parents[1] / "custom_components/growatt_thor")
-    ]
+    package.__path__ = [str(PACKAGE_PATH)]
     sys.modules[package.__name__] = package
-    server = importlib.import_module(package.__name__ + ".ocpp_server")
-    auth = importlib.import_module(package.__name__ + ".authorization")
+    server = importlib.import_module(package.__name__ + ".ocpp.growatt.server")
+    auth = importlib.import_module(package.__name__ + ".charging.authorization")
+    message_log = importlib.import_module(package.__name__ + ".ocpp.growatt.message_log")
 
 
 class Websocket:
@@ -45,22 +46,24 @@ class Coordinator:
     def __init__(self):
         self.runtime_data = {}
         self.authorization = auth.LocalAuthorization()
+        self.ocpp_messages = message_log.OcppMessageLog()
         self.charger_mode = 1
         self.connected = True
         self.has_pending_charger_writes = False
         self.charge_point_id = None
         self.statuses = []
+        self.ingest = SimpleNamespace(observe_status_notification=self.observe_status_notification)
 
     def now(self):
         return "2026-10-20T10:00:00Z"
 
-    def set_charge_point(self, cp_id):
+    def observe_connected(self, cp_id):
         self.charge_point_id = cp_id
 
-    def mark_connection_activity(self, action):
+    def observe_message(self, action):
         pass
 
-    def record_status_notification(self, connector_id, status, error_code=None, **kwargs):
+    def observe_status_notification(self, connector_id, status, error_code=None, **kwargs):
         self.statuses.append(status)
 
 
@@ -70,20 +73,20 @@ class TwoChargerConnectionTest(unittest.IsolatedAsyncioTestCase):
         self.hass = SimpleNamespace(data={}, loop=asyncio.get_running_loop())
         self.left = Coordinator()
         self.right = Coordinator()
-        self.left_cp = server.GrowattChargePoint(
-            "THOR-LEFT", Websocket(), self.left, self.hass
-        )
-        self.right_cp = server.GrowattChargePoint(
-            "THOR-RIGHT", Websocket(), self.right, self.hass
-        )
+        self.left_cp = server.GrowattChargePoint("THOR-LEFT", Websocket(), self.left, self.hass)
+        self.right_cp = server.GrowattChargePoint("THOR-RIGHT", Websocket(), self.right, self.hass)
 
     async def status(self, charge_point, status):
-        await charge_point.route_message(json.dumps([
-            2,
-            "status-1",
-            "StatusNotification",
-            {"connectorId": 1, "errorCode": "NoError", "status": status},
-        ]))
+        await charge_point.route_message(
+            json.dumps(
+                [
+                    2,
+                    "status-1",
+                    "StatusNotification",
+                    {"connectorId": 1, "errorCode": "NoError", "status": status},
+                ]
+            )
+        )
 
     async def test_each_charger_owns_its_own_connection_slot(self):
         self.assertIs(self.left.runtime_data["charge_point"], self.left_cp)
@@ -98,9 +101,7 @@ class TwoChargerConnectionTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.right.statuses, ["Available"])
 
     async def test_reconnect_of_one_charger_leaves_the_other_untouched(self):
-        replacement = server.GrowattChargePoint(
-            "THOR-LEFT", Websocket(), self.left, self.hass
-        )
+        replacement = server.GrowattChargePoint("THOR-LEFT", Websocket(), self.left, self.hass)
 
         self.assertIs(self.left.runtime_data["charge_point"], replacement)
         self.assertIs(self.right.runtime_data["charge_point"], self.right_cp)
@@ -111,7 +112,9 @@ class TwoChargerConnectionTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.left.statuses, [])
         self.assertEqual(self.right.statuses, ["Charging"])
 
-    async def test_other_charger_on_one_entry_is_rejected_without_affecting_either(self):
+    async def test_other_charger_on_one_entry_is_rejected_without_affecting_either(
+        self,
+    ):
         intruder = Websocket()
 
         with self.assertLogs(server._LOGGER, level="ERROR"):

@@ -1,0 +1,30 @@
+{
+  "on_boot_notification": {
+    "current_time": "2026-09-04T10:00:00Z",
+    "interval": 60,
+    "status": "Accepted"
+  },
+  "on_heartbeat": {
+    "current_time": "2026-09-04T10:00:00Z"
+  },
+  "on_authorize": {
+    "id_tag_info": {
+      "status": "Invalid"
+    }
+  },
+  "on_start_transaction": {
+    "transaction_id": 0,
+    "id_tag_info": {
+      "status": "Invalid"
+    }
+  },
+  "on_stop_transaction": {
+    "id_tag_info": null
+  },
+  "on_status_notification": {},
+  "on_meter_values": {},
+  "on_data_transfer": {
+    "status": "Accepted",
+    "data": null
+  }
+}

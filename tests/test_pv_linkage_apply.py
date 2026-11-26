@@ -1,13 +1,15 @@
 """Behavioural tests for multi-step PV Linkage Apply operations."""
+
 from __future__ import annotations
 
-from datetime import time
-from enum import Enum
-import importlib.util
-from pathlib import Path
 import sys
 import types
 import unittest
+from datetime import time
+from enum import Enum
+from unittest.mock import patch
+
+from tests.support import load_package_module, register_package
 
 
 class ConfigurationStatus(str, Enum):
@@ -29,40 +31,21 @@ ocpp_v16 = types.ModuleType("ocpp.v16")
 ocpp_enums = types.ModuleType("ocpp.v16.enums")
 ocpp_enums.ConfigurationStatus = ConfigurationStatus
 ocpp_enums.DataTransferStatus = DataTransferStatus
-sys.modules.setdefault("ocpp", ocpp)
-sys.modules.setdefault("ocpp.v16", ocpp_v16)
-sys.modules.setdefault("ocpp.v16.enums", ocpp_enums)
 
 
-PACKAGE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-)
 PACKAGE_NAME = "growatt_thor_pv_linkage_apply_test_package"
-package = types.ModuleType(PACKAGE_NAME)
-package.__path__ = [str(PACKAGE_PATH)]
-sys.modules[PACKAGE_NAME] = package
+package = register_package(PACKAGE_NAME)
 
 
 def _load_module(name):
-    """Load production modules without importing the HA integration package."""
-    qualified_name = f"{PACKAGE_NAME}.{name}"
-    spec = importlib.util.spec_from_file_location(
-        qualified_name,
-        PACKAGE_PATH / f"{name}.py",
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[qualified_name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_package_module(name, package_name=PACKAGE_NAME)
 
 
-configuration_writes = _load_module("configuration_writes")
-pv_linkage = _load_module("pv_linkage")
-write_queue = _load_module("write_queue")
-pv_linkage_apply = _load_module("pv_linkage_apply")
+with patch.dict(sys.modules, {"ocpp": ocpp, "ocpp.v16": ocpp_v16, "ocpp.v16.enums": ocpp_enums}):
+    configuration_writes = _load_module("configuration.writes")
+    pv_linkage = _load_module("charging.pv_linkage")
+    write_queue = _load_module("runtime.write_results")
+    pv_linkage_apply = _load_module("charging.pv_apply")
 
 
 class _FakeCoordinator:
@@ -90,9 +73,7 @@ class _FakeCoordinator:
         accepted,
         result,
     ):
-        self.acknowledgements.append(
-            (key, generation, accepted, result)
-        )
+        self.acknowledgements.append((key, generation, accepted, result))
         return True
 
     def update_configuration_value(self, key, value):
@@ -106,9 +87,7 @@ class _FakeCoordinator:
         generation,
         result,
     ):
-        self.marked_configuration_writes.append(
-            (key, status, generation, result)
-        )
+        self.marked_configuration_writes.append((key, status, generation, result))
 
     def record_pv_linkage_apply_result(self, result):
         self.apply_result = result
@@ -176,9 +155,7 @@ class PvLinkageApplyTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_first_rejection_is_failed_without_partial_state(self):
         coordinator = _FakeCoordinator()
-        charge_point = _FakeChargePoint(
-            configuration=(ConfigurationStatus.rejected,)
-        )
+        charge_point = _FakeChargePoint(configuration=(ConfigurationStatus.rejected,))
         draft, writes = _manual_draft_and_writes()
 
         with self.assertLogs(pv_linkage_apply._LOGGER, level="ERROR"):
@@ -319,9 +296,7 @@ class PvLinkageApplyTest(unittest.IsolatedAsyncioTestCase):
     async def test_disconnect_after_first_ack_is_not_retried_as_a_whole(self):
         coordinator = _FakeCoordinator()
         disconnect = write_queue.ChargerConnectionUnavailable("reconnect")
-        charge_point = _FakeChargePoint(
-            configuration=(ConfigurationStatus.accepted, disconnect)
-        )
+        charge_point = _FakeChargePoint(configuration=(ConfigurationStatus.accepted, disconnect))
         draft, writes = _manual_draft_and_writes()
 
         result = await self._apply(
@@ -346,9 +321,7 @@ class PvLinkageApplyTest(unittest.IsolatedAsyncioTestCase):
     async def test_lost_second_ack_is_uncertain_and_keeps_draft(self):
         coordinator = _FakeCoordinator()
         uncertain = write_queue.ChargerRequestOutcomeUncertain("ack lost")
-        charge_point = _FakeChargePoint(
-            configuration=(ConfigurationStatus.accepted, uncertain)
-        )
+        charge_point = _FakeChargePoint(configuration=(ConfigurationStatus.accepted, uncertain))
         draft, writes = _manual_draft_and_writes()
 
         result = await self._apply(

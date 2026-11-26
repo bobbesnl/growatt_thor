@@ -1,0 +1,61 @@
+:host {
+  display: block;
+  container-type: inline-size;
+  font-family: var(--primary-font-family, Inter, Roboto, Arial, sans-serif);
+}
+* {
+  box-sizing: border-box;
+}
+.card {
+  --meter-motion-duration: 900ms;
+  --meter-motion-easing: cubic-bezier(0.22, 1, 0.36, 1);
+  --tone: var(--neutral);
+  display: block;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--ha-card-border-radius, 24px);
+  overflow: hidden;
+  padding: 22px;
+  box-shadow: var(--ha-card-box-shadow, 0 6px 24px #10291808);
+  position: relative;
+}
+.card[data-tone='green'] {
+  --tone: var(--green);
+}
+.card[data-tone='amber'] {
+  --tone: var(--amber);
+}
+.card[data-tone='red'] {
+  --tone: var(--red);
+}
+.card[data-tone='blue'] {
+  --tone: var(--blue);
+}
+.card.is-inactive {
+  --lime: var(--neutral);
+}
+.is-inactive .hero,
+.is-inactive .pills {
+  filter: grayscale(1);
+  opacity: 0.65;
+}
+.is-inactive .mode {
+  color: var(--muted);
+}
+.is-inactive .vehicle {
+  color: var(--muted);
+}
+.is-inactive .device.offline {
+  opacity: 1;
+}
+/* Status, error messages, session history and Details keep their contrast. */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--lime), color-mix(in srgb, var(--tone) 45%, transparent));
+}

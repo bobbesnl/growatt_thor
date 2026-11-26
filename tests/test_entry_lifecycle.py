@@ -5,51 +5,37 @@ on free local ports.  Only Home Assistant itself and the coordinator are
 replaced by small stand-ins, so the tests check which port and runtime each
 entry owns after a failure (review on PR #58).
 """
+
 import asyncio
 import importlib.util
-from pathlib import Path
 import socket
 import sys
-from types import ModuleType, SimpleNamespace
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import ModuleType, SimpleNamespace
+from unittest.mock import AsyncMock, patch
+
+from tests.support import HomeAssistantError as _HomeAssistantError
+from tests.support import default as _default
+from tests.support import load_package_module
+from tests.support import module as _module
 
 HAS_DEPS = all(
-    importlib.util.find_spec(name) is not None
-    for name in ("ocpp", "websockets", "voluptuous")
+    importlib.util.find_spec(name) is not None for name in ("ocpp", "websockets", "voluptuous")
 )
 
-PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 PACKAGE_NAME = "thor_entry_lifecycle_target"
 
 
-def _module(name):
-    """Return a stand-in module, creating it and linking it to its parent."""
-    module = sys.modules.get(name)
-    if module is None:
-        module = ModuleType(name)
-        sys.modules[name] = module
-    parent_name, _, child = name.rpartition(".")
-    if parent_name:
-        setattr(_module(parent_name), child, module)
-    return module
-
-
-def _default(module, name, value):
-    if not hasattr(module, name):
-        setattr(module, name, value)
-
-
 class _Platform:
+    BINARY_SENSOR = "binary_sensor"
     SENSOR = "sensor"
     NUMBER = "number"
     SWITCH = "switch"
     SELECT = "select"
     TIME = "time"
     BUTTON = "button"
-
-
-class _HomeAssistantError(Exception):
-    pass
 
 
 class _ConfigEntryNotReady(_HomeAssistantError):
@@ -65,6 +51,7 @@ def _install_home_assistant_stand_ins():
     core = _module("homeassistant.core")
     _default(core, "HomeAssistant", object)
     _default(core, "ServiceCall", object)
+    _default(core, "callback", lambda fn: fn)
     _default(_module("homeassistant.const"), "Platform", _Platform)
     _default(
         _module("homeassistant.components.persistent_notification"),
@@ -75,6 +62,30 @@ def _install_home_assistant_stand_ins():
     _default(exceptions, "HomeAssistantError", _HomeAssistantError)
     _default(exceptions, "ConfigEntryNotReady", _ConfigEntryNotReady)
     _default(exceptions, "ServiceValidationError", _ServiceValidationError)
+    _default(
+        _module("homeassistant.helpers.config_validation"),
+        "config_entry_only_config_schema",
+        lambda domain: {},
+    )
+    _default(
+        _module("homeassistant.core"),
+        "SupportsResponse",
+        SimpleNamespace(ONLY="only", OPTIONAL="optional"),
+    )
+    _default(_module("homeassistant.util.dt"), "now", lambda: None)
+    _default(_module("homeassistant.components.frontend"), "add_extra_js_url", lambda *args: None)
+    _default(
+        _module("homeassistant.components.http"),
+        "StaticPathConfig",
+        type("StaticPathConfig", (), {}),
+    )
+    _default(_module("homeassistant.loader"), "async_get_integration", AsyncMock())
+    _default(
+        _module("homeassistant.components.websocket_api"),
+        "websocket_command",
+        lambda *args: lambda fn: fn,
+    )
+    _default(_module("homeassistant.components.websocket_api"), "async_response", lambda fn: fn)
     _module("homeassistant.helpers.device_registry")
     _module("homeassistant.helpers.entity_registry")
     _default(_module("homeassistant.helpers.storage"), "Store", object)
@@ -82,21 +93,13 @@ def _install_home_assistant_stand_ins():
     _default(
         _module("homeassistant.helpers.update_coordinator"),
         "DataUpdateCoordinator",
-        object,
+        type("DataUpdateCoordinator", (), {}),
     )
 
 
 def _load_integration():
     _install_home_assistant_stand_ins()
-    spec = importlib.util.spec_from_file_location(
-        PACKAGE_NAME,
-        PACKAGE_PATH / "__init__.py",
-        submodule_search_locations=[str(PACKAGE_PATH)],
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[PACKAGE_NAME] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_package_module("__init__", package_name=PACKAGE_NAME)
 
 
 if HAS_DEPS:
@@ -123,6 +126,9 @@ class _Coordinator:
     instances = []
 
     def __init__(self, hass, source_instance_id=None, seed_from_legacy=True):
+        self.external_meter = load_package_module(
+            "ocpp.growatt.external_meter_state"
+        ).ExternalMeterState()
         self.hass = hass
         self.source_instance_id = source_instance_id
         self.runtime_data = {}
@@ -130,6 +136,9 @@ class _Coordinator:
         self.connected = False
         self.location = ""
         self.shutdown_calls = 0
+        self.sessions = SimpleNamespace(async_flush_pending=AsyncMock())
+        self.events = load_package_module("runtime.automation_events").AutomationEvents()
+        self.async_set_updated_data = lambda _: None
         _Coordinator.instances.append(self)
 
     async def async_load_storage(self):
@@ -138,16 +147,15 @@ class _Coordinator:
     async def async_shutdown(self):
         self.shutdown_calls += 1
 
-    def set_charge_point(self, cp_id):
+    def observe_connected(self, cp_id):
         self.charge_point_id = cp_id
 
-    def set_disconnected(self):
+    def observe_disconnected(self):
         self.connected = False
 
 
 class _DeviceRegistry:
-    def async_get_device_by_identifier(self, identifier, config_entry_id):
-        return None
+    pass
 
 
 class _ConfigEntries:
@@ -214,16 +222,49 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
             "GrowattCoordinator": integration.GrowattCoordinator,
             "Store": integration.Store,
             "dr": integration.dr,
+            "async_setup_session_history": integration.async_setup_session_history,
         }
+        integration.async_setup_session_history = lambda *args: lambda: None
         integration.GrowattCoordinator = _Coordinator
         integration.Store = _MemoryStore
-        integration.dr = SimpleNamespace(async_get=lambda hass: _DeviceRegistry())
+        integration.dr = SimpleNamespace(
+            async_get=lambda hass: _DeviceRegistry(),
+            async_entries_for_config_entry=lambda registry, entry_id: [],
+        )
         self.hass = _Hass(asyncio.get_running_loop())
+        self.directory = TemporaryDirectory()
+        self.hass.config = SimpleNamespace(path=lambda name: str(Path(self.directory.name) / name))
+        # These 2.0 services have separate dispatch tests. Keep this test focused
+        # on the real entry lifecycle and actual listening sockets.
+        self.extra_patches = []
+        for name, attrs in {
+            "charging.pv_service": {
+                "async_setup_pv_linkage_service": AsyncMock(),
+                "async_unload_pv_linkage_service": lambda *args: None,
+            },
+            "targets.services": {
+                "async_setup_target_services": AsyncMock(),
+                "async_unload_target_services": lambda *args: None,
+            },
+            "energy.stop_guard": {
+                "EnergyStopGuard": lambda *args: SimpleNamespace(
+                    refresh=lambda: None, async_shutdown=AsyncMock()
+                )
+            },
+        }.items():
+            for attribute, value in attrs.items():
+                if hasattr(integration, attribute):
+                    binding = patch.object(integration, attribute, value)
+                    binding.start()
+                    self.extra_patches.append(binding)
+            module = ModuleType(PACKAGE_NAME + "." + name)
+            module.__dict__.update(attrs)
+            p = patch.dict(sys.modules, {module.__name__: module})
+            p.start()
+            self.extra_patches.append(p)
 
     async def asyncTearDown(self):
-        for entry_id, runtime in list(
-            self.hass.data.get(integration.DOMAIN, {}).items()
-        ):
+        for _entry_id, runtime in list(self.hass.data.get(integration.DOMAIN, {}).items()):
             server = runtime.get("server")
             if server is not None:
                 server.close()
@@ -235,6 +276,9 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
                 await task
             except BaseException:
                 pass
+        for p in reversed(self.extra_patches):
+            p.stop()
+        self.directory.cleanup()
         for name, value in self.patches.items():
             setattr(integration, name, value)
 
@@ -250,7 +294,30 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
     def runtime(self, entry_id):
         return self.hass.data.get(integration.DOMAIN, {}).get(entry_id)
 
-    async def test_failed_platform_setup_frees_its_port_and_keeps_the_other_charger(self):
+    async def test_saved_charger_identity_survives_setup_and_rejects_foreign_id(self):
+        from unittest.mock import AsyncMock
+
+        entry = self.entry("bound", _free_port())
+        entry.data["bind_address"] = "127.0.0.1"
+        self.assertTrue(await integration.async_setup_entry(self.hass, entry))
+        runtime = self.runtime("bound")
+        self.assertIs(entry.runtime_data, runtime)
+        self.assertIs(entry.runtime_data.coordinator.runtime_data, runtime)
+        runtime["persist_charger_identity"]("EXPECTED")
+        self.assertEqual(entry.data["charge_point_id"], "EXPECTED")
+        self.assertTrue(await integration.async_unload_entry(self.hass, entry))
+        self.assertTrue(await integration.async_setup_entry(self.hass, entry))
+        c = self.runtime("bound")["coordinator"]
+        self.assertEqual(c.charge_point_id, "EXPECTED")
+        server_module = sys.modules[PACKAGE_NAME + ".ocpp.growatt.server"]
+        ws = SimpleNamespace(close=AsyncMock())
+        await server_module._on_connect(ws, "/ocpp/ws/FOREIGN", c, self.hass)
+        self.assertEqual(ws.close.call_args.kwargs["code"], 1008)
+        self.assertNotIn("charge_point", c.runtime_data)
+
+    async def test_failed_platform_setup_frees_its_port_and_keeps_the_other_charger(
+        self,
+    ):
         right = self.entry("entry-right", _free_port())
         left = self.entry("entry-left", _free_port())
         self.hass.config_entries.fail_platform_setup.add("entry-left")
@@ -279,9 +346,12 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
         coordinator = runtime["coordinator"]
         self.hass.config_entries.fail_platform_unload.add("entry-left")
 
+        # Setup connects the event publisher once the platforms are loaded.
+        self.assertTrue(coordinator.events.connected)
         self.assertFalse(await integration.async_unload_entry(self.hass, left))
 
         self.assertIs(self.runtime("entry-left"), runtime)
+        self.assertTrue(coordinator.events.connected)
         self.assertTrue(runtime["server"].is_serving())
         self.assertFalse(runtime["polling_task"].done())
         self.assertEqual(coordinator.shutdown_calls, 0)
@@ -296,6 +366,7 @@ class EntryLifecycleTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(polling_task.done())
         self.assertFalse(server.is_serving())
         self.assertEqual(coordinator.shutdown_calls, 1)
+        self.assertFalse(coordinator.events.connected)
         self.assertTrue(_port_is_free(left.data["port"]))
 
     async def test_unloading_one_entry_leaves_the_other_untouched(self):

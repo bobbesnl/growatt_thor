@@ -1,26 +1,13 @@
 """Tests for Growatt external-meter payload parsing."""
+
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
 import unittest
 
+from tests.support import PACKAGE_PATH, load_package_module
 
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "external_meter.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_external_meter_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-external_meter = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = external_meter
-SPEC.loader.exec_module(external_meter)
+MODULE_PATH = PACKAGE_PATH / "ocpp/growatt/external_meter.py"
+external_meter = load_package_module("growatt_thor_external_meter_test_target", MODULE_PATH)
 
 
 class ExternalMeterParserTest(unittest.TestCase):
@@ -79,15 +66,9 @@ class ExternalMeterHealthTest(unittest.TestCase):
                 "485 Fault",
             )
         )
-        self.assertTrue(
-            external_meter.status_reports_external_meter_fault(None, "485 Fault")
-        )
-        self.assertFalse(
-            external_meter.status_reports_external_meter_fault("NoError", None)
-        )
-        self.assertTrue(
-            external_meter.status_clears_external_meter_fault("NoError")
-        )
+        self.assertTrue(external_meter.status_reports_external_meter_fault(None, "485 Fault"))
+        self.assertFalse(external_meter.status_reports_external_meter_fault("NoError", None))
+        self.assertTrue(external_meter.status_clears_external_meter_fault("NoError"))
 
     def test_explicit_fault_takes_priority_over_fresh_zero_snapshot(self):
         self.assertEqual(

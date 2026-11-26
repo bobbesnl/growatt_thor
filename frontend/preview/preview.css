@@ -1,0 +1,94 @@
+body {
+  margin: 0;
+  padding: 32px;
+  background: #edf1eb;
+  font: 14px system-ui;
+  color: #243629;
+}
+header {
+  max-width: 1100px;
+  margin: 0 auto 30px;
+}
+h1 {
+  font-weight: 550;
+  letter-spacing: -1px;
+}
+p {
+  color: #5d7162;
+}
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.goal-controls {
+  margin-top: 14px;
+}
+.goal-controls span {
+  color: #5d7162;
+  font-size: 12px;
+}
+select,
+button {
+  padding: 10px;
+  border: 1px solid #bacbb9;
+  border-radius: 8px;
+  background: white;
+  font: inherit;
+}
+#cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  align-items: flex-start;
+  justify-content: center;
+}
+#session-cards {
+  display: grid;
+  gap: 28px;
+  justify-content: center;
+  margin-top: 28px;
+}
+.session-column {
+  width: 808px;
+  max-width: calc(100vw - 32px);
+}
+.column {
+  width: 390px;
+  flex-shrink: 0;
+}
+.caption {
+  font-size: 12px;
+  color: #667768;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+ha-card {
+  display: block;
+}
+#events {
+  max-width: 1000px;
+  margin: 30px auto;
+  white-space: pre-wrap;
+  color: #5d7162;
+}
+.editor {
+  max-width: 390px;
+  margin: 30px auto;
+  padding: 20px;
+  background: white;
+  border-radius: 16px;
+}
+@media (max-width: 600px) {
+  body {
+    padding: 16px;
+  }
+  .column {
+    max-width: 100%;
+  }
+  .session-column {
+    width: 100%;
+  }
+}

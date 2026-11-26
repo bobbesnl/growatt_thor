@@ -1,86 +1,133 @@
 """Switch entities for Growatt THOR load balancing and LCD display."""
+
 from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+    from .coordinator import GrowattCoordinator
+    from .runtime.entry import ThorConfigEntry
 
 import logging
 
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.helpers.entity import EntityCategory
-
+from homeassistant.const import EntityCategory
 from ocpp.v16.enums import ConfigurationStatus
 
-from .action_errors import (
-    async_require_command_completion,
-    raise_charger_disconnected,
-    raise_write_blocked,
-)
-from .const import DOMAIN
-from .charging_controls import (
+from .charging.control_capabilities import (
     ChargingControl,
     charger_write_block_reason,
     control_is_applicable,
-    control_write_block_reason,
     encode_control_value,
 )
-from .configuration import configuration_entity_state
-from .configuration_control import GrowattConfigurationControlMixin
-from .configuration_writes import (
-    ConfigurationWriteStatus,
+from .configuration.controls import ConfigurationControl
+from .configuration.keys import KEY_EXTERNAL_LIMIT_POWER_ENABLE, KEY_LCDCLOSE_ENABLE
+from .configuration.writer import ConfigurationWrite, ConfigurationWriter, WritePolicy
+from .configuration.writes import (
     pending_configuration_value,
 )
-from .write_queue import (
-    CONFIGURATION_WRITE_POLICY,
-    ChargerConnectionUnavailable,
-    ChargerRequestOutcomeUncertain,
-    ChargerWriteResult,
-)
+from .entity import ThorEntity
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ThorConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Set up Growatt THOR switches."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    # HA forwards platforms only after this entry has claimed its coordinator.
+    coordinator = cast("GrowattCoordinator", entry.runtime_data.coordinator)
 
-    async_add_entities([
-        LoadBalancingEnableSwitch(coordinator, entry),
-        LcdDisplaySwitch(coordinator, entry),
-        WarmUpSwitch(coordinator, entry),
-    ])
+    async_add_entities(
+        [
+            LoadBalancingEnableSwitch(coordinator, entry),
+            LcdDisplaySwitch(coordinator, entry),
+            *(
+                ConfigurationControlSwitch(coordinator, entry, description)
+                for description in CONTROL_SWITCHES
+            ),
+        ]
+    )
 
 
-class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
+class LoadBalancingEnableWritePolicy(WritePolicy[str]):
+    """Write G_ExternalLimitPowerEnable; pending state comes from write tracking."""
+
+    label = "Load Balancing"
+    # Acknowledge and schedule readback before updating the enabled observation.
+    refreshes_on_apply = True
+
+    def __init__(self, entity: LoadBalancingEnableSwitch) -> None:
+        super().__init__(entity.coordinator)
+        self.entity = entity
+        self.coordinator = entity.coordinator
+
+    def encode(self, value: str) -> tuple[str, str]:
+        return KEY_EXTERNAL_LIMIT_POWER_ENABLE, value
+
+    def request_block_reason(self) -> str | None:
+        return self.coordinator.write_block_reason(ChargingControl.LOAD_BALANCING)
+
+    def is_unchanged(self, value: str) -> bool:
+        new_state = value == "1"
+        if self.entity.is_on != new_state:
+            return False
+        _LOGGER.debug("Loadbalancing already %s - skipping write", "ON" if new_state else "OFF")
+        return True
+
+    def on_skipped(self, write: ConfigurationWrite[str], reason: str) -> None:
+        _LOGGER.warning("Skipping queued Load Balancing change: %s", reason)
+
+    def apply_accepted(self, write: ConfigurationWrite[str]) -> None:
+        super().apply_accepted(write)
+        self.coordinator.schedule_configuration_refresh()
+        self.coordinator.external_limit_power_enable = write.value == "1"
+        self.coordinator.async_set_updated_data(True)
+
+    def report_accepted(self, write: ConfigurationWrite[str], result: object) -> None:
+        state = "ON" if write.value == "1" else "OFF"
+        if result == ConfigurationStatus.reboot_required:
+            _LOGGER.warning("Loadbalancing enabled → %s (reboot required)", state)
+        else:
+            _LOGGER.info("Loadbalancing enabled → %s (accepted)", state)
+
+    def on_rejected(self, write: ConfigurationWrite[str], result: object) -> None:
+        _LOGGER.error("Enable loadbalancing change rejected: %s", result)
+
+
+class LoadBalancingEnableSwitch(ThorEntity, SwitchEntity):
     """Switch to enable/disable load balancing."""
+
+    coordinator: GrowattCoordinator
 
     _attr_has_entity_name = True
     _attr_translation_key = "load_balancing"
     _attr_icon = "mdi:power-plug-outline"
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, device="meter")
         self._attr_unique_id = f"{entry.entry_id}_load_balancing_enable"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id, "grid_connection")},
-            "name": "Growatt THOR External Meter",
-            "manufacturer": "Growatt",
-            "model": "THOR External Meter",
-        }
-        self.hass = coordinator.hass
+        self._writer = ConfigurationWriter(coordinator, LoadBalancingEnableWritePolicy(self))
 
     @property
-    def is_on(self):
+    def is_on(self) -> bool | None:
         """Return true if load balancing is enabled."""
         desired_value = pending_configuration_value(
             self.coordinator.configuration_writes,
-            "G_ExternalLimitPowerEnable",
+            KEY_EXTERNAL_LIMIT_POWER_ENABLE,
         )
         if desired_value is not None:
             return desired_value == "1"
         return self.coordinator.external_limit_power_enable
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return (
             super().available
             and self.coordinator.connected
@@ -91,165 +138,100 @@ class LoadBalancingEnableSwitch(CoordinatorEntity, SwitchEntity):
         )
 
     @property
-    def _write_block_reason(self) -> str | None:
-        return control_write_block_reason(
-            ChargingControl.LOAD_BALANCING,
-            self.coordinator.configuration_values,
-            connected=self.coordinator.connected,
-            transaction_active=self.coordinator.transaction_is_active,
-            charger_faulted=self.coordinator.charger_is_faulted,
-        )
-
-    @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         return {
-            "information": "details",
-            "ocpp_key": "G_ExternalLimitPowerEnable",
+            **self.information_attributes,
+            "ocpp_key": KEY_EXTERNAL_LIMIT_POWER_ENABLE,
         }
 
-    async def async_turn_on(self, **kwargs):
+    async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable load balancing."""
         await self._set_value("1")
 
-    async def async_turn_off(self, **kwargs):
+    async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable load balancing."""
         await self._set_value("0")
 
-    async def _apply_external_limit_power_enable(
-        self,
-        charge_point,
-        value: str,
-        generation: int,
-    ) -> ChargerWriteResult:
-        """Actually write setting to the charger (runs inside write-queue)."""
-        if (block_reason := self._write_block_reason) is not None:
-            _LOGGER.warning(
-                "Skipping queued Load Balancing change: %s",
-                block_reason,
-            )
-            self.coordinator.mark_configuration_write(
-                "G_ExternalLimitPowerEnable",
-                ConfigurationWriteStatus.SKIPPED,
-                generation=generation,
-                result=block_reason,
-            )
-            return ChargerWriteResult.skipped(block_reason)
-        _LOGGER.info("Setting G_ExternalLimitPowerEnable to %s", value)
-
-        key = "G_ExternalLimitPowerEnable"
-        try:
-            result = await charge_point.change_configuration(key, value)
-        except ChargerConnectionUnavailable:
-            raise
-        except ChargerRequestOutcomeUncertain as exc:
-            self.coordinator.mark_configuration_write(
-                key,
-                ConfigurationWriteStatus.UNCERTAIN,
-                generation=generation,
-                result=str(exc),
-            )
-            self.coordinator.schedule_configuration_refresh(delay=0)
-            return ChargerWriteResult.uncertain(str(exc))
-
-        accepted = result in {
-            ConfigurationStatus.accepted,
-            ConfigurationStatus.reboot_required,
-        }
-        outcome_is_current = self.coordinator.acknowledge_configuration_write(
-            key,
-            generation=generation,
-            accepted=accepted,
-            result=result,
-        )
-        if accepted and outcome_is_current:
-            self.coordinator.update_configuration_value(key, value)
-        if accepted:
-            self.coordinator.schedule_configuration_refresh()
-
-        new_state = (value == "1")
-
-        if result == ConfigurationStatus.accepted:
-            if outcome_is_current:
-                self.coordinator.external_limit_power_enable = new_state
-                self.coordinator.async_set_updated_data(True)
-            _LOGGER.info(
-                "✅ Loadbalancing enabled → %s (accepted)",
-                "ON" if new_state else "OFF"
-            )
-        elif result == ConfigurationStatus.reboot_required:
-            if outcome_is_current:
-                self.coordinator.external_limit_power_enable = new_state
-                self.coordinator.async_set_updated_data(True)
-            _LOGGER.warning(
-                "⚠️ Loadbalancing enabled → %s (reboot required)",
-                "ON" if new_state else "OFF"
-            )
-        else:
-            _LOGGER.error("❌ Enable loadbalancing change rejected: %s", result)
-            return ChargerWriteResult.failed("charger_rejected", result)
-        return ChargerWriteResult.success(result)
-
-    async def _set_value(self, value: str):
+    async def _set_value(self, value: str) -> None:
         """Queue the configuration update (prevents rapid-fire FW crashes)."""
-        if (block_reason := self._write_block_reason) is not None:
-            _LOGGER.warning("Cannot change Load Balancing: %s", block_reason)
-            raise_write_blocked(block_reason)
-        charge_point = self.coordinator.runtime_data.get("charge_point")
+        await self._writer.async_request(value)
 
-        if not charge_point:
-            _LOGGER.warning("Cannot change Loadbalancing: charger not connected")
-            raise_charger_disconnected()
 
-        new_state = value == "1"
-        if self.is_on == new_state:
-            _LOGGER.debug(
-                "Loadbalancing already %s - skipping write",
-                "ON" if new_state else "OFF",
-            )
-            return
+class LcdDisplayWritePolicy(WritePolicy[str]):
+    """Write G_LCDCloseEnable ("Disable" means the display is on)."""
 
-        generation = self.coordinator.begin_configuration_write(
-            "G_ExternalLimitPowerEnable",
-            value,
+    label = "LCD display"
+
+    def __init__(self, entity: LcdDisplaySwitch) -> None:
+        super().__init__(entity.coordinator)
+        self.entity = entity
+        self.coordinator = entity.coordinator
+
+    def encode(self, value: str) -> tuple[str, str]:
+        return KEY_LCDCLOSE_ENABLE, value
+
+    def request_block_reason(self) -> str | None:
+        return charger_write_block_reason(
+            connected=self.coordinator.connected,
+            charger_faulted=self.coordinator.charger_is_faulted,
+            reboot_pending=self.coordinator.charger_reboot_pending,
         )
-        handle = await self.coordinator.queue_write(
-            self._apply_external_limit_power_enable,
-            charge_point,
-            value,
-            generation,
-            dedupe_key="G_ExternalLimitPowerEnable",
-            command_name="ChangeConfiguration(G_ExternalLimitPowerEnable)",
-            requires_connection=True,
-            configuration_key="G_ExternalLimitPowerEnable",
-            configuration_generation=generation,
-            policy=CONFIGURATION_WRITE_POLICY,
+
+    def is_unchanged(self, value: str) -> bool:
+        desired_value = pending_configuration_value(
+            self.coordinator.configuration_writes,
+            KEY_LCDCLOSE_ENABLE,
         )
-        await async_require_command_completion(handle)
+        effective_value = (
+            desired_value if desired_value is not None else self.coordinator.lcd_close_enable
+        )
+        if effective_value != value:
+            return False
+        _LOGGER.debug(
+            "LCD display already %s - skipping write",
+            "ON" if value == "Disable" else "OFF",
+        )
+        return True
+
+    def on_skipped(self, write: ConfigurationWrite[str], reason: str) -> None:
+        _LOGGER.warning("Skipping queued LCD display change: %s", reason)
+
+    def apply_accepted(self, write: ConfigurationWrite[str]) -> None:
+        # Update the LCD observation before the reported configuration.
+        self.coordinator.lcd_close_enable = write.raw_value
+        super().apply_accepted(write)
+        self.coordinator.async_set_updated_data(True)
+
+    def report_accepted(self, write: ConfigurationWrite[str], result: object) -> None:
+        state = "ON" if write.value == "Disable" else "OFF"
+        if result == ConfigurationStatus.reboot_required:
+            _LOGGER.warning("LCD display → %s (reboot required)", state)
+        else:
+            _LOGGER.info("LCD display → %s (accepted)", state)
+
+    def on_rejected(self, write: ConfigurationWrite[str], result: object) -> None:
+        _LOGGER.error("LCD display change rejected: %s", result)
+        self.coordinator.async_set_updated_data(True)
 
 
-class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
+class LcdDisplaySwitch(ThorEntity, SwitchEntity):
     """Switch to enable/disable LCD display (G_LCDCloseEnable)."""
+
+    coordinator: GrowattCoordinator
 
     _attr_has_entity_name = True
     _attr_translation_key = "lcd_display"
     _attr_icon = "mdi:monitor"
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_lcd_display"
-        # Zelfde identifiers als de hoofdcharger zodat deze entity
-        # verschijnt bij max stroom, charge aan/uit etc.
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
-        self.hass = coordinator.hass
+        # Keep LCD controls on the same charger device as current and Start/Stop.
+        self._writer = ConfigurationWriter(coordinator, LcdDisplayWritePolicy(self))
 
     @property
-    def is_on(self):
+    def is_on(self) -> bool | None:
         """Return the desired state while a write awaits acknowledgement.
 
         Home Assistant refreshes a switch immediately after its service call.
@@ -258,7 +240,7 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
         """
         desired_value = pending_configuration_value(
             self.coordinator.configuration_writes,
-            "G_LCDCloseEnable",
+            KEY_LCDCLOSE_ENABLE,
         )
         if desired_value is not None:
             return desired_value == "Disable"
@@ -267,210 +249,97 @@ class LcdDisplaySwitch(CoordinatorEntity, SwitchEntity):
         return self.coordinator.lcd_close_enable == "Disable"
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         """Expose pending versus reported state for support diagnostics."""
-        write = self.coordinator.configuration_writes.get("G_LCDCloseEnable")
+        write = self.coordinator.configuration_writes.get(KEY_LCDCLOSE_ENABLE)
         return {
-            "ocpp_key": "G_LCDCloseEnable",
+            "ocpp_key": KEY_LCDCLOSE_ENABLE,
             "write_status": write.status.value if write is not None else None,
             "reported_state": self.coordinator.lcd_close_enable,
         }
 
     @property
-    def _write_block_reason(self) -> str | None:
-        return charger_write_block_reason(
-            connected=self.coordinator.connected,
-            charger_faulted=self.coordinator.charger_is_faulted,
-        )
-
-    @property
-    def available(self):
+    def available(self) -> bool:
         # A fault can block changing the LCD without invalidating its last
         # reported (or currently pending) state.
-        return (
-            super().available
-            and self.coordinator.connected
-            and self.is_on is not None
-        )
+        return super().available and self.coordinator.connected and self.is_on is not None
 
-    async def async_turn_on(self, **kwargs):
-        """Zet LCD AAN (G_LCDCloseEnable = Disable)."""
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn the LCD on (G_LCDCloseEnable = Disable)."""
         await self._set_value("Disable")
 
-    async def async_turn_off(self, **kwargs):
-        """Zet LCD UIT (G_LCDCloseEnable = Enable)."""
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the LCD off (G_LCDCloseEnable = Enable)."""
         await self._set_value("Enable")
 
-    async def _apply_lcd_close_enable(
-        self,
-        charge_point,
-        value: str,
-        generation: int,
-    ) -> ChargerWriteResult:
-        """Actually write LCD setting to the charger (runs inside write-queue)."""
-        if (block_reason := self._write_block_reason) is not None:
-            _LOGGER.warning("Skipping queued LCD display change: %s", block_reason)
-            self.coordinator.mark_configuration_write(
-                "G_LCDCloseEnable",
-                ConfigurationWriteStatus.SKIPPED,
-                generation=generation,
-                result=block_reason,
-            )
-            return ChargerWriteResult.skipped(block_reason)
-        _LOGGER.info("Setting G_LCDCloseEnable to %s", value)
+    async def _set_value(self, value: str) -> None:
+        """Queue the configuration update (prevents rapid-fire FW crashes).
 
-        key = "G_LCDCloseEnable"
-        try:
-            result = await charge_point.change_configuration(key, value)
-        except ChargerConnectionUnavailable:
-            raise
-        except ChargerRequestOutcomeUncertain as exc:
-            self.coordinator.mark_configuration_write(
-                key,
-                ConfigurationWriteStatus.UNCERTAIN,
-                generation=generation,
-                result=str(exc),
-            )
-            self.coordinator.schedule_configuration_refresh(delay=0)
-            return ChargerWriteResult.uncertain(str(exc))
-
-        accepted = result in {
-            ConfigurationStatus.accepted,
-            ConfigurationStatus.reboot_required,
-        }
-        outcome_is_current = self.coordinator.acknowledge_configuration_write(
-            key,
-            generation=generation,
-            accepted=accepted,
-            result=result,
-        )
-
-        if result == ConfigurationStatus.accepted:
-            if outcome_is_current:
-                self.coordinator.lcd_close_enable = value
-                self.coordinator.update_configuration_value(key, value)
-                self.coordinator.async_set_updated_data(True)
-            _LOGGER.info(
-                "✅ LCD display → %s (accepted)",
-                "ON" if value == "Disable" else "OFF"
-            )
-        elif result == ConfigurationStatus.reboot_required:
-            if outcome_is_current:
-                self.coordinator.lcd_close_enable = value
-                self.coordinator.update_configuration_value(key, value)
-                self.coordinator.async_set_updated_data(True)
-            _LOGGER.warning(
-                "⚠️ LCD display → %s (reboot required)",
-                "ON" if value == "Disable" else "OFF"
-            )
-        else:
-            _LOGGER.error("❌ LCD display change rejected: %s", result)
-            self.coordinator.async_set_updated_data(True)
-            return ChargerWriteResult.failed("charger_rejected", result)
-
-        self.coordinator.schedule_configuration_refresh()
-        return ChargerWriteResult.success(result)
-
-    async def _set_value(self, value: str):
-        """Queue the configuration update (prevents rapid-fire FW crashes)."""
-        if (block_reason := self._write_block_reason) is not None:
-            _LOGGER.warning("Cannot change LCD display: %s", block_reason)
-            raise_write_blocked(block_reason)
-        charge_point = self.coordinator.runtime_data.get("charge_point")
-
-        if not charge_point:
-            _LOGGER.warning("Cannot change LCD display: charger not connected")
-            raise_charger_disconnected()
-
-        desired_value = pending_configuration_value(
-            self.coordinator.configuration_writes,
-            "G_LCDCloseEnable",
-        )
-        effective_value = (
-            desired_value
-            if desired_value is not None
-            else self.coordinator.lcd_close_enable
-        )
-        if effective_value == value:
-            _LOGGER.debug(
-                "LCD display already %s - skipping write",
-                "ON" if value == "Disable" else "OFF",
-            )
-            return
-
-        # Begin tracking before enqueueing so ``is_on`` can expose the user's
-        # desired value during the rate-limit wait.
-        generation = self.coordinator.begin_configuration_write(
-            "G_LCDCloseEnable",
-            value,
-        )
-        handle = await self.coordinator.queue_write(
-            self._apply_lcd_close_enable,
-            charge_point,
-            value,
-            generation,
-            dedupe_key="G_LCDCloseEnable",
-            command_name="ChangeConfiguration(G_LCDCloseEnable)",
-            requires_connection=True,
-            configuration_key="G_LCDCloseEnable",
-            configuration_generation=generation,
-            policy=CONFIGURATION_WRITE_POLICY,
-        )
-        await async_require_command_completion(handle)
+        Write tracking begins before enqueueing so ``is_on`` can expose the
+        user's desired value during the rate-limit wait.
+        """
+        await self._writer.async_request(value)
 
 
-class BaseModeAwareSwitch(
-    GrowattConfigurationControlMixin,
-    CoordinatorEntity,
-    SwitchEntity,
-):
-    """Base class for verified boolean Growatt configuration controls."""
+@dataclass(frozen=True, kw_only=True)
+class ConfigurationControlSwitchDescription:
+    """Declare one verified boolean control; the unique ID is ``<entry>_<key>_control``."""
+
+    key: str
+    control: ChargingControl
+    icon: str
+
+
+CONTROL_SWITCHES = (
+    # Allow compatible vehicles to draw power after reaching full charge.
+    ConfigurationControlSwitchDescription(
+        key="warm_up",
+        control=ChargingControl.WARM_UP,
+        icon="mdi:car-defrost-front",
+    ),
+)
+
+
+class ConfigurationControlSwitch(ThorEntity, SwitchEntity):
+    """Write one verified boolean Growatt configuration control."""
+
+    coordinator: GrowattCoordinator
 
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, entry, key):
-        super().__init__(coordinator)
-        self.hass = coordinator.hass
-        self._attr_unique_id = f"{entry.entry_id}_{key}_control"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Growatt THOR EV Charger",
-            "manufacturer": "Growatt",
-            "model": "THOR",
-        }
+    def __init__(
+        self,
+        coordinator: GrowattCoordinator,
+        entry: ConfigEntry,
+        description: ConfigurationControlSwitchDescription,
+    ) -> None:
+        super().__init__(coordinator, entry)
+        self._description = description
+        self._configuration = ConfigurationControl(coordinator, description.control)
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}_control"
+        self._attr_translation_key = description.key
+        self._attr_icon = description.icon
 
     @property
-    def is_on(self):
-        state = configuration_entity_state(
-            self._configuration_key,
-            self._configuration_value,
-        )
+    def is_on(self) -> bool | None:
+        state = self._configuration.state
         if state is None:
             return None
         return state == "enabled"
 
     @property
-    def available(self):
-        return super().available and self._control_available
+    def available(self) -> bool:
+        return super().available and self._configuration.available
 
-    async def async_turn_on(self, **kwargs):
-        await self._async_write_configuration(
-            encode_control_value(self._control, True)
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        return self._configuration.attributes
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self._configuration.async_write(encode_control_value(self._description.control, True))
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self._configuration.async_write(
+            encode_control_value(self._description.control, False)
         )
-
-    async def async_turn_off(self, **kwargs):
-        await self._async_write_configuration(
-            encode_control_value(self._control, False)
-        )
-
-
-class WarmUpSwitch(BaseModeAwareSwitch):
-    """Allow compatible vehicles to draw power after reaching full charge."""
-
-    _control = ChargingControl.WARM_UP
-    _attr_translation_key = "warm_up"
-    _attr_icon = "mdi:car-defrost-front"
-
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry, "warm_up")

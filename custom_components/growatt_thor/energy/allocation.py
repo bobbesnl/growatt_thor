@@ -1,0 +1,290 @@
+"""Deterministic, Home Assistant independent site EV accounting.
+
+Power observations describe the same time interval as the authoritative EV delta.
+A priority is a declared booking policy, never evidence of electron provenance.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from math import isfinite
+from typing import Literal, NotRequired, TypedDict
+
+from .site_observations import BucketQuality, PowerObservation, SiteObservations
+
+TOLERANCE_KWH = 1e-6
+POLICY_VERSION = 1
+
+
+@dataclass(frozen=True, slots=True)
+class EVEnergyDelta:
+    site_id: str
+    charger_id: str
+    transaction_id: str
+    start_at: datetime
+    end_at: datetime
+    kwh: float
+    source: Literal["ocpp_meter", "ocpp_stop", "growatt_record", "power_fallback"] = "ocpp_meter"
+
+    @property
+    def hours(self) -> float:
+        return max(0.0, (self.end_at - self.start_at).total_seconds() / 3600)
+
+
+@dataclass(frozen=True, slots=True)
+class Tariff:
+    price_per_kwh: float | None
+    currency: str = "EUR"
+    observed_at: datetime | None = None
+    max_age_s: int | None = 3600
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+
+    def price_at(self, at: datetime) -> float | None:
+        if self.price_per_kwh is None or not isfinite(self.price_per_kwh):
+            return None
+        if at.tzinfo is None:
+            return None
+        if self.valid_from is not None and (self.valid_from.tzinfo is None or at < self.valid_from):
+            return None
+        if self.valid_to is not None and (self.valid_to.tzinfo is None or at >= self.valid_to):
+            return None
+        if self.observed_at is None:
+            return self.price_per_kwh  # fixed tariff
+        if self.observed_at.tzinfo is None or at.tzinfo is None:
+            return None
+        age = (at - self.observed_at).total_seconds()
+        return (
+            self.price_per_kwh
+            if age >= 0 and (self.max_age_s is None or age <= self.max_age_s)
+            else None
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class AccountingPolicy:
+    policy_id: Literal["grid_first", "load_first"] = "grid_first"
+    policy_version: int = POLICY_VERSION
+    topology: Literal["grid_only", "pv", "pv_battery"] = "grid_only"
+
+
+@dataclass(frozen=True, slots=True)
+class DataQuality:
+    quality: BucketQuality
+    coverage: float
+    missing: tuple[str, ...] = ()
+
+
+class AccountingPolicyData(TypedDict):
+    id: str
+    version: int
+    topology: NotRequired[str | None]
+
+
+class SessionAccountingData(TypedDict):
+    source_energy_kwh: dict[str, float]
+    effective_grid_cost: float | None
+    accounting_coverage: float
+    accounting_quality: str
+    accounting_policy: AccountingPolicyData
+    green_energy_kwh: NotRequired[float | None]
+
+
+@dataclass(frozen=True, slots=True)
+class Allocation:
+    direct_solar: float
+    direct_grid: float
+    battery_unknown: float
+    unknown: float
+    effective_grid_cost: float | None
+    data_quality: DataQuality
+    policy_id: str
+    policy_version: int
+
+    def as_session_dict(self) -> SessionAccountingData:
+        return {
+            "source_energy_kwh": {
+                "direct_solar": self.direct_solar,
+                "direct_grid": self.direct_grid,
+                "battery_unknown": self.battery_unknown,
+                "unknown": self.unknown,
+            },
+            "effective_grid_cost": self.effective_grid_cost,
+            "accounting_coverage": self.data_quality.coverage,
+            "accounting_quality": self.data_quality.quality,
+            "accounting_policy": {"id": self.policy_id, "version": self.policy_version},
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class _AllocationInputs:
+    direct_grid: float | None
+    direct_solar: float | None
+    grid: float | None
+    solar: float | None
+    household: float | None
+    battery: float | None
+    battery_charge: float | None
+    missing: tuple[str, ...]
+    measured: bool
+
+
+def allocate(
+    delta: EVEnergyDelta,
+    site: SiteObservations,
+    tariff: Tariff,
+    policy: AccountingPolicy,
+) -> Allocation:
+    """Allocate one positive EV meter delta; unproven residual remains unknown."""
+    if not isfinite(delta.kwh) or delta.kwh < 0 or delta.hours <= 0:
+        raise ValueError("EV delta and interval must be positive and finite")
+    remaining = delta.kwh
+    inputs = _allocation_inputs(delta, site, policy)
+    grid_kwh = solar_kwh = battery_kwh = 0.0
+
+    # Explicit directed measurements always win over a declared priority.
+    if inputs.direct_grid is not None:
+        grid_kwh = min(remaining, inputs.direct_grid)
+        remaining -= grid_kwh
+    if inputs.direct_solar is not None:
+        solar_kwh = min(remaining, inputs.direct_solar)
+        remaining -= solar_kwh
+
+    if policy.topology == "grid_only":
+        grid_kwh += remaining
+        remaining = 0.0
+    else:
+        available_solar = _available_solar(inputs, policy)
+        if (
+            policy.policy_id == "load_first"
+            and inputs.direct_solar is None
+            and available_solar is not None
+            and inputs.grid is not None
+        ):
+            solar_share = min(remaining, available_solar)
+            solar_kwh += solar_share
+            remaining -= solar_share
+        if inputs.direct_grid is None and inputs.grid is not None:
+            grid_share = min(remaining, inputs.grid)
+            grid_kwh += grid_share
+            remaining -= grid_share
+        if inputs.battery is not None and inputs.grid is not None:
+            battery_kwh = min(remaining, inputs.battery)
+            remaining -= battery_kwh
+        if (
+            policy.policy_id == "grid_first"
+            and inputs.direct_solar is None
+            and available_solar is not None
+            and inputs.grid is not None
+        ):
+            solar_share = min(remaining, available_solar)
+            solar_kwh += solar_share
+            remaining -= solar_share
+    unknown = max(0.0, remaining)
+    # Clamp floating arithmetic and keep the balance exact.
+    unknown = max(0.0, delta.kwh - grid_kwh - solar_kwh - battery_kwh)
+    coverage = max(0.0, min(1.0, (delta.kwh - unknown) / delta.kwh)) if delta.kwh else 1.0
+    quality = _allocation_quality(unknown, inputs, policy)
+    price = tariff.price_at(delta.end_at)
+    cost = grid_kwh * price if price is not None else None
+    return Allocation(
+        solar_kwh,
+        grid_kwh,
+        battery_kwh,
+        unknown,
+        cost,
+        DataQuality(quality, coverage, tuple(inputs.missing)),
+        policy.policy_id,
+        policy.policy_version,
+    )
+
+
+def _allocation_inputs(
+    delta: EVEnergyDelta, site: SiteObservations, policy: AccountingPolicy
+) -> _AllocationInputs:
+    missing: list[str] = []
+    measured = False
+
+    def energy(name: str, observation: PowerObservation | None) -> float | None:
+        nonlocal measured
+        value = observation.value_at(delta.end_at) if observation else None
+        if value is None:
+            missing.append(name)
+            return None
+        if value < 0 and name not in ("grid", "battery"):
+            missing.append(name)
+            return None
+        measured = True
+        return max(0.0, value) * delta.hours / 1000
+
+    direct_grid = energy("direct_grid", site.direct_grid) if site.direct_grid else None
+    direct_solar = energy("direct_solar", site.direct_solar) if site.direct_solar else None
+    grid = energy("grid", site.grid) if policy.topology != "grid_only" else None
+    solar = energy("solar", site.solar) if policy.topology != "grid_only" else None
+    household = (
+        energy("household", site.household)
+        if site.household and policy.topology != "grid_only"
+        else None
+    )
+    if (
+        household is None
+        and policy.policy_id == "load_first"
+        and policy.topology != "grid_only"
+        and "household" not in missing
+    ):
+        missing.append("household")
+    battery = energy("battery", site.battery) if policy.topology == "pv_battery" else None
+    battery_charge = None
+    if policy.topology == "pv_battery" and site.battery:
+        value = site.battery.value_at(delta.end_at)
+        battery_charge = max(0.0, -value) * delta.hours / 1000 if value is not None else None
+    return _AllocationInputs(
+        direct_grid=direct_grid,
+        direct_solar=direct_solar,
+        grid=grid,
+        solar=solar,
+        household=household,
+        battery=battery,
+        battery_charge=battery_charge,
+        missing=tuple(missing),
+        measured=measured,
+    )
+
+
+def _available_solar(inputs: _AllocationInputs, policy: AccountingPolicy) -> float | None:
+    if policy.policy_id == "load_first":
+        # The measured PV supply is booked to household and battery charge
+        # before EVSE. Thermal load follows EVSE and cannot reduce its share.
+        return (
+            max(0.0, inputs.solar - inputs.household - (inputs.battery_charge or 0.0))
+            if inputs.solar is not None
+            and inputs.household is not None
+            and (policy.topology != "pv_battery" or inputs.battery_charge is not None)
+            else None
+        )
+    else:
+        return (
+            max(0.0, inputs.solar - (inputs.household or 0.0) - (inputs.battery_charge or 0.0))
+            if inputs.solar is not None
+            and (policy.topology != "pv_battery" or inputs.battery_charge is not None)
+            else None
+        )
+
+
+def _allocation_quality(
+    unknown: float, inputs: _AllocationInputs, policy: AccountingPolicy
+) -> BucketQuality:
+    return (
+        "unknown"
+        if unknown > TOLERANCE_KWH
+        else (
+            "measured"
+            if inputs.direct_grid is not None or inputs.direct_solar is not None
+            else "declared"
+            if policy.policy_id == "load_first" or policy.topology == "grid_only"
+            else "derived"
+            if inputs.measured
+            else "unknown"
+        )
+    )

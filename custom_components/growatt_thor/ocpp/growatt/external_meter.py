@@ -1,0 +1,123 @@
+"""Parsing for Growatt external-meter DataTransfer payloads."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from urllib.parse import parse_qsl
+
+from ...coerce import enum_value
+
+_VOLTAGE_FIELDS = {
+    "u-voltage": "L1",
+    "v-voltage": "L2",
+    "w-voltage": "L3",
+}
+_CURRENT_FIELDS = {
+    "u-current": "L1",
+    "v-current": "L2",
+    "w-current": "L3",
+}
+
+EXTERNAL_METER_HEALTH_OPTIONS = (
+    "healthy",
+    "faulted",
+    "stale",
+    "not_reported",
+)
+EXTERNAL_METER_STALE_AFTER_TIMEOUTS = 3
+
+
+@dataclass(frozen=True)
+class ExternalMeterSnapshot:
+    """One parsed get_external_meterval response."""
+
+    used: int | None
+    wring: int | None
+    power: float | None
+    voltages: dict[str, float]
+    currents: dict[str, float]
+
+
+def _normalized_token(value: object) -> str:
+    """Normalize OCPP enum and string values for fault matching."""
+    value = enum_value(value)
+    return "".join(character for character in str(value or "").casefold() if character.isalnum())
+
+
+def status_reports_external_meter_fault(
+    error_code: object,
+    info: object = None,
+) -> bool:
+    """Return whether a StatusNotification reports the observed Modbus fault."""
+    return (
+        _normalized_token(error_code) == "powermeterfailure"
+        or _normalized_token(info) == "485fault"
+    )
+
+
+def status_clears_external_meter_fault(error_code: object) -> bool:
+    """Return whether a StatusNotification explicitly clears its error state."""
+    return _normalized_token(error_code) == "noerror"
+
+
+def external_meter_health(
+    *,
+    explicit_fault: bool,
+    consecutive_timeouts: int,
+    has_snapshot: bool,
+) -> str:
+    """Derive external-meter health without treating zero readings as faults."""
+    if explicit_fault:
+        return "faulted"
+    if consecutive_timeouts >= EXTERNAL_METER_STALE_AFTER_TIMEOUTS:
+        return "stale"
+    if has_snapshot:
+        return "healthy"
+    return "not_reported"
+
+
+def _optional_int(values: dict[str, str], key: str) -> int | None:
+    value = values.get(key)
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _optional_float(values: dict[str, str], key: str) -> float | None:
+    value = values.get(key)
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def parse_external_meter_data(data: str) -> ExternalMeterSnapshot:
+    """Parse the query-string-like Growatt external-meter payload."""
+    if not isinstance(data, str):
+        raise TypeError("external-meter payload must be a string")
+
+    values = dict(parse_qsl(data, keep_blank_values=True))
+    voltages = {
+        phase: value
+        for key, phase in _VOLTAGE_FIELDS.items()
+        if (value := _optional_float(values, key)) is not None
+    }
+    currents = {
+        phase: value
+        for key, phase in _CURRENT_FIELDS.items()
+        if (value := _optional_float(values, key)) is not None
+    }
+
+    return ExternalMeterSnapshot(
+        used=_optional_int(values, "used"),
+        # Growatt sends "wring" on the wire; this may be a vendor typo for "wiring".
+        wring=_optional_int(values, "wring"),
+        power=_optional_float(values, "power"),
+        voltages=voltages,
+        currents=currents,
+    )

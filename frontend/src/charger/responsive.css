@@ -1,0 +1,201 @@
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+@container (max-width:360px) {
+  .card {
+    padding: 16px;
+  }
+  .hero {
+    gap: 12px;
+    grid-template-columns: minmax(64px, 0.55fr) minmax(0, 1.6fr);
+  }
+  h2 {
+    font-size: 19px;
+  }
+  .mode {
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+  .reading strong {
+    font-size: 30px;
+  }
+  .phase-row {
+    gap: 5px;
+  }
+}
+@container (max-width:420px) {
+  .card {
+    padding: 20px;
+  }
+  header {
+    gap: 10px;
+  }
+  h2 {
+    font-size: 25px;
+    margin: 0;
+  }
+  .mode {
+    font-size: 12px;
+    padding: 6px 10px;
+    min-height: 29px;
+  }
+  .hero {
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 16px 14px;
+    margin: 20px 0;
+  }
+  .instrument {
+    display: contents;
+  }
+  .device {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: center;
+    width: 78px;
+    padding: 0;
+    margin: 0;
+  }
+  .device-art {
+    max-height: 142px;
+  }
+  .gauge {
+    grid-column: 2;
+    grid-row: 1;
+    max-width: 240px;
+    margin: 0;
+    justify-self: center;
+  }
+  .hero.no-image .gauge {
+    grid-column: 1/-1;
+  }
+  .phases {
+    grid-column: 1/-1;
+    grid-row: 2;
+    margin-top: 0;
+  }
+  .reading strong {
+    font-size: 32px;
+  }
+  .reading .rest-label {
+    font-size: 20px;
+  }
+  .reading .rest-icon {
+    --mdc-icon-size: 20px;
+    margin-bottom: 4px;
+  }
+  .reading small {
+    font-size: 11px;
+  }
+  .gauge-scale,
+  .phase-heading,
+  .gauge-target {
+    font-size: 12px;
+  }
+  .grid-balance {
+    font-size: 12px;
+  }
+  .phase-label,
+  .phase-value {
+    font-size: 14px;
+  }
+  .phase-row {
+    gap: 8px;
+  }
+  .phase-track {
+    height: 12px;
+  }
+  .vehicle,
+  .hint {
+    font-size: 14px;
+  }
+  .status {
+    font-size: 15px;
+  }
+  .session-title,
+  .metric small {
+    font-size: 12px;
+  }
+  .session {
+    padding: 13px 12px;
+  }
+  .metrics {
+    gap: 7px;
+  }
+  .metric {
+    gap: 5px;
+  }
+  .metric + .metric {
+    padding-left: 7px;
+  }
+  .metric strong {
+    font-size: 20px;
+  }
+  .metric .unit,
+  .metric small {
+    font-size: 10px;
+  }
+  .action,
+  .activation {
+    font-size: 13px;
+  }
+  .activation-hint,
+  .text-button {
+    font-size: 12px;
+  }
+}
+@container (max-width:300px) {
+  .card {
+    padding: 16px;
+  }
+  h2 {
+    font-size: 21px;
+  }
+  .mode {
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+  .reading .rest-label {
+    font-size: 18px;
+  }
+}
+@container (max-width:340px) {
+  .hero {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 14px 10px;
+  }
+  .device {
+    width: 64px;
+  }
+  .reading strong {
+    font-size: 28px;
+  }
+  .reading .rest-label {
+    font-size: 18px;
+  }
+  .reading small {
+    font-size: 10px;
+  }
+  .session {
+    padding: 12px 10px;
+  }
+  .metrics {
+    gap: 4px;
+  }
+  .metric {
+    gap: 4px;
+  }
+  .metric + .metric {
+    padding-left: 4px;
+  }
+  .metric strong {
+    font-size: 16px;
+  }
+  .metric .unit,
+  .metric small {
+    font-size: 9px;
+  }
+}

@@ -181,6 +181,14 @@ L3 remained at zero. The coordinator retains all samples from the latest
 `MeterValues` request, including unknown measurands and vendor fields. Only the
 validated measurands in the table above are mapped to Home Assistant entities.
 
+### Fixed wallbox clock after the autumn change
+
+Read-only live diagnostics on 2026-10-27 confirmed this behavior on `THOR_22AS-V2.2.16-20240902`: `G_TimeZone=UTC+2`, `G_DaylightSavingTime=00-00&00-00`, and an offset-free meter timestamp `2026-10-27T13:18:04` received at `2026-10-27T11:18:05Z`. Home Assistant used `Europe/Berlin`, which was UTC+1 on that date. Treating the device clock as Berlin local time produced `12:18:04Z`, nearly one hour in the future, and correctly failed the card's freshness check despite current power and phase readings.
+
+Live meter normalization now uses the reported fixed offset for the observed disabled-DST setting. The same sample becomes `11:18:04Z`, one second before receipt. Explicit offsets in a payload remain authoritative, raw timestamps are preserved, and packet arrival is never used to infer or renew a sample's timestamp. Missing or unsupported clock/DST settings retain the installation-zone fallback; seasonal vendor encodings other than the observed disabled form are not interpreted. This correction applies to incoming MeterValues; it does not change charger settings, retrofit historical CSV times or alter charging schedules.
+
+The active session's displayed start time uses the same reported clock basis, after its stable identity has been computed from the original timestamp. Updating the parser during a session can leave a saved curve containing both the previous, shifted points and new, correct points. Such a mixed curve is not repaired by sorting it or silently shifting timestamps: a one-off correction needs the known old/new clock bases and a backup. Existing source-accounting gaps cannot be reconstructed from charging power alone.
+
 ## Growatt DataTransfer payloads
 
 Growatt encodes these payloads as query-string-like data. The raw value should
@@ -252,6 +260,12 @@ integration sends `vendorId=Growatt` and the tested charger accepts it.
 | `power` | Signed total grid power in W; import/export sign needs more captures | Grid power | 2.2.16 | observed, inferred, implemented |
 
 Do not treat the sign of `power` as a proven import/export convention yet.
+
+#### Repeated readings with `used=0` in Fast mode
+
+On a THOR 22AS running `THOR_22AS-V2.2.16-20240902`, Home Assistant recorded changing grid power and `used=1` before leaving PV Linkage. After switching to `Fast` with external load balancing off, while the charger was still idle, it began repeating the last 1,582 W reading. The charger continued to answer `Accepted` every 30 seconds and repeated `used=0`, the same power, and identical voltages and currents on all three phases. During charging an independent inverter measurement rose from roughly 1.6 to 8.6 kW while the THOR reading stayed fixed for more than 30 minutes. The integration continued to poll and its health status confirmed communication.
+
+The full repeated snapshot suggests the firmware can return cached measurements when it is not using the external meter. This capture cannot separate the effect of Fast mode from disabled load balancing. Compare `Fast` with load balancing off, `Power Distribution` with load balancing on, and PV Linkage on the same idle charger before treating `used=0` as a validated freshness rule.
 
 #### External meter Modbus failure
 

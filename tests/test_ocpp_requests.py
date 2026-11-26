@@ -1,33 +1,22 @@
 """Regression tests for the application-level OCPP request gate."""
+
 from __future__ import annotations
 
 import asyncio
-import importlib.util
-from pathlib import Path
-import sys
-import types
 import unittest
 
+from tests.support import load_package_module, register_package
 
-PACKAGE_PATH = Path(__file__).parents[1] / "custom_components" / "growatt_thor"
 PACKAGE_NAME = "growatt_thor_request_test_target"
-package = types.ModuleType(PACKAGE_NAME)
-package.__path__ = [str(PACKAGE_PATH)]
-sys.modules[PACKAGE_NAME] = package
+package = register_package(PACKAGE_NAME)
 
 
 def _load_module(name: str):
-    path = PACKAGE_PATH / f"{name}.py"
-    spec = importlib.util.spec_from_file_location(f"{PACKAGE_NAME}.{name}", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_package_module(name, package_name=PACKAGE_NAME)
 
 
-write_queue = _load_module("write_queue")
-requests = _load_module("ocpp_requests")
+write_queue = _load_module("runtime.write_results")
+requests = _load_module("ocpp.core.requests")
 
 
 class TransportClosed(RuntimeError):
@@ -147,6 +136,7 @@ class OcppRequestGateTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_response_from_superseded_connection_is_not_published(self):
         """A reconnect during an in-flight call invalidates the old result."""
+
         async def write():
             self.current = False
             return "Accepted"
@@ -159,7 +149,7 @@ class OcppRequestGateTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_write_timeout_is_uncertain_instead_of_rejected(self):
         async def write():
-            raise asyncio.TimeoutError
+            raise TimeoutError
 
         with self.assertRaises(write_queue.ChargerRequestOutcomeUncertain):
             await self.gate.run(
@@ -170,8 +160,9 @@ class OcppRequestGateTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_read_timeout_remains_a_normal_poll_failure(self):
         """Read timeouts need retry, but do not imply an unknown write state."""
+
         async def read():
-            raise asyncio.TimeoutError
+            raise TimeoutError
 
         with self.assertRaises(asyncio.TimeoutError):
             await self.gate.run("read", read)

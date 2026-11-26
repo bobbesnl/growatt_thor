@@ -1,0 +1,688 @@
+[
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": 4.5
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": true
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "str",
+        "value": "ws://example.invalid"
+      },
+      "lcd_close_enable": {
+        "type": "str",
+        "value": "1"
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": 0.12
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "01:00:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "06:00:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "01:00:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "06:00:00"
+      }
+    },
+    "notifications": 1
+  },
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": 4.5
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": true
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "str",
+        "value": "ws://example.invalid"
+      },
+      "lcd_close_enable": {
+        "type": "str",
+        "value": "1"
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": 0.12
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "01:00:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "06:00:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "01:00:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "06:00:00"
+      }
+    },
+    "notifications": 1
+  },
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": 4.5
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": true
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "str",
+        "value": "ws://example.invalid"
+      },
+      "lcd_close_enable": {
+        "type": "str",
+        "value": "1"
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": 0.12
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "06:04:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "06:04:00"
+      }
+    },
+    "notifications": 2
+  },
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": 4.5
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": true
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "str",
+        "value": "ws://example.invalid"
+      },
+      "lcd_close_enable": {
+        "type": "str",
+        "value": "1"
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": 0.12
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "06:04:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "06:04:00"
+      }
+    },
+    "notifications": 3
+  },
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": 4.5
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": true
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "str",
+        "value": "ws://example.invalid"
+      },
+      "lcd_close_enable": {
+        "type": "str",
+        "value": "1"
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": 0.12
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "06:04:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "06:04:00"
+      }
+    },
+    "notifications": 4
+  },
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": 4.5
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": true
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "str",
+        "value": "ws://example.invalid"
+      },
+      "lcd_close_enable": {
+        "type": "str",
+        "value": "1"
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": 0.12
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "06:04:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "06:04:00"
+      }
+    },
+    "notifications": 5
+  },
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": 4.5
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": true
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "str",
+        "value": "ws://example.invalid"
+      },
+      "lcd_close_enable": {
+        "type": "str",
+        "value": "1"
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": 0.12
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "06:04:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "06:04:00"
+      }
+    },
+    "notifications": 6
+  },
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": 4.5
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": true
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "str",
+        "value": "ws://example.invalid"
+      },
+      "lcd_close_enable": {
+        "type": "str",
+        "value": "1"
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": 0.12
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "06:04:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "06:04:00"
+      }
+    },
+    "notifications": 7
+  },
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": "nan"
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": true
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "str",
+        "value": "ws://example.invalid"
+      },
+      "lcd_close_enable": {
+        "type": "str",
+        "value": "1"
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": 0.12
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "06:04:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "06:04:00"
+      }
+    },
+    "notifications": 8
+  },
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": "nan"
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": true
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "str",
+        "value": "ws://example.invalid"
+      },
+      "lcd_close_enable": {
+        "type": "str",
+        "value": "1"
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": 0.12
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "06:04:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "06:04:00"
+      }
+    },
+    "notifications": 9
+  },
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": "nan"
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": true
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "str",
+        "value": "ws://example.invalid"
+      },
+      "lcd_close_enable": {
+        "type": "str",
+        "value": "1"
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": -0.05
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "06:04:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "06:04:00"
+      }
+    },
+    "notifications": 10
+  },
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": "nan"
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": true
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "NoneType",
+        "value": null
+      },
+      "lcd_close_enable": {
+        "type": "NoneType",
+        "value": null
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": -0.05
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "06:04:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "01:02:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "06:04:00"
+      }
+    },
+    "notifications": 11
+  },
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": "nan"
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": false
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "NoneType",
+        "value": null
+      },
+      "lcd_close_enable": {
+        "type": "NoneType",
+        "value": null
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": -0.05
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "00:00:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "23:59:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "00:00:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "23:59:00"
+      }
+    },
+    "notifications": 12
+  },
+  {
+    "values": {
+      "max_current": {
+        "type": "float",
+        "value": 16.0
+      },
+      "external_limit_power": {
+        "type": "float",
+        "value": "nan"
+      },
+      "external_limit_power_enable": {
+        "type": "bool",
+        "value": false
+      },
+      "charger_mode": {
+        "type": "int",
+        "value": 3
+      },
+      "server_url": {
+        "type": "NoneType",
+        "value": null
+      },
+      "lcd_close_enable": {
+        "type": "NoneType",
+        "value": null
+      },
+      "electricity_price": {
+        "type": "float",
+        "value": -0.05
+      },
+      "auto_charge_start_time": {
+        "type": "time",
+        "value": "00:00:00"
+      },
+      "auto_charge_stop_time": {
+        "type": "time",
+        "value": "23:59:00"
+      },
+      "auto_charge_start_time_pending": {
+        "type": "time",
+        "value": "00:00:00"
+      },
+      "auto_charge_stop_time_pending": {
+        "type": "time",
+        "value": "23:59:00"
+      }
+    },
+    "notifications": 13
+  }
+]

@@ -2,14 +2,205 @@
 
 All notable changes to the Growatt THOR EV Charger integration will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## 2.0.0-beta.1 — 2026-11-26
+
+### Added
+
+- Select **Fast** directly from the charging strategy badge or open the guided PV charging settings.
+- See progress toward active energy and duration targets on the charging card. Session history shows the original target and how much of it was reached when the measurement is available.
+- Restart a connected, idle wallbox manually with **Restart charger** on its Home Assistant device page.
+
+### Fixed
+
+- Fix selection of the Eastron SDM630 external meter on the THOR 11AS-P with firmware `THOR_11AS-V2.2.16-20240902`.
+- Skip queued settings and charging-target changes while the wallbox is restarting. Stop stays available for an active session.
+
+### Changed
+
+- Show kW in the charging-source legend and make **Set charging target** the primary action in the target dialog.
+
+## 2.0.0-alpha.4 — 2026-11-04
+
+### Added
+
+- Add binary sensors for vehicle connection, charging, charger faults and connectivity, plus events and device triggers for command results, sessions, charging targets and faults.
+- Include the latest 50 OCPP messages in downloaded diagnostics, with sensitive data redacted. The message log is kept in memory only.
+
+### Fixed
+
+- Show **Restarting** and temporarily block settings changes and Start when a charger reboot is expected. Stop remains available; the block ends on reconnection or after two minutes.
+- Restore setup on Home Assistant versions before 2026.8 and install the required connection library automatically.
+- Improve long charger names, dropdown spacing and session-table layout; show protection-stop times in the Home Assistant time zone.
+- Show a field error when a polling interval is too large.
+
+### Changed
+
+- Update both dashboard cards directly when their data changes, with the Status sensor retained as a fallback. Use native Home Assistant forms in the card editors.
+- Separate charger state, controls and configuration handling to make maintenance safer, and expand automated checks against real Home Assistant with a simulated charger.
+- Replace the deprecated connection-server API and declare Home Assistant 2024.12.0 as the minimum version in HACS.
+
+## 2.0.0-alpha.3 — 2026-11-02
+
+### Fixed
+
+- Restore live charging curves, prevent gaps in session charts and retain the selected zoom level during updates.
+- Correct spacing in the charging-target dialog.
+- Fill in missing dashboard translations.
+
+### Changed
+
+- Match form controls and scrollbars to dark cards.
+- Improve internal code quality, automated checks and diagnostic logs.
+
+## 2.0.0-alpha.2 — 2026-10-30
+
+### Added
+
+- Learn RFID cards directly from the wallbox and give them names, such as “Family car”. Names appear in the charging history and CSV exports.
+- Add PV surplus, household power, battery flow and current readings to session charts, including across Home Assistant restarts.
+- Choose the local connection address when Home Assistant has multiple network connections.
+
+### Fixed
+
+- Correct charging readings, session times and daily schedules around time-zone and daylight-saving changes.
+- Show charging pauses and manual stops correctly, without reporting an unplugged cable when it is still connected.
+- Preserve recent session details after restarts and prevent duplicate sessions or energy totals.
+- Restore session charts reliably and include known solar energy even when some energy sources are unknown. Minimum green-energy totals are marked with `≥`.
+- Improve recovery of charging targets and automatic protection stops after interrupted requests.
+- Remember the assigned wallbox after restarts and reduce unnecessary connection requests.
+- Complete translations and correct the version shown in the dashboard card.
+
+### Changed
+
+- Clearly separate measured charging power, the estimated target and the allowed grid contribution in the gauge.
+- Keep mode buttons together where space allows and shorten long wallbox names.
+- Keep the dashboard and history available while disconnected. **Automations checking for `unavailable` must also handle the new `offline` status.**
+- Reduce Home Assistant history storage and improve CSV download privacy. Download links expire after 15 minutes; anyone with the link can access the file until then.
+
+## 2.0.0-alpha.1 — 2026-10-25
+
+### Fixed
+
+- Backport Thijs's PRs [#58](https://github.com/bobbesnl/growatt_thor/pull/58) and [#62](https://github.com/bobbesnl/growatt_thor/pull/62) onto the modular 2.0 architecture.
+- Isolate OCPP connections, write queues, polling, options, diagnostics and persistent statistics per config entry. Each charger uses its own listen port; a duplicate port is rejected in all eight languages.
+- Release only the affected entry after a failed setup. Keep its connection, write queue and background tasks running if platform unload fails.
+- Reset live power and current outside Charging, ignore late live samples until charging resumes, and apply the same display rule to the Lovelace Card while retaining raw diagnostics.
+- Keep charged energy unknown when no value is available instead of manufacturing a zero that could double-count a running session in statistics.
+- Scope 2.0 charging targets, PV profiles, protection stops, history summaries and WebSocket session details to the selected charger. Ambiguous target actions require an entry ID; the card also targets schedule cancellation explicitly.
+
+### Changed
+
+- Merge the development history through 1.7.1, including local Home Assistant brand assets, while preserving the modular 2.0 implementation and bundled cards.
+
+### Migration and validation
+
+- Seed existing entries once from the shared statistics store; newly added entries start empty. Existing mixed statistics cannot be split retrospectively.
+- Keep the shared CSV export and legacy rows. Card history resolves legacy rows by charger ID; new rows and retained archive totals carry entry ownership. Unlabelled archived totals are inherited only by a sole pre-upgrade entry, otherwise remain in the combined history/export context.
+- Preserve entity IDs, existing 2.0 session checkpoints and charging-target storage. Coordinated load balancing and allocation of shared site energy across chargers remain separate features.
+- Add regression coverage for lifecycle failures with real local server ports, two-charger OCPP routing, target/PV dispatch, history isolation, retention, live card values and the energy sensor. Real-device validation of this 2.0 backport remains outstanding.
+
+## 2.0.0-dev.10 — 2026-10-19
+
+### Fixed
+
+- Treat Power Distribution as Fast with load balancing enabled, preserving the raw diagnostic value and keeping Fast controls available after readback.
+- Align working-mode translations and explanations in all eight languages.
+- Use serializable Home Assistant number selectors for setup and general settings, retaining strict validation in the flow handlers.
+- Cover selector serialization, PV Boost applicability and load-balancing mode transitions with regression tests.
+
+### Changed
+
+- Run the complete Python suite on pushes and pull requests, with an optional manual workflow run.
+- Include the pending mobile history scrolling fix and the localized home-battery discharge warning.
+
+## 2.0.0-dev.9
+
+### Fixed
+
+- Restrict automatic energy-protection stops to PV Linkage+ (solar surplus only), reset the waiting period outside that mode, and recheck the mode before sending a queued stop.
+- Clear the last protection-stop notice when a new charging session starts, while retaining the previous session's stop event in history.
+
+### Changed
+
+- Give the Stop charging button a subtle red tint in light and dark themes; keep disabled styling neutral.
+- Clarify the PV Linkage+ restriction in the settings and energy handbook.
+
+## 2.0.0-dev.8
+
+### Changed
+
+- Default automatic charging protection to 500 W sustained for three minutes, with up to two additional minutes when fresh PV readings cover the charging power.
+- Show the last automatic protection stop and its reason in the charging card.
+
+### Fixed
+
+- Align source accounting with live meter reports and update green energy and grid costs during active sessions.
+- Prefer site accounting costs for completed sessions, show missing tariff data explicitly, and accept daily tariff time windows.
+- Show session IDs in the history table and responsive session cards.
+- Show loading states while Home Assistant and the integration initialize, and remove stray dots at the gauge endpoint.
+- Allow manual starts after a Plug & Charge stop, including PV Linkage+, without changing the charging mode or adding automatic restart.
+- Respect explicitly allowed Home Assistant starts even with legacy RFID storage, and distinguish local access denials from charger rejection.
+
+## 2.0.0-dev.7
+
+### Fixed
+
+- Declare the config-entry-only setup schema and HTTP dependency, and sort manifest keys for Hassfest.
+- Keep available, unchanged Home Assistant power readings usable for source allocation while retaining recent-report checks for automatic charging stops.
+- Show the normal green charging gauge with an explanatory hint when all charging sources are unassigned.
+- Keep the animated gradient visible over the PV share without covering battery and grid colours.
+
+## 2.0.0-dev.6
+
+### Added
+
+- Add optional automatic stopping on sustained grid import, battery discharge or either.
+- Revalidate transaction identity and current measurements before issuing the shared Stop command.
+- Keep automatic restart and battery control outside the feature scope.
+
+## 2.0.0-dev.5
+
+### Added
+
+- Install localized charging and history cards with responsive charts, source shares and guarded dialogs.
+- Include the realistic simulator, annotated handbook and screenshot workflow.
+- Automatic charging stop follows as a separate opt-in feature in dev.6.
+
+## 2.0.0-dev.4
+
+### Added
+
+- Allocate EV energy by source and calculate effective grid cost with data coverage.
+- Provide localized source selection, tariff validation and persistent accounting.
+
+## 2.0.0-dev.3
+
+### Added
+
+- Persist session lifecycle, bounded power curves and qualified events.
+- Provide recoverable history, CSV export and dashboard session APIs.
+
+## 2.0.0-dev.2
+
+### Added
+
+- Add normalized battery and site observations, source validation and sensor metadata.
+- Handle local wallbox meter timestamps consistently before consuming readings.
+
+## 2.0.0-dev.1
+
+### Added
+
+- Install native charging targets and scheduling through Home Assistant services.
+- Introduce feature packages and typed target runtime ownership.
+
 ## [1.7.1] - 2026-10-22
 
-** Minor release, bug fixes but also added a very nice feature: now it's possible to add multiple charges on one HA instance! 🎉 Big thank you to @thijsvanbloemendaal! This release is built end-to-end by him.
+**Minor release with bug fixes and support for multiple chargers in one HA instance! 🎉 Big thank you to @thijsvanbloemendaal, who built this release end-to-end.**
 
 ### Added
 - **Multiple chargers (backlog F09)**: Each THOR is its own config entry on its own listen port. Every entry owns its runtime under `hass.data[DOMAIN][entry_id]`: coordinator, OCPP server, poll task, poll pause and active connection. Entities, controls, write queues, sessions and statistics stay with their own charger, and a command, refresh or reconnect for one charger cannot reach another. The per-entry charge-point binding from 1.7.0 is kept, so a different charger on an entry's port is still refused.
@@ -29,7 +220,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.7.0] - 2026-10-20
 
-** 🎉 Another major release!! Built end-to-end by @felixhix. Huge thanks to him for driving this release from start to finish. Please keep going on!**
+**🎉 Another major release!! Built end-to-end by @felixhix. Huge thanks to him for driving this release from start to finish. Please keep going on!**
 
 ### Added
 - **Automated Python regression checks**: Run the complete suite on pushes and pull requests, with an optional manual workflow run.
@@ -73,7 +264,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Reliable charger writes across reconnects**: Serialize integration-initiated OCPP operations, keep commands that were definitely not sent in the queue, and rebind them to the current charger connection after reconnecting. A lost acknowledgement is shown as uncertain and resolved through configuration readback instead of being reported as a rejection or blindly retried.
 - **Write/readback request collisions**: Coalesce post-write configuration refreshes and wait until the write queue is idle. Periodic external-meter polling yields to pending writes so both tasks no longer wake together and send a burst of requests to sensitive THOR firmware.
 - **Stable configuration controls**: Keep reported values visible while an active transaction or fault temporarily blocks writes, show the LCD's pending state, and restore rejected numeric changes from the last charger-reported value rather than an earlier optimistic UI value.
-- **Early strategy readback**: Request working and solar mode in the first operational configuration request, so a later diagnostic timeout cannot leave charging strategy unknown.
+- **Power Distribution readback**: Normalize the charger's Fast-with-load-balancing report to Fast while preserving the original value in diagnostics. Working and solar mode are part of the first operational configuration request, so a later diagnostic timeout cannot leave charging strategy unknown.
 - **Home Assistant 2026.8 compatibility**: Removes a warning when upgrading an existing External Meter device while keeping the existing device and entities intact.
 - **Controls while the charger has a fault**: Settings and Start Charging are unavailable while the charger reports a fault. Stop Charging remains available, and the other controls return automatically after recovery.
 - **PV Linkage with a meter fault**: PV Linkage cannot be newly selected while the external meter reports a fault or repeatedly stops responding. One or two temporary timeouts do not block the mode, and an active mode is never changed automatically.
@@ -212,8 +403,7 @@ data:
   date_to: "2026-12-31"
 ```
 
-After the action completes, a notification appears with a direct download link to the generated CSV file.
-See README.md for full documentation including a Lovelace UI export panel example.
+After the action completes, a notification appears with a direct download link to the generated CSV file. See README.md for full documentation including a Lovelace UI export panel example.
 
 ---
 

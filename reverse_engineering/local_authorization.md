@@ -13,6 +13,8 @@ These observations justify controlling responses to inbound OCPP authorization
 requests. They do not prove that an `Invalid` response physically prevents every
 firmware and mode from charging.
 
+Maintainer RFID testing also confirmed the use of compatible non-Growatt NFC/RFID cards and key fobs for identifier-based authorization. This is evidence for the tested cards and reader, not universal compatibility with every NFC/RFID technology or THOR variant. It does not establish support for Growatt-specific card balance/credit features on those cards. Local allowlist matching uses the identifier received over OCPP and does not read or write a card balance. The [user guide](../docs/usage.md#use-other-rfid-cards-and-fobs) describes how to check a card or fob with the connected wallbox.
+
 ## Integration behavior
 
 Local authorization is disabled by default, preserving existing installations.
@@ -32,10 +34,16 @@ messages can be correlated. Stops are always processed.
 
 ## Storage and privacy
 
+The settings offer an explicit, two-minute learning window for the next valid `Authorize` identifier on the selected entry's current connection. Capturing it does not change the authorization response. The user must confirm before it is added to the allowlist; rejected cards can therefore be learned without granting temporary access. Other entries, superseded connections, technical `StartTransaction` identifiers and swipes before the window are not used. The temporary identifier is cleared on expiry or successful confirmation and is never persisted as learning state.
+
+Optional aliases are stored separately from the exact-match identifiers. Existing identifier-only lists remain valid. The editable list uses `identifier | alias` with a spaced separator; bare pipes within an identifier remain literal. Authorization never matches aliases. Session start captures the alias as metadata, and active-session and pending-completion checkpoints preserve it until CSV delivery. The CSV columns `authorized_identifier` and `authorized_alias` remain blank when no matching start metadata exists; historical names are not reconstructed from the current allowlist.
+
 The editable allowlist is stored in the Home Assistant config entry and is
 therefore present in Home Assistant backups. Identifiers are omitted from normal
 integration logs and downloaded diagnostics. Raw WebSocket logging and packet
 captures can still expose them and require separate protection.
+
+Aliases follow the same log and diagnostic redaction rules as identifiers. Identifiers and aliases are intentionally included in retained session CSV files and CSV downloads, which must be treated as private. Learning does not add raw payload or identifier logging.
 
 Diagnostics expose only policy validity, the number of configured identifiers,
 the Home Assistant start permission, and bounded decision metadata.

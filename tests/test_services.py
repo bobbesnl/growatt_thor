@@ -1,17 +1,13 @@
 """Wiring tests for long-lived Home Assistant integration services."""
+
 from __future__ import annotations
 
 import ast
 import json
-from pathlib import Path
 import unittest
 
+from tests.support import PACKAGE_PATH
 
-PACKAGE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-)
 INIT_PATH = PACKAGE_PATH / "__init__.py"
 
 
@@ -19,8 +15,7 @@ def _function(tree, name):
     return next(
         node
         for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and node.name == name
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name
     )
 
 
@@ -29,10 +24,11 @@ class IntegrationServiceWiringTest(unittest.TestCase):
 
     def setUp(self):
         self.tree = ast.parse(INIT_PATH.read_text(encoding="utf-8"))
+        self.registration = ast.parse((PACKAGE_PATH / "runtime/service_setup.py").read_text())
 
     def test_domain_setup_registers_services_once(self):
         setup = _function(self.tree, "async_setup")
-        register = _function(self.tree, "_register_services")
+        register = _function(self.registration, "async_register_services")
         setup_calls = {
             node.func.id
             for node in ast.walk(setup)
@@ -41,11 +37,10 @@ class IntegrationServiceWiringTest(unittest.TestCase):
         register_attributes = {
             node.func.attr
             for node in ast.walk(register)
-            if isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
         }
 
-        self.assertIn("_register_services", setup_calls)
+        self.assertIn("async_register_services", setup_calls)
         self.assertIn("has_service", register_attributes)
         self.assertIn("async_register", register_attributes)
 
@@ -57,18 +52,16 @@ class IntegrationServiceWiringTest(unittest.TestCase):
             attributes = {
                 node.func.attr
                 for node in ast.walk(function)
-                if isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
             }
             with self.subTest(function=function.name):
                 self.assertNotIn("async_register", attributes)
                 self.assertNotIn("async_remove", attributes)
 
     def test_handlers_translate_refresh_and_export_failures(self):
-        register = _function(self.tree, "_register_services")
         nested = {
             node.name: node
-            for node in register.body
+            for node in ast.walk(self.registration)
             if isinstance(node, ast.AsyncFunctionDef)
         }
         refresh_source = ast.unparse(nested["handle_refresh"])
@@ -95,20 +88,16 @@ class IntegrationServiceWiringTest(unittest.TestCase):
                 self.assertTrue(expected.issubset(payload["exceptions"]))
 
     def test_status_trigger_participates_in_write_priority_checks(self):
-        tree = ast.parse(
-            (PACKAGE_PATH / "ocpp_server.py").read_text(encoding="utf-8")
-        )
+        tree = ast.parse((PACKAGE_PATH / "ocpp/growatt/server.py").read_text(encoding="utf-8"))
         charge_point = next(
             node
             for node in tree.body
-            if isinstance(node, ast.ClassDef)
-            and node.name == "GrowattChargePoint"
+            if isinstance(node, ast.ClassDef) and node.name == "GrowattChargePoint"
         )
         trigger = next(
             node
             for node in charge_point.body
-            if isinstance(node, ast.AsyncFunctionDef)
-            and node.name == "trigger_status"
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "trigger_status"
         )
         argument_names = [argument.arg for argument in trigger.args.kwonlyargs]
         run_call = next(

@@ -1,26 +1,13 @@
 """Tests for persistent local OCPP transaction ID allocation."""
+
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
 import unittest
 
+from tests.support import PACKAGE_PATH, load_package_module
 
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "transaction_ids.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_transaction_ids_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-transaction_ids = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = transaction_ids
-SPEC.loader.exec_module(transaction_ids)
+MODULE_PATH = PACKAGE_PATH / "sessions/transaction_ids.py"
+transaction_ids = load_package_module("growatt_thor_transaction_ids_test_target", MODULE_PATH)
 
 
 class TransactionIdAllocatorTest(unittest.TestCase):

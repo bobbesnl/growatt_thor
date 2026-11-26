@@ -1,27 +1,14 @@
 """Tests for OCPP connection liveness tracking."""
+
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
 import unittest
 
+from tests.support import PACKAGE_PATH, load_package_module
 
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "connection.py"
-)
-OCPP_SERVER_PATH = MODULE_PATH.with_name("ocpp_server.py")
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_connection_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-connection = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = connection
-SPEC.loader.exec_module(connection)
+MODULE_PATH = PACKAGE_PATH / "ocpp/core/connection.py"
+OCPP_SERVER_PATH = PACKAGE_PATH / "ocpp/growatt/server.py"
+connection = load_package_module("growatt_thor_connection_test_target", MODULE_PATH)
 
 
 class OcppConnectionActivityTest(unittest.TestCase):

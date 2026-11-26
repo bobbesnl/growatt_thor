@@ -1,32 +1,16 @@
 """Tests for compound Growatt PV Linkage controls."""
+
 from __future__ import annotations
 
-from datetime import datetime, time, timezone
-import importlib.util
-from pathlib import Path
-import sys
-from types import ModuleType
 import unittest
+from datetime import UTC, datetime, time
 
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "pv_linkage.py"
-)
+MODULE_PATH = PACKAGE_PATH / "charging/pv_linkage.py"
 PACKAGE_NAME = "growatt_thor_pv_linkage_test_target"
-package = ModuleType(PACKAGE_NAME)
-package.__path__ = [str(MODULE_PATH.parent)]
-sys.modules[PACKAGE_NAME] = package
-SPEC = importlib.util.spec_from_file_location(
-    f"{PACKAGE_NAME}.pv_linkage",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-pv = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = pv
-SPEC.loader.exec_module(pv)
+package = register_package(PACKAGE_NAME)
+pv = load_package_module(f"{PACKAGE_NAME}.charging.pv_linkage", MODULE_PATH)
 
 
 class PvLinkageControlTest(unittest.TestCase):
@@ -43,9 +27,67 @@ class PvLinkageControlTest(unittest.TestCase):
         self.assertEqual(
             pv.build_pv_linkage_writes(
                 pv.PvLinkageDraft(pv.PvBoostMode.DISABLED),
-                now=datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc),
+                now=datetime(2026, 8, 24, 9, 0, tzinfo=UTC),
             ),
             (pv.ConfigurationWrite("G_SolarBoost", "1&Disable"),),
+        )
+
+    def test_complete_profile_orders_mode_limit_and_boost(self):
+        profile = pv.PvLinkageProfile(
+            working_mode="pv_linkage",
+            grid_import_limit_kw=2.4,
+            boost=pv.PvLinkageDraft(pv.PvBoostMode.DISABLED),
+        )
+        self.assertEqual(
+            pv.build_pv_linkage_profile_writes(
+                profile,
+                now=datetime(2026, 8, 24, 9, 0, tzinfo=UTC),
+            ),
+            (
+                pv.ConfigurationWrite("G_SolarMode", "1&1"),
+                pv.ConfigurationWrite("G_SolarLimitPower", "2.4"),
+                pv.ConfigurationWrite("G_SolarBoost", "1&Disable"),
+            ),
+        )
+
+    def test_surplus_only_profile_does_not_rewrite_grid_allowance(self):
+        profile = pv.PvLinkageProfile(
+            working_mode="pv_linkage_plus",
+            grid_import_limit_kw=None,
+            boost=pv.PvLinkageDraft(pv.PvBoostMode.DISABLED),
+        )
+        writes = pv.build_pv_linkage_profile_writes(
+            profile,
+            now=datetime(2026, 8, 24, 9, 0, tzinfo=UTC),
+        )
+        self.assertEqual(
+            writes,
+            (
+                pv.ConfigurationWrite("G_SolarMode", "1&2"),
+                pv.ConfigurationWrite("G_SolarBoost", "1&Disable"),
+            ),
+        )
+
+    def test_complete_profile_rejects_bad_mode_and_grid_allowance(self):
+        self.assertEqual(
+            pv.profile_validation_errors(
+                pv.PvLinkageProfile(
+                    working_mode="fast",
+                    grid_import_limit_kw=2.45,
+                    boost=pv.PvLinkageDraft(pv.PvBoostMode.DISABLED),
+                )
+            ),
+            ("working_mode_invalid",),
+        )
+        self.assertEqual(
+            pv.profile_validation_errors(
+                pv.PvLinkageProfile(
+                    working_mode="pv_linkage",
+                    grid_import_limit_kw=2.45,
+                    boost=pv.PvLinkageDraft(pv.PvBoostMode.DISABLED),
+                )
+            ),
+            ("grid_import_limit_invalid",),
         )
 
     def test_manual_boost_writes_mode_then_period(self):
@@ -55,7 +97,7 @@ class PvLinkageControlTest(unittest.TestCase):
                 manual_start=time(0, 0),
                 manual_end=time(23, 59),
             ),
-            now=datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc),
+            now=datetime(2026, 8, 24, 9, 0, tzinfo=UTC),
         )
         self.assertEqual(
             writes,
@@ -75,7 +117,7 @@ class PvLinkageControlTest(unittest.TestCase):
                 smart_finish=time(10, 34),
                 smart_target_energy_kwh=4.2,
             ),
-            now=datetime(2026, 8, 24, 11, 0, tzinfo=timezone.utc),
+            now=datetime(2026, 8, 24, 11, 0, tzinfo=UTC),
         )
         self.assertEqual(
             writes,
@@ -91,9 +133,7 @@ class PvLinkageControlTest(unittest.TestCase):
 
     def test_selected_mode_requires_its_dependent_fields(self):
         self.assertEqual(
-            pv.draft_validation_errors(
-                pv.PvLinkageDraft(pv.PvBoostMode.MANUAL)
-            ),
+            pv.draft_validation_errors(pv.PvLinkageDraft(pv.PvBoostMode.MANUAL)),
             ("manual_start_required", "manual_end_required"),
         )
         self.assertEqual(
@@ -135,7 +175,7 @@ class PvLinkageControlTest(unittest.TestCase):
                             24,
                             9,
                             0,
-                            tzinfo=timezone.utc,
+                            tzinfo=UTC,
                         ),
                     )
 
@@ -146,7 +186,7 @@ class PvLinkageControlTest(unittest.TestCase):
                 smart_finish=time(10, 34),
                 smart_target_energy_kwh=200,
             ),
-            now=datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc),
+            now=datetime(2026, 8, 24, 9, 0, tzinfo=UTC),
         )
 
         self.assertTrue(writes[-1].data.endswith("&energy=200"))

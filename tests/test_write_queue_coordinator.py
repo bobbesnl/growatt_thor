@@ -1,0 +1,1179 @@
+"""Coordinator wiring and command outcomes for the charger write queue."""
+
+from __future__ import annotations
+
+import asyncio
+import unittest
+from datetime import time
+
+from tests.support import (
+    build_queue_coordinator as _build_coordinator,
+)
+from tests.support import (
+    load_package_module,
+)
+
+coordinator_module = load_package_module("coordinator")
+pv_linkage = load_package_module("charging.pv_linkage")
+write_queue_module = load_package_module("runtime.write_results")
+
+
+class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
+    """Verify deduplication and prompt transaction controls."""
+
+    async def test_reboot_window_skips_writes_but_allows_stop_policy(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        self.addAsyncCleanup(coordinator.write_queue.async_shutdown)
+        sent = []
+
+        async def write(command):
+            sent.append(command)
+            return write_queue_module.ChargerWriteResult.success("Accepted")
+
+        ordinary = await coordinator.queue_write(write, "Target", command_name="Target")
+        stop = await coordinator.queue_write(
+            write,
+            "Stop",
+            command_name="RemoteStopTransaction",
+            policy=write_queue_module.TRANSACTION_CONTROL_WRITE_POLICY,
+        )
+        # The wallbox acknowledges a reboot after these commands are enqueued.
+        coordinator.observe_reboot_required()
+        self.addCleanup(coordinator._end_reboot_window)
+
+        result = await ordinary.async_wait(timeout=1)
+        self.assertEqual(result.status, write_queue_module.ChargerCommandStatus.SKIPPED)
+        self.assertEqual(result.reason, "charger_rebooting")
+        self.assertEqual(
+            (await stop.async_wait(timeout=1)).status,
+            write_queue_module.ChargerCommandStatus.CONFIRMED,
+        )
+        self.assertEqual(sent, ["Stop"])
+
+    def _policy(self, expires_after, reconnect=None):
+        """Create a short-lived policy so timing tests stay fast."""
+        if reconnect is None:
+            reconnect = write_queue_module.ChargerWriteReconnectPolicy.RETAIN_UNTIL_EXPIRY
+        return coordinator_module.ChargerWriteQueuePolicy(
+            expires_after=expires_after,
+            reconnect=reconnect,
+        )
+
+    async def test_configuration_queue_metadata_requires_generation(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+
+        async def write():
+            return None
+
+        with self.assertRaisesRegex(ValueError, "key and generation"):
+            await coordinator.queue_write(
+                write,
+                configuration_key="G_MaxCurrent",
+            )
+
+    async def test_command_handle_resolves_confirmed_result_with_stable_id(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+
+        async def write():
+            return write_queue_module.ChargerWriteResult.success("Accepted")
+
+        first = await coordinator.queue_write(
+            write,
+            command_name="FirstCommand",
+        )
+        await coordinator.write_queue.task
+        result = await first.async_wait(timeout=0.1)
+
+        second = await coordinator.queue_write(
+            write,
+            command_name="SecondCommand",
+        )
+        await coordinator.write_queue.task
+
+        self.assertNotEqual(first.command_id, second.command_id)
+        self.assertEqual(result.command_id, first.command_id)
+        self.assertEqual(
+            result.status,
+            write_queue_module.ChargerCommandStatus.CONFIRMED,
+        )
+        self.assertEqual(result.write_status.value, "success")
+        self.assertEqual(result.charger_result, "Accepted")
+        self.assertEqual(result.as_dict()["status"], "confirmed")
+        self.assertEqual(result.as_dict()["write_status"], "success")
+        self.assertIs(
+            coordinator.last_command_result,
+            await second.async_wait(timeout=0.1),
+        )
+
+    async def test_wait_timeout_does_not_cancel_later_completion(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        started = asyncio.Event()
+        release = asyncio.Event()
+
+        async def write():
+            started.set()
+            await release.wait()
+            return write_queue_module.ChargerWriteResult.success("Accepted")
+
+        handle = await coordinator.queue_write(write)
+        await started.wait()
+        with self.assertRaises(write_queue_module.ChargerCommandWaitTimeout):
+            await handle.async_wait(timeout=0.01)
+        self.assertFalse(handle.done)
+
+        release.set()
+        await coordinator.write_queue.task
+        self.assertEqual(
+            (await handle.async_wait(timeout=0.1)).status,
+            write_queue_module.ChargerCommandStatus.CONFIRMED,
+        )
+
+    async def test_replaced_and_cancelled_items_resolve_once(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+
+        async def write(value):
+            return write_queue_module.ChargerWriteResult.success(value)
+
+        replaced = await coordinator.queue_write(
+            write,
+            "old",
+            dedupe_key="shared",
+        )
+        current = await coordinator.queue_write(
+            write,
+            "new",
+            dedupe_key="shared",
+        )
+        cancelled = await coordinator.queue_write(
+            write,
+            "cancelled",
+            dedupe_key="cancel-lane",
+        )
+        self.assertEqual(
+            coordinator.cancel_queued_writes(
+                dedupe_key="cancel-lane",
+                reason="cancelled_by_test",
+            ),
+            1,
+        )
+
+        replaced_result = await replaced.async_wait(timeout=0.1)
+        cancelled_result = await cancelled.async_wait(timeout=0.1)
+        self.assertEqual(
+            replaced_result.status,
+            write_queue_module.ChargerCommandStatus.SKIPPED,
+        )
+        self.assertEqual(replaced_result.reason, "replaced_by_newer_intent")
+        self.assertEqual(
+            cancelled_result.status,
+            write_queue_module.ChargerCommandStatus.SKIPPED,
+        )
+        self.assertEqual(cancelled_result.reason, "cancelled_by_test")
+
+        await coordinator.write_queue.task
+        self.assertEqual(
+            (await current.async_wait(timeout=0.1)).status,
+            write_queue_module.ChargerCommandStatus.CONFIRMED,
+        )
+
+    async def test_callback_exception_and_missing_result_resolve_terminally(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+
+        async def fail():
+            raise RuntimeError("boom")
+
+        with self.assertLogs("custom_components.growatt_thor", level="ERROR"):
+            failed = await coordinator.queue_write(fail)
+            await coordinator.write_queue.task
+        self.assertEqual(
+            (await failed.async_wait(timeout=0.1)).status,
+            write_queue_module.ChargerCommandStatus.FAILED,
+        )
+
+        async def legacy_callback():
+            return None
+
+        legacy = await coordinator.queue_write(legacy_callback)
+        await coordinator.write_queue.task
+        legacy_result = await legacy.async_wait(timeout=0.1)
+        self.assertEqual(
+            legacy_result.status,
+            write_queue_module.ChargerCommandStatus.UNCERTAIN,
+        )
+        self.assertEqual(legacy_result.reason, "missing_structured_outcome")
+
+    async def test_partial_compound_result_is_exposed_as_uncertain(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+
+        async def write():
+            return write_queue_module.ChargerWriteResult.partial("second_step_rejected")
+
+        with self.assertLogs("custom_components.growatt_thor", level="ERROR"):
+            handle = await coordinator.queue_write(write)
+            await coordinator.write_queue.task
+        result = await handle.async_wait(timeout=0.1)
+
+        self.assertEqual(
+            result.status,
+            write_queue_module.ChargerCommandStatus.UNCERTAIN,
+        )
+        self.assertEqual(result.write_status.value, "partial")
+        self.assertEqual(result.reason, "second_step_rejected")
+
+    async def test_shutdown_resolves_active_and_queued_waiters(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        started = asyncio.Event()
+
+        async def active_write():
+            started.set()
+            await asyncio.Event().wait()
+
+        async def queued_write():
+            return write_queue_module.ChargerWriteResult.success()
+
+        active = await coordinator.queue_write(
+            active_write,
+            rate_limited=False,
+            command_name="ActiveCommand",
+        )
+        await started.wait()
+        queued = await coordinator.queue_write(
+            queued_write,
+            command_name="QueuedCommand",
+        )
+
+        await coordinator.async_shutdown()
+
+        active_result = await active.async_wait(timeout=0.1)
+        queued_result = await queued.async_wait(timeout=0.1)
+        self.assertEqual(
+            active_result.status,
+            write_queue_module.ChargerCommandStatus.UNCERTAIN,
+        )
+        self.assertEqual(
+            active_result.reason,
+            "integration_unloaded_during_execution",
+        )
+        self.assertEqual(
+            queued_result.status,
+            write_queue_module.ChargerCommandStatus.SKIPPED,
+        )
+        self.assertEqual(queued_result.reason, "integration_unloaded")
+        self.assertTrue(coordinator.write_queue.idle.is_set())
+
+    async def test_late_enqueue_after_shutdown_is_resolved_without_task(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        await coordinator.async_shutdown()
+        calls = []
+
+        async def write():
+            calls.append("sent")
+
+        handle = await coordinator.queue_write(write)
+        result = await handle.async_wait(timeout=0.1)
+
+        self.assertEqual(calls, [])
+        self.assertEqual(
+            result.status,
+            write_queue_module.ChargerCommandStatus.SKIPPED,
+        )
+        self.assertEqual(result.reason, "integration_unloaded")
+        self.assertIsNone(coordinator.write_queue.task)
+
+    async def test_duplicate_configuration_write_keeps_latest_value(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        calls = []
+
+        async def write(value):
+            calls.append(value)
+
+        await coordinator.queue_write(
+            write,
+            "old",
+            dedupe_key="G_LCDCloseEnable",
+        )
+        await coordinator.queue_write(
+            write,
+            "new",
+            dedupe_key="G_LCDCloseEnable",
+        )
+        await coordinator.write_queue.task
+
+        self.assertEqual(calls, ["new"])
+
+    async def test_replaced_cleanup_cannot_clear_newer_generation(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        calls = []
+        visible_value = "13"
+
+        async def write(value):
+            calls.append(value)
+
+        old_generation = coordinator.begin_configuration_write(
+            "G_MaxCurrent",
+            "13",
+        )
+
+        def restore_old_value(_result):
+            nonlocal visible_value
+            if coordinator.configuration_write_is_current(
+                "G_MaxCurrent",
+                old_generation,
+            ):
+                visible_value = "reported"
+
+        await coordinator.queue_write(
+            write,
+            "13",
+            dedupe_key="G_MaxCurrent",
+            configuration_key="G_MaxCurrent",
+            configuration_generation=old_generation,
+            on_unsent=restore_old_value,
+        )
+
+        new_generation = coordinator.begin_configuration_write(
+            "G_MaxCurrent",
+            "17",
+        )
+        visible_value = "17"
+        await coordinator.queue_write(
+            write,
+            "17",
+            dedupe_key="G_MaxCurrent",
+            configuration_key="G_MaxCurrent",
+            configuration_generation=new_generation,
+        )
+        await coordinator.write_queue.task
+
+        tracked = coordinator.configuration_writes["G_MaxCurrent"]
+        self.assertEqual(calls, ["17"])
+        self.assertEqual(visible_value, "17")
+        self.assertEqual(tracked.generation, new_generation)
+        self.assertEqual(tracked.status, coordinator_module.ConfigurationWriteStatus.PENDING)
+        self.assertEqual(
+            tracked.superseded_outcomes[-1].result,
+            "replaced_by_newer_intent",
+        )
+
+    async def test_expired_configuration_is_never_sent(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.connected = False
+        coordinator._connection_changed.clear()
+        calls = []
+
+        async def write(charge_point):
+            calls.append(charge_point)
+
+        generation = coordinator.begin_configuration_write(
+            "G_MaxCurrent",
+            "17",
+        )
+        with self.assertLogs("custom_components.growatt_thor", level="WARNING"):
+            handle = await coordinator.queue_write(
+                write,
+                object(),
+                requires_connection=True,
+                configuration_key="G_MaxCurrent",
+                configuration_generation=generation,
+                policy=self._policy(0.01),
+            )
+            await coordinator.write_queue.task
+
+        tracked = coordinator.configuration_writes["G_MaxCurrent"]
+        self.assertEqual(calls, [])
+        self.assertEqual(
+            tracked.status,
+            coordinator_module.ConfigurationWriteStatus.EXPIRED,
+        )
+        self.assertEqual(tracked.result, "expired_before_send")
+        completion = await handle.async_wait(timeout=0.1)
+        self.assertEqual(
+            completion.status,
+            write_queue_module.ChargerCommandStatus.EXPIRED,
+        )
+
+    async def test_expiry_does_not_discard_an_already_sent_outcome(self):
+        """Once OCPP may have acted, its result remains authoritative."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        request_started = asyncio.Event()
+        release_response = asyncio.Event()
+
+        async def write(generation):
+            request_started.set()
+            await release_response.wait()
+            coordinator.acknowledge_configuration_write(
+                "G_MaxCurrent",
+                generation=generation,
+                accepted=True,
+                result="Accepted",
+            )
+            return write_queue_module.ChargerWriteResult.success("Accepted")
+
+        generation = coordinator.begin_configuration_write(
+            "G_MaxCurrent",
+            "17",
+        )
+        await coordinator.queue_write(
+            write,
+            generation,
+            configuration_key="G_MaxCurrent",
+            configuration_generation=generation,
+            policy=self._policy(0.01),
+        )
+        await request_started.wait()
+        await asyncio.sleep(0.02)
+        release_response.set()
+        await coordinator.write_queue.task
+
+        self.assertEqual(
+            coordinator.configuration_writes["G_MaxCurrent"].status,
+            coordinator_module.ConfigurationWriteStatus.AWAITING_READBACK,
+        )
+
+    async def test_short_reconnect_retains_eligible_configuration(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.connected = False
+        coordinator._connection_changed.clear()
+        stale_charge_point = object()
+        current_charge_point = object()
+        calls = []
+
+        async def write(charge_point):
+            calls.append(charge_point)
+            return write_queue_module.ChargerWriteResult.success("Accepted")
+
+        await coordinator.queue_write(
+            write,
+            stale_charge_point,
+            requires_connection=True,
+            policy=self._policy(0.2),
+        )
+        await asyncio.sleep(0.01)
+
+        coordinator.runtime_data["charge_point"] = current_charge_point
+        coordinator.connected = True
+        coordinator._connection_changed.set()
+        await coordinator.write_queue.task
+
+        self.assertEqual(calls, [current_charge_point])
+
+    async def test_volatile_command_is_discarded_during_disconnect(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.connected = False
+        coordinator._connection_changed.clear()
+        calls = []
+
+        async def write(charge_point):
+            calls.append(charge_point)
+
+        with self.assertLogs(
+            "custom_components.growatt_thor",
+            level="WARNING",
+        ) as logs:
+            await coordinator.queue_write(
+                write,
+                object(),
+                requires_connection=True,
+                command_name="RemoteStartTransaction",
+                policy=self._policy(
+                    1.0,
+                    write_queue_module.ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED,
+                ),
+            )
+            await coordinator.write_queue.task
+
+        self.assertEqual(calls, [])
+        self.assertTrue(any("discarded_on_disconnect" in line for line in logs.output))
+
+    async def test_volatile_command_expires_behind_active_write(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        blocker_started = asyncio.Event()
+        release_blocker = asyncio.Event()
+        calls = []
+
+        async def blocker():
+            calls.append("blocker")
+            blocker_started.set()
+            await release_blocker.wait()
+
+        async def volatile_control():
+            calls.append("volatile")
+
+        await coordinator.queue_write(
+            blocker,
+            rate_limited=False,
+            policy=self._policy(1.0),
+        )
+        await blocker_started.wait()
+        await coordinator.queue_write(
+            volatile_control,
+            priority=True,
+            rate_limited=False,
+            command_name="RemoteStartTransaction",
+            policy=self._policy(
+                0.01,
+                write_queue_module.ChargerWriteReconnectPolicy.DISCARD_WHEN_DISCONNECTED,
+            ),
+        )
+        await asyncio.sleep(0.02)
+        release_blocker.set()
+        with self.assertLogs("custom_components.growatt_thor", level="WARNING"):
+            await coordinator.write_queue.task
+
+        self.assertEqual(calls, ["blocker"])
+
+    async def test_superseded_expiry_cannot_clear_newer_pending_value(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.connected = False
+        coordinator._connection_changed.clear()
+        calls = []
+        visible_value = "17"
+
+        async def write(charge_point, value):
+            calls.append(value)
+            return write_queue_module.ChargerWriteResult.success("Accepted")
+
+        old_generation = coordinator.begin_configuration_write(
+            "G_MaxCurrent",
+            "13",
+        )
+
+        def restore_old_value(_result):
+            nonlocal visible_value
+            if coordinator.configuration_write_is_current(
+                "G_MaxCurrent",
+                old_generation,
+            ):
+                visible_value = "reported"
+
+        await coordinator.queue_write(
+            write,
+            object(),
+            "13",
+            dedupe_key="old-max-current",
+            requires_connection=True,
+            configuration_key="G_MaxCurrent",
+            configuration_generation=old_generation,
+            policy=self._policy(0.02),
+            on_unsent=restore_old_value,
+        )
+        await asyncio.sleep(0)
+
+        new_generation = coordinator.begin_configuration_write(
+            "G_MaxCurrent",
+            "17",
+        )
+        await coordinator.queue_write(
+            write,
+            object(),
+            "17",
+            dedupe_key="new-max-current",
+            requires_connection=True,
+            configuration_key="G_MaxCurrent",
+            configuration_generation=new_generation,
+            policy=self._policy(0.2),
+        )
+        with self.assertLogs("custom_components.growatt_thor", level="WARNING"):
+            await asyncio.sleep(0.04)
+
+        tracked = coordinator.configuration_writes["G_MaxCurrent"]
+        self.assertEqual(tracked.generation, new_generation)
+        self.assertEqual(tracked.requested_raw_value, "17")
+        self.assertEqual(
+            tracked.status,
+            coordinator_module.ConfigurationWriteStatus.PENDING,
+        )
+        self.assertEqual(visible_value, "17")
+        self.assertEqual(
+            tracked.superseded_outcomes[-1].outcome,
+            "expired",
+        )
+
+        coordinator.runtime_data["charge_point"] = object()
+        coordinator.connected = True
+        coordinator._connection_changed.set()
+        await coordinator.write_queue.task
+        self.assertEqual(calls, ["17"])
+
+    async def test_delayed_command_is_revalidated_before_execution(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        still_valid = True
+        calls = []
+        cleanup_results = []
+
+        async def write():
+            calls.append("sent")
+
+        await coordinator.queue_write(
+            write,
+            revalidate=lambda: None if still_valid else "transaction_changed",
+            on_unsent=cleanup_results.append,
+        )
+        still_valid = False
+        with self.assertLogs("custom_components.growatt_thor", level="WARNING"):
+            await coordinator.write_queue.task
+
+        self.assertEqual(calls, [])
+        self.assertEqual(len(cleanup_results), 1)
+        self.assertEqual(
+            cleanup_results[0].status,
+            write_queue_module.ChargerWriteStatus.SKIPPED,
+        )
+        self.assertEqual(cleanup_results[0].reason, "transaction_changed")
+
+    async def test_callback_skip_runs_the_same_unsent_cleanup(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        cleanup_results = []
+
+        async def write():
+            return write_queue_module.ChargerWriteResult.skipped("active_transaction")
+
+        with self.assertLogs("custom_components.growatt_thor", level="WARNING"):
+            await coordinator.queue_write(
+                write,
+                on_unsent=cleanup_results.append,
+            )
+            await coordinator.write_queue.task
+
+        self.assertEqual(len(cleanup_results), 1)
+        self.assertEqual(cleanup_results[0].reason, "active_transaction")
+
+    async def test_invalid_revalidation_result_fails_closed(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        calls = []
+        cleanup_results = []
+
+        async def write():
+            calls.append("sent")
+
+        with self.assertLogs("custom_components.growatt_thor", level="ERROR"):
+            await coordinator.queue_write(
+                write,
+                revalidate=lambda: False,
+                on_unsent=cleanup_results.append,
+            )
+            await coordinator.write_queue.task
+
+        self.assertEqual(calls, [])
+        self.assertEqual(cleanup_results[0].reason, "revalidation_error")
+
+    async def test_active_older_write_cannot_overwrite_newer_intent(self):
+        """Deduplication cannot cancel an in-flight OCPP request.
+
+        The first callback is deliberately held after it became active. A
+        second HA action then records and queues a newer value for the same key.
+        When the old acknowledgement arrives, its generation must keep it from
+        changing either the tracked request or the optimistic visible value.
+        """
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        first_started = asyncio.Event()
+        release_first = asyncio.Event()
+        visible_values = []
+
+        async def write(value, generation):
+            if value == "13":
+                first_started.set()
+                await release_first.wait()
+            outcome_is_current = coordinator.acknowledge_configuration_write(
+                "G_MaxCurrent",
+                generation=generation,
+                accepted=True,
+                result="Accepted",
+            )
+            if outcome_is_current:
+                visible_values.append(value)
+            return write_queue_module.ChargerWriteResult.success("Accepted")
+
+        old_generation = coordinator.begin_configuration_write(
+            "G_MaxCurrent",
+            "13",
+        )
+        await coordinator.queue_write(
+            write,
+            "13",
+            old_generation,
+            dedupe_key="G_MaxCurrent",
+            configuration_key="G_MaxCurrent",
+            configuration_generation=old_generation,
+        )
+        await first_started.wait()
+
+        new_generation = coordinator.begin_configuration_write(
+            "G_MaxCurrent",
+            "17",
+        )
+        await coordinator.queue_write(
+            write,
+            "17",
+            new_generation,
+            dedupe_key="G_MaxCurrent",
+            configuration_key="G_MaxCurrent",
+            configuration_generation=new_generation,
+        )
+        release_first.set()
+        await coordinator.write_queue.task
+
+        tracked = coordinator.configuration_writes["G_MaxCurrent"]
+        self.assertEqual(tracked.generation, new_generation)
+        self.assertEqual(tracked.requested_raw_value, "17")
+        self.assertEqual(
+            tracked.status,
+            coordinator_module.ConfigurationWriteStatus.AWAITING_READBACK,
+        )
+        self.assertEqual(visible_values, ["17"])
+
+    async def test_stop_intent_cancels_only_a_matching_unsent_start(self):
+        """Stop may retract a Start only before OCPP execution begins."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        blocker_started = asyncio.Event()
+        release_blocker = asyncio.Event()
+        calls = []
+        cancelled_results = []
+
+        async def blocker():
+            calls.append("blocker")
+            blocker_started.set()
+            await release_blocker.wait()
+
+        async def write(name):
+            calls.append(name)
+
+        await coordinator.queue_write(blocker, rate_limited=False)
+        await blocker_started.wait()
+        await coordinator.queue_write(
+            write,
+            "start",
+            dedupe_key="charging_session_control",
+            command_name="RemoteStartTransaction",
+            priority=True,
+            rate_limited=False,
+            on_unsent=cancelled_results.append,
+        )
+        await coordinator.queue_write(
+            write,
+            "configuration",
+            dedupe_key="G_MaxCurrent",
+            command_name="ChangeConfiguration(G_MaxCurrent)",
+        )
+
+        with self.assertLogs("custom_components.growatt_thor", level="INFO"):
+            cancelled_count = coordinator.cancel_queued_writes(
+                dedupe_key="charging_session_control",
+                command_name="RemoteStartTransaction",
+                reason="cancelled_by_stop_intent",
+            )
+
+        self.assertEqual(cancelled_count, 1)
+        self.assertEqual(len(cancelled_results), 1)
+        self.assertEqual(
+            cancelled_results[0].status,
+            write_queue_module.ChargerWriteStatus.SKIPPED,
+        )
+        self.assertEqual(
+            cancelled_results[0].reason,
+            "cancelled_by_stop_intent",
+        )
+
+        release_blocker.set()
+        await coordinator.write_queue.task
+        self.assertEqual(calls, ["blocker", "configuration"])
+
+    async def test_cancel_does_not_claim_an_active_start_was_retracted(self):
+        """An in-flight request is outside the safe local-cancellation window."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        request_started = asyncio.Event()
+        release_response = asyncio.Event()
+        calls = []
+
+        async def start():
+            calls.append("start")
+            request_started.set()
+            await release_response.wait()
+
+        await coordinator.queue_write(
+            start,
+            dedupe_key="charging_session_control",
+            command_name="RemoteStartTransaction",
+            rate_limited=False,
+        )
+        await request_started.wait()
+
+        cancelled_count = coordinator.cancel_queued_writes(
+            dedupe_key="charging_session_control",
+            command_name="RemoteStartTransaction",
+            reason="cancelled_by_stop_intent",
+        )
+        self.assertEqual(cancelled_count, 0)
+
+        release_response.set()
+        await coordinator.write_queue.task
+        self.assertEqual(calls, ["start"])
+
+    async def test_new_start_replaces_stale_unsent_stop_on_shared_lane(self):
+        """After the old transaction ends, the newer valid intent wins."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        blocker_started = asyncio.Event()
+        release_blocker = asyncio.Event()
+        calls = []
+        replaced_results = []
+
+        async def blocker():
+            calls.append("blocker")
+            blocker_started.set()
+            await release_blocker.wait()
+
+        async def write(name):
+            calls.append(name)
+
+        await coordinator.queue_write(blocker, rate_limited=False)
+        await blocker_started.wait()
+        await coordinator.queue_write(
+            write,
+            "stop",
+            dedupe_key="charging_session_control",
+            command_name="RemoteStopTransaction",
+            priority=True,
+            rate_limited=False,
+            on_unsent=replaced_results.append,
+        )
+        await coordinator.queue_write(
+            write,
+            "start",
+            dedupe_key="charging_session_control",
+            command_name="RemoteStartTransaction",
+            priority=True,
+            rate_limited=False,
+        )
+
+        self.assertEqual(len(replaced_results), 1)
+        self.assertEqual(
+            replaced_results[0].reason,
+            "replaced_by_newer_intent",
+        )
+
+        release_blocker.set()
+        await coordinator.write_queue.task
+        self.assertEqual(calls, ["blocker", "start"])
+
+    async def test_control_interrupts_configuration_rate_limit(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.write_queue.min_write_interval = 0.2
+        coordinator.write_queue._last_write_monotonic = coordinator.hass.loop.time()
+        calls = []
+
+        async def write(name):
+            calls.append(name)
+
+        await coordinator.queue_write(
+            write,
+            "configuration",
+            command_name="ChangeConfiguration(G_LCDCloseEnable)",
+        )
+        await asyncio.sleep(0)
+
+        await coordinator.queue_write(
+            write,
+            "start",
+            priority=True,
+            rate_limited=False,
+            command_name="RemoteStartTransaction",
+        )
+        await asyncio.sleep(0.05)
+
+        self.assertEqual(calls, ["start"])
+        await coordinator.write_queue.task
+        self.assertEqual(calls, ["start", "configuration"])
+
+    async def test_priority_controls_preserve_fifo_order(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        calls = []
+
+        async def write(name):
+            calls.append(name)
+
+        await coordinator.queue_write(write, "configuration")
+        await coordinator.queue_write(
+            write,
+            "start",
+            priority=True,
+            rate_limited=False,
+        )
+        await coordinator.queue_write(
+            write,
+            "stop",
+            priority=True,
+            rate_limited=False,
+        )
+        await coordinator.write_queue.task
+
+        self.assertEqual(calls, ["start", "stop", "configuration"])
+
+    async def test_connection_bound_write_waits_and_uses_reconnected_charge_point(self):
+        """An unsent command survives disconnect and never uses the old socket."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.connected = False
+        coordinator._connection_changed.clear()
+        old_charge_point = object()
+        new_charge_point = object()
+        calls = []
+
+        async def write(charge_point, value):
+            calls.append((charge_point, value))
+            return write_queue_module.ChargerWriteResult.success("Accepted")
+
+        await coordinator.queue_write(
+            write,
+            old_charge_point,
+            "17",
+            dedupe_key="G_MaxCurrent",
+            requires_connection=True,
+        )
+        await asyncio.sleep(0)
+        self.assertEqual(calls, [])
+        self.assertEqual(len(coordinator.write_queue._pending), 1)
+
+        coordinator.runtime_data["charge_point"] = new_charge_point
+        coordinator.connected = True
+        coordinator._connection_changed.set()
+        await coordinator.write_queue.task
+
+        self.assertEqual(calls, [(new_charge_point, "17")])
+
+    async def test_last_value_wins_while_waiting_for_reconnect(self):
+        """Reconnect retention must not regress the existing deduplication rule."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.connected = False
+        coordinator._connection_changed.clear()
+        old_charge_point = object()
+        new_charge_point = object()
+        calls = []
+
+        async def write(charge_point, value):
+            calls.append((charge_point, value))
+            return write_queue_module.ChargerWriteResult.success("Accepted")
+
+        await coordinator.queue_write(
+            write,
+            old_charge_point,
+            "16",
+            dedupe_key="G_MaxCurrent",
+            requires_connection=True,
+        )
+        await asyncio.sleep(0)
+        await coordinator.queue_write(
+            write,
+            old_charge_point,
+            "13",
+            dedupe_key="G_MaxCurrent",
+            requires_connection=True,
+        )
+
+        coordinator.runtime_data["charge_point"] = new_charge_point
+        coordinator.connected = True
+        coordinator._connection_changed.set()
+        await coordinator.write_queue.task
+
+        self.assertEqual(calls, [(new_charge_point, "13")])
+
+    async def test_definitely_unsent_command_is_rebound_and_retried(self):
+        """A stale connection error is safe to retry on the current connection."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        first_charge_point = object()
+        second_charge_point = object()
+        coordinator.runtime_data["charge_point"] = first_charge_point
+        calls = []
+
+        async def write(charge_point):
+            calls.append(charge_point)
+            if len(calls) == 1:
+                coordinator.runtime_data["charge_point"] = second_charge_point
+                raise write_queue_module.ChargerConnectionUnavailable(
+                    "connection replaced before send"
+                )
+            return write_queue_module.ChargerWriteResult.success("Accepted")
+
+        await coordinator.queue_write(
+            write,
+            first_charge_point,
+            requires_connection=True,
+        )
+        await coordinator.write_queue.task
+
+        self.assertEqual(calls, [first_charge_point, second_charge_point])
+
+    async def test_uncertain_command_is_not_blindly_retried(self):
+        """A lost acknowledgement requires readback rather than duplicate send."""
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        calls = 0
+
+        async def write():
+            nonlocal calls
+            calls += 1
+            raise write_queue_module.ChargerRequestOutcomeUncertain("connection lost after send")
+
+        with self.assertLogs("custom_components.growatt_thor", level="WARNING") as logs:
+            await coordinator.queue_write(write, command_name="ChangeConfiguration")
+            await coordinator.write_queue.task
+
+        self.assertEqual(calls, 1)
+        self.assertTrue(any("outcome uncertain" in line for line in logs.output))
+
+    async def test_failed_outcome_is_never_logged_as_success(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+
+        async def write():
+            return write_queue_module.ChargerWriteResult.failed(
+                "charger_rejected",
+                "Rejected",
+            )
+
+        with self.assertLogs("custom_components.growatt_thor", level="INFO") as logs:
+            await coordinator.queue_write(write, command_name="ChangeConfiguration")
+            await coordinator.write_queue.task
+
+        combined = "\n".join(logs.output)
+        self.assertIn("Write failed", combined)
+        self.assertNotIn("Write succeeded", combined)
+
+    async def test_post_write_readbacks_are_coalesced_until_queue_is_idle(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.write_queue.idle.clear()
+        calls = 0
+
+        class ChargePoint:
+            async def trigger_get_configuration(self, *, skip_if_writes_pending):
+                nonlocal calls
+                self.skip_if_writes_pending = skip_if_writes_pending
+                calls += 1
+                return True
+
+        charge_point = ChargePoint()
+        coordinator.runtime_data["charge_point"] = charge_point
+
+        first = coordinator.schedule_configuration_refresh(delay=0)
+        second = coordinator.schedule_configuration_refresh(delay=0)
+        self.assertIs(first, second)
+        await asyncio.sleep(0)
+        self.assertEqual(calls, 0)
+
+        coordinator.write_queue.idle.set()
+        self.assertTrue(await first)
+        self.assertEqual(calls, 1)
+        self.assertTrue(charge_point.skip_if_writes_pending)
+
+    async def test_paired_auto_charge_edits_emit_one_final_schedule(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.auto_charge_start_time_pending = time(
+            1,
+            0,
+        )
+        coordinator.auto_charge_stop_time_pending = time(
+            5,
+            0,
+        )
+        payloads = []
+
+        async def capture_current_schedule():
+            payloads.append(
+                f"{coordinator.auto_charge_start_time_pending:%H:%M}-"
+                f"{coordinator.auto_charge_stop_time_pending:%H:%M}"
+            )
+
+        coordinator.schedule_auto_charge_schedule_write(
+            capture_current_schedule,
+            delay=0.02,
+        )
+        await asyncio.sleep(0.005)
+        coordinator.auto_charge_start_time_pending = time(
+            2,
+            0,
+        )
+        coordinator.auto_charge_stop_time_pending = time(
+            6,
+            0,
+        )
+        final_task = coordinator.schedule_auto_charge_schedule_write(
+            capture_current_schedule,
+            delay=0.01,
+        )
+
+        await final_task
+
+        self.assertEqual(payloads, ["02:00-06:00"])
+
+    async def test_shutdown_cancels_pending_auto_charge_debounce(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        calls = []
+
+        async def write_schedule():
+            calls.append("sent")
+
+        task = coordinator.schedule_auto_charge_schedule_write(
+            write_schedule,
+            delay=60,
+        )
+        await asyncio.sleep(0)
+
+        await coordinator.async_shutdown()
+
+        self.assertTrue(task.done())
+        self.assertEqual(calls, [])
+
+    async def test_debounced_auto_charge_failure_is_not_unobserved(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+
+        async def fail_to_queue_schedule():
+            raise RuntimeError("queue unavailable")
+
+        with self.assertLogs("custom_components.growatt_thor", level="ERROR") as logs:
+            task = coordinator.schedule_auto_charge_schedule_write(
+                fail_to_queue_schedule,
+                delay=0,
+            )
+            await task
+
+        self.assertTrue(
+            any("Failed to queue debounced Auto Charge schedule" in line for line in logs.output)
+        )
+        self.assertIsNone(coordinator._auto_charge_schedule_task)
+
+    async def test_only_the_applied_pv_draft_can_be_marked_clean(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        coordinator.pv_draft.boost_mode = pv_linkage.PvBoostMode.MANUAL
+        coordinator.pv_draft.manual_start = time(1, 0)
+        coordinator.pv_draft.manual_end = time(2, 0)
+        coordinator.pv_draft.smart_finish = None
+        coordinator.pv_draft.smart_target_energy_kwh = None
+        coordinator.pv_draft.dirty = True
+
+        older_draft = coordinator_module.PvLinkageDraft(
+            pv_linkage.PvBoostMode.MANUAL,
+            manual_start=time(0, 0),
+            manual_end=time(2, 0),
+        )
+        self.assertFalse(coordinator.mark_pv_linkage_draft_applied(older_draft))
+        self.assertTrue(coordinator.pv_draft.dirty)
+
+        current_draft = coordinator.pv_draft.snapshot()
+        self.assertTrue(coordinator.mark_pv_linkage_draft_applied(current_draft))
+        self.assertFalse(coordinator.pv_draft.dirty)
+
+    async def test_partial_outcome_is_never_logged_as_success(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+
+        async def write():
+            return write_queue_module.ChargerWriteResult.partial(
+                "G_PeriodTime_rejected",
+                "Rejected",
+            )
+
+        with self.assertLogs("custom_components.growatt_thor", level="INFO") as logs:
+            await coordinator.queue_write(
+                write,
+                command_name="ApplyPvLinkage",
+            )
+            await coordinator.write_queue.task
+
+        combined = "\n".join(logs.output)
+        self.assertIn("partially applied", combined)
+        self.assertNotIn("Write succeeded", combined)

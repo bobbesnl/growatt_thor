@@ -1,0 +1,12 @@
+node_modules
+__pycache__/
+*.pyc
+.local/
+frontend/preview/screenshots/
+.ruff_cache/
+.DS_Store
+.idea/
+.pytest_cache/
+.coverage
+coverage.xml
+.hypothesis/

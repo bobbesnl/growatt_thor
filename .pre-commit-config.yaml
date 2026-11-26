@@ -1,0 +1,34 @@
+# Local hooks that mirror the CI checks. They use the tools installed in the
+# development venv and node_modules, so versions match CI (see docs/CONTRIBUTING.md):
+#   . .local/dev-venv/bin/activate && pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: ruff check --force-exclude
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: ruff format --check
+        entry: ruff format --check --force-exclude
+        language: system
+        types_or: [python, pyi]
+      - id: mypy
+        name: mypy (strict scope from pyproject.toml)
+        entry: python -m mypy
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false
+      - id: layer-boundaries
+        name: layer import boundaries
+        entry: python -m unittest tests.test_layer_boundaries
+        language: system
+        files: ^(custom_components/.*\.py|tests/test_layer_boundaries\.py)$
+        pass_filenames: false
+      - id: prettier
+        name: prettier --check (frontend)
+        entry: npm run --silent format:check
+        language: system
+        files: ^frontend/.*\.(ts|css|html|js|mjs)$
+        pass_filenames: false

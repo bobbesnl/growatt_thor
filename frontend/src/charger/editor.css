@@ -1,0 +1,11 @@
+:host {
+  display: block;
+  color: var(--primary-text-color);
+  padding: 8px 0;
+}
+small {
+  display: block;
+  opacity: 0.7;
+  margin: 8px 0 18px;
+  line-height: 1.4;
+}

@@ -1,27 +1,16 @@
 """Tests for Home Assistant OCPP status normalization."""
+
 from __future__ import annotations
 
-from enum import Enum
-import importlib.util
-from pathlib import Path
-import sys
 import unittest
+from enum import Enum
 
+from tests.support import PACKAGE_PATH, load_package_module, register_package
 
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "ocpp_status.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_ocpp_status_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-ocpp_status = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = ocpp_status
-SPEC.loader.exec_module(ocpp_status)
+MODULE_PATH = PACKAGE_PATH / "ocpp/core/status.py"
+PACKAGE_NAME = "growatt_thor_ocpp_status_test_target"
+package = register_package(PACKAGE_NAME)
+ocpp_status = load_package_module(f"{PACKAGE_NAME}.ocpp.core.status", MODULE_PATH)
 
 
 class Status(Enum):
@@ -61,6 +50,14 @@ class OcppStatusTest(unittest.TestCase):
             ocpp_status.normalize_ocpp_status("suspended_ev"),
             "suspended_ev",
         )
+
+    def test_status_groups_accept_case_and_separator_variants(self):
+        for value in ("Charging", "charging", "CHARGING"):
+            self.assertIn(ocpp_status.normalize_ocpp_status(value), ocpp_status.LIVE_POWER_STATUSES)
+        for value in ("SuspendedEV", "SUSPENDED_EV", "suspended_evse"):
+            self.assertIn(
+                ocpp_status.normalize_ocpp_status(value), ocpp_status.ENERGY_SESSION_STATUSES
+            )
 
     def test_missing_or_unknown_status_is_unavailable(self):
         self.assertIsNone(ocpp_status.normalize_ocpp_status(None))

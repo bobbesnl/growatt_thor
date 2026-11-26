@@ -1,26 +1,13 @@
 """Tests for configuration write readback tracking."""
+
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-import sys
 import unittest
 
+from tests.support import PACKAGE_PATH, load_package_module
 
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "configuration_writes.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_configuration_writes_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-writes = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = writes
-SPEC.loader.exec_module(writes)
+MODULE_PATH = PACKAGE_PATH / "configuration/writes.py"
+writes = load_package_module("growatt_thor_configuration_writes_test_target", MODULE_PATH)
 
 
 class ConfigurationWriteTrackingTest(unittest.TestCase):
@@ -86,9 +73,7 @@ class ConfigurationWriteTrackingTest(unittest.TestCase):
         self.assertEqual(
             [
                 (outcome.generation, outcome.outcome, outcome.result)
-                for outcome in after_old_ack[
-                    "G_MaxCurrent"
-                ].superseded_outcomes
+                for outcome in after_old_ack["G_MaxCurrent"].superseded_outcomes
             ],
             [(old_generation, "accepted", "Accepted")],
         )
@@ -144,9 +129,7 @@ class ConfigurationWriteTrackingTest(unittest.TestCase):
         self.assertEqual(
             [
                 outcome.outcome
-                for outcome in after_old_uncertain[
-                    "G_LCDCloseEnable"
-                ].superseded_outcomes
+                for outcome in after_old_uncertain["G_LCDCloseEnable"].superseded_outcomes
             ],
             ["rejected", "uncertain"],
         )
@@ -422,9 +405,7 @@ class ConfigurationWriteTrackingTest(unittest.TestCase):
             state["G_MaxCurrent"].status,
             writes.ConfigurationWriteStatus.EXPIRED,
         )
-        self.assertIsNone(
-            writes.pending_configuration_value(state, "G_MaxCurrent")
-        )
+        self.assertIsNone(writes.pending_configuration_value(state, "G_MaxCurrent"))
 
     def test_pending_value_is_visible_until_readback_resolves_it(self):
         """The LCD can show intent while a rate-limited write is in flight."""
@@ -457,9 +438,7 @@ class ConfigurationWriteTrackingTest(unittest.TestCase):
             {"G_LCDCloseEnable": "Disable"},
             readback_at="2026-09-11T12:01:00Z",
         )
-        self.assertIsNone(
-            writes.pending_configuration_value(state, "G_LCDCloseEnable")
-        )
+        self.assertIsNone(writes.pending_configuration_value(state, "G_LCDCloseEnable"))
 
     def test_rejected_value_does_not_override_reported_lcd_state(self):
         state = writes.begin_configuration_write(
@@ -477,9 +456,7 @@ class ConfigurationWriteTrackingTest(unittest.TestCase):
             result="Rejected",
         )
 
-        self.assertIsNone(
-            writes.pending_configuration_value(state, "G_LCDCloseEnable")
-        )
+        self.assertIsNone(writes.pending_configuration_value(state, "G_LCDCloseEnable"))
 
 
 if __name__ == "__main__":

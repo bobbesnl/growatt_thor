@@ -1,24 +1,13 @@
 """Tests for model-aware charging current limits."""
+
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
 import unittest
 
+from tests.support import PACKAGE_PATH, load_package_module
 
-MODULE_PATH = (
-    Path(__file__).parents[1]
-    / "custom_components"
-    / "growatt_thor"
-    / "charging_limits.py"
-)
-SPEC = importlib.util.spec_from_file_location(
-    "growatt_thor_charging_limits_test_target",
-    MODULE_PATH,
-)
-assert SPEC is not None and SPEC.loader is not None
-charging_limits = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(charging_limits)
+MODULE_PATH = PACKAGE_PATH / "charging/limits.py"
+charging_limits = load_package_module("growatt_thor_charging_limits_test_target", MODULE_PATH)
 
 
 class ChargingLimitsTest(unittest.TestCase):

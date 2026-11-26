@@ -1,0 +1,374 @@
+"""Exercise real THOR wall-clock samples through all live energy consumers."""
+
+import unittest
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+
+from custom_components.growatt_thor.configuration.values import (
+    configuration_value_from_item,
+)
+from custom_components.growatt_thor.energy.stop_guard import EnergyStopGuard
+from custom_components.growatt_thor.presentation.card_data import dashboard_attributes
+from tests.support import build_coordinator, load_package_module
+
+coordinator_module = load_package_module("coordinator")
+session_events = load_package_module("sessions.events")
+
+AT = datetime(2026, 10, 2, 14, 52, 49, tzinfo=UTC)
+
+
+class MeterTimeIntegrationTest(unittest.TestCase):
+    def setUp(self):
+        self.at = AT
+
+        def state(value):
+            return SimpleNamespace(
+                state=str(value),
+                attributes={"unit_of_measurement": "W"},
+                last_updated=AT,
+            )
+
+        self.c = c = build_coordinator()
+        c.hass = SimpleNamespace(
+            config=SimpleNamespace(time_zone="Europe/Berlin", currency="EUR"),
+            states={"sensor.pv": state(6000), "sensor.battery": state(-2000)},
+            data={},
+            async_create_task=lambda coro: coro.close(),
+        )
+        c.now = lambda: self.at.isoformat()
+        c.async_set_updated_data = lambda _: None
+        c.schedule_storage_save = lambda: None
+
+        async def save():
+            pass
+
+        c.async_save_storage = save
+        c.transaction_id = 27
+        c.authorization = coordinator_module.LocalAuthorization()
+        c.active_transaction = {
+            "start": {"received_at": AT.isoformat(), "response": {"transaction_id": 27}}
+        }
+        c.status = "Charging"
+        c.connected = True
+        c.source_instance_id = "test"
+        c.charge_point_id = "thor"
+        c.configuration_values = {
+            key: configuration_value_from_item({"key": key, "value": value, "readonly": False})
+            for key, value in {"G_WorkingMode": "PVlink", "G_SolarMode": "1&2"}.items()
+        }
+        c.last_status_notification = None
+        c.boot_notification = None
+        c.pv_draft.boost_mode = None
+        c.last_charger_fault = None
+        c.max_current = None
+        c.energy = 1000
+        c.power = None
+        c.phase_power = {}
+        c.currents = {}
+        c.voltages = {}
+        c.sessions.active_power_curve = []
+        c.sessions.event_tracker = None
+        c.effective_charging = coordinator_module.EffectiveChargingTracker()
+        c.external_meter.faulted = False
+        c.external_meter.consecutive_timeouts = 0
+        c.external_meter.poll_interval = 30
+        c.external_meter.last_updated_at = AT.isoformat()
+        c.external_meter.power = 0
+        c.battery_power_entity = "sensor.battery"
+        c.battery_power_sign = "positive_charge"
+        c.site_accounting_options = {
+            "site_accounting_profile": "pv_battery",
+            "site_auto_stop_mode": "battery",
+            "site_stop_threshold_w": 200,
+            "site_stop_hold_seconds": 90,
+            "site_grid_source": "thor_external",
+            "site_solar_power_entity": "sensor.pv",
+            "site_fixed_price": 0.3,
+        }
+        c.site_accounting = coordinator_module.SessionAccumulator(
+            transaction_id="27",
+            last_meter_wh=1000,
+            last_meter_at=AT - timedelta(seconds=30),
+        )
+        self.guard = EnergyStopGuard(c.hass, c)
+
+    def receive(self, timestamp="2026-10-02T16:52:49", energy=1050):
+        self.c.ingest.observe_meter_values(
+            [
+                {
+                    "timestamp": timestamp,
+                    "sampledValue": [
+                        {
+                            "value": "7000",
+                            "measurand": "Power.Active.Import",
+                            "unit": "W",
+                        },
+                        {
+                            "value": str(energy),
+                            "measurand": "Energy.Active.Import.Register",
+                            "unit": "Wh",
+                        },
+                    ],
+                }
+            ],
+            transaction_id=27,
+        )
+
+    def test_fixed_summer_clock_after_dst_reaches_card_curve_accounting_and_guard(self):
+        self.at = datetime(2026, 10, 27, 11, 18, 5, tzinfo=UTC)
+        for state in self.c.hass.states.values():
+            state.last_updated = self.at
+        self.c.external_meter.last_updated_at = self.at.isoformat()
+        self.c.site_accounting.last_meter_at = self.at - timedelta(seconds=5)
+        for key, value in {
+            "G_TimeZone": "UTC+2",
+            "G_DaylightSavingTime": "00-00&00-00",
+        }.items():
+            self.c.configuration_values[key] = configuration_value_from_item(
+                {
+                    "key": key,
+                    "value": value,
+                    "readonly": False,
+                }
+            )
+        self.c.ingest.observe_meter_values(
+            [
+                {
+                    "timestamp": "2026-10-27T13:18:04",
+                    "sampledValue": [
+                        {
+                            "value": "1050",
+                            "measurand": "Energy.Active.Import.Register",
+                            "unit": "Wh",
+                        },
+                        *(
+                            {
+                                "value": str(watts),
+                                "measurand": "Power.Active.Import",
+                                "phase": phase,
+                                "unit": "W",
+                            }
+                            for phase, watts in [("L1", 3162), ("L2", 3091), ("L3", 0)]
+                        ),
+                        *(
+                            {
+                                "value": str(amps),
+                                "measurand": "Current.Import",
+                                "phase": phase,
+                                "unit": "A",
+                            }
+                            for phase, amps in [("L1", 13.63), ("L2", 13.6), ("L3", 0)]
+                        ),
+                    ],
+                }
+            ],
+            transaction_id=27,
+        )
+        card = dashboard_attributes(self.c)
+        self.assertEqual(card["sample_at"], "2026-10-27T11:18:04Z")
+        self.assertEqual(card["power_w"], 6253)
+        self.assertEqual(card["currents_a"], [13.63, 13.6, 0])
+        self.assertEqual(
+            self.c.last_meter_values["meter_values"][0]["raw"]["timestamp"],
+            "2026-10-27T13:18:04",
+        )
+        self.assertEqual(self.c.sessions.active_power_curve[-1], ["2026-10-27T11:18:04Z", 6253])
+        self.assertAlmostEqual(sum(self.c.site_accounting.buckets.values()), 0.05)
+        self.assertIsNotNone(card["power_flow"].get("charging_sources"))
+        self.assertTrue(self.guard._observation(self.at).eligible)
+        # A delayed sample stays delayed; receipt cannot renew its timestamp.
+        self.at += timedelta(minutes=10)
+        self.assertFalse(self.guard._observation(self.at).eligible)
+
+    def test_confirmed_new_session_clears_and_persists_protection_notice(self):
+        self.receive()
+        c = self.c
+        c.last_energy_stop = {"reason": "battery", "at": AT.isoformat()}
+        c.sessions.pending_plugged_event = None
+        c.sessions = coordinator_module.SessionLifecycle(c)
+        saved_notices = []
+        c.schedule_storage_save = lambda: saved_notices.append(c.last_energy_stop)
+        c.sessions.start_transaction(28, connector_id=1, meter_start=1050)
+        self.assertIsNone(c.last_energy_stop)
+        self.assertEqual(saved_notices, [None])
+        self.assertIsNone(dashboard_attributes(c)["energy_stop"])
+        self.assertEqual(c.transaction_id, 28)
+
+    def test_status_notification_persists_session_pause_without_meter_sample(self):
+        c = self.c
+        tracker = c.sessions.event_tracker = session_events.SessionEventTracker.start(
+            AT.isoformat()
+        )
+        # ActiveSessionState retains identifiers as text across a Core restart.
+        c.active_transaction["start"]["request"] = {"connector_id": "1"}
+        c.active_transaction["events"] = tracker.events
+        self.receive()
+        curve = list(c.sessions.active_power_curve)
+        saved = []
+        c.schedule_storage_save = lambda: saved.append(True)
+        self.at += timedelta(minutes=5)
+        for connector in (None, 0, "0", 2, "2"):
+            c.ingest.observe_status_notification(connector, "SuspendedEV", "NoError")
+        self.assertFalse(saved)
+        c.ingest.observe_status_notification(1, "SuspendedEV", "NoError")
+        self.assertEqual(saved, [True])
+        self.assertEqual(c.active_transaction["events"][-1]["reason"], "suspended_ev")
+        self.assertEqual(c.active_transaction["events"][-1]["at"], self.at.isoformat())
+        self.assertEqual(c.sessions.active_power_curve, curve)
+        self.assertEqual(c.transaction_id, 27)
+        c.ingest.observe_status_notification(1, "SuspendedEV", "NoError")
+        self.assertEqual(saved, [True])
+
+    def test_only_session_connector_available_adds_unplugged_marker(self):
+        c = self.c
+        c.sessions = coordinator_module.SessionLifecycle(c)
+        c.runtime_data = {}
+        c.sessions.restored_active_session = False
+        c.active_transaction["start"]["request"] = {"connector_id": "1"}
+        c.active_transaction["events"] = []
+        for connector in (None, 0, "0", 2, "2"):
+            c.ingest.observe_status_notification(connector, "Available", "NoError")
+        self.assertEqual(c.active_transaction["events"], [])
+        c.ingest.observe_status_notification(1, "Preparing", "NoError")
+        self.assertEqual(c.active_transaction["events"], [])
+        c.ingest.observe_status_notification(1, "Available", "NoError")
+        self.assertEqual(c.active_transaction["events"][0]["type"], "unplugged")
+
+    def test_local_sample_reaches_gauge_accounting_curve_and_stop_guard(self):
+        self.receive()
+        packet = self.c.last_meter_values["meter_values"][0]
+        self.assertEqual(packet["timestamp"], "2026-10-02T14:52:49Z")
+        self.assertEqual(packet["raw"]["timestamp"], "2026-10-02T16:52:49")
+        sources = dashboard_attributes(self.c)["power_flow"]["charging_sources"]
+        self.assertAlmostEqual(sources["battery_w"], 2000)
+        self.assertAlmostEqual(sources["solar_w"], 5000)
+        self.assertAlmostEqual(sum(sources.values()), 7000)
+        self.assertGreater(self.c.site_accounting.buckets["battery_unknown"], 0)
+        self.assertAlmostEqual(sum(self.c.site_accounting.buckets.values()), 0.05)
+        self.assertEqual(self.c.sessions.active_power_curve[-1][0], "2026-10-02T14:52:49Z")
+        observation = self.guard._observation(AT)
+        self.assertTrue(observation.eligible)
+        self.assertEqual(observation.battery_discharge_w, 2000)
+        self.assertIsNone(self.guard.tracker.evaluate(AT, "battery", observation))
+        self.at += timedelta(seconds=90)
+        self.receive("2026-10-02T16:54:19", 1200)
+        self.assertEqual(
+            self.guard.tracker.evaluate(self.at, "battery", self.guard._observation(self.at)),
+            "battery",
+        )
+        self.assertIsNone(
+            self.guard.tracker.evaluate(self.at, "battery", self.guard._observation(self.at))
+        )
+
+    def test_newer_site_updates_are_usable_for_live_gauge(self):
+        self.receive()
+        self.at += timedelta(seconds=10)
+        self.c.hass.states["sensor.battery"].last_updated = self.at
+        sources = dashboard_attributes(self.c)["power_flow"]["charging_sources"]
+        self.assertAlmostEqual(sources["battery_w"], 2000)
+
+    def test_unchanged_zero_battery_does_not_hide_solar_or_enable_stop(self):
+        battery = self.c.hass.states["sensor.battery"]
+        battery.state = "0"
+        battery.last_updated = AT - timedelta(hours=2)
+        battery.last_reported = battery.last_updated
+        self.c.hass.states["sensor.pv"].state = "10320"
+        self.c.external_meter.power = -2146
+        self.receive()
+        sources = dashboard_attributes(self.c)["power_flow"]["charging_sources"]
+        self.assertAlmostEqual(sources["solar_w"], 7000)
+        self.assertAlmostEqual(sources["unknown_w"], 0)
+        self.assertAlmostEqual(self.c.site_accounting.buckets["direct_solar"], 0.05)
+        self.assertIsNone(self.guard._observation(AT).battery_discharge_w)
+        self.assertIsNone(self.guard.tracker.evaluate(AT, "battery", self.guard._observation(AT)))
+
+    def test_site_report_during_packet_transit_does_not_create_unknown_energy(self):
+        self.at = AT + timedelta(seconds=2)
+        for state in self.c.hass.states.values():
+            state.last_updated = AT + timedelta(milliseconds=200)
+        self.c.external_meter.last_updated_at = (AT + timedelta(seconds=1)).isoformat()
+        self.receive()
+        self.assertAlmostEqual(self.c.site_accounting.buckets["unknown"], 0)
+        self.assertAlmostEqual(self.c.site_accounting.buckets["battery_unknown"], 2 * 30 / 3600)
+        self.assertAlmostEqual(sum(self.c.site_accounting.buckets.values()), 0.05)
+
+    def test_future_site_report_beyond_receipt_is_not_used_for_accounting(self):
+        self.at = AT + timedelta(seconds=1)
+        self.c.hass.states["sensor.pv"].last_updated = AT + timedelta(seconds=2)
+        self.c.hass.states["sensor.battery"].state = "0"
+        self.receive()
+        self.assertAlmostEqual(self.c.site_accounting.buckets["unknown"], 0.05)
+
+    def test_repeated_sensor_poll_offsets_keep_solar_and_total_energy_in_step(self):
+        self.c.hass.states["sensor.battery"].state = "0"
+        self.c.hass.states["sensor.pv"].state = "10390"
+        self.c.external_meter.power = -1344
+        self.c.site_accounting.last_meter_at = AT - timedelta(seconds=5)
+        for index in range(9):
+            sample_at = AT + timedelta(seconds=5 * index)
+            self.at = sample_at + timedelta(seconds=1)
+            if index % 3 == 0:
+                self.c.hass.states["sensor.pv"].last_reported = sample_at + timedelta(
+                    milliseconds=200
+                )
+            self.receive(sample_at.isoformat(), 1010 + 10 * index)
+        self.assertAlmostEqual(self.c.site_accounting.buckets["direct_solar"], 0.09)
+        self.assertAlmostEqual(self.c.site_accounting.buckets["unknown"], 0)
+        self.assertAlmostEqual(sum(self.c.site_accounting.buckets.values()), 0.09)
+
+    def test_larger_source_offset_remains_unknown_despite_late_packet_receipt(self):
+        self.at = AT + timedelta(seconds=20)
+        self.c.hass.states["sensor.pv"].last_updated = AT + timedelta(seconds=10)
+        self.c.hass.states["sensor.battery"].state = "0"
+        self.receive()
+        self.assertAlmostEqual(self.c.site_accounting.buckets["unknown"], 0.05)
+
+    def test_unavailable_battery_cannot_be_assumed_zero_for_solar(self):
+        self.c.hass.states["sensor.battery"].state = "unavailable"
+        self.receive()
+        sources = dashboard_attributes(self.c)["power_flow"]["charging_sources"]
+        self.assertAlmostEqual(sources["solar_w"], 0)
+        self.assertAlmostEqual(sources["unknown_w"], 7000)
+        self.assertAlmostEqual(self.c.site_accounting.buckets["unknown"], 0.05)
+
+    def test_stale_future_invalid_and_dst_ambiguous_samples_cannot_trigger_stop(self):
+        for raw in (
+            "2026-10-02T16:40:00",
+            "2026-10-02T17:52:49",
+            "bad",
+            "2026-10-25T02:30:00",
+            "2026-03-29T02:30:00",
+        ):
+            with self.subTest(raw=raw):
+                self.receive(raw)
+                self.assertNotIn("charging_sources", dashboard_attributes(self.c)["power_flow"])
+                self.assertFalse(self.guard._observation(self.at).eligible)
+        self.receive()
+        self.c.last_meter_values["received_at"] = (AT - timedelta(hours=1)).isoformat()
+        self.assertNotIn("charging_sources", dashboard_attributes(self.c)["power_flow"])
+        self.assertFalse(self.guard._observation(AT).eligible)
+
+    def test_future_timestamp_does_not_advance_accounting_checkpoint(self):
+        previous_at = self.c.site_accounting.last_meter_at
+        self.receive("2026-10-02T17:52:49")
+        self.assertEqual(self.c.site_accounting.last_meter_at, previous_at)
+        self.assertEqual(self.c.site_accounting.last_meter_wh, 1000)
+        self.receive()
+        self.assertAlmostEqual(sum(self.c.site_accounting.buckets.values()), 0.05)
+
+    def test_energy_gap_is_unknown_instead_of_retroactively_classified(self):
+        self.c.site_accounting.last_meter_at = AT - timedelta(hours=2)
+        self.receive()
+        self.assertAlmostEqual(self.c.site_accounting.buckets["unknown"], 0.05)
+        self.assertEqual(self.c.site_accounting.buckets["battery_unknown"], 0)
+
+    def test_restored_numeric_transaction_matches_live_meter_for_stop_guard(self):
+        self.c.sessions = coordinator_module.SessionLifecycle(self.c)
+        self.c.id_tag = None
+        stored = self.c.sessions.active_session_state()
+        self.c.sessions.restore_active_session_state(stored)
+        self.assertEqual(self.c.transaction_id, 27)
+        self.receive()
+        self.assertTrue(self.guard._observation(AT).eligible)
+        self.c.last_meter_values["transaction_id"] = 28
+        self.assertFalse(self.guard._observation(AT).eligible)
