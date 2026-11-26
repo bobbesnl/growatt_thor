@@ -263,7 +263,7 @@ export function renderGoalDialog(view: GoalDialogView, actions: GoalDialogAction
       ${view.feedback ? html`<p role="status">${t(view.feedback)}</p>` : nothing}
       <div class="dialog-actions">
         <button
-          class=${view.simulation || view.live ? 'done' : 'unwired'}
+          class=${view.simulation || view.live ? 'primary' : 'unwired'}
           ?disabled=${view.live
             ? view.busy || !liveAvailable || !supported || conflict || !view.confirmed
             : !view.simulation || value === null || !validTime || !validCurrency}
@@ -281,7 +281,7 @@ export function renderGoalDialog(view: GoalDialogView, actions: GoalDialogAction
                 ? 'goalSimulate'
                 : 'goalNotConnected',
           )}</button
-        ><button class="done" @click=${() => actions.close()}>${t('goalClose')}</button>
+        ><button class="secondary" @click=${() => actions.close()}>${t('goalClose')}</button>
       </div>
     </div>
   </dialog>`;

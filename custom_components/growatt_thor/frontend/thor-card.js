@@ -1755,13 +1755,13 @@ small {
       ${r.feedback?z`<p role="status">${t(r.feedback)}</p>`:N}
       <div class="dialog-actions">
         <button
-          class=${r.simulation||r.live?"done":"unwired"}
+          class=${r.simulation||r.live?"primary":"unwired"}
           ?disabled=${r.live?r.busy||!c||!u||d||!r.confirmed:!r.simulation||i===null||!a||!n}
           @click=${()=>e.save()}
           aria-describedby="goal-preview"
         >
           ${t(r.live?l?r.recurrence==="daily"?"goalScheduleDailySet":"goalScheduleSet":"goalLiveSet":r.simulation?"goalSimulate":"goalNotConnected")}</button
-        ><button class="done" @click=${()=>e.close()}>${t("goalClose")}</button>
+        ><button class="secondary" @click=${()=>e.close()}>${t("goalClose")}</button>
       </div>
     </div>
   </dialog>`}var ux=`:host {
@@ -1969,12 +1969,19 @@ input[type='datetime-local'] {
   font-size: 14px;
   padding: 12px;
 }
-.unwired {
+.primary {
+  border: 1px solid transparent;
+  background: var(--green);
+  color: var(--on-green);
+  font-weight: 700;
+}
+.unwired,
+.primary:disabled {
   border: 1px solid var(--line);
   background: var(--panel);
   color: var(--muted);
 }
-.done {
+.secondary {
   border: 1px solid var(--line);
   background: var(--surface);
 }

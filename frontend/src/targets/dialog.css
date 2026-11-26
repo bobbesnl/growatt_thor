@@ -203,12 +203,19 @@ input[type='datetime-local'] {
   font-size: 14px;
   padding: 12px;
 }
-.unwired {
+.primary {
+  border: 1px solid transparent;
+  background: var(--green);
+  color: var(--on-green);
+  font-weight: 700;
+}
+.unwired,
+.primary:disabled {
   border: 1px solid var(--line);
   background: var(--panel);
   color: var(--muted);
 }
-.done {
+.secondary {
   border: 1px solid var(--line);
   background: var(--surface);
 }
