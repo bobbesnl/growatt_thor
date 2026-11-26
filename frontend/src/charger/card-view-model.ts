@@ -12,6 +12,7 @@ import {
 } from '../shared/model';
 import { entityNumber, sessionDisplay } from '../sessions/model';
 import { batteryDrainKw, powerFlowView } from '../energy/model';
+import { liveTargetProgress } from '../targets/live';
 import { translate } from '../shared/strings';
 import type { CardConfig, CardData, Entity, Hass } from '../shared/types';
 
@@ -134,6 +135,7 @@ export function buildCardViewModel(
     caps,
     fault,
     ...session,
+    targetProgress: connected && !inactive ? liveTargetProgress(data) : null,
     currentLimit: entityNumber(limit),
     faultMessage,
     meterWarning,

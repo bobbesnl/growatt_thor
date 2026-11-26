@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from ..charging.pv_draft import PvLinkageDraftState
     from ..energy.session_accumulator import SessionAccumulator
     from ..sessions.active_state import ActiveTransaction
+    from ..sessions.duration import EffectiveChargingTracker
     from ..sessions.telemetry import SessionTelemetry
     from ..targets.requests import TargetRecord
 
@@ -37,6 +38,7 @@ class ActiveSessionOwner(SessionClock, Protocol):
     source_instance_id: str | None
     charge_point_id: str | None
     energy: float | None
+    effective_charging: EffectiveChargingTracker
     id_tag: str | None
     site_accounting: SessionAccumulator | None
 

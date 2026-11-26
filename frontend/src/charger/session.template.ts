@@ -115,21 +115,40 @@ export function renderTargetNotice(view: CardViewModel) {
 
   const unit =
     request.kind === 'energy' ? 'kWh' : request.kind === 'duration' ? 'min' : view.currency;
+  const language = view.hass.language || view.hass.locale?.language || 'en';
+  const progress = view.targetProgress;
+  const progressFormat = (value: number) =>
+    value.toLocaleString(language, { maximumFractionDigits: 2 });
+  const progressLabel = progress
+    ? `${progressFormat(progress.delivered)} ${view.t('goalOf')} ${progressFormat(progress.target)} ${progress.unit}`
+    : '';
   const scheduledAt = Date.parse(request.scheduled_for || '');
   const scheduledLabel = Number.isFinite(scheduledAt)
-    ? new Date(scheduledAt).toLocaleString(
-        view.hass.language || view.hass.locale?.language || 'en',
-        { dateStyle: 'medium', timeStyle: 'short', timeZone: view.hass.config?.time_zone || 'UTC' },
-      )
+    ? new Date(scheduledAt).toLocaleString(language, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: view.hass.config?.time_zone || 'UTC',
+      })
     : null;
 
-  return html`<div class="notice target-notice" role="status">
+  return html`<div class="notice target-notice">
     <div class="target-notice-heading">
       <ha-icon icon="mdi:target"></ha-icon>
       <strong>${view.t('goalTitle')}</strong>
       <span class="target-notice-value">${request.value} ${unit}</span>
     </div>
-    <p>${view.t(liveTargetStatus(view.data))}</p>
+    <p role="status">${view.t(liveTargetStatus(view.data))}</p>
+    ${progress
+      ? html`<div class="target-progress">
+          <progress
+            aria-label=${view.t('goalProgress')}
+            aria-valuetext=${progressLabel}
+            max=${progress.target}
+            .value=${Math.min(progress.delivered, progress.target)}
+          ></progress>
+          <span>${progressLabel}</span>
+        </div>`
+      : nothing}
     ${request.recurrence === 'daily' || scheduledLabel
       ? html`<div class="target-notice-meta">
           ${request.recurrence === 'daily'

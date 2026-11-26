@@ -56,6 +56,15 @@ def _signed_number(value: object) -> float | None:
     return optional_float(value)
 
 
+def _effective_charging_minutes(coordinator: ActiveSessionOwner) -> float | None:
+    transaction_id = coordinator.transaction_id
+    if transaction_id is None or coordinator.effective_charging.transaction_id != str(
+        transaction_id
+    ):
+        return None
+    return _number(coordinator.effective_charging.effective_minutes)
+
+
 def _mapping(value: object) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
@@ -362,6 +371,9 @@ def dashboard_attributes(coordinator: DashboardOwner) -> dict[str, Any]:
             cast(float, _number(coordinator.energy)) / 1000
             if _number(coordinator.energy) is not None
             else None
+        ),
+        "session_effective_charging_minutes": (
+            _effective_charging_minutes(coordinator) if charger.transaction_active else None
         ),
         "meter_received_at": charger.meter.received_at,
         "meter_stale_after": charger.meter_stale_after_s,

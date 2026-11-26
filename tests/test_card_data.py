@@ -49,6 +49,25 @@ class CardDataTest(unittest.TestCase):
         self.assertIsNone(attributes["command"])
         self.assertIsNone(attributes["energy_stop"])
 
+    def test_card_reports_measured_charging_time_for_the_active_transaction_only(self):
+        coordinator = card_owner(transaction_is_active=True, transaction_id=7)
+        tracker = coordinator.effective_charging
+        tracker.start(7)
+        self.assertIsNone(
+            module.dashboard_attributes(coordinator)["session_effective_charging_minutes"]
+        )
+
+        tracker.elapsed_seconds = 150
+        tracker.interval_count = 3
+        self.assertEqual(
+            module.dashboard_attributes(coordinator)["session_effective_charging_minutes"], 2.5
+        )
+
+        coordinator.transaction_id = 8
+        self.assertIsNone(
+            module.dashboard_attributes(coordinator)["session_effective_charging_minutes"]
+        )
+
     def test_fixed_wallbox_clock_normalizes_active_start_without_changing_identity(
         self,
     ):

@@ -1,4 +1,5 @@
 import type { GoalKind, GoalRecurrence } from './model';
+import { numeric } from '../shared/model';
 import type { CardData, Entity, Hass } from '../shared/types';
 
 export interface TargetRequest {
@@ -110,6 +111,29 @@ export function validLiveTarget(kind: GoalKind, value: number | null): boolean {
 
 export function validLiveEnergy(value: number | null): boolean {
   return validLiveTarget('energy', value);
+}
+
+export function liveTargetProgress(data: CardData) {
+  const request = data.charging_target;
+  if (!request || !data.transaction_active) return null;
+  const runningDaily =
+    request.recurrence === 'daily' &&
+    request.state === 'scheduled' &&
+    request.last_run_state === 'charging';
+  if (request.state !== 'active' && !runningDaily) return null;
+
+  // Growatt supplies the charger cost only after the session. The site's
+  // estimated grid cost cannot serve as progress towards a charger budget.
+  if (request.kind !== 'energy' && request.kind !== 'duration') return null;
+  const target = Number(request.value);
+  if (!validLiveTarget(request.kind, target)) return null;
+
+  const energy = request.kind === 'energy';
+  const delivered = numeric(
+    energy ? data.session_energy_kwh : data.session_effective_charging_minutes,
+  );
+  if (delivered === null) return null;
+  return { target, delivered, unit: energy ? 'kWh' : 'min' };
 }
 
 function baseAvailable(hass: Hass, entity: Entity, data: CardData): boolean {

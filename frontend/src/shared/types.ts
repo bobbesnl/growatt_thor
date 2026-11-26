@@ -169,6 +169,7 @@ export interface CardData {
   charger_rebooting?: boolean;
   session_started_at: string | null;
   session_energy_kwh: number | null;
+  session_effective_charging_minutes?: number | null;
   meter_received_at: string | null;
   meter_stale_after: number;
   sample_at: string | null;

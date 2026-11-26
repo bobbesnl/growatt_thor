@@ -92,6 +92,37 @@
   color: var(--ink);
   overflow-wrap: anywhere;
 }
+.target-progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.target-progress progress {
+  flex: 1 1 90px;
+  min-width: 0;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 99px;
+  overflow: hidden;
+  appearance: none;
+  background: var(--line);
+  accent-color: var(--tone);
+}
+.target-progress progress::-webkit-progress-bar {
+  background: var(--line);
+}
+.target-progress progress::-webkit-progress-value {
+  background: var(--tone);
+  border-radius: inherit;
+}
+.target-progress progress::-moz-progress-bar {
+  background: var(--tone);
+  border-radius: inherit;
+}
 .target-notice-meta,
 .target-notice-meta span,
 .target-notice-meta time {

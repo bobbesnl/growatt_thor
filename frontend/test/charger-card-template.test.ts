@@ -231,3 +231,62 @@ test('a charger reboot blocks Start, the limit and both header pills and says wh
   assert.equal(after.rebooting, false);
   assert.equal(after.caps.start, true);
 });
+
+test('the live target shows measured progress and the source legend shows power units', () => {
+  const base = makeData();
+  const data = makeData({
+    power_w: 7100,
+    session_energy_kwh: 2.2,
+    power_flow: {
+      ...base.power_flow!,
+      grid_w: 1600,
+      charging_sources: { grid_w: 1600, unknown_w: 5500 },
+    },
+    charging_target: {
+      request_id: 'energy-1',
+      kind: 'energy',
+      value: '5',
+      state: 'active',
+      activation: 'plug_and_charge',
+    },
+  });
+  const render = (input: CardData, connected = true) => {
+    const view = buildCardViewModel(
+      { ...hass, connected, language: 'de' },
+      { type: 'custom:growatt-thor-card', show_session: false },
+      entity('charging', input),
+      input,
+      now,
+      idleCommand,
+    );
+    return markup(renderCard(view, actions, { error: '', sending: false }));
+  };
+  const active = render(data);
+  assert.match(active, /<progress\b[^>]*max=5\s+\.value=2\.2/);
+  assert.match(active, /2,2 von 5 kWh/);
+  assert.match(active, /<strong>1,6 kW<\/strong>/);
+  assert.match(active, /<strong>5,5 kW<\/strong>/);
+
+  const request = data.charging_target!;
+  const daily = {
+    ...request,
+    kind: 'duration' as const,
+    value: '60',
+    state: 'scheduled',
+    recurrence: 'daily' as const,
+    last_run_state: 'charging',
+  };
+  assert.match(
+    render({ ...data, session_effective_charging_minutes: 15.5, charging_target: daily }),
+    /15,5 von 60 min/,
+  );
+  for (const unavailable of [
+    { ...data, transaction_active: false },
+    { ...data, session_energy_kwh: null },
+    { ...data, charging_target: { ...daily, last_run_state: 'completed' } },
+    { ...data, charging_target: { ...request, kind: 'budget' as const } },
+  ]) {
+    assert.doesNotMatch(render(unavailable), /<progress\b/);
+  }
+  assert.doesNotMatch(render(data, false), /<progress\b/);
+});

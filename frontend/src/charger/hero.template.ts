@@ -127,7 +127,7 @@ function renderPowerFlow({ powerFlow, t, format }: CardViewModel) {
           (segment) =>
             html`<span class="source-item" title="${t(segment.label)}: ${format(segment.kw)} kW"
               ><i class="source-key source-${segment.source}"></i><span>${t(segment.label)}</span
-              ><strong>${format(segment.kw)}</strong></span
+              ><strong>${format(segment.kw)} kW</strong></span
             >`,
         )}
       </div>`
