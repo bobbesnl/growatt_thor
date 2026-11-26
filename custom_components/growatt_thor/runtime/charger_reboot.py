@@ -1,4 +1,4 @@
-"""Expected charger reboot after a configuration change answered RebootRequired.
+"""Expected charger reboot after RebootRequired or a manual Soft Reset.
 
 The THOR acknowledges such a change at once and reboots about 30 seconds
 later (observed with G_ChargerMode: answer at 20:10:57, reconnect at
@@ -6,6 +6,9 @@ later (observed with G_ChargerMode: answer at 20:10:57, reconnect at
 for its 30 s response timeout; a queued Start is discarded when the socket
 drops. Until the charger connects again, user writes and Start are refused
 with ``charger_rebooting`` instead of being sent into the reboot.
+
+A Soft Reset can reboot the charger even if its acknowledgement is lost.
+Both acceptance and an uncertain response use the same reconnect window.
 
 Stop stays allowed: it must never depend on this window. The window ends on
 the next connection or after ``REBOOT_WINDOW_SECONDS``, so a charger that does

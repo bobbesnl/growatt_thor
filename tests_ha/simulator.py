@@ -22,6 +22,7 @@ from ocpp.v16.enums import (
     ConfigurationStatus,
     DataTransferStatus,
     RemoteStartStopStatus,
+    ResetStatus,
     TriggerMessageStatus,
 )
 
@@ -39,6 +40,9 @@ class SimulatedThor(ChargePoint):
         self.remote_stop_status = RemoteStartStopStatus.accepted
         self.remote_starts: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self.remote_stops: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self.reset_types: asyncio.Queue[str] = asyncio.Queue()
+        self.reset_status = ResetStatus.accepted
+        self.hold_reset_answer: asyncio.Event | None = None
         self.configuration_changes: asyncio.Queue[dict[str, str]] = asyncio.Queue()
         self.change_configuration_status = ConfigurationStatus.accepted
         # Reported configuration; keys outside it are answered as unknown.
@@ -89,6 +93,13 @@ class SimulatedThor(ChargePoint):
         if self.hold_remote_stop_answer is not None:
             await self.hold_remote_stop_answer.wait()
         return call_result.RemoteStopTransaction(status=self.remote_stop_status)
+
+    @on(Action.reset)
+    async def on_reset(self, type: str) -> call_result.Reset:
+        self.reset_types.put_nowait(type)
+        if self.hold_reset_answer is not None:
+            await self.hold_reset_answer.wait()
+        return call_result.Reset(status=self.reset_status)
 
     # Messages the charger sends
 

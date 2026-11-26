@@ -12,6 +12,7 @@ from collections.abc import Callable
 
 import pytest
 import websockets
+from homeassistant.components.button import DATA_COMPONENT as BUTTON_COMPONENT
 from homeassistant.components.device_automation import DeviceAutomationType
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
@@ -19,7 +20,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
-from ocpp.v16.enums import ConfigurationStatus, RemoteStartStopStatus
+from ocpp.v16.enums import ConfigurationStatus, RemoteStartStopStatus, ResetStatus
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_capture_events,
@@ -28,6 +29,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.growatt_thor.const import CONF_PORT, DOMAIN
+from custom_components.growatt_thor.runtime.keys import ACTIVE_CHARGE_POINT
 
 from .simulator import SimulatedThor, connected_thor
 
@@ -410,3 +412,95 @@ async def test_reboot_required_blocks_changes_and_start_until_the_reconnect(
         await _wait_for(lambda: _state(hass, start) != STATE_UNAVAILABLE, "Start after reboot")
         await select("home_assistant_rfid")
         assert thor.configuration_changes.get_nowait()["value"] == "1"
+
+
+async def test_manual_soft_reset_blocks_duplicates_and_waits_for_reconnect(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    port = loaded_entry.data[CONF_PORT]
+    restart = _entity_id(hass, loaded_entry, "button", "restart_charger")
+    last_result = _entity_id(hass, loaded_entry, "sensor", "last_command_result")
+    assert _state(hass, restart) == STATE_UNAVAILABLE
+    async with connected_thor(port) as thor:
+        start = await _connect_ready(hass, loaded_entry, thor)
+        thor.hold_reset_answer = asyncio.Event()
+        press = asyncio.create_task(_press(hass, restart))
+        try:
+            assert await asyncio.wait_for(thor.reset_types.get(), TIMEOUT) == "Soft"
+            await _wait_for(lambda: _state(hass, restart) == STATE_UNAVAILABLE, "reset pending")
+            entity = hass.data[BUTTON_COMPONENT].get_entity(restart)
+            assert entity is not None
+            # Some HA versions ignore service calls to unavailable entities.
+            # The entity action also needs its own duplicate guard.
+            with pytest.raises(HomeAssistantError) as raised:
+                await entity.async_press()
+            assert raised.value.translation_key == "restart_in_progress"
+        finally:
+            thor.hold_reset_answer.set()
+            await press
+
+        result = hass.states.get(last_result)
+        assert result is not None and result.state == "confirmed"
+        assert result.attributes["command_name"] == "Reset"
+        assert result.attributes["charger_result"] == "Accepted"
+        assert _state(hass, restart) == STATE_UNAVAILABLE
+        assert _state(hass, start) == STATE_UNAVAILABLE
+        assert thor.reset_types.empty()
+        assert thor.remote_starts.empty()
+
+    async with connected_thor(port) as thor:
+        await _connect_ready(hass, loaded_entry, thor)
+        await _wait_for(
+            lambda: _state(hass, restart) != STATE_UNAVAILABLE, "restart available again"
+        )
+        assert thor.reset_types.empty()
+        assert thor.remote_starts.empty()
+
+
+@pytest.mark.parametrize("lost_answer", [False, True], ids=["rejected", "uncertain"])
+async def test_soft_reset_publishes_negative_outcome_without_resending(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry, lost_answer: bool
+) -> None:
+    async with connected_thor(loaded_entry.data[CONF_PORT]) as thor:
+        await _connect_ready(hass, loaded_entry, thor)
+        restart = _entity_id(hass, loaded_entry, "button", "restart_charger")
+        coordinator = loaded_entry.runtime_data.coordinator
+        if lost_answer:
+            thor.hold_reset_answer = asyncio.Event()
+            coordinator.runtime_data[ACTIVE_CHARGE_POINT]._response_timeout = 0.5
+        else:
+            thor.reset_status = ResetStatus.rejected
+
+        with pytest.raises(HomeAssistantError) as raised:
+            await _press(hass, restart)
+        assert raised.value.translation_key == (
+            "command_outcome_uncertain" if lost_answer else "command_failed"
+        )
+        last_result = _entity_id(hass, loaded_entry, "sensor", "last_command_result")
+        assert _state(hass, last_result) == ("uncertain" if lost_answer else "failed")
+        assert coordinator.charger_reboot_pending is lost_answer
+        assert thor.reset_types.get_nowait() == "Soft"
+        assert thor.reset_types.empty()
+
+
+async def test_reset_rechecks_active_session_after_waiting_for_the_ocpp_gate(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    async with connected_thor(loaded_entry.data[CONF_PORT]) as thor:
+        await _connect_ready(hass, loaded_entry, thor)
+        restart = _entity_id(hass, loaded_entry, "button", "restart_charger")
+        coordinator = loaded_entry.runtime_data.coordinator
+        charge_point = coordinator.runtime_data[ACTIVE_CHARGE_POINT]
+        async with charge_point._outbound_requests._lock:
+            press = asyncio.create_task(_press(hass, restart))
+            await _wait_for(
+                lambda: coordinator.write_queue._active is not None, "reset owns the write queue"
+            )
+            await thor.status("SuspendedEV")
+            assert coordinator.transaction_is_active
+
+        with pytest.raises(HomeAssistantError) as raised:
+            await press
+        assert raised.value.translation_key == "command_not_executed"
+        assert _state(hass, restart) == STATE_UNAVAILABLE
+        assert thor.reset_types.empty()

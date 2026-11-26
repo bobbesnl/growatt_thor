@@ -33,6 +33,8 @@ _WRITE_BLOCK_TRANSLATIONS: Mapping[str, tuple[type[HomeAssistantError], str]] = 
     "charger_disconnected": (HomeAssistantError, "charger_disconnected"),
     "charger_faulted": (ServiceValidationError, "charger_faulted"),
     "charger_rebooting": (HomeAssistantError, "charger_rebooting"),
+    "restart_in_progress": (ServiceValidationError, "restart_in_progress"),
+    "restart_not_ready": (ServiceValidationError, "restart_not_ready"),
     "active_transaction": (ServiceValidationError, "active_transaction"),
     "control_not_applicable": (
         ServiceValidationError,

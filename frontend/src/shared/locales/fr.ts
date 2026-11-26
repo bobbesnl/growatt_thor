@@ -180,9 +180,9 @@ export const fr: Record<keyof typeof en, string> = {
   unavailableHint: 'La borne signale qu’elle est indisponible.',
   offlineHint: 'Aucune connexion. Mesures actuelles et commandes indisponibles.',
   rebooting: 'Redémarrage',
-  rebootingHint: 'La borne redémarre pour appliquer une modification.',
+  rebootingHint: 'La borne redémarre.',
   rebootingNotice:
-    'La borne redémarre pour appliquer une modification de configuration. Les autres modifications et le démarrage de la charge sont bloqués jusqu’à sa reconnexion.',
+    'La borne redémarre. Les autres modifications et le démarrage de la charge sont bloqués jusqu’à sa reconnexion.',
   unknownHint: 'En attente d’une mise à jour de l’état du chargeur.',
   faultHint: 'La borne signale un défaut. Vérifiez les détails avant de redémarrer.',
   pvWaitHint: 'La borne signale qu’elle attend de l’énergie solaire.',

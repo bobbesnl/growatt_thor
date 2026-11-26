@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Callable, Mapping, MutableMapping
 from typing import TYPE_CHECKING, Any, Protocol
 
 from ..const import CONFIGURATION_WRITE_SPACING_SECONDS
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from ..configuration.values import ConfigurationValue
     from ..configuration.writes import ConfigurationWriteStatus
     from ..ocpp.growatt.external_meter_state import ExternalMeterState
-    from ..runtime.write_results import ChargerCommandHandle
+    from ..runtime.write_results import ChargerCommandHandle, ChargerWriteResult
     from ..targets.requests import TargetRecord
     from .pv_linkage import PvLinkageApplyResult, PvLinkageDraft
 
@@ -97,6 +97,12 @@ class TransactionTransport(Protocol):
     ) -> Mapping[str, object]: ...
 
     async def trigger_status(self) -> object: ...
+
+
+class RestartTransport(Protocol):
+    async def soft_reset(
+        self, *, check_at_gate: Callable[[], ChargerWriteResult | None]
+    ) -> ChargerWriteResult: ...
 
 
 class PvServiceOwner(PvApplyOwner, CommandOwner, Protocol):

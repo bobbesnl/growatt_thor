@@ -258,7 +258,13 @@
       "message": "The requested action is blocked while the charger reports a fault."
     },
     "charger_rebooting": {
-      "message": "The charger is restarting to apply a configuration change. Try again once it has reconnected."
+      "message": "The charger is restarting. Try again once it has reconnected."
+    },
+    "restart_in_progress": {
+      "message": "A charger restart request is already pending."
+    },
+    "restart_not_ready": {
+      "message": "Wait for the charger status and clear any active reservation before restarting."
     },
     "active_transaction": {
       "message": "This setting cannot be changed while a charging transaction is active."
@@ -853,6 +859,9 @@
             }
           }
         }
+      },
+      "restart_charger": {
+        "name": "Restart charger"
       }
     },
     "number": {

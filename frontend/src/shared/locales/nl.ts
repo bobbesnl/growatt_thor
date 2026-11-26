@@ -177,9 +177,9 @@ export const nl: Record<keyof typeof en, string> = {
   unavailableHint: 'De wallbox meldt dat deze niet beschikbaar is.',
   offlineHint: 'Geen verbinding. Actuele metingen en bediening zijn niet beschikbaar.',
   rebooting: 'Herstart',
-  rebootingHint: 'De laadpaal herstart om een wijziging toe te passen.',
+  rebootingHint: 'De laadpaal start opnieuw op.',
   rebootingNotice:
-    'De laadpaal herstart om een configuratiewijziging toe te passen. Verdere wijzigingen en laden starten zijn geblokkeerd tot hij weer verbonden is.',
+    'De laadpaal start opnieuw op. Verdere wijzigingen en laden starten zijn geblokkeerd tot hij weer verbonden is.',
   unknownHint: 'Wachten op een statusupdate van de lader.',
   faultHint: 'De wallbox meldt een storing. Controleer de details vóór opnieuw starten.',
   pvWaitHint: 'De wallbox meldt dat deze op zonne-energie wacht.',

@@ -174,9 +174,9 @@ export const en = {
   unavailableHint: 'The wallbox reports that it is unavailable.',
   offlineHint: 'No connection. Live readings and controls are unavailable.',
   rebooting: 'Restarting',
-  rebootingHint: 'The wallbox is restarting to apply a change.',
+  rebootingHint: 'The wallbox is restarting.',
   rebootingNotice:
-    'The wallbox is restarting to apply a configuration change. Further changes and Start are blocked until it reconnects.',
+    'The wallbox is restarting. Further changes and Start are blocked until it reconnects.',
   unknownHint: 'Waiting for a charger status update.',
   faultHint: 'The wallbox reports a fault. Check the details before restarting.',
   pvWaitHint: 'The wallbox reports that it is waiting for solar energy.',

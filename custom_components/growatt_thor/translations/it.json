@@ -258,7 +258,13 @@
       "message": "L’azione è bloccata mentre il caricatore segnala un guasto."
     },
     "charger_rebooting": {
-      "message": "Il caricatore si sta riavviando per applicare una modifica alla configurazione. Riprova quando si sarà ricollegato."
+      "message": "Il caricatore si sta riavviando. Riprova quando si sarà ricollegato."
+    },
+    "restart_in_progress": {
+      "message": "Una richiesta di riavvio è già in attesa."
+    },
+    "restart_not_ready": {
+      "message": "Attendi lo stato del caricatore e annulla eventuali prenotazioni attive prima di riavviarlo."
     },
     "active_transaction": {
       "message": "Impossibile modificare questa impostazione durante una transazione di ricarica attiva."
@@ -853,6 +859,9 @@
             }
           }
         }
+      },
+      "restart_charger": {
+        "name": "Riavvia caricatore"
       }
     },
     "number": {

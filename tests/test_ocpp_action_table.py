@@ -40,6 +40,7 @@ class OcppActionTableTest(unittest.TestCase):
             "DataTransfer": (30, True, Retry.NONE),
             "RemoteStartTransaction": (30, True, Retry.NONE),
             "RemoteStopTransaction": (30, True, Retry.NONE),
+            "Reset": (30, True, Retry.NONE),
             "ReserveNow": (30, True, Retry.NONE),
             "CancelReservation": (30, True, Retry.NONE),
         }

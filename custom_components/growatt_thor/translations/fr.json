@@ -258,7 +258,13 @@
       "message": "L’action demandée est bloquée tant que la borne signale un défaut."
     },
     "charger_rebooting": {
-      "message": "La borne redémarre pour appliquer une modification de configuration. Réessayez lorsqu'elle sera reconnectée."
+      "message": "La borne redémarre. Réessayez lorsqu’elle sera reconnectée."
+    },
+    "restart_in_progress": {
+      "message": "Une demande de redémarrage est déjà en attente."
+    },
+    "restart_not_ready": {
+      "message": "Attendez que la borne signale son état et annulez toute réservation active avant le redémarrage."
     },
     "active_transaction": {
       "message": "Ce réglage ne peut pas être modifié pendant une transaction de charge active."
@@ -853,6 +859,9 @@
             }
           }
         }
+      },
+      "restart_charger": {
+        "name": "Redémarrer la borne"
       }
     },
     "number": {

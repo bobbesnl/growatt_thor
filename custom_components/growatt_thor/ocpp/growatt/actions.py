@@ -68,6 +68,7 @@ OCPP_ACTIONS: dict[str, OcppActionPolicy] = {
     "DataTransfer": OcppActionPolicy(OCPP_RESPONSE_TIMEOUT_SECONDS, True, OcppRetry.NONE),
     "RemoteStartTransaction": OcppActionPolicy(OCPP_RESPONSE_TIMEOUT_SECONDS, True, OcppRetry.NONE),
     "RemoteStopTransaction": OcppActionPolicy(OCPP_RESPONSE_TIMEOUT_SECONDS, True, OcppRetry.NONE),
+    "Reset": OcppActionPolicy(OCPP_RESPONSE_TIMEOUT_SECONDS, True, OcppRetry.NONE),
     # Target operations call the library directly inside the target runner,
     # which classifies their failures itself.
     "ReserveNow": OcppActionPolicy(OCPP_RESPONSE_TIMEOUT_SECONDS, True, OcppRetry.NONE),

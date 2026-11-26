@@ -258,7 +258,13 @@
       "message": "De gevraagde actie is geblokkeerd zolang de lader een storing meldt."
     },
     "charger_rebooting": {
-      "message": "De laadpaal start opnieuw op om een configuratiewijziging toe te passen. Probeer het opnieuw zodra hij weer verbonden is."
+      "message": "De laadpaal start opnieuw op. Probeer het opnieuw zodra hij weer verbonden is."
+    },
+    "restart_in_progress": {
+      "message": "Er is al een herstart aangevraagd."
+    },
+    "restart_not_ready": {
+      "message": "Wacht op de status van de laadpaal en annuleer een actieve reservering voordat je hem herstart."
     },
     "active_transaction": {
       "message": "Deze instelling kan niet worden gewijzigd terwijl een laadsessie actief is."
@@ -853,6 +859,9 @@
             }
           }
         }
+      },
+      "restart_charger": {
+        "name": "Laadpaal herstarten"
       }
     },
     "number": {

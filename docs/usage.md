@@ -50,6 +50,9 @@ a completed stop, including an energy-protection stop. The card enables
 **Start charging** once the previous transaction has ended and the charger is
 ready. The command requests a new session without changing PV Linkage, boost
 settings or current limits; it does not guarantee immediate power delivery.
+
+If the wallbox stays connected to Home Assistant but will not accept a new start after a stop, try **Restart charger** on the THOR device page. The button sends a manual Soft Reset once the wallbox has reported its status and has no active session or reservation. The vehicle cable can stay plugged in. **Last command result** shows the wallbox’s reply. Wait for it to reconnect before requesting a new start.
+
 **Stop charging** stays disabled while there is no active transaction.
 RFID-only mode continues to require a physical card. Active or unresolved
 charging targets and an unavailable HA start entity can still block the button;

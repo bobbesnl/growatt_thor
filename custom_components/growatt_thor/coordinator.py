@@ -603,7 +603,7 @@ class GrowattCoordinator(_CoordinatorBase):
         return self.reboot_window.is_open and self.reboot_window.pending(self.hass.loop.time())
 
     def observe_reboot_required(self) -> None:
-        """Record that the charger accepted a change it applies by rebooting."""
+        """Expect a reboot after a configuration change or manual reset."""
         self.reboot_window.expect(self.hass.loop.time())
         if self._reboot_window_expiry is not None:
             self._reboot_window_expiry.cancel()

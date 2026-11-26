@@ -752,6 +752,7 @@ class EntityTranslationTest(unittest.TestCase):
                 "start_charging",
                 "stop_charging",
                 "apply_pv_linkage",
+                "restart_charger",
             },
             "number": {
                 "max_current",

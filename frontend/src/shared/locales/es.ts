@@ -179,9 +179,9 @@ export const es: Record<keyof typeof en, string> = {
   unavailableHint: 'La wallbox indica que no está disponible.',
   offlineHint: 'Sin conexión. Las lecturas actuales y los controles no están disponibles.',
   rebooting: 'Reiniciando',
-  rebootingHint: 'El cargador se está reiniciando para aplicar un cambio.',
+  rebootingHint: 'El cargador se está reiniciando.',
   rebootingNotice:
-    'El cargador se está reiniciando para aplicar un cambio de configuración. Otros cambios e iniciar la carga quedan bloqueados hasta que se reconecte.',
+    'El cargador se está reiniciando. Otros cambios e iniciar la carga quedan bloqueados hasta que se reconecte.',
   unknownHint: 'Esperando una actualización del estado del cargador.',
   faultHint: 'La wallbox indica un fallo. Revise los detalles antes de reiniciar.',
   pvWaitHint: 'La wallbox indica que está esperando energía solar.',

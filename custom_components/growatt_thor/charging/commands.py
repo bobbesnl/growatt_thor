@@ -1,12 +1,14 @@
-"""Shared Start/Stop command boundaries for entities and automatic rules."""
+"""Guarded charger commands for entities and automatic rules."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 from collections.abc import Callable
+from functools import partial
 
 from ..const import DOMAIN as DOMAIN
+from ..ocpp.core.status import normalize_ocpp_status
 from ..runtime.action_errors import (
     async_require_command_completion,
     raise_action_validation,
@@ -17,12 +19,13 @@ from ..runtime.keys import ACTIVE_CHARGE_POINT
 from ..runtime.write_results import (
     TRANSACTION_CONTROL_WRITE_POLICY,
     VOLATILE_CONTROL_WRITE_POLICY,
+    ChargerCommandHandle,
     ChargerCommandResult,
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
     ChargerWriteResult,
 )
-from .contracts import CommandOwner, TransactionTransport
+from .contracts import CommandOwner, RestartTransport, TransactionTransport
 from .control_capabilities import charger_write_block_reason
 from .start_stop_rules import (
     REMOTE_START_COMMAND,
@@ -38,6 +41,86 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_ID_TAG = "12345678"  # Growatt handshake key
 STATUS_TRIGGER_DELAY_SECONDS = 2
+
+
+class RestartChargerCommand:
+    """A manual reset that expires on the connection it was requested for."""
+
+    def __init__(self, coordinator: CommandOwner) -> None:
+        self.coordinator = coordinator
+        # Queue deduplication replaces unsent work. A reset must reject another
+        # request even while its first OCPP reply is outstanding.
+        self._pending = False
+
+    def _revalidate(self, charge_point: RestartTransport | None) -> str | None:
+        coordinator = self.coordinator
+        if (
+            not coordinator.connected
+            or charge_point is None
+            or coordinator.runtime_data.get(ACTIVE_CHARGE_POINT) is not charge_point
+        ):
+            return "charger_disconnected"
+        if coordinator.charger_reboot_pending:
+            return "charger_rebooting"
+        if coordinator.transaction_is_active:
+            return "active_transaction"
+        # Require a known state, and keep charger-side reservations intact.
+        if normalize_ocpp_status(coordinator.status) in {None, "reserved"}:
+            return "restart_not_ready"
+        return None
+
+    @property
+    def write_block_reason(self) -> str | None:
+        if self._pending:
+            return "restart_in_progress"
+        return self._revalidate(self.coordinator.runtime_data.get(ACTIVE_CHARGE_POINT))
+
+    async def async_request(self) -> None:
+        if (reason := self.write_block_reason) is not None:
+            raise_write_blocked(reason)
+        charge_point: RestartTransport = self.coordinator.runtime_data[ACTIVE_CHARGE_POINT]
+        queued_block_reason = partial(self._revalidate, charge_point)
+        loop = self.coordinator.hass.loop
+        deadline = loop.time() + VOLATILE_CONTROL_WRITE_POLICY.expires_after
+
+        def check_at_gate() -> ChargerWriteResult | None:
+            # Time spent waiting for the OCPP gate also counts towards expiry.
+            if loop.time() >= deadline:
+                return ChargerWriteResult.expired()
+            if (reason := queued_block_reason()) is not None:
+                return ChargerWriteResult.skipped(reason)
+            return None
+
+        self._pending = True
+        handle: ChargerCommandHandle | None = None
+        try:
+            handle = await self.coordinator.queue_write(
+                self._reset,
+                charge_point,
+                check_at_gate=check_at_gate,
+                command_name="Reset",
+                requires_connection=True,
+                rate_limited=False,
+                policy=VOLATILE_CONTROL_WRITE_POLICY,
+                revalidate=queued_block_reason,
+            )
+        finally:
+            if handle is None:
+                self._clear_pending()
+        handle.add_done_callback(self._clear_pending)
+        self.coordinator.async_set_updated_data(True)
+        await async_require_command_completion(handle)
+
+    def _clear_pending(self, _result: ChargerCommandResult | None = None) -> None:
+        # A HA caller can cancel or time out before the queue finishes.
+        self._pending = False
+        self.coordinator.async_set_updated_data(True)
+
+    @staticmethod
+    async def _reset(
+        charge_point: RestartTransport, *, check_at_gate: Callable[[], ChargerWriteResult | None]
+    ) -> ChargerWriteResult:
+        return await charge_point.soft_reset(check_at_gate=check_at_gate)
 
 
 def command_state(

@@ -1,8 +1,11 @@
 """Expected charger reboot after RebootRequired: writes and Start wait for the reconnect."""
 
+import asyncio
 import unittest
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
-from tests.support import build_coordinator, load_package_module
+from tests.support import build_coordinator, build_queue_coordinator, load_package_module
 
 reboot = load_package_module("runtime.charger_reboot")
 controls = load_package_module("charging.control_capabilities")
@@ -123,6 +126,45 @@ class CoordinatorRebootTest(unittest.TestCase):
 
         self.assertTrue(first.cancelled)
         self.assertFalse(second.cancelled)
+
+
+class RestartChargerCommandTest(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.coordinator = build_queue_coordinator(asyncio.get_running_loop())
+        self.addAsyncCleanup(self.coordinator.write_queue.async_shutdown)
+        self.charge_point = SimpleNamespace(soft_reset=AsyncMock())
+        self.coordinator.runtime_data["charge_point"] = self.charge_point
+        self.command = commands.RestartChargerCommand(self.coordinator)
+
+    async def test_unknown_status_and_reservation_block_reset(self):
+        for status in (None, "Reserved"):
+            with self.subTest(status=status):
+                self.coordinator.status = status
+                self.assertEqual(self.command.write_block_reason, "restart_not_ready")
+                with self.assertRaisesRegex(Exception, "restart_not_ready"):
+                    await self.command.async_request()
+        self.charge_point.soft_reset.assert_not_awaited()
+
+    async def test_reset_can_expire_at_the_ocpp_gate_after_leaving_the_queue(self):
+        self.coordinator.status = "Available"
+        clock = Mock(wraps=self.coordinator.hass.loop)
+        self.coordinator.hass.loop = clock
+        clock.time.return_value = 100.0
+
+        async def soft_reset(*, check_at_gate):
+            self.assertIsNone(check_at_gate())
+            clock.time.return_value += commands.VOLATILE_CONTROL_WRITE_POLICY.expires_after
+            return check_at_gate()
+
+        self.charge_point.soft_reset.side_effect = soft_reset
+        with self.assertRaisesRegex(Exception, "command_not_executed"):
+            await self.command.async_request()
+
+        self.charge_point.soft_reset.assert_awaited_once()
+        result = self.coordinator.last_command_result
+        self.assertEqual(result.status.value, "expired")
+        self.assertEqual(result.reason, "expired_before_send")
+        self.assertIsNone(self.command.write_block_reason)
 
 
 if __name__ == "__main__":

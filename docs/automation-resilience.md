@@ -134,7 +134,7 @@ Every production queue entry declares an immutable expiry and reconnect policy:
 
 - Configuration changes remain valid for no more than five minutes. Only the latest change for the same value is retained.
 - Stop remains valid for no more than 60 seconds and is bound to the exact transaction for which it was requested.
-- Start and AP-mode commands remain valid for no more than 15 seconds and are discarded as soon as they encounter a disconnect.
+- Start, manual Soft Reset and AP-mode commands remain valid for no more than 15 seconds. They are discarded if they encounter a disconnect. Soft Reset is also bound to the original socket, so a reconnect cannot revive it.
 - Every delayed command is validated again immediately before it is sent.
 - A command that exceeds its lifetime receives the terminal outcome `expired`.
 

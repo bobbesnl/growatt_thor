@@ -258,7 +258,13 @@
       "message": "Die angeforderte Aktion ist gesperrt, solange die Wallbox eine Störung meldet."
     },
     "charger_rebooting": {
-      "message": "Die Wallbox startet neu, um eine Konfigurationsänderung zu übernehmen. Bitte erneut versuchen, sobald sie wieder verbunden ist."
+      "message": "Die Wallbox startet neu. Bitte erneut versuchen, sobald sie wieder verbunden ist."
+    },
+    "restart_in_progress": {
+      "message": "Ein Neustart der Wallbox wurde bereits angefordert."
+    },
+    "restart_not_ready": {
+      "message": "Warte auf den Status der Wallbox und beende eine aktive Reservierung vor dem Neustart."
     },
     "active_transaction": {
       "message": "Diese Einstellung kann während eines aktiven Ladevorgangs nicht geändert werden."
@@ -853,6 +859,9 @@
             }
           }
         }
+      },
+      "restart_charger": {
+        "name": "Wallbox neu starten"
       }
     },
     "number": {

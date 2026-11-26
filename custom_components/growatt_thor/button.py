@@ -18,11 +18,12 @@ if TYPE_CHECKING:
 import logging
 from collections.abc import Sequence
 
-from homeassistant.components.button import ButtonEntity
+from homeassistant.components.button import ButtonDeviceClass, ButtonEntity
 from homeassistant.const import EntityCategory
 from homeassistant.util import dt as dt_util
 
 from .charging.commands import DEFAULT_ID_TAG as DEFAULT_ID_TAG
+from .charging.commands import RestartChargerCommand
 from .charging.control_capabilities import (
     ChargingControl,
 )
@@ -62,6 +63,7 @@ async def async_setup_entry(
             StartChargingButton(coordinator, entry),
             StopChargingButton(coordinator, entry),
             ApplyPvLinkageButton(coordinator, entry),
+            RestartChargerButton(coordinator, entry),
         ]
     )
 
@@ -108,6 +110,26 @@ class StopChargingButton(ThorEntity, ButtonEntity):
     async def async_press(self) -> None:
         """Delegate the entity action to the common command boundary."""
         await GrowattOcppCharger(self.coordinator).async_stop()
+
+
+class RestartChargerButton(ThorEntity, ButtonEntity):
+    """Request a manual Soft Reset from the charger device page."""
+
+    _attr_translation_key = "restart_charger"
+    _attr_device_class = ButtonDeviceClass.RESTART
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: GrowattCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_restart_charger"
+        self._restart = RestartChargerCommand(coordinator)
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._restart.write_block_reason is None
+
+    async def async_press(self) -> None:
+        await self._restart.async_request()
 
 
 class ApplyPvLinkageButton(ThorEntity, ButtonEntity):

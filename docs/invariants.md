@@ -25,9 +25,12 @@ rules are recorded as [decision records](adr/README.md).
 - Stop cancels an unsent Start before considering a physical Stop. A Stop is
   tied to the observed transaction; a later transaction invalidates it.
 - After a `RebootRequired` answer the charger reboots about 30 seconds later.
-  Queued writes are skipped with `charger_rebooting` until the current charger
-  reconnects or the 120-second window expires. Transaction-bound Stop still
-  revalidates the observed session and may be sent during this window.
+  An acknowledged or uncertain manual Soft Reset opens the same reboot window.
+  Further queued writes are skipped until the current charger reconnects or
+  the 120-second window expires. Stop is never refused for this reason.
+- Manual Reset is bound to the original connection and is checked again inside
+  the serialized OCPP request gate. It cannot interrupt an active transaction
+  or a reported reservation, and the queue never replays it on reconnect.
 - Start and Stop buttons call `GrowattOcppCharger`, the `ChargerControl`
   implementation, which delegates to `StartChargingCommand` and
   `StopChargingCommand` in `charging/commands.py`. These commands own

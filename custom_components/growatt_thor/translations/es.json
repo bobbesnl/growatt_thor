@@ -258,7 +258,13 @@
       "message": "La acción solicitada está bloqueada mientras el cargador indica un fallo."
     },
     "charger_rebooting": {
-      "message": "El cargador se está reiniciando para aplicar un cambio de configuración. Vuelve a intentarlo cuando se haya reconectado."
+      "message": "El cargador se está reiniciando. Vuelve a intentarlo cuando se haya reconectado."
+    },
+    "restart_in_progress": {
+      "message": "Ya hay una solicitud de reinicio pendiente."
+    },
+    "restart_not_ready": {
+      "message": "Espera a que el cargador comunique su estado y cancela cualquier reserva activa antes de reiniciarlo."
     },
     "active_transaction": {
       "message": "No se puede cambiar este ajuste mientras haya una transacción de carga activa."
@@ -853,6 +859,9 @@
             }
           }
         }
+      },
+      "restart_charger": {
+        "name": "Reiniciar cargador"
       }
     },
     "number": {

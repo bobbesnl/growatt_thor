@@ -17,6 +17,8 @@ from ocpp.v16.enums import (
     DataTransferStatus,
     RegistrationStatus,
     RemoteStartStopStatus,
+    ResetStatus,
+    ResetType,
 )
 from websockets.asyncio.server import Server, ServerConnection, serve
 from websockets.typing import Subprotocol
@@ -39,6 +41,8 @@ from ...runtime.ownership import (
 from ...runtime.write_results import (
     ChargerConnectionUnavailable,
     ChargerRequestOutcomeUncertain,
+    ChargerWriteResult,
+    ChargerWriteStatus,
 )
 from ...sessions.records import parse_growatt_session_record
 from ..core.connection import (
@@ -872,6 +876,41 @@ class GrowattChargePoint(OcppChargePoint):
                 exc_info=True,
             )
             return DataTransferStatus.rejected
+
+    async def soft_reset(
+        self, *, check_at_gate: Callable[[], ChargerWriteResult | None]
+    ) -> ChargerWriteResult:
+        """Request a Soft Reset on the current socket, once."""
+
+        async def send() -> ChargerWriteResult:
+            # A transaction can start while Reset waits behind an OCPP read.
+            if (blocked := check_at_gate()) is not None:
+                return blocked
+            response = await self.call(call.Reset(type=ResetType.soft))
+            status = getattr(response, "status", None)
+            if status == ResetStatus.accepted:
+                return ChargerWriteResult.success(status)
+            if response is None or status == ResetStatus.rejected:
+                # The OCPP library returns None for an explicit CALLERROR.
+                return ChargerWriteResult.failed("charger_rejected", status)
+            raise ChargerRequestOutcomeUncertain("Reset: invalid acknowledgement")
+
+        try:
+            result = cast(
+                ChargerWriteResult,
+                await self._run_serialized_request(
+                    "Reset", send, timeout_makes_outcome_uncertain=_uncertain("Reset")
+                ),
+            )
+        except ChargerRequestOutcomeUncertain:
+            # A lost answer can still mean a reboot is imminent. An already
+            # replaced socket cannot open a new window on its successor.
+            if self._is_current_connection():
+                self.coordinator.observe_reboot_required()
+            raise
+        if result.status == ChargerWriteStatus.SUCCESS and self._is_current_connection():
+            self.coordinator.observe_reboot_required()
+        return result
 
     # Remote Start/Stop Transaction
 

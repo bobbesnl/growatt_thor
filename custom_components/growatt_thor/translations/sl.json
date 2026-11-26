@@ -258,7 +258,13 @@
       "message": "Dejanje je blokirano, dokler polnilnica javlja napako."
     },
     "charger_rebooting": {
-      "message": "Polnilnica se znova zaganja, da uveljavi spremembo nastavitev. Poskusite znova, ko se ponovno poveže."
+      "message": "Polnilnica se znova zaganja. Poskusite znova, ko se ponovno poveže."
+    },
+    "restart_in_progress": {
+      "message": "Zahteva za ponovni zagon je že v teku."
+    },
+    "restart_not_ready": {
+      "message": "Pred ponovnim zagonom počakajte na stanje polnilnice in prekličite morebitno aktivno rezervacijo."
     },
     "active_transaction": {
       "message": "Te nastavitve med aktivno transakcijo polnjenja ni mogoče spremeniti."
@@ -853,6 +859,9 @@
             }
           }
         }
+      },
+      "restart_charger": {
+        "name": "Znova zaženi polnilnico"
       }
     },
     "number": {
