@@ -28,6 +28,7 @@ from .correlation import CORRELATION_MATCHED, build_unified_session, session_rec
 from .display_times import session_time_zone
 from .duration import EffectiveChargingTracker
 from .events import SessionEvent, SessionEventTracker, merge_growatt_record_events
+from .goal import retained_session_goal
 from .outbox import SessionOutbox
 from .records import GrowattSessionRecord
 from .state import LastSessionState
@@ -165,6 +166,7 @@ class SessionLifecycle:
                 "transaction_id": transaction_id,
                 "id_tag": request.get("id_tag") or coordinator.id_tag,
                 "id_tag_alias": transaction.get("id_tag_alias"),
+                "charging_goal": transaction.get("charging_goal"),
                 "start_received_at": start.get("received_at"),
                 "start_timestamp": request.get("timestamp"),
                 "connector_id": request.get("connector_id"),
@@ -226,6 +228,8 @@ class SessionLifecycle:
             },
             "events": self.event_tracker.events,
         }
+        if state.charging_goal is not None:
+            coordinator.active_transaction["charging_goal"] = state.charging_goal
         self.restored_active_session = True
 
     def discard_unconfirmed_restored_session(self) -> None:
@@ -303,6 +307,9 @@ class SessionLifecycle:
             "start": start_snapshot,
             "events": self.event_tracker.events,
         }
+        hooks = coordinator.transaction_hooks
+        if hooks is not None and (goal := hooks.session_goal_for_start()) is not None:
+            coordinator.active_transaction["charging_goal"] = goal
         try:
             baseline = float(meter_start) if meter_start is not None else None
         except (TypeError, ValueError):
@@ -336,7 +343,6 @@ class SessionLifecycle:
             meter_start=meter_start,
             started_at=start_snapshot["received_at"],
         )
-        hooks = coordinator.transaction_hooks
         if hooks is not None:
             coordinator.hass.async_create_task(
                 hooks.transaction_started(transaction_id=transaction_id)
@@ -842,4 +848,8 @@ class SessionLifecycle:
             },
             "events": json.dumps(events, separators=(",", ":")),
         }
+        if matched and (
+            goal := retained_session_goal((completed_transaction or {}).get("charging_goal"))
+        ):
+            session_row.update(target_kind=goal["kind"], target_value=goal["value"])
         return session_row

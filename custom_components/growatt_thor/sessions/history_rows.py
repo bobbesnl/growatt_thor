@@ -48,6 +48,8 @@ SESSION_LOG_HEADERS = [
     "accounting_coverage",
     "accounting_quality",
     "accounting_policy",
+    "target_kind",
+    "target_value",
 ]
 
 

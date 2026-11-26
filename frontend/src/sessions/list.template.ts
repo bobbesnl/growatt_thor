@@ -2,7 +2,7 @@ import { html, nothing } from 'lit';
 import type { SessionItem } from '../shared/types';
 import { formatSessionPeriod, formatSessionNumber, type SessionSort } from './model';
 import { sessionTranslate } from './locales';
-import { sessionMetricViews } from './metrics.template';
+import { sessionGoalView, sessionMetricViews } from './metrics.template';
 import { renderSessionIdentifier } from './identifier.template';
 
 interface SessionListView {
@@ -59,6 +59,7 @@ export function renderSessionList(view: SessionListView) {
               view.timeZone,
             );
             const metrics = sessionMetricViews(row, view.language, view.currency);
+            const goal = sessionGoalView(row, view.language, view.currency);
             return html`<li>
               <button
                 type="button"
@@ -89,6 +90,13 @@ export function renderSessionList(view: SessionListView) {
                     )}
                     ${metric(t('green'), metrics.green)}
                   </span>
+                  ${goal
+                    ? metric(
+                        goal.label,
+                        html`<span title=${goal.title}>${goal.summary}</span>`,
+                        'session-goal',
+                      )
+                    : nothing}
                   ${view.showIdentifier
                     ? metric(t('identifier'), renderSessionIdentifier(row), 'session-identifier')
                     : nothing}

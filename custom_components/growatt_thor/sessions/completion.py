@@ -36,6 +36,7 @@ def completion_transaction(value: object) -> dict[str, Any] | None:
             "site_house_load_source": value.get("site_house_load_source"),
             "events": value.get("events"),
             "power_curve": value.get("power_curve"),
+            "charging_goal": value.get("charging_goal"),
         }
     )
     stop_request: dict[str, str | int | float] = {}
@@ -73,4 +74,5 @@ def completion_transaction(value: object) -> dict[str, Any] | None:
         "events": bounded.events,
         "power_curve": bounded.power_curve,
         "effective_charging_duration_minutes": minutes,
+        **({"charging_goal": bounded.charging_goal} if bounded.charging_goal else {}),
     }

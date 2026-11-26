@@ -12,6 +12,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from ..configuration.values import ConfigurationScalar
     from ..ocpp.growatt.server import GrowattChargePoint
     from ..runtime.write_results import ChargerCommandResult
     from ..targets.requests import TargetRecord
@@ -52,6 +53,8 @@ class NativeTargetControl(Protocol):
     """
 
     def active_charge_point(self) -> GrowattChargePoint | None: ...
+
+    def charger_mode(self) -> ConfigurationScalar: ...
 
     def block_reason(self, cp: GrowattChargePoint | None, activation: str) -> str | None: ...
 

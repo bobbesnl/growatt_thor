@@ -12,7 +12,11 @@ class TransactionHooksTest(unittest.IsolatedAsyncioTestCase):
     async def test_start_and_stop_publish_the_observed_transaction_identity(self):
         coordinator = build_coordinator()
         coordinator.now = lambda: "2026-10-30T12:00:00Z"
-        hooks = SimpleNamespace(transaction_started=AsyncMock(), transaction_stopped=AsyncMock())
+        hooks = SimpleNamespace(
+            session_goal_for_start=lambda: None,
+            transaction_started=AsyncMock(),
+            transaction_stopped=AsyncMock(),
+        )
         coordinator.transaction_hooks = hooks
         tasks = []
 

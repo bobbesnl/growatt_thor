@@ -27,6 +27,7 @@ from ..ocpp.core.diagnostics import boot_notification_field
 from ..ocpp.core.meter_samples import meter_time_zone, normalize_meter_timestamp
 from ..sessions.display_times import session_times
 from ..sessions.events import normalize_session_events
+from ..sessions.goal import retained_session_goal, session_goal_progress
 from ..sessions.identity import SOURCE_HOME_ASSISTANT, build_session_id
 from ..sessions.series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 from ..sessions.telemetry import CONTEXT_CURVES, context_curves
@@ -108,6 +109,7 @@ def dashboard_active_session(coordinator: ActiveSessionOwner) -> dict[str, Any] 
     fallback_kwh = accounting.power_fallback_kwh if accounting is not None else 0.0
     sessions = coordinator.sessions
     telemetry = sessions.telemetry
+    goal = retained_session_goal(transaction.get("charging_goal"))
     return {
         "session_id": build_session_id(
             source=SOURCE_HOME_ASSISTANT,
@@ -153,6 +155,18 @@ def dashboard_active_session(coordinator: ActiveSessionOwner) -> dict[str, Any] 
         # Growatt reports the authoritative cost only with the completed record.
         "cost": None,
         "duration_minutes": None,
+        **(
+            {
+                "charging_goal": session_goal_progress(
+                    goal,
+                    energy=energy_wh / 1000 if energy_wh is not None else None,
+                    duration=_effective_charging_minutes(coordinator),
+                    cost=None,
+                )
+            }
+            if goal is not None
+            else {}
+        ),
         "authorized_identifier": _text(request.get("id_tag") or coordinator.id_tag),
         "authorized_alias": _text(transaction.get("id_tag_alias")),
         "power_curve": _dashboard_power_curve(

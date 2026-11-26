@@ -444,7 +444,14 @@ th.num {
   color: var(--muted);
   font-size: 11px;
 }
-.session-identifier {
+.session-metric.session-goal {
+  flex-direction: row;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+.session-identifier,
+.session-metric.session-goal {
   grid-column: 1 / -1;
 }
 .session-card-identity {

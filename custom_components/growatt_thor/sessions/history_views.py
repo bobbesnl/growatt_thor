@@ -15,6 +15,7 @@ from .archive_summary import (
     session_green,
 )
 from .display_times import session_times
+from .goal import session_goal, session_goal_progress
 from .history_rows import (
     accounting_policy,
     accounting_sources,
@@ -51,6 +52,13 @@ def session_item(
         "authorized_alias": row.get("authorized_alias") or None,
         "detail_available": bool(row.get("power_curve") or row.get("events")),
     }
+    if goal := session_goal(row.get("target_kind"), row.get("target_value")):
+        item["charging_goal"] = session_goal_progress(
+            goal,
+            energy=row.get("energy_kwh"),
+            duration=row.get("effective_charging_minutes"),
+            cost=row.get("cost"),
+        )
     if details:
         item["power_curve"] = power_curve(
             row.get("power_curve"),

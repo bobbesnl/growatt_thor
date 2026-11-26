@@ -1,8 +1,34 @@
 import { html, nothing } from 'lit';
 import type { SessionItem, SessionHistoryData } from '../shared/types';
+import { numeric } from '../shared/model';
+import { translate } from '../shared/strings';
 import { accountingTranslate } from './accounting.locales';
 import { sessionTranslate } from './locales';
 import { formatSessionNumber, sessionRowMetrics } from './model';
+
+export function sessionGoalView(row: SessionItem, language: string, currency: string) {
+  const goal = row.charging_goal;
+  if (!goal) return null;
+  const target = numeric(goal.value);
+  if (!target) return null;
+  const actual = numeric(goal.actual);
+  const t = translate(language);
+  const unit = goal.kind === 'energy' ? 'kWh' : goal.kind === 'duration' ? 'min' : currency;
+  const amount = `${formatSessionNumber(target, language)} ${unit}`.trimEnd();
+  const fraction = actual === null ? null : actual / target;
+  const percent =
+    fraction !== null && Number.isFinite(fraction)
+      ? new Intl.NumberFormat(language, { style: 'percent', maximumFractionDigits: 1 }).format(
+          fraction,
+        )
+      : null;
+  return {
+    label: t('goalTitle'),
+    summary: percent === null ? amount : `${amount} · ${percent}`,
+    title:
+      actual === null ? '' : `${formatSessionNumber(actual, language)} ${t('goalOf')} ${amount}`,
+  };
+}
 
 /** Shared values and explanations keep the table and mobile tiles in sync. */
 export function sessionMetricViews(row: SessionItem, language: string, currency: string) {

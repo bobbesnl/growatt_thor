@@ -35,26 +35,16 @@ history_views = import_module(session_csv.__package__ + ".history_views")
 
 
 LEGACY_HEADERS = [
-    header
-    for header in history_rows.SESSION_LOG_HEADERS
-    if header
-    not in (
-        *session_telemetry.CONTEXT_CURVES,
-        "site_house_load_source",
-        "effective_charging_minutes",
-        "session_id",
-        "session_source",
-        "authorized_identifier",
-        "authorized_alias",
-        "green_energy_kwh",
-        "power_curve",
-        "events",
-        "source_energy_kwh",
-        "effective_grid_cost",
-        "accounting_coverage",
-        "accounting_quality",
-        "accounting_policy",
-    )
+    "timestamp",
+    "charger_id",
+    "source_instance_id",
+    "location",
+    "start_time",
+    "end_time",
+    "energy_kwh",
+    "cost",
+    "duration_minutes",
+    "transaction_id",
 ]
 
 

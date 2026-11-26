@@ -4,7 +4,7 @@ import type { SessionItem, SessionHistoryData } from '../shared/types';
 import { formatSessionDate, formatSessionNumber, sessionPage, type SessionSort } from './model';
 import { sessionTranslate } from './locales';
 import type { SessionDetailStore } from './detail-store';
-import { sessionMetricViews, sessionGreenTotalView } from './metrics.template';
+import { sessionGoalView, sessionMetricViews, sessionGreenTotalView } from './metrics.template';
 import { renderSessionAccounting } from './accounting.template';
 import { renderSessionEvents } from './events.template';
 import { renderSessionIdentifier } from './identifier.template';
@@ -171,6 +171,7 @@ function renderSessionRow(row: SessionItem, view: SessionCardView, actions: Sess
   const { selected, language, currency } = view;
   const { t, fmt, fmtDate } = sessionFormatting(view);
   const metrics = sessionMetricViews(row, language, currency);
+  const goal = sessionGoalView(row, language, currency);
   return html`<tr
     class=${[
       row.session_id === selected?.session_id ? 'selected' : '',
@@ -196,6 +197,11 @@ function renderSessionRow(row: SessionItem, view: SessionCardView, actions: Sess
     <td class="optional">${row.active ? t('active') : fmtDate(row.end_time)}</td>
     <td class="num">
       ${row.energy_source === 'power_fallback' ? '≈ ' : ''}${fmt(row.energy_kwh)} kWh
+      ${goal
+        ? html`<small class="metric-basis session-goal" title=${goal.title}
+            >${goal.label} ${goal.summary}</small
+          >`
+        : nothing}
     </td>
     <td class="num optional">${metrics.green}</td>
     <td class="num">${metrics.cost}${metrics.costBasis}</td>

@@ -142,3 +142,21 @@ test('templates retain search, sorting, keyboard selection and pagination callba
     ['page', 1, true],
   ]);
 });
+
+test('target amount and measured percentage appear in both history layouts', () => {
+  const { view } = renderCases().find((item) => item.name === 'de-false-completed-true-true-idle')!;
+  const row = sessionFixture({ charging_goal: { kind: 'energy', value: 5, actual: 2.35 } });
+  const render = () => markup(renderSessionCard(view, actions)).replace(/\s+/g, ' ');
+  view.page = sessionPage([row], 0, 1);
+  let text = render();
+  assert.equal(text.match(/5 kWh · 47 %/g)?.length, 2);
+  assert.equal(text.match(/Ladeziel/g)?.length, 2);
+
+  row.charging_goal = { kind: 'budget', value: 10, actual: null };
+  text = render();
+  assert.equal(text.match(/Ladeziel.*?10 EUR/g)?.length, 2);
+  assert.doesNotMatch(text, /10 EUR ·/);
+
+  row.charging_goal = { kind: 'duration', value: 10, actual: 10.5 };
+  assert.equal(render().match(/10 min · 105 %/g)?.length, 2);
+});

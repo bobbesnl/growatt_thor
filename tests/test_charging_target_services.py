@@ -105,6 +105,9 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         self.coordinator = SimpleNamespace(
             connected=True,
             transaction_is_active=False,
+            active_transaction=None,
+            transaction_id=None,
+            schedule_storage_save=lambda: None,
             charger_is_faulted=False,
             status="Available",
             connection_started_at="connection-1",
@@ -255,12 +258,29 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         async def accepted_with_fast_start(payload, **_kwargs):
             if type(payload).__name__ == "RemoteStartTransaction":
                 self.coordinator.transaction_is_active = True
+                self.coordinator.active_transaction = {}
             return SimpleNamespace(status="Accepted")
 
         self.cp.call.side_effect = accepted_with_fast_start
         await self.start()
         await self.queue[0]()
         self.assertEqual(Store.retained["state"], "active")
+        self.assertEqual(
+            self.coordinator.active_transaction["charging_goal"],
+            {"kind": "duration", "value": 1.0},
+        )
+
+    async def test_prepared_goal_can_only_be_snapshotted_on_its_own_connection(self):
+        self.coordinator.configuration_values["G_ChargerMode"] = SimpleNamespace(raw_value="3")
+        hooks = self.coordinator.transaction_hooks
+        await self.hass.services.invoke(
+            "prepare_plug_charging_target", kind="energy", value="5", confirm_experimental=True
+        )
+        self.assertIsNone(hooks.session_goal_for_start())
+        await self.queue[0]()
+        self.assertEqual(hooks.session_goal_for_start(), {"kind": "energy", "value": 5.0})
+        self.coordinator.connection_started_at = "another-connection"
+        self.assertIsNone(hooks.session_goal_for_start())
 
     async def test_disconnect_before_execution_never_sends(self):
         await self.start()

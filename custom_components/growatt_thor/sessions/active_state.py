@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 from ..coerce import optional_float, optional_text
 from .events import SessionEvent, normalize_session_events
+from .goal import SessionGoal, retained_session_goal
 from .series import SESSION_CURVE_POINT_LIMIT, downsample_curve
 from .telemetry import context_curves
 
@@ -39,6 +40,7 @@ class ActiveTransaction(TypedDict):
     id_tag_alias: str | None
     start: TransactionStart
     events: list[SessionEvent]
+    charging_goal: NotRequired[SessionGoal]
 
 
 @dataclass(slots=True)
@@ -58,6 +60,7 @@ class ActiveSessionState:
     site_house_load_source: str | None = None
     events: list[SessionEvent] = field(default_factory=list)
     energy_flowing: bool | None = None
+    charging_goal: SessionGoal | None = None
 
     @classmethod
     def from_dict(cls, value: Any) -> ActiveSessionState:
@@ -87,6 +90,7 @@ class ActiveSessionState:
             context_curves=context_curves(data, event_times=(event.get("at") for event in events)),
             events=events,
             energy_flowing=energy_flowing,
+            charging_goal=retained_session_goal(data.get("charging_goal")),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -109,4 +113,5 @@ class ActiveSessionState:
             ),
             "events": self.events,
             "energy_flowing": self.energy_flowing,
+            **({"charging_goal": self.charging_goal} if self.charging_goal else {}),
         }

@@ -38,6 +38,8 @@ are available in the image index.
 
 Named RFID cards show their name first, with the identifier in a smaller, compact line underneath. Cards without a name continue to show only the identifier. Both the table and the narrow card layout use the name saved at session start, and the identifier column sorts by that displayed name when present. The **Show identifier** setting hides both the name and the ID together.
 
+When a native charging target is linked to a session, the history shows the requested value and the percentage delivered. Energy targets use charged energy and duration targets use measured charging time. Budget targets use the charger's cost once it reports the completed session. Existing sessions without a recorded target have no target line.
+
 During charging, both row layouts update the recorded energy, assigned solar
 energy and calculated grid cost. If some energy remains unassigned, `≥` marks
 the known minimum solar amount and the cost label reads **Known grid cost**.

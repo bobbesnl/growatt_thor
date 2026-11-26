@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## Unreleased
 
 - Show progress for active energy and duration targets on the charger card and add kW units to the charging-source legend.
+- Keep the charging target and the percentage delivered in the session history.
 
 ## 2.0.0-alpha.4 — 2026-11-04
 
