@@ -31,7 +31,7 @@ are available separately.
 
 <a href="images/annotated/charging-card.png"><img src="images/annotated/charging-card.png" alt="Charging card with numbered annotations" width="580"></a>
 
-1. **Charging and authorization modes.** Open the badges to review or change charging strategy and how a session is authorized.
+1. **Charging and authorization modes.** Open the charging badge to select **Fast** or configure **PV charging**. The other badge controls how a session is authorized.
 2. **Status and grid balance.** The left label is the charger state. The right badge describes site grid import or export, not total charging power.
 3. **Power and charging sources.** The gauge shows EV charging power. Green, purple and amber indicate direct PV, battery and grid contributions. A freestanding blue marker indicates the estimated control target. A thin amber hatched band outside the power arc indicates the allowed grid contribution; battery origin remains unknown.
 4. **Phase currents.** See active phases and current per phase, alongside the configured maximum.

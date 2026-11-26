@@ -25,6 +25,19 @@ h3 {
   background: transparent;
   padding: 8px;
 }
+.fast-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 700;
+}
 nav {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

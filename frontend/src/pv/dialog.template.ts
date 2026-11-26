@@ -2,6 +2,7 @@ import { html, nothing } from 'lit';
 import type { ThorPvLinkageDialog } from './dialog';
 import { meterLabel } from './model';
 import type { PvTranslator } from './locales';
+import type { Translator } from '../shared/strings';
 
 const steps = ['pvStepPrerequisites', 'pvStepBehavior', 'pvStepReview'];
 const option = (active: boolean, icon: string, title: string, hint: string, click: () => void) =>
@@ -175,7 +176,11 @@ function review(dialog: ThorPvLinkageDialog, t: PvTranslator) {
   </section>`;
 }
 
-export const renderPvLinkageDialog = (dialog: ThorPvLinkageDialog, t: PvTranslator) =>
+export const renderPvLinkageDialog = (
+  dialog: ThorPvLinkageDialog,
+  t: PvTranslator,
+  general: Translator,
+) =>
   html`<dialog
     class=${(dialog.dark ?? dialog.hass?.themes?.darkMode) ? 'dark' : ''}
     aria-labelledby="pv-title"
@@ -186,7 +191,7 @@ export const renderPvLinkageDialog = (dialog: ThorPvLinkageDialog, t: PvTranslat
     <div class="heading">
       <div>
         <span>GROWATT · THOR</span>
-        <h2 id="pv-title">${t('pvTitle')}</h2>
+        <h2 id="pv-title">${dialog.step ? t('pvTitle') : general('chargeMode')}</h2>
       </div>
       <button
         class="icon"
@@ -197,6 +202,15 @@ export const renderPvLinkageDialog = (dialog: ThorPvLinkageDialog, t: PvTranslat
         <ha-icon icon="mdi:close"></ha-icon>
       </button>
     </div>
+    ${dialog.step === 0 && dialog.fastSelect
+      ? html`<button
+          class="fast-choice"
+          ?disabled=${!dialog.canSelectFast}
+          @click=${() => dialog.selectFast()}
+        >
+          <ha-icon icon="mdi:lightning-bolt"></ha-icon>${general('fast')}
+        </button>`
+      : nothing}
     <nav aria-label="Progress">
       ${steps.map(
         (label, index) =>
@@ -224,7 +238,7 @@ export const renderPvLinkageDialog = (dialog: ThorPvLinkageDialog, t: PvTranslat
             (dialog.step === 0 ? !!dialog.blockedReason : !!dialog.errors.length)}
             @click=${() => dialog.next()}
           >
-            ${t('pvNext')}
+            ${t(dialog.step === 0 ? 'pvTitle' : 'pvNext')}
           </button>`
         : html`<button
             class="primary"

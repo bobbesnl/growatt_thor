@@ -10,6 +10,7 @@ import {
   type PvMode,
 } from './model';
 import { pvTranslate } from './locales';
+import { translate } from '../shared/strings';
 import { renderPvLinkageDialog } from './dialog.template';
 import cssText from './dialog.css';
 
@@ -18,6 +19,7 @@ export class ThorPvLinkageDialog extends LitElement {
   static properties = {
     dark: { type: Boolean },
     hass: { attribute: false },
+    data: { attribute: false },
     entityId: {},
     step: { state: true },
     draft: { state: true },
@@ -25,6 +27,7 @@ export class ThorPvLinkageDialog extends LitElement {
     error: { state: true },
   };
   hass?: Hass;
+  data?: CardData;
   dark?: boolean;
   entityId = '';
   step = 0;
@@ -43,7 +46,7 @@ export class ThorPvLinkageDialog extends LitElement {
   error = '';
 
   get cardData(): CardData | undefined {
-    return this.hass?.states[this.entityId]?.attributes.thor_card;
+    return this.data || this.hass?.states[this.entityId]?.attributes.thor_card;
   }
   get pvData(): PvLinkageData | undefined {
     return this.cardData?.pv_linkage;
@@ -53,6 +56,43 @@ export class ThorPvLinkageDialog extends LitElement {
   }
   get errors(): string[] {
     return pvDraftErrors(this.draft);
+  }
+  get fastSelect() {
+    const entityId = this.cardData?.entities.working_mode_control;
+    const entity = entityId ? this.hass?.states[entityId] : undefined;
+    return entity?.attributes.options?.includes('fast') ? entity : undefined;
+  }
+  get canSelectFast() {
+    const state = this.fastSelect?.state;
+    return (
+      !!state &&
+      !['fast', 'unknown', 'unavailable'].includes(state) &&
+      !this.busy &&
+      this.hass?.connected !== false &&
+      this.hass?.states[this.entityId]?.attributes.connected === true &&
+      !this.cardData?.charger_rebooting &&
+      !this.cardData?.transaction_active &&
+      this.blockedReason !== 'charger_faulted'
+    );
+  }
+
+  async selectFast() {
+    const entityId = this.fastSelect?.entity_id;
+    if (!this.hass || !entityId || !this.canSelectFast) return;
+    this.busy = true;
+    this.error = '';
+    try {
+      await this.hass.callService('select', 'select_option', {
+        entity_id: entityId,
+        option: 'fast',
+      });
+      this.busy = false;
+      this.close();
+    } catch {
+      this.error = 'pvCallError';
+    } finally {
+      this.busy = false;
+    }
   }
 
   async open(entityId: string, data: PvLinkageData) {
@@ -101,10 +141,8 @@ export class ThorPvLinkageDialog extends LitElement {
     }
   }
   render() {
-    return renderPvLinkageDialog(
-      this,
-      pvTranslate(this.hass?.language || this.hass?.locale?.language),
-    );
+    const language = this.hass?.language || this.hass?.locale?.language;
+    return renderPvLinkageDialog(this, pvTranslate(language), translate(language));
   }
 }
 

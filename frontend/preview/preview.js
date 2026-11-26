@@ -184,6 +184,7 @@ function update() {
       stop_charging: 'button.stop',
       max_current: 'number.current',
       authorization_mode_control: 'select.authorization',
+      working_mode_control: 'select.working_mode',
       last_session_energy: 'sensor.last_energy',
       last_session_duration: 'sensor.last_duration',
       last_session_cost: 'sensor.last_cost',
@@ -512,6 +513,9 @@ function update() {
     'select.authorization': entity('select.authorization', data.auth_mode, {
       options: ['home_assistant_rfid', 'rfid_only', 'plug_and_charge'],
     }),
+    'select.working_mode': entity('select.working_mode', data.working_mode, {
+      options: ['fast', 'pv_linkage', 'pv_linkage_plus'],
+    }),
     'sensor.last_energy': entity('sensor.last_energy', '18.7'),
     'sensor.last_duration': entity('sensor.last_duration', '2.25', { unit_of_measurement: 'h' }),
     'sensor.last_cost': entity('sensor.last_cost', '5.24', { unit_of_measurement: 'EUR' }),
@@ -541,9 +545,26 @@ function update() {
       );
       const result = document.querySelector('#result').value;
       if (result === 'network_error') throw new Error('Simulated network error');
+      if (
+        domain === 'select' &&
+        service === 'select_option' &&
+        args.entity_id === 'select.working_mode'
+      ) {
+        if (result !== 'accepted') throw new Error('Simulated mode rejection');
+        data.working_mode = args.option;
+        states['select.working_mode'] = { ...states['select.working_mode'], state: args.option };
+        document.querySelector('#working-mode').value = args.option;
+        publish();
+        return;
+      }
       if (domain === 'growatt_thor' && service === 'apply_pv_linkage_profile') {
         await new Promise((resolve) => setTimeout(resolve, 700));
         data.working_mode = args.working_mode;
+        states['select.working_mode'] = {
+          ...states['select.working_mode'],
+          state: args.working_mode,
+        };
+        document.querySelector('#working-mode').value = args.working_mode;
         data.pv_linkage = {
           ...data.pv_linkage,
           working_mode: args.working_mode,
