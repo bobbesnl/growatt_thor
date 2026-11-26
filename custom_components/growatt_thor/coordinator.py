@@ -297,6 +297,14 @@ class GrowattCoordinator(_CoordinatorBase):
         **kwargs: Any,
     ) -> ChargerCommandHandle:
         """Delegate charger intent to this entry's queue owner."""
+
+        def check_before_send() -> str | None:
+            # Include target and AP operations that have no entity guard of
+            # their own. A transaction-bound Stop must still work.
+            if not policy.allow_during_reboot and self.charger_reboot_pending:
+                return "charger_rebooting"
+            return revalidate() if revalidate is not None else None
+
         return await self.write_queue.enqueue(
             write_func,
             *args,
@@ -308,7 +316,7 @@ class GrowattCoordinator(_CoordinatorBase):
             configuration_key=configuration_key,
             configuration_generation=configuration_generation,
             policy=policy,
-            revalidate=revalidate,
+            revalidate=check_before_send,
             on_unsent=on_unsent,
             **kwargs,
         )

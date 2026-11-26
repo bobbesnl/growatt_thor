@@ -21,6 +21,35 @@ write_queue_module = load_package_module("runtime.write_results")
 class WriteQueueTest(unittest.IsolatedAsyncioTestCase):
     """Verify deduplication and prompt transaction controls."""
 
+    async def test_reboot_window_skips_writes_but_allows_stop_policy(self):
+        coordinator = _build_coordinator(asyncio.get_running_loop())
+        self.addAsyncCleanup(coordinator.write_queue.async_shutdown)
+        sent = []
+
+        async def write(command):
+            sent.append(command)
+            return write_queue_module.ChargerWriteResult.success("Accepted")
+
+        ordinary = await coordinator.queue_write(write, "Target", command_name="Target")
+        stop = await coordinator.queue_write(
+            write,
+            "Stop",
+            command_name="RemoteStopTransaction",
+            policy=write_queue_module.TRANSACTION_CONTROL_WRITE_POLICY,
+        )
+        # The wallbox acknowledges a reboot after these commands are enqueued.
+        coordinator.observe_reboot_required()
+        self.addCleanup(coordinator._end_reboot_window)
+
+        result = await ordinary.async_wait(timeout=1)
+        self.assertEqual(result.status, write_queue_module.ChargerCommandStatus.SKIPPED)
+        self.assertEqual(result.reason, "charger_rebooting")
+        self.assertEqual(
+            (await stop.async_wait(timeout=1)).status,
+            write_queue_module.ChargerCommandStatus.CONFIRMED,
+        )
+        self.assertEqual(sent, ["Stop"])
+
     def _policy(self, expires_after, reconnect=None):
         """Create a short-lived policy so timing tests stay fast."""
         if reconnect is None:

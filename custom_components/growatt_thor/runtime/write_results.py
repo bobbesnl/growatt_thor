@@ -62,6 +62,7 @@ class ChargerWriteQueuePolicy:
 
     expires_after: float
     reconnect: ChargerWriteReconnectPolicy
+    allow_during_reboot: bool = False
 
     def __post_init__(self) -> None:
         if not isfinite(self.expires_after) or self.expires_after <= 0:
@@ -87,6 +88,7 @@ VOLATILE_CONTROL_WRITE_POLICY = ChargerWriteQueuePolicy(
 TRANSACTION_CONTROL_WRITE_POLICY = ChargerWriteQueuePolicy(
     expires_after=60.0,
     reconnect=ChargerWriteReconnectPolicy.RETAIN_UNTIL_EXPIRY,
+    allow_during_reboot=True,
 )
 
 DEFAULT_WRITE_POLICY = CONFIGURATION_WRITE_POLICY

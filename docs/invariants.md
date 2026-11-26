@@ -25,9 +25,9 @@ rules are recorded as [decision records](adr/README.md).
 - Stop cancels an unsent Start before considering a physical Stop. A Stop is
   tied to the observed transaction; a later transaction invalidates it.
 - After a `RebootRequired` answer the charger reboots about 30 seconds later.
-  Until it reconnects, at most 120 seconds, configuration writes, PV Apply and
-  Start are refused with `charger_rebooting` instead of being sent into the
-  reboot (`runtime/charger_reboot.py`). Stop is never refused for this reason.
+  Queued writes are skipped with `charger_rebooting` until the current charger
+  reconnects or the 120-second window expires. Transaction-bound Stop still
+  revalidates the observed session and may be sent during this window.
 - Start and Stop buttons call `GrowattOcppCharger`, the `ChargerControl`
   implementation, which delegates to `StartChargingCommand` and
   `StopChargingCommand` in `charging/commands.py`. These commands own
