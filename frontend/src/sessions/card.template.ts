@@ -1,7 +1,8 @@
 import { html, nothing } from 'lit';
 import { ref, type Ref } from 'lit/directives/ref.js';
 import type { SessionItem, SessionHistoryData } from '../shared/types';
-import { formatSessionDate, formatSessionNumber, sessionPage, type SessionSort } from './model';
+import { formatSessionDate, sessionPage, type SessionSort } from './model';
+import { formatNumber } from '../shared/format';
 import { sessionTranslate } from './locales';
 import type { SessionDetailStore } from './detail-store';
 import { sessionGoalView, sessionMetricViews, sessionGreenTotalView } from './metrics.template';
@@ -47,7 +48,7 @@ export function renderSessionCard(view: SessionCardView, actions: SessionCardAct
 
 function sessionFormatting(view: SessionCardView) {
   const t = sessionTranslate(view.language);
-  const fmt = (value: number | null) => formatSessionNumber(value, view.language);
+  const fmt = (value: number | null) => formatNumber(value, view.language);
   const fmtDate = (value: string | null | undefined) =>
     formatSessionDate(value, view.language, view.timeZone);
   return { t, fmt, fmtDate };
@@ -193,15 +194,15 @@ function renderSessionRow(row: SessionItem, view: SessionCardView, actions: Sess
       ${fmtDate(row.start_time)}
       ${row.active ? html`<span class="active-badge">${t('active')}</span>` : nothing}
       ${row.session_id ? html`<small class="session-id">ID: ${row.session_id}</small>` : nothing}
-    </td>
-    <td class="optional">${row.active ? t('active') : fmtDate(row.end_time)}</td>
-    <td class="num">
-      ${row.energy_source === 'power_fallback' ? '≈ ' : ''}${fmt(row.energy_kwh)} kWh
       ${goal
         ? html`<small class="metric-basis session-goal" title=${goal.title}
             >${goal.label} ${goal.summary}</small
           >`
         : nothing}
+    </td>
+    <td class="optional">${row.active ? t('active') : fmtDate(row.end_time)}</td>
+    <td class="num">
+      ${row.energy_source === 'power_fallback' ? '≈ ' : ''}${fmt(row.energy_kwh)} kWh
     </td>
     <td class="num optional">${metrics.green}</td>
     <td class="num">${metrics.cost}${metrics.costBasis}</td>

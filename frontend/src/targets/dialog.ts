@@ -1,5 +1,6 @@
 import { tokenStyles, dialogStyles } from '../shared/styles';
 import { browserTimeZone, localTimeToUtc } from '../shared/time';
+import { formatNumber } from '../shared/format';
 import { LitElement, unsafeCSS } from 'lit';
 import { renderGoalDialog, type GoalDialogActions } from './dialog.template';
 import { chargerStyles } from '../charger/card-styles';
@@ -10,6 +11,7 @@ import {
   futureStart,
   nextMinuteDateTime,
   goalValue,
+  goalUnit,
   createGoalExampleValues,
   type GoalKind,
   type GoalRecurrence,
@@ -202,10 +204,8 @@ export class ThorGoalDialog extends LitElement {
     const value = goalValue(this._values[this._kind], this._kind);
     const validTime = this._start === 'now' || futureStart(this._at, this._now, this.timeZone);
     const validCurrency = this._kind !== 'budget' || /^[A-Z]{3}$/.test(this.currency);
-    const unit =
-      this._kind === 'energy' ? 'kWh' : this._kind === 'duration' ? 'min' : this.currency || '—';
-    const amount =
-      value === null ? '—' : value.toLocaleString(this.language, { maximumFractionDigits: 3 });
+    const unit = goalUnit(this._kind, this.currency || '—');
+    const amount = formatNumber(value, this.language, 3);
     const summary = t(`goalSummary_${this._kind}`)
       .replace('{value}', amount)
       .replace('{currency}', this.currency);

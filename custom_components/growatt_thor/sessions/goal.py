@@ -15,10 +15,16 @@ class SessionGoalProgress(SessionGoal):
     actual: float | None
 
 
-def session_goal(kind: object, value: object) -> SessionGoal | None:
-    if (kind != "energy" and kind != "duration" and kind != "budget") or isinstance(value, bool):
+def _goal_amount(value: object) -> float | None:
+    if isinstance(value, bool):
         return None
-    amount = optional_float(value, minimum=0, errors=(TypeError, ValueError, OverflowError))
+    return optional_float(value, minimum=0, errors=(TypeError, ValueError, OverflowError))
+
+
+def session_goal(kind: object, value: object) -> SessionGoal | None:
+    if kind != "energy" and kind != "duration" and kind != "budget":
+        return None
+    amount = _goal_amount(value)
     if not amount:
         return None
     return {"kind": kind, "value": amount}
@@ -35,4 +41,4 @@ def session_goal_progress(
 ) -> SessionGoalProgress:
     # Budget uses the charger's completed cost, and duration excludes pauses.
     actual = {"energy": energy, "duration": duration, "budget": cost}[goal["kind"]]
-    return {**goal, "actual": optional_float(actual, minimum=0)}
+    return {**goal, "actual": _goal_amount(actual)}

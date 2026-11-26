@@ -36,6 +36,15 @@ def accepted_charge_point(cp: GrowattChargePoint | None) -> GrowattChargePoint:
     return cp
 
 
+def required_local_charger_mode(activation: str) -> str | None:
+    """Return the required mode for a local activation or its persisted name."""
+    if activation in {"plug", "plug_and_charge"}:
+        return "plug_and_charge"
+    if activation == "rfid":
+        return "rfid_only"
+    return None
+
+
 @dataclass(slots=True)
 class TargetChargerOperations:
     coordinator: GrowattCoordinator
@@ -76,13 +85,16 @@ class TargetChargerOperations:
 
         mode = self.charger_mode()
         status = self.coordinator.status
+        required_mode = required_local_charger_mode(activation)
+        if required_mode is not None and mode != required_mode:
+            return (
+                "plug_and_charge_mode_required"
+                if required_mode == "plug_and_charge"
+                else "rfid_authorization_mode_required"
+            )
         if activation == "plug":
-            if mode != "plug_and_charge":
-                return "plug_and_charge_mode_required"
             return None if status == "Available" else "unplug_vehicle_before_setting_target"
         if activation == "rfid":
-            if mode != "rfid_only":
-                return "rfid_authorization_mode_required"
             return None if status in {"Available", "Preparing"} else "charger_not_ready"
         if activation == "reserve":
             if mode not in {"plug_and_charge", "home_assistant_rfid"}:

@@ -22,6 +22,9 @@ export const GOAL_ICONS: Record<GoalKind, string> = {
   duration: 'mdi:timer-outline',
   budget: 'mdi:cash-multiple',
 };
+export function goalUnit(kind: GoalKind, currency = ''): string {
+  return kind === 'energy' ? 'kWh' : kind === 'duration' ? 'min' : currency;
+}
 export function createGoalExampleValues(): Record<GoalKind, string> {
   return { energy: '20', duration: '60', budget: '10' };
 }

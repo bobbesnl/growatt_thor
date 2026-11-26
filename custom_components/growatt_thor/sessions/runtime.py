@@ -28,7 +28,7 @@ from .correlation import CORRELATION_MATCHED, build_unified_session, session_rec
 from .display_times import session_time_zone
 from .duration import EffectiveChargingTracker
 from .events import SessionEvent, SessionEventTracker, merge_growatt_record_events
-from .goal import retained_session_goal
+from .goal import SessionGoal, retained_session_goal
 from .outbox import SessionOutbox
 from .records import GrowattSessionRecord
 from .state import LastSessionState
@@ -347,6 +347,18 @@ class SessionLifecycle:
             coordinator.hass.async_create_task(
                 hooks.transaction_started(transaction_id=transaction_id)
             )
+
+    def bind_active_goal(self, goal: SessionGoal, *, transaction_id: object) -> None:
+        """Attach a late target acknowledgement to the observed active session."""
+        coordinator = self.coordinator
+        active = coordinator.active_transaction
+        if (
+            active is not None
+            and str(coordinator.transaction_id) == str(transaction_id)
+            and "charging_goal" not in active
+        ):
+            active["charging_goal"] = goal
+            coordinator.schedule_storage_save()
 
     def record_authorization_response(self, status: object) -> None:
         """Retain the authorization reply on the transaction just observed."""

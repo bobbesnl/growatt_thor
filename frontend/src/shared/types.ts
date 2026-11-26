@@ -1,3 +1,5 @@
+import type { GoalKind } from '../targets/model';
+
 /** Known Home Assistant attributes; unrelated integration attributes stay opaque. */
 interface EntityAttributes {
   thor_card?: CardData;
@@ -94,7 +96,7 @@ export interface SessionItem {
   /** Card name captured at session start; absent for older backend/history data. */
   authorized_alias?: string | null;
   /** An accepted native goal associated with this transaction by the backend. */
-  charging_goal?: { kind: 'energy' | 'duration' | 'budget'; value: number; actual: number | null };
+  charging_goal?: { kind: GoalKind; value: number; actual: number | null };
   power_curve?: [string, number][];
   /** Whether retained chart details can be loaded on demand. */
   detail_available?: boolean;

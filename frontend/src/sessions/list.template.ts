@@ -1,6 +1,7 @@
 import { html, nothing } from 'lit';
 import type { SessionItem } from '../shared/types';
-import { formatSessionPeriod, formatSessionNumber, type SessionSort } from './model';
+import { formatSessionPeriod, type SessionSort } from './model';
+import { formatNumber } from '../shared/format';
 import { sessionTranslate } from './locales';
 import { sessionGoalView, sessionMetricViews } from './metrics.template';
 import { renderSessionIdentifier } from './identifier.template';
@@ -21,7 +22,7 @@ interface SessionListView {
 /** Both layouts share the same paged rows and selection; resizing never resets them. */
 export function renderSessionList(view: SessionListView) {
   const t = sessionTranslate(view.language);
-  const fmt = (value: number | null) => formatSessionNumber(value, view.language);
+  const fmt = (value: number | null) => formatNumber(value, view.language);
   const sorts: SessionSort[] = ['start', 'end', 'energy', 'green', 'cost'];
   if (view.showIdentifier) sorts.push('identifier');
   const metric = (label: string, value: unknown, cls = '') => html`

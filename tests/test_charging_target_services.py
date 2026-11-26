@@ -7,7 +7,7 @@ import sys
 import unittest
 from datetime import UTC, datetime
 from types import ModuleType, SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from tests.support import PACKAGE_PATH
 
@@ -88,6 +88,7 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
             self.runtime = sys.modules[package.__name__ + ".targets.runtime"]
         model = importlib.import_module(package.__name__ + ".targets.model")
         config = importlib.import_module(package.__name__ + ".configuration.values")
+        sessions = importlib.import_module(package.__name__ + ".sessions.runtime")
         automation_events = importlib.import_module(package.__name__ + ".runtime.automation_events")
         self.events = []
         events = automation_events.AutomationEvents()
@@ -129,6 +130,10 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
             queue_write=queue_write,
             write_queue=SimpleNamespace(poll_pause_after_write=10),
             events=events,
+        )
+        self.coordinator.sessions = sessions.SessionLifecycle(self.coordinator)
+        self.coordinator.sessions.bind_active_goal = Mock(
+            wraps=self.coordinator.sessions.bind_active_goal
         )
         self.hass = SimpleNamespace(
             services=Services(),
@@ -817,6 +822,25 @@ class TargetServiceTest(unittest.IsolatedAsyncioTestCase):
         await self.coordinator.transaction_hooks.transaction_stopped()
         self.assertEqual(Store.retained["state"], "scheduled")
         self.assertEqual(Store.retained["last_run_state"], "completed")
+
+    async def test_stale_start_callback_leaves_target_for_the_current_transaction(self):
+        await self.schedule(recurrence="daily")
+        self.now_utc = datetime(2026, 9, 11, 10, 5, tzinfo=UTC)
+        await self.hass.loop.timers[0].callback()
+        await self.queue[0]()
+        self.coordinator.transaction_id = 42
+        hooks = self.coordinator.transaction_hooks
+        accepted = Store.retained
+
+        await hooks.transaction_started(transaction_id=41)
+        self.assertIs(Store.retained, accepted)
+        self.coordinator.sessions.bind_active_goal.assert_not_called()
+
+        await hooks.transaction_started(transaction_id="42")
+        self.assertEqual(Store.retained["last_run_state"], "charging")
+        self.coordinator.sessions.bind_active_goal.assert_called_once_with(
+            {"kind": "energy", "value": 1.0}, transaction_id=42
+        )
 
     async def test_daily_start_reconciles_fast_transaction_callback_race(self):
         async def accepted_with_fast_start(payload, **_kwargs):

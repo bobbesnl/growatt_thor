@@ -1,13 +1,14 @@
 import { html, nothing } from 'lit';
 import type { SessionItem } from '../shared/types';
-import { sessionEnergyBreakdown, formatSessionNumber } from './model';
+import { sessionEnergyBreakdown } from './model';
+import { formatNumber } from '../shared/format';
 import { accountingTranslate } from './accounting.locales';
 
 /** Compact source strip. Measurements remain separate from inferred source shares. */
 export function renderSessionAccounting(row: SessionItem, language: string, currency: string) {
   const t = accountingTranslate(language);
   const view = sessionEnergyBreakdown(row);
-  const fmt = (value: number | null) => formatSessionNumber(value, language);
+  const fmt = (value: number | null) => formatNumber(value, language);
   const energy = (value: number) => (value > 0 && value < 0.005 ? `<${fmt(0.01)}` : fmt(value));
   const percent = (value: number) =>
     value > 0 && value < 1 ? '<1 %' : `${Math.round(value).toLocaleString(language)} %`;

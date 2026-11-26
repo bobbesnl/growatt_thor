@@ -273,14 +273,6 @@ export function entityNumber(entity?: Pick<Entity, 'state'>): number | null {
   return numeric(Number(entity.state));
 }
 
-export function formatSessionNumber(
-  value: number | null,
-  language?: string,
-  maximumFractionDigits = 2,
-): string {
-  return value === null ? '—' : value.toLocaleString(language, { maximumFractionDigits });
-}
-
 export function formatSessionDate(
   value: string | null | undefined,
   language?: string,

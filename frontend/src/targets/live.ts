@@ -1,4 +1,4 @@
-import type { GoalKind, GoalRecurrence } from './model';
+import { goalUnit, type GoalKind, type GoalRecurrence } from './model';
 import { numeric } from '../shared/model';
 import type { CardData, Entity, Hass } from '../shared/types';
 
@@ -133,7 +133,7 @@ export function liveTargetProgress(data: CardData) {
     energy ? data.session_energy_kwh : data.session_effective_charging_minutes,
   );
   if (delivered === null) return null;
-  return { target, delivered, unit: energy ? 'kWh' : 'min' };
+  return { target, delivered, unit: goalUnit(request.kind) };
 }
 
 function baseAvailable(hass: Hass, entity: Entity, data: CardData): boolean {

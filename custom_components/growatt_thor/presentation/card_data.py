@@ -109,8 +109,7 @@ def dashboard_active_session(coordinator: ActiveSessionOwner) -> dict[str, Any] 
     fallback_kwh = accounting.power_fallback_kwh if accounting is not None else 0.0
     sessions = coordinator.sessions
     telemetry = sessions.telemetry
-    goal = retained_session_goal(transaction.get("charging_goal"))
-    return {
+    item: dict[str, Any] = {
         "session_id": build_session_id(
             source=SOURCE_HOME_ASSISTANT,
             source_instance_id=coordinator.source_instance_id,
@@ -155,18 +154,6 @@ def dashboard_active_session(coordinator: ActiveSessionOwner) -> dict[str, Any] 
         # Growatt reports the authoritative cost only with the completed record.
         "cost": None,
         "duration_minutes": None,
-        **(
-            {
-                "charging_goal": session_goal_progress(
-                    goal,
-                    energy=energy_wh / 1000 if energy_wh is not None else None,
-                    duration=_effective_charging_minutes(coordinator),
-                    cost=None,
-                )
-            }
-            if goal is not None
-            else {}
-        ),
         "authorized_identifier": _text(request.get("id_tag") or coordinator.id_tag),
         "authorized_alias": _text(transaction.get("id_tag_alias")),
         "power_curve": _dashboard_power_curve(
@@ -182,6 +169,14 @@ def dashboard_active_session(coordinator: ActiveSessionOwner) -> dict[str, Any] 
         "events": events,
         "detail_available": True,
     }
+    if (goal := retained_session_goal(transaction.get("charging_goal"))) is not None:
+        item["charging_goal"] = session_goal_progress(
+            goal,
+            energy=energy_wh / 1000 if energy_wh is not None else None,
+            duration=_effective_charging_minutes(coordinator),
+            cost=None,
+        )
+    return item
 
 
 def dashboard_sessions(coordinator: ActiveSessionOwner) -> dict[str, Any]:

@@ -1,6 +1,8 @@
 /** Vehicle session area: session metrics, warnings and the charging-target notice. */
 import { html, nothing } from 'lit';
+import { formatNumber } from '../shared/format';
 import { liveTargetStatus, targetNoticeVisible } from '../targets/live';
+import { goalUnit } from '../targets/model';
 import type { CardViewModel } from './card-view-model';
 
 export function renderSession({
@@ -113,12 +115,10 @@ export function renderTargetNotice(view: CardViewModel) {
   const { charging_target: request } = view.data;
   if (!request || !targetNoticeVisible(request, view.now)) return nothing;
 
-  const unit =
-    request.kind === 'energy' ? 'kWh' : request.kind === 'duration' ? 'min' : view.currency;
+  const unit = goalUnit(request.kind, view.currency);
   const language = view.hass.language || view.hass.locale?.language || 'en';
   const progress = view.targetProgress;
-  const progressFormat = (value: number) =>
-    value.toLocaleString(language, { maximumFractionDigits: 2 });
+  const progressFormat = (value: number) => formatNumber(value, language);
   const progressLabel = progress
     ? `${progressFormat(progress.delivered)} ${view.t('goalOf')} ${progressFormat(progress.target)} ${progress.unit}`
     : '';

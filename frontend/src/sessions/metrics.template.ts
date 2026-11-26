@@ -2,9 +2,11 @@ import { html, nothing } from 'lit';
 import type { SessionItem, SessionHistoryData } from '../shared/types';
 import { numeric } from '../shared/model';
 import { translate } from '../shared/strings';
+import { goalUnit } from '../targets/model';
+import { formatNumber } from '../shared/format';
 import { accountingTranslate } from './accounting.locales';
 import { sessionTranslate } from './locales';
-import { formatSessionNumber, sessionRowMetrics } from './model';
+import { sessionRowMetrics } from './model';
 
 export function sessionGoalView(row: SessionItem, language: string, currency: string) {
   const goal = row.charging_goal;
@@ -13,8 +15,7 @@ export function sessionGoalView(row: SessionItem, language: string, currency: st
   if (!target) return null;
   const actual = numeric(goal.actual);
   const t = translate(language);
-  const unit = goal.kind === 'energy' ? 'kWh' : goal.kind === 'duration' ? 'min' : currency;
-  const amount = `${formatSessionNumber(target, language)} ${unit}`.trimEnd();
+  const amount = `${formatNumber(target, language)} ${goalUnit(goal.kind, currency)}`.trimEnd();
   const fraction = actual === null ? null : actual / target;
   const percent =
     fraction !== null && Number.isFinite(fraction)
@@ -25,8 +26,7 @@ export function sessionGoalView(row: SessionItem, language: string, currency: st
   return {
     label: t('goalTitle'),
     summary: percent === null ? amount : `${amount} · ${percent}`,
-    title:
-      actual === null ? '' : `${formatSessionNumber(actual, language)} ${t('goalOf')} ${amount}`,
+    title: actual === null ? '' : `${formatNumber(actual, language)} ${t('goalOf')} ${amount}`,
   };
 }
 
@@ -34,7 +34,7 @@ export function sessionGoalView(row: SessionItem, language: string, currency: st
 export function sessionMetricViews(row: SessionItem, language: string, currency: string) {
   const metrics = sessionRowMetrics(row);
   const t = accountingTranslate(language);
-  const fmt = (value: number | null) => formatSessionNumber(value, language);
+  const fmt = (value: number | null) => formatNumber(value, language);
   const costLabel = metrics.costIsGrid
     ? t(metrics.costPartial ? 'knownGridCost' : 'gridCost')
     : sessionTranslate(language)('chargerCost');
@@ -66,7 +66,7 @@ export function sessionGreenTotalView(data: SessionHistoryData, language: string
   const known = value !== null && Number.isFinite(value) && value >= 0;
   const partial = known && data.total_green_partial === true;
   return {
-    text: `${partial ? '≥ ' : ''}${formatSessionNumber(known ? value : null, language)} kWh`,
+    text: `${partial ? '≥ ' : ''}${formatNumber(known ? value : null, language)} kWh`,
     title: partial ? sessionTranslate(language)('greenPartialHint') : '',
   };
 }

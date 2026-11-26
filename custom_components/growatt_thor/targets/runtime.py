@@ -19,7 +19,7 @@ from ..runtime.keys import SKIP_POLLING_UNTIL, TARGET_HANDLERS, TARGET_RUNTIME
 from ..runtime.write_results import ChargerCommandResult, ChargerCommandStatus
 from ..sessions.goal import SessionGoal, session_goal
 from ..timestamps import installation_time_zone
-from .charger_ops import TargetChargerOperations, accepted_charge_point
+from .charger_ops import TargetChargerOperations, accepted_charge_point, required_local_charger_mode
 from .model import (
     ChargingTarget,
     TargetPlan,
@@ -84,6 +84,15 @@ _DAILY_REPEATABLE_RESULTS = {
 _TARGET_START_PAUSE_SECONDS = 1
 _TARGET_RESERVATION_PAUSE_SECONDS = 1
 _REQUEST_EXPIRY_SECONDS = 90
+
+
+def _awaits_session_start(request: TargetRecord) -> bool:
+    if request.get("recurrence") == "daily":
+        return (
+            request.get("state") == TargetState.SCHEDULED
+            and request.get("last_run_state") == TargetState.START_ACCEPTED
+        )
+    return request.get("state") in {TargetState.START_ACCEPTED, *_WAITING_STATES}
 
 
 class ChargingTargetRuntime:
@@ -210,19 +219,7 @@ class ChargingTargetRuntime:
         if handle is not None:
             handle.add_done_callback(completed)
 
-    async def persist(self, record: TargetRecord | None, *, bind_session: bool = False) -> None:
-        # StartTransaction may arrive before RemoteStart returns. Here the
-        # runtime has both the confirmed Start and its observed transaction.
-        if record is not None and bind_session:
-            active = self.coordinator.active_transaction
-            if (
-                active is not None
-                and self.coordinator.transaction_is_active
-                and "charging_goal" not in active
-                and (goal := self._session_goal(record)) is not None
-            ):
-                active["charging_goal"] = goal
-                self.coordinator.schedule_storage_save()
+    async def persist(self, record: TargetRecord | None) -> None:
         await self._store.async_save(record)
         previous = self.coordinator.charging_target_request
         self.coordinator.charging_target_request = record
@@ -234,24 +231,20 @@ class ChargingTargetRuntime:
             return None
         if selected_working_mode(self.coordinator.configuration_values) != "fast":
             return None
-        expected_mode = {"plug_and_charge": "plug_and_charge", "rfid": "rfid_only"}.get(
-            record.get("activation", "")
-        )
+        expected_mode = required_local_charger_mode(record.get("activation", ""))
         if expected_mode is not None and self.charger.charger_mode() != expected_mode:
             return None
         return session_goal(record.get("kind"), record.get("value"))
 
+    def _bind_session_goal(self, record: TargetRecord, transaction_id: object) -> None:
+        # StartTransaction may arrive before the RemoteStart reply. The
+        # session owner attaches the goal when both observations are known.
+        if (goal := self._session_goal(record)) is not None:
+            self.coordinator.sessions.bind_active_goal(goal, transaction_id=transaction_id)
+
     def session_goal_for_start(self) -> SessionGoal | None:
         request = self.coordinator.charging_target_request
-        if request is None:
-            return None
-        if request.get("recurrence") == "daily":
-            if (
-                request.get("state") != TargetState.SCHEDULED
-                or request.get("last_run_state") != TargetState.START_ACCEPTED
-            ):
-                return None
-        elif request.get("state") not in {TargetState.START_ACCEPTED, *_WAITING_STATES}:
+        if request is None or not _awaits_session_start(request):
             return None
         return self._session_goal(request)
 
@@ -345,7 +338,9 @@ class ChargingTargetRuntime:
         async def save(state: str) -> None:
             nonlocal request
             request = updated_record(request, state=state, updated_at=self.coordinator.now())
-            await self.persist(request, bind_session=state == TargetState.ACTIVE)
+            if state == TargetState.ACTIVE:
+                self._bind_session_goal(request, self.coordinator.transaction_id)
+            await self.persist(request)
             _LOGGER.info("Charging target %s: %s", request["request_id"], state)
 
         def check() -> str | None:
@@ -432,7 +427,9 @@ class ChargingTargetRuntime:
             last_run_state=result,
             updated_at=self.coordinator.now(),
         )
-        await self.persist(updated, bind_session=result == TargetState.CHARGING)
+        if result == TargetState.CHARGING:
+            self._bind_session_goal(updated, self.coordinator.transaction_id)
+        await self.persist(updated)
         self.arm_schedule(updated)
 
     async def execute_scheduled(self, request_id: str) -> None:
@@ -464,7 +461,9 @@ class ChargingTargetRuntime:
                 updated_at=self.coordinator.now(),
                 connection_started_at=self.coordinator.connection_started_at,
             )
-            await self.persist(request, bind_session=state == TargetState.ACTIVE)
+            if state == TargetState.ACTIVE:
+                self._bind_session_goal(request, self.coordinator.transaction_id)
+            await self.persist(request)
             _LOGGER.info("Scheduled charging target %s: %s", request_id, state)
 
         def check() -> str | None:
@@ -673,31 +672,26 @@ class ChargingTargetRuntime:
 
     async def transaction_started(self, *, transaction_id: object = None) -> None:
         async with self._lock:
-            if transaction_id is not None and str(self.coordinator.transaction_id) != str(
-                transaction_id
-            ):
+            current_id = self.coordinator.transaction_id
+            if transaction_id is not None and str(current_id) != str(transaction_id):
                 return
             request = self.coordinator.charging_target_request
-            if not isinstance(request, dict):
+            if not isinstance(request, dict) or not _awaits_session_start(request):
                 return
+            self._bind_session_goal(request, current_id)
             if request.get("recurrence") == "daily":
-                if request.get("last_run_state") != TargetState.START_ACCEPTED:
-                    return
                 await self.persist(
                     updated_record(
                         request,
                         last_run_state=TargetState.CHARGING,
                         updated_at=self.coordinator.now(),
-                    ),
-                    bind_session=True,
+                    )
                 )
-                return
-            if request.get("state") in {TargetState.START_ACCEPTED, *_WAITING_STATES}:
+            else:
                 await self.persist(
                     updated_record(
                         request, state=TargetState.ACTIVE, updated_at=self.coordinator.now()
-                    ),
-                    bind_session=True,
+                    )
                 )
 
     async def transaction_stopped(self, *_args: object, **_kwargs: object) -> None:

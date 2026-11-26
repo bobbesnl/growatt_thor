@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { formatNumber } from '../src/shared/format';
 import {
   formatSessionDate,
   formatSessionPeriod,
   formatSessionChartTick,
-  formatSessionNumber,
   selectedSession,
   sessionChartBreaks,
   sessionChartExtent,
@@ -287,9 +287,9 @@ test('defaults the chart to latest session and selects another by stable id', ()
 });
 
 test('formats session table values with no more than two decimal places', () => {
-  assert.equal(formatSessionNumber(15.339, 'de'), '15,34');
-  assert.equal(formatSessionNumber(3, 'de'), '3');
-  assert.equal(formatSessionNumber(null, 'de'), '—');
+  assert.equal(formatNumber(15.339, 'de'), '15,34');
+  assert.equal(formatNumber(3, 'de'), '3');
+  assert.equal(formatNumber(null, 'de'), '—');
 });
 
 test('formats the selected session timestamp for people instead of exposing ISO syntax', () => {

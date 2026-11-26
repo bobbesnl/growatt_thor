@@ -156,6 +156,9 @@ test('target amount and measured percentage appear in both history layouts', () 
   text = render();
   assert.equal(text.match(/Ladeziel.*?10 EUR/g)?.length, 2);
   assert.doesNotMatch(text, /10 EUR ·/);
+  const cells = [...text.matchAll(/<td(?:\s[^>]*)?>(.*?)<\/td>/g)].map((match) => match[1]);
+  assert.match(cells[0], /Ladeziel 10 EUR/);
+  assert.doesNotMatch(cells[2], /EUR/);
 
   row.charging_goal = { kind: 'duration', value: 10, actual: 10.5 };
   assert.equal(render().match(/10 min · 105 %/g)?.length, 2);
