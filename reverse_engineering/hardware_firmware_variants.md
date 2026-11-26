@@ -60,6 +60,13 @@ returned more configuration keys than its firmware could encode as one valid
 OCPP response. The integration remains compatible by requesting explicit,
 bounded key groups instead of relying on an unfiltered `GetConfiguration`.
 
+[Issue #70](https://github.com/bobbesnl/growatt_thor/issues/70) verified that the
+THOR 11AS-P on `THOR_11AS-V2.2.16-20240902` accepts `Eastron SDM630` for
+`ChangeConfiguration(G_PowerMeterType)` and rejects the web interface code `4`.
+The model name was read back unchanged and survived a reboot. The integration
+uses that name for this selection on the reported firmware. Write formats for
+other meter models on this firmware still need verification.
+
 These behaviors are firmware-specific, not universal THOR guarantees. Parsers
 must continue to accept missing `phase` and `context` fields, different status
 timing, and partial configuration responses.

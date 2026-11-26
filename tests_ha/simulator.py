@@ -103,12 +103,12 @@ class SimulatedThor(ChargePoint):
 
     # Messages the charger sends
 
-    async def boot(self) -> Any:
+    async def boot(self, *, firmware_version: str = "THOR_11AS-SIM") -> Any:
         return await self.call(
             call.BootNotification(
                 charge_point_vendor="Growatt",
                 charge_point_model="THOR 11AS",
-                firmware_version="THOR_11AS-SIM",
+                firmware_version=firmware_version,
             )
         )
 

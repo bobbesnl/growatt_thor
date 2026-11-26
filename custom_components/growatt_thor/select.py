@@ -36,6 +36,7 @@ from .configuration.values import (
 from .configuration.writer import ConfigurationWrite, ConfigurationWriter, WritePolicy
 from .const import CONFIGURATION_WRITE_SPACING_SECONDS
 from .entity import ThorEntity
+from .ocpp.core.diagnostics import boot_notification_field
 from .runtime.action_errors import (
     raise_action_validation,
     raise_write_blocked,
@@ -351,7 +352,13 @@ class ConfigurationControlSelect(ThorEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         await self._configuration.async_write(
-            encode_control_value(self._description.control, option)
+            encode_control_value(
+                self._description.control,
+                option,
+                firmware_version=boot_notification_field(
+                    self.coordinator.boot_notification, "firmware_version"
+                ),
+            )
         )
 
 

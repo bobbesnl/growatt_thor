@@ -414,6 +414,34 @@ async def test_reboot_required_blocks_changes_and_start_until_the_reconnect(
         assert thor.configuration_changes.get_nowait()["value"] == "1"
 
 
+@pytest.mark.parametrize(
+    ("firmware", "wire_value"),
+    [("THOR_11AS-V2.2.16-20240902", "Eastron SDM630"), ("THOR_11AS-SIM", "4")],
+)
+async def test_sdm630_select_uses_firmware_specific_wire_value(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry, firmware: str, wire_value: str
+) -> None:
+    key = "G_PowerMeterType"
+    meter = _entity_id(hass, loaded_entry, "select", "power_meter_type_control")
+    async with connected_thor(loaded_entry.data[CONF_PORT]) as thor:
+        thor.configuration.update({"G_ExternalSamplingCurWring": "1", key: "Eastron SDM230"})
+        assert (await thor.boot(firmware_version=firmware)).status == "Accepted"
+        await thor.status("Available")
+        await _wait_for(lambda: _state(hass, meter) == "eastron_sdm230", "meter model reported")
+
+        await hass.services.async_call(
+            "select",
+            "select_option",
+            {"entity_id": meter, "option": "eastron_sdm630_three"},
+            blocking=True,
+        )
+
+        assert thor.configuration_changes.get_nowait() == {"key": key, "value": wire_value}
+        await _wait_for(
+            lambda: _state(hass, meter) == "eastron_sdm630_three", "meter model selected"
+        )
+
+
 async def test_manual_soft_reset_blocks_duplicates_and_waits_for_reconnect(
     hass: HomeAssistant, loaded_entry: MockConfigEntry
 ) -> None:

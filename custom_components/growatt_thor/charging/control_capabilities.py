@@ -16,6 +16,7 @@ CHARGER_MODE_PLUG_AND_CHARGE = "3"
 
 WORKING_MODE_OPTIONS = ("fast", "pv_linkage", "pv_linkage_plus", "off_peak")
 PV_LINKAGE_WORKING_MODES = frozenset({"pv_linkage", "pv_linkage_plus"})
+SDM630_MODEL_NAME_FIRMWARE = "THOR_11AS-V2.2.16-20240902"
 
 
 class ControlCapability(StrEnum):
@@ -277,7 +278,9 @@ def transaction_state_is_active(
     )
 
 
-def encode_control_value(control: ChargingControl, value: object) -> str:
+def encode_control_value(
+    control: ChargingControl, value: object, *, firmware_version: str | None = None
+) -> str:
     """Encode one verified logical control value for ChangeConfiguration."""
     if CONTROL_DEFINITIONS[control].capability != ControlCapability.WRITABLE:
         raise ValueError(f"{control.value} is not a directly writable control")
@@ -323,6 +326,10 @@ def encode_control_value(control: ChargingControl, value: object) -> str:
         return encoded
 
     if control == ChargingControl.POWER_METER_TYPE:
+        if value == "eastron_sdm630_three" and firmware_version == SDM630_MODEL_NAME_FIRMWARE:
+            # This firmware rejects the web UI code "4" over OCPP. Its write
+            # and readback both use the bare model name (issue #70).
+            return "Eastron SDM630"
         encoded = {
             "none": "0",
             "acrel_dds1352": "1",
