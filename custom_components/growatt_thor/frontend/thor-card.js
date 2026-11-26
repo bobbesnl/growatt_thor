@@ -1260,7 +1260,7 @@ ${n}`:n}function oL(r){let e=Os(r);if(e===null)return"\u2014";let t=Math.floor(e
           <ha-icon .icon=${t.icon}></ha-icon><span>${e(t.label)}</span
           ><strong>${t.valueKw===null?"\u2014":`${i(t.valueKw)} kW`}</strong>
         </div>`:N}
-  </div>`}var _L="2.0.0-alpha.4",bL=new URL(`thor-front.png?v=${_L}`,import.meta.url).href,Bs=200,xL="-12 -12 224 124",Qu="M 10 100 A 90 90 0 0 1 190 100",SL="M 0 100 A 100 100 0 0 1 200 100",wL="M 4 100 A 96 96 0 0 1 196 100",Ba=100,Zb=100,kL=180/Ba,CL="-5,100 -11,95.5 -11,104.5",qb=new WeakMap,TL=0;function AL(r){let e=qb.get(r);return e||(e=`thor-grid-allowance-${++TL}`,qb.set(r,e)),e}function EL(r){return r.target?ui`<g
+  </div>`}var _L="2.0.0-beta.1",bL=new URL(`thor-front.png?v=${_L}`,import.meta.url).href,Bs=200,xL="-12 -12 224 124",Qu="M 10 100 A 90 90 0 0 1 190 100",SL="M 0 100 A 100 100 0 0 1 200 100",wL="M 4 100 A 96 96 0 0 1 196 100",Ba=100,Zb=100,kL=180/Ba,CL="-5,100 -11,95.5 -11,104.5",qb=new WeakMap,TL=0;function AL(r){let e=qb.get(r);return e||(e=`thor-grid-allowance-${++TL}`,qb.set(r,e)),e}function EL(r){return r.target?ui`<g
                   class="target-marker"
                   transform="rotate(${r.target.fraction*kL} ${Zb} ${Zb})"
                 >

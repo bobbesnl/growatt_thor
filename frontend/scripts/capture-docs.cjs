@@ -261,6 +261,14 @@ async function captureTargetDialogs(session) {
           await dialog.locator('.recurrence input').check();
         }
       }
+      if (target.kind === 'energy' && schedule.key === 'now') {
+        // Show the enabled primary action once, without submitting the target.
+        await dialog.getByRole('checkbox').check();
+        const submit = dialog.getByRole('button', { name: 'Set charging target', exact: true });
+        if (!(await submit.isEnabled())) {
+          throw new Error('The example energy target must be ready to submit');
+        }
+      }
       await captureScreenshot(
         session,
         dialog,
@@ -312,7 +320,7 @@ async function captureChargingModeDialogs(session) {
     session,
     dialog,
     'charging-mode-prerequisites',
-    'Charging mode · prerequisites',
+    'Charging strategy · Fast and PV charging',
   );
   await dialogHost.evaluate((node) => node.next());
 

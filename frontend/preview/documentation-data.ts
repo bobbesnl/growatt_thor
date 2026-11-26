@@ -52,6 +52,12 @@ export function documentationHistory(): SessionHistoryData {
       const at = (fraction: number) => new Date(from + (to - from) * fraction).toISOString();
       const solar = energy * solarShare,
         battery = energy * batteryShare;
+      const cost = Math.round(energy * 0.3 * 100) / 100;
+      const goals: SessionItem['charging_goal'][] = [
+        { kind: 'energy', value: 30, actual: energy },
+        { kind: 'budget', value: 6, actual: cost },
+        { kind: 'duration', value: 180, actual: Math.round(((to - from) * 0.887) / 60000) },
+      ];
       return {
         session_id: `documentation-${index}`,
         active: false,
@@ -60,8 +66,9 @@ export function documentationHistory(): SessionHistoryData {
         energy_kwh: energy,
         // Match backend accounting: complete allocation, direct solar only.
         green_energy_kwh: solar,
-        cost: Math.round(energy * 0.3 * 100) / 100,
+        cost,
         duration_minutes: (to - from) / 60000,
+        charging_goal: goals[index],
         authorized_identifier: identifier,
         authorized_alias: ['Family car', 'Alex', null, 'Family car'][index],
         power_curve,

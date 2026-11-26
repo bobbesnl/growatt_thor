@@ -1,6 +1,6 @@
 {
-  "integration_version": "2.0.0-alpha.1",
-  "card_sha256": "2508e3268cf0ac957574de31b05009ca1ff991bb44327d93c17a2aa2fcb9d15b",
+  "integration_version": "2.0.0-beta.1",
+  "card_sha256": "8106ea2a6519c7a005f4c633cd479238ba8d04d1461d53f60b4e5c2eb7326953",
   "fixed_time": "2026-10-02T17:04:05+02:00",
   "time_zone": "Europe/Berlin",
   "locale": "en-GB",
@@ -254,99 +254,99 @@
       "number": 16,
       "file": "16-authorization-home-assistant-rfid.png",
       "title": "Authorization · home assistant rfid",
-      "width": 420,
+      "width": 520,
       "height": 325,
-      "pixel_width": 840,
+      "pixel_width": 1040,
       "pixel_height": 652
     },
     {
       "number": 17,
       "file": "17-authorization-rfid-only.png",
       "title": "Authorization · rfid only",
-      "width": 420,
+      "width": 520,
       "height": 325,
-      "pixel_width": 840,
+      "pixel_width": 1040,
       "pixel_height": 652
     },
     {
       "number": 18,
       "file": "18-authorization-plug-and-charge.png",
       "title": "Authorization · plug and charge",
-      "width": 420,
+      "width": 520,
       "height": 325,
-      "pixel_width": 840,
+      "pixel_width": 1040,
       "pixel_height": 652
     },
     {
       "number": 19,
       "file": "19-charging-mode-prerequisites.png",
-      "title": "Charging mode · prerequisites",
-      "width": 680,
-      "height": 370,
-      "pixel_width": 1360,
-      "pixel_height": 744
+      "title": "Charging strategy · Fast and PV charging",
+      "width": 520,
+      "height": 452,
+      "pixel_width": 1040,
+      "pixel_height": 908
     },
     {
       "number": 20,
       "file": "20-charging-mode-solar-only-disabled.png",
       "title": "PV Linkage+ · no boost",
-      "width": 680,
-      "height": 454,
-      "pixel_width": 1360,
-      "pixel_height": 908
+      "width": 520,
+      "height": 485,
+      "pixel_width": 1040,
+      "pixel_height": 972
     },
     {
       "number": 21,
       "file": "21-charging-mode-solar-only-manual.png",
       "title": "PV Linkage+ · time-window boost",
-      "width": 680,
-      "height": 593,
-      "pixel_width": 1360,
-      "pixel_height": 1188
+      "width": 520,
+      "height": 624,
+      "pixel_width": 1040,
+      "pixel_height": 1252
     },
     {
       "number": 22,
       "file": "22-charging-mode-solar-only-smart.png",
       "title": "PV Linkage+ · ready-by-time boost",
-      "width": 680,
-      "height": 679,
-      "pixel_width": 1360,
-      "pixel_height": 1360
+      "width": 520,
+      "height": 727,
+      "pixel_width": 1040,
+      "pixel_height": 1456
     },
     {
       "number": 23,
       "file": "23-charging-mode-grid-allowed-disabled.png",
       "title": "PV Linkage · no boost",
-      "width": 680,
-      "height": 555,
-      "pixel_width": 1360,
-      "pixel_height": 1112
+      "width": 520,
+      "height": 587,
+      "pixel_width": 1040,
+      "pixel_height": 1176
     },
     {
       "number": 24,
       "file": "24-charging-mode-grid-allowed-manual.png",
       "title": "PV Linkage · time-window boost",
-      "width": 680,
-      "height": 694,
-      "pixel_width": 1360,
-      "pixel_height": 1392
+      "width": 520,
+      "height": 726,
+      "pixel_width": 1040,
+      "pixel_height": 1452
     },
     {
       "number": 25,
       "file": "25-charging-mode-grid-allowed-smart.png",
       "title": "PV Linkage · ready-by-time boost",
-      "width": 680,
-      "height": 781,
-      "pixel_width": 1360,
-      "pixel_height": 1564
+      "width": 520,
+      "height": 828,
+      "pixel_width": 1040,
+      "pixel_height": 1660
     },
     {
       "number": 26,
       "file": "26-charging-mode-review.png",
       "title": "Charging mode · review before applying",
-      "width": 680,
+      "width": 520,
       "height": 479,
-      "pixel_width": 1360,
+      "pixel_width": 1040,
       "pixel_height": 960
     },
     {
@@ -354,29 +354,29 @@
       "file": "27-history-light.png",
       "title": "Charging history · desktop light",
       "width": 1000,
-      "height": 870,
+      "height": 905,
       "pixel_width": 2000,
-      "pixel_height": 1742,
+      "pixel_height": 1812,
       "annotation_regions": [
         {
-          "top": 0.068966,
-          "bottom": 0.133333
+          "top": 0.066298,
+          "bottom": 0.128177
         },
         {
-          "top": 0.147126,
-          "bottom": 0.186207
+          "top": 0.141436,
+          "bottom": 0.179006
         },
         {
-          "top": 0.195402,
-          "bottom": 0.505747
+          "top": 0.187845,
+          "bottom": 0.486188
         },
         {
-          "top": 0.514943,
-          "bottom": 0.677011
+          "top": 0.495028,
+          "bottom": 0.650829
         },
         {
-          "top": 0.677011,
-          "bottom": 0.934483
+          "top": 0.650829,
+          "bottom": 0.937017
         }
       ]
     },
@@ -385,38 +385,38 @@
       "file": "28-history-dark.png",
       "title": "Charging history · desktop dark",
       "width": 1000,
-      "height": 870,
+      "height": 905,
       "pixel_width": 2000,
-      "pixel_height": 1742
+      "pixel_height": 1812
     },
     {
       "number": 29,
       "file": "29-history-mobile.png",
       "title": "Charging history · mobile",
       "width": 390,
-      "height": 1394,
+      "height": 1448,
       "pixel_width": 780,
-      "pixel_height": 2790,
+      "pixel_height": 2898,
       "annotation_regions": [
         {
-          "top": 0.041612,
-          "bottom": 0.127704
+          "top": 0.04006,
+          "bottom": 0.122941
         },
         {
-          "top": 0.173621,
-          "bottom": 0.357285
+          "top": 0.167145,
+          "bottom": 0.34396
         },
         {
-          "top": 0.348676,
-          "bottom": 0.479228
+          "top": 0.335672,
+          "bottom": 0.461354
         },
         {
-          "top": 0.486402,
-          "bottom": 0.621999
+          "top": 0.468261,
+          "bottom": 0.5988
         },
         {
-          "top": 0.621999,
-          "bottom": 0.949062
+          "top": 0.5988,
+          "bottom": 0.950962
         }
       ]
     }

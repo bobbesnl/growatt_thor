@@ -10,7 +10,7 @@ Click any image name to open its full-resolution PNG.
 
 ## About these images
 
-Images **1–29** show the current **2.0.0-alpha.1** English simulator UI with illustrative readings, prices, source shares and fictitious RFID identifiers. They use the simulator's Home Assistant time zone, Europe/Berlin. The [capture manifest](images/screenshots.json) records the card build hash, fixed example clock and exact PNG dimensions.
+Images **1–29** show the English simulator UI with illustrative readings, prices, source shares, charging targets and fictitious RFID identifiers. They use the simulator's Home Assistant time zone, Europe/Berlin. The [capture manifest](images/screenshots.json) records the integration version, card build hash, fixed example clock and exact PNG dimensions.
 
 Images **30–35** are historical captures from Home Assistant with integration **2.0.0-dev.13**; the installation address and personal price-sensor identifier were anonymized. They are separate from the simulator generator. No settings were submitted and AP mode was not activated.
 
@@ -46,9 +46,9 @@ must be adapted to your own installation.
 17. [Authorization · rfid only](images/17-authorization-rfid-only.png)
 18. [Authorization · plug and charge](images/18-authorization-plug-and-charge.png)
 
-## PV charging modes
+## Charging strategy and PV settings
 
-19. [Charging mode · prerequisites](images/19-charging-mode-prerequisites.png)
+19. [Charging strategy · Fast and PV charging](images/19-charging-mode-prerequisites.png)
 20. [PV Linkage+ · no boost](images/20-charging-mode-solar-only-disabled.png)
 21. [PV Linkage+ · time-window boost](images/21-charging-mode-solar-only-manual.png)
 22. [PV Linkage+ · ready-by-time boost](images/22-charging-mode-solar-only-smart.png)

@@ -246,32 +246,32 @@
       "source": "27-history-light.png",
       "source_size": [
         2000,
-        1742
+        1812
       ],
       "callouts": [
         {
-          "top": 0.068966,
-          "bottom": 0.133333,
+          "top": 0.066298,
+          "bottom": 0.128177,
           "title": "History totals"
         },
         {
-          "top": 0.147126,
-          "bottom": 0.186207,
+          "top": 0.141436,
+          "bottom": 0.179006,
           "title": "Filter"
         },
         {
-          "top": 0.195402,
-          "bottom": 0.505747,
+          "top": 0.187845,
+          "bottom": 0.486188,
           "title": "Selected session curve"
         },
         {
-          "top": 0.514943,
-          "bottom": 0.677011,
+          "top": 0.495028,
+          "bottom": 0.650829,
           "title": "Charging energy breakdown"
         },
         {
-          "top": 0.677011,
-          "bottom": 0.934483,
+          "top": 0.650829,
+          "bottom": 0.937017,
           "title": "Session table"
         }
       ],
@@ -283,32 +283,32 @@
       "source": "29-history-mobile.png",
       "source_size": [
         780,
-        2790
+        2898
       ],
       "callouts": [
         {
-          "top": 0.041612,
-          "bottom": 0.127704,
+          "top": 0.04006,
+          "bottom": 0.122941,
           "title": "History totals"
         },
         {
-          "top": 0.173621,
-          "bottom": 0.357285,
+          "top": 0.167145,
+          "bottom": 0.34396,
           "title": "Charging curve and zoom"
         },
         {
-          "top": 0.348676,
-          "bottom": 0.479228,
+          "top": 0.335672,
+          "bottom": 0.461354,
           "title": "Event timeline"
         },
         {
-          "top": 0.486402,
-          "bottom": 0.621999,
+          "top": 0.468261,
+          "bottom": 0.5988,
           "title": "Energy sources"
         },
         {
-          "top": 0.621999,
-          "bottom": 0.949062,
+          "top": 0.5988,
+          "bottom": 0.950962,
           "title": "Session items"
         }
       ],
