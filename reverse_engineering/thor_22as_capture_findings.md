@@ -261,6 +261,12 @@ integration sends `vendorId=Growatt` and the tested charger accepts it.
 
 Do not treat the sign of `power` as a proven import/export convention yet.
 
+#### Repeated readings with `used=0` in Fast mode
+
+On a THOR 22AS running `THOR_22AS-V2.2.16-20240902`, Home Assistant recorded changing grid power and `used=1` before leaving PV Linkage. After switching to `Fast` with external load balancing off, while the charger was still idle, it began repeating the last 1,582 W reading. The charger continued to answer `Accepted` every 30 seconds and repeated `used=0`, the same power, and identical voltages and currents on all three phases. During charging an independent inverter measurement rose from roughly 1.6 to 8.6 kW while the THOR reading stayed fixed for more than 30 minutes. The integration continued to poll and its health status confirmed communication.
+
+The full repeated snapshot suggests the firmware can return cached measurements when it is not using the external meter. This capture cannot separate the effect of Fast mode from disabled load balancing. Compare `Fast` with load balancing off, `Power Distribution` with load balancing on, and PV Linkage on the same idle charger before treating `used=0` as a validated freshness rule.
+
 #### External meter Modbus failure
 
 Changing `G_PowerMeterAddr` from the working address `2` to the unused Modbus
