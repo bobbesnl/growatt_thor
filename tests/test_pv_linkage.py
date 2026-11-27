@@ -11,10 +11,31 @@ MODULE_PATH = PACKAGE_PATH / "charging/pv_linkage.py"
 PACKAGE_NAME = "growatt_thor_pv_linkage_test_target"
 package = register_package(PACKAGE_NAME)
 pv = load_package_module(f"{PACKAGE_NAME}.charging.pv_linkage", MODULE_PATH)
+drafts = load_package_module("charging.pv_draft", package_name=PACKAGE_NAME)
+configuration = load_package_module("configuration.values", package_name=PACKAGE_NAME)
 
 
 class PvLinkageControlTest(unittest.TestCase):
     """Verify captured Manual and Smart Boost payloads."""
+
+    def test_confirmed_profile_does_not_reenter_mode_readback_on_later_change(self):
+        now = "2026-11-27T12:00:00Z"
+        state = drafts.PvLinkageDraftState(
+            profile_apply=drafts.PvProfileApplyProgress(
+                "pending-profile", "pv_linkage_plus", "awaiting_mode", 2, 2, now
+            )
+        )
+
+        def values(mode):
+            return {
+                key: configuration.configuration_value_from_item({"key": key, "value": raw})
+                for key, raw in {"G_WorkingMode": mode, "G_SolarMode": "1&2"}.items()
+            }
+
+        self.assertFalse(state.confirm_profile_mode(values("Fast"), now=now))
+        self.assertTrue(state.confirm_profile_mode(values("PVlink"), now=now))
+        self.assertFalse(state.confirm_profile_mode(values("Fast"), now=now))
+        self.assertEqual(state.profile_apply.status, "success")
 
     def test_parses_first_reported_manual_period(self):
         self.assertEqual(

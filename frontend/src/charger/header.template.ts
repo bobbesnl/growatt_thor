@@ -4,7 +4,7 @@ import type { CardActions } from './card-actions';
 import type { CardViewModel } from './card-view-model';
 
 export function renderHeader(
-  { config, t, data, auth, entity, rebooting }: CardViewModel,
+  { config, t, data, auth, entity, rebooting, pvFeedback }: CardViewModel,
   actions: CardActions,
 ) {
   return html`
@@ -17,7 +17,7 @@ export function renderHeader(
               class="mode strategy"
               title=${t('chargeMode')}
               aria-haspopup="dialog"
-              ?disabled=${rebooting}
+              ?disabled=${rebooting || !!pvFeedback?.busy}
               @click=${() => actions.openPv(entity.entity_id, data.pv_linkage)}
             >
               <ha-icon

@@ -16,6 +16,7 @@ import {
 } from '../targets/live';
 import type { GoalKind, GoalRecurrence } from '../targets/model';
 import type { CardConfig, Entity, Hass } from '../shared/types';
+import { pvProfileFeedback } from '../pv/model';
 import './editor';
 import '../targets/dialog';
 import '../authorization/dialog';
@@ -143,6 +144,7 @@ export class ThorCard extends LitElement {
       !hass ||
       !entity ||
       !data ||
+      pvProfileFeedback(data, Date.now())?.busy ||
       !(startAt
         ? recurrence === 'daily'
           ? scheduledGoalAvailable(hass, entity, data)
@@ -187,6 +189,7 @@ export class ThorCard extends LitElement {
     const entity = resolveEntity(hass, this._config);
     const data = this.cardData(entity);
     if (!entity || !data) return;
+    if (action === 'start' && pvProfileFeedback(data, Date.now())?.busy) return;
     const connected = hass.connected !== false && entity.attributes.connected === true;
     const pending = commandInfo(data, entity.state, Date.now()).pending;
     if (!capabilities(hass, data, entity, connected, pending)[action]) return;

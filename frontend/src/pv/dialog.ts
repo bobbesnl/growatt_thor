@@ -4,10 +4,12 @@ import type { CardData, Hass, PvLinkageData } from '../shared/types';
 import {
   initialPvDraft,
   pvDraftErrors,
+  pvProfileFeedback,
   pvServicePayload,
   type PvBoost,
   type PvLinkageDraft,
   type PvMode,
+  type PvProfileFeedback,
 } from './model';
 import { pvTranslate } from './locales';
 import { translate } from '../shared/strings';
@@ -20,6 +22,7 @@ export class ThorPvLinkageDialog extends LitElement {
     dark: { type: Boolean },
     hass: { attribute: false },
     data: { attribute: false },
+    now: { attribute: false },
     entityId: {},
     step: { state: true },
     draft: { state: true },
@@ -28,6 +31,7 @@ export class ThorPvLinkageDialog extends LitElement {
   };
   hass?: Hass;
   data?: CardData;
+  now = Date.now();
   dark?: boolean;
   entityId = '';
   step = 0;
@@ -44,6 +48,7 @@ export class ThorPvLinkageDialog extends LitElement {
   });
   busy = false;
   error = '';
+  private previousApplyId: string | null = null;
 
   get cardData(): CardData | undefined {
     return this.data || this.hass?.states[this.entityId]?.attributes.thor_card;
@@ -57,6 +62,22 @@ export class ThorPvLinkageDialog extends LitElement {
   get errors(): string[] {
     return pvDraftErrors(this.draft);
   }
+  get profileFeedback(): PvProfileFeedback | null {
+    const feedback = pvProfileFeedback(this.cardData, this.now);
+    const progress = this.pvData?.profile_apply;
+    if (
+      feedback?.busy ||
+      (this.previousApplyId !== null && progress && progress.request_id !== this.previousApplyId)
+    ) {
+      return feedback;
+    }
+    return this.busy && this.previousApplyId !== null
+      ? { key: 'pvApplying', busy: true, tone: 'warning' }
+      : null;
+  }
+  get profileLocked() {
+    return this.profileFeedback?.busy === true;
+  }
   get fastSelect() {
     const entityId = this.cardData?.entities.working_mode_control;
     const entity = entityId ? this.hass?.states[entityId] : undefined;
@@ -68,6 +89,7 @@ export class ThorPvLinkageDialog extends LitElement {
       !!state &&
       !['fast', 'unknown', 'unavailable'].includes(state) &&
       !this.busy &&
+      !this.profileLocked &&
       this.hass?.connected !== false &&
       this.hass?.states[this.entityId]?.attributes.connected === true &&
       !this.cardData?.charger_rebooting &&
@@ -100,6 +122,7 @@ export class ThorPvLinkageDialog extends LitElement {
     this.draft = initialPvDraft(data);
     this.step = 0;
     this.error = '';
+    this.previousApplyId = null;
     await this.updateComplete;
     this.renderRoot.querySelector('dialog')?.showModal();
   }
@@ -107,7 +130,8 @@ export class ThorPvLinkageDialog extends LitElement {
     if (!this.busy) this.renderRoot.querySelector('dialog')?.close();
   }
   next() {
-    if (this.step < 2 && (this.step !== 0 || !this.blockedReason)) this.step += 1;
+    if (!this.profileLocked && this.step < 2 && (this.step !== 0 || !this.blockedReason))
+      this.step += 1;
   }
   back() {
     if (this.step > 0 && !this.busy) this.step -= 1;
@@ -123,7 +147,16 @@ export class ThorPvLinkageDialog extends LitElement {
   }
   async apply() {
     const data = this.cardData;
-    if (!this.hass || !data || this.blockedReason || this.errors.length || this.busy) return;
+    if (
+      !this.hass ||
+      !data ||
+      this.blockedReason ||
+      this.errors.length ||
+      this.busy ||
+      this.profileLocked
+    )
+      return;
+    this.previousApplyId = this.pvData?.profile_apply?.request_id ?? '';
     this.busy = true;
     this.error = '';
     try {

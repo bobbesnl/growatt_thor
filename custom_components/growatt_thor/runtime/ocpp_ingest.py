@@ -490,6 +490,10 @@ class OcppIngest:
 
         if self.coordinator.pv_draft.initialize(self.coordinator.configuration_values):
             updated = True
+        if reported_values.get("G_WorkingMode") and self.coordinator.pv_draft.confirm_profile_mode(
+            self.coordinator.configuration_values, now=self.coordinator.now()
+        ):
+            updated = True
 
         for item in configuration:
             if not isinstance(item, dict):

@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from ..ocpp.growatt.external_meter_state import ExternalMeterState
     from ..runtime.write_results import ChargerCommandHandle, ChargerWriteResult
     from ..targets.requests import TargetRecord
+    from .pv_draft import PvLinkageDraftState
     from .pv_linkage import PvLinkageApplyResult, PvLinkageDraft
 
 
@@ -108,5 +109,6 @@ class RestartTransport(Protocol):
 class PvServiceOwner(PvApplyOwner, CommandOwner, Protocol):
     configuration_values: dict[str, ConfigurationValue]
     external_meter: ExternalMeterState
+    pv_draft: PvLinkageDraftState
 
     def update_pv_linkage_draft(self, **changes: object) -> None: ...

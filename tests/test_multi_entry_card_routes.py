@@ -1,14 +1,24 @@
 """Exercise real 2.0 PV and history dispatch with two loaded entries."""
 
+import asyncio
 import importlib
 import sys
 import unittest
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from tests.support import PACKAGE_PATH, default, load_package_module, module, register_package
+from tests.support import (
+    PACKAGE_PATH,
+    HomeAssistantError,
+    ServiceValidationError,
+    default,
+    load_package_module,
+    module,
+    register_package,
+)
 
 ROOT = PACKAGE_PATH
 NAME = "thor_card_routes_test"
@@ -20,8 +30,8 @@ def load_routes():
     module("homeassistant.components")
     module("homeassistant.helpers")
     exceptions = ModuleType("homeassistant.exceptions")
-    exceptions.HomeAssistantError = RuntimeError
-    exceptions.ServiceValidationError = RuntimeError
+    exceptions.HomeAssistantError = HomeAssistantError
+    exceptions.ServiceValidationError = ServiceValidationError
     ws = ModuleType("homeassistant.components.websocket_api")
     ws.websocket_command = lambda schema: lambda fn: fn
     ws.async_response = lambda fn: fn
@@ -80,8 +90,66 @@ class CardRoutingTest(unittest.IsolatedAsyncioTestCase):
         self.pv.async_unload_pv_linkage_service(self.hass, SimpleNamespace(entry_id="right"))
         await dispatch(SimpleNamespace(data={"entry_id": "left"}))
         left.assert_awaited_once()
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(HomeAssistantError):
             await dispatch(SimpleNamespace(data={"entry_id": "right"}))
+
+    async def test_pv_profile_progress_tracks_acknowledgements_and_partial_result(self):
+        module = load_package_module("runtime.write_results", package_name=NAME)
+        self.pv.dt_util.now = lambda: datetime(2026, 11, 27, tzinfo=UTC)
+        states = []
+        coordinator = SimpleNamespace(
+            connected=True,
+            charger_reboot_pending=False,
+            charger_is_faulted=False,
+            transaction_is_active=False,
+            external_meter=SimpleNamespace(ready_for_pv=True),
+            configuration_values={},
+            runtime_data={"charge_point": object()},
+            pv_draft=SimpleNamespace(profile_apply=None),
+            now=lambda: "2026-11-27T12:00:00Z",
+            update_pv_linkage_draft=lambda **_kwargs: None,
+        )
+
+        def notify(_updated):
+            progress = coordinator.pv_draft.profile_apply
+            states.append((progress.status, progress.completed_steps, progress.total_steps))
+
+        async def queue_write(callback, *args, **kwargs):
+            handle = module.create_command_handle()
+            result = await callback(*args)
+            handle._completion.set_result(
+                module.ChargerCommandResult.from_write_result(
+                    command_id=handle.command_id,
+                    command_name=kwargs["command_name"],
+                    queued_at=coordinator.now(),
+                    completed_at=coordinator.now(),
+                    result=result,
+                )
+            )
+            return handle
+
+        async def partial_apply(*, on_step_accepted, **_kwargs):
+            on_step_accepted(1)
+            return module.ChargerWriteResult.partial("write_rejected")
+
+        coordinator.async_set_updated_data = notify
+        coordinator.queue_write = queue_write
+        await self.pv.async_setup_pv_linkage_service(
+            self.hass, SimpleNamespace(entry_id="left"), coordinator
+        )
+        handle = coordinator.runtime_data["pv_linkage_profile_handler"]
+        data = {"entry_id": "left", "working_mode": "pv_linkage_plus", "boost_mode": "disabled"}
+        with (
+            patch.object(self.pv, "apply_pv_linkage_writes", partial_apply),
+            self.assertRaisesRegex(HomeAssistantError, "command_outcome_uncertain"),
+        ):
+            await handle(SimpleNamespace(data=data))
+        await asyncio.sleep(0)
+
+        self.assertEqual(
+            states,
+            [("queued", 0, 2), ("applying", 0, 2), ("applying", 1, 2), ("partial", 1, 2)],
+        )
 
     async def test_websocket_cannot_read_another_entries_session(self):
         csv = importlib.import_module(NAME + ".sessions.csv")

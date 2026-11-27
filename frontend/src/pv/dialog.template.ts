@@ -3,6 +3,7 @@ import type { ThorPvLinkageDialog } from './dialog';
 import { meterLabel } from './model';
 import type { PvTranslator } from './locales';
 import type { Translator } from '../shared/strings';
+import { renderPvProfileFeedback } from './feedback.template';
 
 const steps = ['pvStepPrerequisites', 'pvStepBehavior', 'pvStepReview'];
 const option = (active: boolean, icon: string, title: string, hint: string, click: () => void) =>
@@ -224,7 +225,10 @@ export const renderPvLinkageDialog = (
       : dialog.step === 1
         ? behavior(dialog, t)
         : review(dialog, t)}
-    ${dialog.error ? html`<p class="error" role="alert">${t(dialog.error)}</p>` : nothing}
+    ${renderPvProfileFeedback(dialog.profileFeedback, t)}
+    ${dialog.error && !dialog.profileFeedback
+      ? html`<p class="error" role="alert">${t(dialog.error)}</p>`
+      : nothing}
     <footer>
       <button
         ?disabled=${dialog.busy}
@@ -235,6 +239,7 @@ export const renderPvLinkageDialog = (
         ? html`<button
             class="primary"
             ?disabled=${dialog.busy ||
+            dialog.profileLocked ||
             (dialog.step === 0 ? !!dialog.blockedReason : !!dialog.errors.length)}
             @click=${() => dialog.next()}
           >
@@ -242,10 +247,13 @@ export const renderPvLinkageDialog = (
           </button>`
         : html`<button
             class="primary"
-            ?disabled=${dialog.busy || !!dialog.blockedReason || !!dialog.errors.length}
+            ?disabled=${dialog.busy ||
+            dialog.profileLocked ||
+            !!dialog.blockedReason ||
+            !!dialog.errors.length}
             @click=${() => dialog.apply()}
           >
-            ${dialog.busy ? t('pvApplying') : t('pvApply')}
+            ${t('pvApply')}
           </button>`}
     </footer>
   </dialog>`;

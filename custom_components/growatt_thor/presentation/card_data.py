@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Iterable, Mapping
+from dataclasses import asdict
 from typing import Any, cast
 
 from ..charging.control_capabilities import selected_working_mode
@@ -296,7 +297,8 @@ def _pv_linkage_card_data(
         blocked_reason = "configuration_read_only"
 
     last_apply = coordinator.pv_draft.apply_result
-    return {
+    profile_apply = coordinator.pv_draft.profile_apply
+    view = {
         "working_mode": (
             working_mode if working_mode in {"pv_linkage", "pv_linkage_plus"} else "pv_linkage_plus"
         ),
@@ -322,6 +324,9 @@ def _pv_linkage_card_data(
         "last_apply": last_apply.as_dict() if last_apply is not None else None,
         "blocked_reason": blocked_reason,
     }
+    if profile_apply is not None:
+        view["profile_apply"] = asdict(profile_apply)
+    return view
 
 
 def dashboard_attributes(coordinator: DashboardOwner) -> dict[str, Any]:

@@ -30,6 +30,17 @@ header {
   color: var(--muted);
   font-weight: 400;
 }
+.notice.pv-progress {
+  margin-top: 10px;
+}
+.notice.pv-progress.success {
+  background: var(--panel);
+  color: var(--green);
+}
+.notice.pv-progress small {
+  display: block;
+  margin-top: 3px;
+}
 /* A zero basis lets the name yield to an ellipsis before the pills wrap;
    the pills take their own row only when they no longer fit on their own. */
 h2 {

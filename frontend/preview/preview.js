@@ -558,31 +558,61 @@ function update() {
         return;
       }
       if (domain === 'growatt_thor' && service === 'apply_pv_linkage_profile') {
-        await new Promise((resolve) => setTimeout(resolve, 700));
-        data.working_mode = args.working_mode;
-        states['select.working_mode'] = {
-          ...states['select.working_mode'],
-          state: args.working_mode,
+        const requestId = crypto.randomUUID();
+        const total =
+          2 + Number(args.working_mode === 'pv_linkage') + Number(args.boost_mode !== 'disabled');
+        const setProgress = (status, done) => {
+          data.pv_linkage = {
+            ...data.pv_linkage,
+            profile_apply: {
+              request_id: requestId,
+              working_mode: args.working_mode,
+              status,
+              completed_steps: done,
+              total_steps: total,
+              updated_at: new Date().toISOString(),
+            },
+          };
+          publish();
         };
-        document.querySelector('#working-mode').value = args.working_mode;
-        data.pv_linkage = {
-          ...data.pv_linkage,
-          working_mode: args.working_mode,
-          grid_import_limit_kw:
-            args.working_mode === 'pv_linkage'
-              ? args.grid_import_limit_kw
-              : data.pv_linkage.grid_import_limit_kw,
-          boost_mode: args.boost_mode,
-          manual_start: args.manual_start || null,
-          manual_end: args.manual_end || null,
-          smart_finish: args.smart_finish || null,
-          smart_target_energy_kwh: args.smart_target_energy_kwh || null,
-          draft_dirty: false,
-          last_apply: { status: 'success', completed_steps: 3, total_steps: 3 },
-        };
-        data.power_flow.grid_import_limit_kw =
-          args.working_mode === 'pv_linkage' ? args.grid_import_limit_kw : 0;
-        publish();
+        setProgress('queued', 0);
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        for (let done = 0; done < total; done += 1) {
+          setProgress('applying', done);
+          await new Promise((resolve) => setTimeout(resolve, 650));
+          if (done === 1 && result === 'rejected') {
+            setProgress('partial', done);
+            throw new Error('Simulated partial PV profile');
+          }
+        }
+        setProgress(data.working_mode === args.working_mode ? 'success' : 'awaiting_mode', total);
+        // The mode is read back separately after the service returns.
+        setTimeout(() => {
+          data.working_mode = args.working_mode;
+          states['select.working_mode'] = {
+            ...states['select.working_mode'],
+            state: args.working_mode,
+          };
+          document.querySelector('#working-mode').value = args.working_mode;
+          data.pv_linkage = {
+            ...data.pv_linkage,
+            working_mode: args.working_mode,
+            grid_import_limit_kw:
+              args.working_mode === 'pv_linkage'
+                ? args.grid_import_limit_kw
+                : data.pv_linkage.grid_import_limit_kw,
+            boost_mode: args.boost_mode,
+            manual_start: args.manual_start || null,
+            manual_end: args.manual_end || null,
+            smart_finish: args.smart_finish || null,
+            smart_target_energy_kwh: args.smart_target_energy_kwh || null,
+            draft_dirty: false,
+            last_apply: { status: 'success', completed_steps: total, total_steps: total },
+          };
+          data.power_flow.grid_import_limit_kw =
+            args.working_mode === 'pv_linkage' ? args.grid_import_limit_kw : 0;
+          setProgress('success', total);
+        }, 2500);
         return;
       }
       data.command = {

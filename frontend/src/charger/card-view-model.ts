@@ -15,6 +15,7 @@ import { batteryDrainKw, powerFlowView } from '../energy/model';
 import { liveTargetProgress } from '../targets/live';
 import { translate } from '../shared/strings';
 import type { CardConfig, CardData, Entity, Hass } from '../shared/types';
+import { pvProfileFeedback } from '../pv/model';
 
 interface LocalCommandState {
   issuedAt: number;
@@ -93,6 +94,7 @@ export function buildCardViewModel(
     connected,
     info.pending || localCommand.sending || awaitingState,
   );
+  const pvFeedback = pvProfileFeedback(data, now);
   const fault = hass.states[data.entities?.last_charger_fault];
   const session = sessionDisplay(hass, data, now);
   const limit = hass.states[data.entities?.max_current];
@@ -132,7 +134,8 @@ export function buildCardViewModel(
     complete,
     format,
     info,
-    caps,
+    caps: { ...caps, start: caps.start && !pvFeedback?.busy },
+    pvFeedback,
     fault,
     ...session,
     targetProgress: connected && !inactive ? liveTargetProgress(data) : null,

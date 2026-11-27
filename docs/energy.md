@@ -173,11 +173,15 @@ For an example of source coverage and the calculation rules, see [How EV energy 
 
 ## PV charging dialog
 
-Open the charging-mode badge to configure **PV Linkage+** (only PV surplus) or
-**PV Linkage** (PV plus a configured grid allowance). The first step verifies a
-current external-meter reading and an idle, connected wallbox. The last step
-summarizes the draft before it is sent. These are simulator screenshots of the
-PV wizard; they do not imply a separate Fast-mode selection inside this dialog.
+Open the charging-mode badge and choose **PV charging** to configure
+**PV Linkage+** (only PV surplus) or **PV Linkage** (PV plus a configured grid
+allowance). The first step verifies a current external-meter reading and an
+idle, connected wallbox. The last step summarizes the draft before it is sent.
+
+After you apply the settings, the dialog shows how many steps the wallbox has
+confirmed. The card then shows when it is waiting for the active mode to be
+reported. While it waits, the card temporarily disables the mode badge and
+Start. It displays a separate message for a partial change or an uncertain result.
 
 <table>
 <tr>
@@ -191,7 +195,7 @@ Boost can deliberately draw grid power even with PV Linkage+. â€œReady by timeâ€
 is an energy target with a finish-by deadline; the native charging-target
 scheduler in the [usage guide](usage.md#charging-target-dialogs) sets a start time.
 
-[Compare all six PV/boost combinations](screenshots.md#pv-charging-modes).
+[Compare all six PV/boost combinations](screenshots.md#charging-strategy-and-pv-settings).
 
 ## Energy Dashboard
 

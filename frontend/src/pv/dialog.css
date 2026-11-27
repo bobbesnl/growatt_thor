@@ -227,7 +227,8 @@ label b,
   font-size: 13px;
 }
 .warning,
-.error {
+.error,
+.pv-progress {
   display: flex;
   gap: 9px;
   align-items: flex-start;
@@ -235,6 +236,14 @@ label b,
   border-radius: 12px;
   line-height: 1.4;
   font-size: 13px;
+}
+.pv-progress.success {
+  background: var(--panel);
+  color: var(--green);
+}
+.pv-progress small {
+  display: block;
+  margin-top: 3px;
 }
 .warning {
   background: color-mix(in srgb, #efaa22 13%, var(--panel));

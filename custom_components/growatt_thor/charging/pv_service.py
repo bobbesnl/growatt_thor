@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import replace
 from datetime import time
 from typing import TYPE_CHECKING, Any, cast
+from uuid import uuid4
 
 import voluptuous as vol
 from homeassistant.exceptions import HomeAssistantError
@@ -20,9 +22,17 @@ from ..runtime.action_errors import (
 )
 from ..runtime.keys import ACTIVE_CHARGE_POINT, PV_LINKAGE_PROFILE_HANDLER
 from ..runtime.ownership import entry_runtime_data
-from ..runtime.write_results import CONFIGURATION_WRITE_POLICY, ChargerWriteResult
+from ..runtime.write_results import (
+    CONFIGURATION_WRITE_POLICY,
+    ChargerCommandResult,
+    ChargerConnectionUnavailable,
+    ChargerWriteResult,
+    ChargerWriteStatus,
+)
 from .contracts import PvApplyTransport, PvServiceOwner
+from .control_capabilities import selected_working_mode
 from .pv_apply import apply_pv_linkage_writes
+from .pv_draft import PvProfileApplyProgress
 from .pv_linkage import (
     ConfigurationWrite,
     DataTransferWrite,
@@ -88,7 +98,6 @@ def _profile(data: Mapping[str, Any]) -> PvLinkageProfile:
 
 
 def _block_reason(
-    hass: HomeAssistant,
     coordinator: PvServiceOwner,
     writes: Sequence[ConfigurationWrite | DataTransferWrite],
 ) -> str | None:
@@ -144,7 +153,7 @@ async def async_setup_pv_linkage_service(
                 placeholders={"errors": ", ".join(errors)},
             )
         writes = build_pv_linkage_profile_writes(profile, now=dt_util.now())
-        if reason := _block_reason(hass, coordinator, writes):
+        if reason := _block_reason(coordinator, writes):
             if reason == "external_meter_not_ready":
                 raise_action_validation(
                     "external_meter_not_ready",
@@ -161,32 +170,80 @@ async def async_setup_pv_linkage_service(
             smart_target_energy_kwh=draft.smart_target_energy_kwh,
         )
         charge_point = coordinator.runtime_data[ACTIVE_CHARGE_POINT]
+        progress = PvProfileApplyProgress(
+            request_id=uuid4().hex,
+            working_mode=profile.working_mode,
+            status="queued",
+            completed_steps=0,
+            total_steps=len(writes),
+            updated_at=coordinator.now(),
+        )
+        coordinator.pv_draft.profile_apply = progress
+        coordinator.async_set_updated_data(True)
+
+        def publish(status: str, completed_steps: int | None = None) -> None:
+            nonlocal progress
+            if coordinator.pv_draft.profile_apply is not progress:
+                # A newer profile can replace this request while it is in flight.
+                return
+            progress = replace(
+                progress,
+                status=status,
+                completed_steps=progress.completed_steps
+                if completed_steps is None
+                else completed_steps,
+                updated_at=coordinator.now(),
+            )
+            coordinator.pv_draft.profile_apply = progress
+            coordinator.async_set_updated_data(True)
 
         async def apply(
             current_charge_point: PvApplyTransport,
             expected_draft: PvLinkageDraft,
             expected_writes: Sequence[ConfigurationWrite | DataTransferWrite],
         ) -> ChargerWriteResult:
-            if reason := _block_reason(hass, coordinator, expected_writes):
+            if reason := _block_reason(coordinator, expected_writes):
                 _LOGGER.warning("Skipping queued PV Linkage profile: %s", reason)
                 return ChargerWriteResult.skipped(reason)
-            return await apply_pv_linkage_writes(
-                coordinator=coordinator,
-                charge_point=current_charge_point,
-                draft=expected_draft,
-                writes=expected_writes,
-            )
+            publish("applying", 0)
+            try:
+                return await apply_pv_linkage_writes(
+                    coordinator=coordinator,
+                    charge_point=current_charge_point,
+                    draft=expected_draft,
+                    writes=expected_writes,
+                    on_step_accepted=lambda count: publish("applying", count),
+                )
+            except ChargerConnectionUnavailable:
+                # No step reached the wallbox. The queue may retry on reconnect.
+                publish("queued", 0)
+                raise
 
-        handle = await coordinator.queue_write(
-            apply,
-            charge_point,
-            draft,
-            writes,
-            dedupe_key="pv_linkage_profile",
-            command_name="ApplyPvLinkageProfile",
-            requires_connection=True,
-            policy=CONFIGURATION_WRITE_POLICY,
-        )
+        try:
+            handle = await coordinator.queue_write(
+                apply,
+                charge_point,
+                draft,
+                writes,
+                dedupe_key="pv_linkage_profile",
+                command_name="ApplyPvLinkageProfile",
+                requires_connection=True,
+                policy=CONFIGURATION_WRITE_POLICY,
+            )
+        except BaseException:
+            publish("skipped")
+            raise
+
+        def complete(result: ChargerCommandResult) -> None:
+            status = result.write_status.value
+            if (
+                result.write_status == ChargerWriteStatus.SUCCESS
+                and selected_working_mode(coordinator.configuration_values) != profile.working_mode
+            ):
+                status = "awaiting_mode"
+            publish(status)
+
+        handle.add_done_callback(complete)
         await async_require_command_completion(handle)
 
     coordinator.runtime_data[PV_LINKAGE_PROFILE_HANDLER] = handle

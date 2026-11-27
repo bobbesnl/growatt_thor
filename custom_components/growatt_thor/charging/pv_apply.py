@@ -9,7 +9,7 @@ Assistant button entity so that the behaviour can be tested directly.
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from ocpp.v16.enums import ConfigurationStatus, DataTransferStatus
@@ -38,9 +38,10 @@ async def apply_pv_linkage_writes(
     charge_point: PvApplyTransport,
     draft: PvLinkageDraft,
     writes: Sequence[ConfigurationWrite | DataTransferWrite],
+    on_step_accepted: Callable[[int], None] | None = None,
 ) -> ChargerWriteResult:
     """Apply an explicit snapshot; edits made in flight remain pending."""
-    return await _PvLinkageApply(coordinator, charge_point, draft, writes).run()
+    return await _PvLinkageApply(coordinator, charge_point, draft, writes, on_step_accepted).run()
 
 
 @dataclass(slots=True)
@@ -56,6 +57,7 @@ class _PvLinkageApply:
     charge_point: PvApplyTransport
     draft: PvLinkageDraft
     writes: Sequence[ConfigurationWrite | DataTransferWrite]
+    on_step_accepted: Callable[[int], None] | None
     completed_steps: int = 0
     accepted_configuration: bool = False
     active_step: str = "not_started"
@@ -73,6 +75,8 @@ class _PvLinkageApply:
                     raise TypeError(f"Unsupported PV Linkage write: {type(write).__name__}")
                 if failure is not None:
                     return failure
+                if self.on_step_accepted is not None:
+                    self.on_step_accepted(self.completed_steps)
         except ChargerConnectionUnavailable as exc:
             if self.completed_steps == 0:
                 # No acknowledgement: the queue may safely rebind the whole

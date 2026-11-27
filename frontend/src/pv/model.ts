@@ -1,4 +1,36 @@
-import type { PvLinkageData } from '../shared/types';
+import type { CardData, PvLinkageData } from '../shared/types';
+
+const MODE_READBACK_TIMEOUT_MS = 60_000;
+const APPLY_RESULT_VISIBLE_MS = 180_000;
+const applyResultKeys = {
+  failed: 'pvApplyFailed',
+  partial: 'pvApplyPartial',
+  uncertain: 'pvApplyUncertain',
+  skipped: 'pvApplyUnsent',
+  expired: 'pvApplyUnsent',
+} as const;
+
+export function pvProfileFeedback(data: CardData | undefined, now: number) {
+  const apply = data?.pv_linkage?.profile_apply;
+  if (!apply) return null;
+  const { status, completed_steps: done, total_steps: total } = apply;
+  if (status === 'queued') return { key: 'pvApplyQueued', busy: true, tone: 'warning' };
+  if (status === 'applying') return { key: 'pvApplying', busy: true, tone: 'warning', done, total };
+
+  const elapsed = now - Date.parse(apply.updated_at);
+  if (elapsed >= APPLY_RESULT_VISIBLE_MS) return null;
+  if (status === 'success')
+    return data?.working_mode === apply.working_mode
+      ? { key: 'pvApplyConfirmed', busy: false, tone: 'success' }
+      : null;
+  if (status === 'awaiting_mode') {
+    return elapsed < MODE_READBACK_TIMEOUT_MS
+      ? { key: 'pvApplyAwaitingMode', busy: true, tone: 'warning' }
+      : { key: 'pvApplyModeUnconfirmed', busy: false, tone: 'warning' };
+  }
+  return { key: applyResultKeys[status], busy: false, tone: 'error', done, total };
+}
+export type PvProfileFeedback = NonNullable<ReturnType<typeof pvProfileFeedback>>;
 
 export type PvMode = 'pv_linkage' | 'pv_linkage_plus';
 export type PvBoost = 'disabled' | 'manual' | 'smart';

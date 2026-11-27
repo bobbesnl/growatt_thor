@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initialPvDraft, meterLabel, pvDraftErrors, pvServicePayload } from '../src/pv/model';
+import {
+  initialPvDraft,
+  meterLabel,
+  pvDraftErrors,
+  pvProfileFeedback,
+  pvServicePayload,
+} from '../src/pv/model';
+import type { PvLinkageData } from '../src/shared/types';
+import { makeData } from './fixtures';
 
 test('PV dialog initializes from the versioned card contract', () => {
   const draft = initialPvDraft({
@@ -64,6 +72,55 @@ test('PV service payload contains only fields relevant to the selected behavior'
     smart_finish: '07:30',
     smart_target_energy_kwh: 12.5,
   });
+});
+
+test('PV profile keeps the mode locked until readback, with a bounded wait', () => {
+  const now = Date.parse('2026-11-27T12:00:00Z');
+  const profile: PvLinkageData = {
+    working_mode: 'pv_linkage_plus',
+    grid_import_limit_kw: null,
+    boost_mode: 'disabled',
+    manual_start: null,
+    manual_end: null,
+    smart_finish: null,
+    smart_target_energy_kwh: null,
+    draft_dirty: false,
+    blocked_reason: null,
+    profile_apply: {
+      request_id: 'apply-1',
+      working_mode: 'pv_linkage_plus',
+      status: 'applying',
+      completed_steps: 1,
+      total_steps: 2,
+      updated_at: new Date(now).toISOString(),
+    },
+  };
+  const data = makeData({ working_mode: 'fast', pv_linkage: profile });
+  const apply = profile.profile_apply!;
+
+  assert.deepEqual(pvProfileFeedback(data, now), {
+    key: 'pvApplying',
+    busy: true,
+    tone: 'warning',
+    done: 1,
+    total: 2,
+  });
+  apply.status = 'partial';
+  assert.equal(pvProfileFeedback(data, now)?.key, 'pvApplyPartial');
+  assert.equal(pvProfileFeedback(data, now)?.busy, false);
+
+  apply.status = 'awaiting_mode';
+  apply.completed_steps = 2;
+  assert.equal(pvProfileFeedback(data, now + 20_000)?.key, 'pvApplyAwaitingMode');
+  assert.equal(pvProfileFeedback(data, now + 20_000)?.busy, true);
+  assert.equal(pvProfileFeedback(data, now + 60_000)?.key, 'pvApplyModeUnconfirmed');
+  assert.equal(pvProfileFeedback(data, now + 60_000)?.busy, false);
+  apply.status = 'success';
+  assert.equal(
+    pvProfileFeedback({ ...data, working_mode: 'pv_linkage_plus' }, now + 20_000)?.key,
+    'pvApplyConfirmed',
+  );
+  assert.equal(pvProfileFeedback(data, now + 25_000), null);
 });
 
 test('Meter states use precise user-facing concepts', () => {

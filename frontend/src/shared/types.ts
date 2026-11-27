@@ -201,6 +201,23 @@ export interface PvLinkageData {
   smart_target_energy_kwh: number | null;
   draft_dirty: boolean;
   blocked_reason: string | null;
+  profile_apply?: {
+    request_id: string;
+    working_mode: PvLinkageData['working_mode'];
+    status:
+      | 'queued'
+      | 'applying'
+      | 'awaiting_mode'
+      | 'success'
+      | 'failed'
+      | 'partial'
+      | 'uncertain'
+      | 'skipped'
+      | 'expired';
+    completed_steps: number;
+    total_steps: number;
+    updated_at: string;
+  };
   last_apply?: {
     status: 'success' | 'failed' | 'partial' | 'uncertain';
     completed_steps: number;

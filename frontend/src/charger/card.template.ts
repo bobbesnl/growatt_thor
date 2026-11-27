@@ -1,5 +1,7 @@
 import { html } from 'lit';
 import { renderEnergyStop } from '../shared/energy-stop';
+import { pvTranslate } from '../pv/locales';
+import { renderPvProfileFeedback } from '../pv/feedback.template';
 import {
   liveGoalAvailable,
   liveTargetStatus,
@@ -18,11 +20,17 @@ export type { CardActions } from './card-actions';
 
 export function renderCard(view: CardViewModel, actions: CardActions, feedback: CardFeedback) {
   const { inactive, status, vehicle, currency, t, dark, hass } = view;
+  const pvBusy = view.pvFeedback?.busy;
   return html` <ha-card
       class="card ${inactive ? 'is-inactive' : ''} ${dark ? 'dark' : ''}"
       data-tone=${status.tone}
     >
-      ${renderHeader(view, actions)} ${renderStatus(view)} ${renderHero(view)}
+      ${renderHeader(view, actions)} ${renderStatus(view)}
+      ${renderPvProfileFeedback(
+        view.pvFeedback,
+        pvTranslate(hass.language || hass.locale?.language),
+      )}
+      ${renderHero(view)}
       <div class="vehicle">
         <ha-icon
           .icon=${vehicle === 'vehicleConnected'
@@ -45,9 +53,9 @@ export function renderCard(view: CardViewModel, actions: CardActions, feedback: 
     ><growatt-thor-goal-dialog
       .live=${view.data.charging_target_pilot
         ? {
-            available: liveGoalAvailable(hass, view.entity, view.data),
-            scheduleOnceAvailable: oneTimeGoalAvailable(hass, view.entity, view.data),
-            scheduleDailyAvailable: scheduledGoalAvailable(hass, view.entity, view.data),
+            available: !pvBusy && liveGoalAvailable(hass, view.entity, view.data),
+            scheduleOnceAvailable: !pvBusy && oneTimeGoalAvailable(hass, view.entity, view.data),
+            scheduleDailyAvailable: !pvBusy && scheduledGoalAvailable(hass, view.entity, view.data),
             request: view.data.charging_target,
             status: liveTargetStatus(view.data),
             save: actions.setGoal,
@@ -63,6 +71,7 @@ export function renderCard(view: CardViewModel, actions: CardActions, feedback: 
     ><growatt-thor-pv-linkage-dialog
       .hass=${hass}
       .data=${view.data}
+      .now=${view.now}
       .dark=${dark}
     ></growatt-thor-pv-linkage-dialog>`;
 }

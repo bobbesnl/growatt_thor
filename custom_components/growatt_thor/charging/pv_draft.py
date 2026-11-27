@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import time
 
 from ..configuration.values import ConfigurationValue, configuration_entity_state
+from .control_capabilities import selected_working_mode
 from .pv_linkage import (
     PvBoostMode,
     PvLinkageApplyResult,
@@ -22,6 +23,18 @@ _DRAFT_FIELDS = frozenset(
 )
 
 
+@dataclass(frozen=True, slots=True)
+class PvProfileApplyProgress:
+    """The current guided profile request and its acknowledged steps."""
+
+    request_id: str
+    working_mode: str
+    status: str
+    completed_steps: int
+    total_steps: int
+    updated_at: str
+
+
 @dataclass(slots=True)
 class PvLinkageDraftState:
     boost_mode: PvBoostMode | None = None
@@ -31,6 +44,21 @@ class PvLinkageDraftState:
     smart_target_energy_kwh: float | None = None
     dirty: bool = False
     apply_result: PvLinkageApplyResult | None = None
+    profile_apply: PvProfileApplyProgress | None = None
+
+    def confirm_profile_mode(
+        self, configuration_values: Mapping[str, ConfigurationValue], *, now: str
+    ) -> bool:
+        """Confirm one pending readback once, even if the mode changes again later."""
+        progress = self.profile_apply
+        if (
+            progress is None
+            or progress.status != "awaiting_mode"
+            or selected_working_mode(configuration_values) != progress.working_mode
+        ):
+            return False
+        self.profile_apply = replace(progress, status="success", updated_at=now)
+        return True
 
     def snapshot(self) -> PvLinkageDraft | None:
         """Return the current local PV Linkage draft when initialized."""
